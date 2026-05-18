@@ -25,4 +25,6 @@ Nothing else.
 - There are two input bars, which can come in handy if someone's talking to you while you're editing a description, for example. Switch to them with F1 or F2.
 - Press F3 to open and close the notes panel. Each character has their own notes. If you value them, back them up regularly.
 - Press F4 to open and close the highlights panel. If you put in a word or phrase, you can make it show up with a different colour. No, there is no regex support.
+- There are options for line width and for a new activity sound in the character editor. Padding seems to take up 2 characters worth of width, so expect to need to increase your MU's expected line width by two.
+- Tab completion only gives you the most recent word, so it's mainly useful for names.
 - If you clear your browser data, you'll lose your characters and their notes.
