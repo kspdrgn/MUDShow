@@ -16,7 +16,7 @@ Nothing else.
 
 1. Click Code > Download ZIP, then unzip it.
 2. Have node.js installed.
-3. Install the 'ws' package: `npm install ws`
+3. Run `npm install`.
 4. Run `node proxy.js`, then open mudshow.html.
 
 ## Usage
