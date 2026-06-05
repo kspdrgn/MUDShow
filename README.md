@@ -19,6 +19,11 @@ Nothing else.
 3. Run `npm install`.
 4. Run `node proxy.js`, then open mudshow.html.
 
+Note if the webpage does not show up when visiting the proxy URL (if it says "Upgrade Required"):
+* Try `node proxy.js httpServe` and visit that URL instead.
+* Or run `node proxy.js httpPort=9000` to use a different port for the web server.
+* Or run `npm start` to do the above.
+
 ## Usage
 
 - If you're on Linux, you can try one of the included shell scripts. It does the same thing as step 4, but the proxy will stay open until you Ctrl+C, then get killed.

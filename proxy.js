@@ -2,8 +2,49 @@ const tls = require('tls');
 const net = require('net');
 const WebSocket = require('ws');
 const { URL } = require('url');
+const http = require('http');
+const fs = require('fs');
 
 const PROXY_PORT = 8080;
+
+// process node command line params (not connection params).
+let httpServe = false;
+let httpPort = 8090;
+process.argv.forEach((v, i) => {
+  // skip ['node.exe', 'proxy.js']
+  if (i < 2)
+    return;
+
+  // serve on the default port.
+  if (v == 'httpServe') {
+    httpServe = true;
+    return;
+  }
+
+  // serve on specific port with 'httpPort=8090'.
+  if (v.startsWith('httpPort=')) {
+    const paramPort = v.split('=')[1];
+    httpServe = true;
+    httpPort = +paramPort;
+  }
+});
+
+// run a mini http server if UPGRADE header doesn't work.
+if (httpServe) {
+  if (!httpPort) {
+    console.log('Cannot start HTTP server, port not specified. Pass param \'httpPort\' to set the port to use.');
+  } else {
+    const httpServer = http.createServer((req, res) => {
+      fs.createReadStream('./mudshow.html').pipe(res);
+    });
+
+    new WebSocket.Server({ server: httpServer });
+
+    httpServer.listen(httpPort);
+    console.log(`Web listening on http://localhost:${httpPort}`);
+  }
+}
+
 const wss = new WebSocket.Server({ port: PROXY_PORT });
 
 function stripTelnet(buf) {
@@ -46,8 +87,8 @@ wss.on('connection', (ws, req) => {
   console.log(`Connecting to ${host}:${port} (${useTLS ? 'TLS' : 'plain'})`);
 
   const mudSocket = useTLS
-  ? tls.connect({ host, port, rejectUnauthorized: false })
-  : net.connect({ host, port });
+    ? tls.connect({ host, port, rejectUnauthorized: false })
+    : net.connect({ host, port });
 
   mudSocket.on('data', (data) => {
     if (ws.readyState === WebSocket.OPEN) {

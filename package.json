@@ -9,7 +9,7 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "start": "npm i && node proxy.js",
+    "start": "npm i && node proxy.js httpPort=9000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
