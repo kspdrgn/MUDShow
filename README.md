@@ -16,13 +16,18 @@ Nothing else.
 
 1. Click Code > Download ZIP, then unzip it.
 2. Have node.js installed.
-3. Run `npm install`.
-4. Run `node proxy.js`, then open mudshow.html.
+3. Run `npm start`.
+4. Open `http://localhost:9000`.
 
-Note if the webpage does not show up when visiting the proxy URL (if it says "Upgrade Required"):
-* Try `node proxy.js httpServe` and visit that URL instead.
-* Or run `node proxy.js httpPort=9000` to use a different port for the web server.
-* Or run `npm start` to do the above.
+## Starting
+
+* Use `npm start` to build and start the proxy and the webserver.
+* Use `npm run build` to simply build the project files.
+* Use `npm run proxy` or `node dist/proxy/proxy.js` to start the proxy server.
+
+Options for the proxy server:
+* Use `node dist/proxy/proxy.js httpPort=9000` to use a different port for the web server.
+* Use `node dist/proxy/proxy.js` to start the proxy server with no web server.
 
 ## Usage
 
