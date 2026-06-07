@@ -10,18 +10,20 @@
   },
   "scripts": {
     "start": "npm run build && npm run proxy",
-    "build": "npm i && npm run clean && tsc --build --verbose && npm run copystatic",
-    "copystatic": "copyfiles --flat src/mudshow.html src/JetBrainsMono.ttf dist",
-    "proxy": "node dist/proxy/proxy.js httpPort=9000",
+    "build": "npm i --no-fund && npm run clean && tsc --build --verbose && npm run copystatic",
+    "copystatic": "copyfiles --flat src/*.html src/*.ttf dist",
+    "proxy": "node dist/proxy/proxy.js port=8080",
     "clean": "rimraf dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^5.2.1",
     "ws": "^8.20.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/ws": "^8.18.1",
     "copyfiles": "^2.4.1",
     "rimraf": "^6.1.3",

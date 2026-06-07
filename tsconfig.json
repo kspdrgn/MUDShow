@@ -14,7 +14,8 @@
     "allowJs": false,
     "noEmitOnError": true,
     "incremental": true,
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "sourceMap": true
   },
   "include": ["src/proxy/*.ts"],
   "exclude": ["node_modules", "dist"]

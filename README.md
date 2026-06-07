@@ -22,8 +22,8 @@ Nothing else.
 ## Starting
 
 * Use `npm start` to build and start the proxy and the webserver.
-* Use `npm run build` to simply build the project files.
-* Use `npm run proxy` or `node dist/proxy/proxy.js` to start the proxy server.
+* Use `npm run build` to only build the project.
+* Use `npm run proxy` or `node dist/proxy/proxy.js` to start the proxy server once files are built.
 
 Options for the proxy server:
 * Use `node dist/proxy/proxy.js httpPort=9000` to use a different port for the web server.
@@ -38,3 +38,7 @@ Options for the proxy server:
 - There are options for line width and for a new activity sound in the character editor. Padding seems to take up 2 characters worth of width, so expect to need to increase your MU's expected line width by two.
 - Tab completion only gives you the most recent word, so it's mainly useful for names.
 - If you clear your browser data, you'll lose your characters and their notes.
+
+## TODO:
+
+* Build frontend with vite; split up frontend files CSS HTML JS.
