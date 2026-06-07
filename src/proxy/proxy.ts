@@ -5,17 +5,10 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import express from 'express';
 import { createServer }  from 'http';
 import http from 'http';
-import fs from 'fs';
 import path from "path";
-
-/** Use Express lib to host the server. Opens more options, but is not needed yet. */
-const USE_EXPRESS = false;
 
 /** Default port if none specified. Will host both HTTP and WebSocket proxy. */
 const PROXY_PORT = 8080;
-
-/** Default page when hosting HTTP. */
-const htmlIndex = 'index.html';
 
 const serverParams = getServerParams();
 
@@ -115,38 +108,20 @@ function startServer(p: IServerParams) {
     console.log('Cannot start HTTP server, port not specified. Pass param \'httpPort\' to set the port to use.');
   }
 
-  if (USE_EXPRESS) {
-    const app = express();
-    
-    httpServer = createServer(app);
-    
-    const __filename = fileURLToPath(import.meta.url);
-    console.log(`__filename ${__filename}`);
-    
-    const __dirname = path.dirname(__filename);
-    console.log(`__dirname ${__dirname}`)
-    
-    const __staticPathOffset = '..'
-    const __staticPath = path.join(__dirname, __staticPathOffset);
-    console.log(`__staticPath ${__staticPath}`)
-    
-    app.use(express.static(__staticPath));
-    console.log(`use static ${__staticPath}`);
-    
-    app.get("/{*path}", (req, res) => {
-      res.sendFile(path.resolve(__dirname, __staticPathOffset, htmlIndex));
-    });
-  }
+  const app = express();
 
-  // run a mini http server if UPGRADE header doesn't work.
-  if (!USE_EXPRESS) {
-    httpServer = http.createServer((req, res) => {
-      const path = `./dist/${htmlIndex}`
-      fs.createReadStream(path).pipe(res);
-    });
+  httpServer = createServer(app);
 
-    console.log(`Web listening on http://localhost:${p.port}`);
-  }
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const __staticPathOffset = '..'
+  const __staticPath = path.join(__dirname, __staticPathOffset);
+
+  // serve static files.
+  app.use(express.static(__staticPath));
+  app.get("/{*path}", (req, res) => {
+    res.sendFile(path.resolve(__dirname, __staticPathOffset, 'index.html'));
+  });
 
   if (!httpServer) {
     throw 'Server not loaded';
