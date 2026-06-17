@@ -1,6 +1,6 @@
 import type { HighlightRule } from './types';
 
-type HighlightRegex = {
+export type HighlightRegex = {
   re: RegExp;
   color: string;
 };

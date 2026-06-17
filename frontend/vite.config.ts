@@ -11,5 +11,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(frontendRoot, '../dist/frontend'),
     emptyOutDir: true,
+    sourcemap: true,
   },
 });
