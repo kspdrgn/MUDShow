@@ -4,19 +4,20 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2024"],
+    "types": ["node"],
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "outDir": "dist/backend",
+    "outDir": "../dist/backend",
     "rootDir": ".",
     "allowJs": false,
     "noEmitOnError": true,
     "incremental": true,
-    "tsBuildInfoFile": "dist/backend/.tsbuildinfo",
+    "tsBuildInfoFile": "../dist/backend/.tsbuildinfo",
     "sourceMap": true
   },
-  "include": ["backend/**/*.ts", "shared/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["./proxy.ts"],
+  "exclude": ["../node_modules", "../dist"]
 }

@@ -17,17 +17,17 @@ Nothing else.
 1. Click Code > Download ZIP, then unzip it.
 2. Have node.js installed.
 3. Run `npm start`.
-4. Open `http://localhost:9000`.
+4. Open `http://localhost:8080`.
 
 ## Starting
 
 * Use `npm start` to build and start the proxy and the webserver.
 * Use `npm run build` to only build the project.
-* Use `npm run proxy` or `node dist/proxy/proxy.js` to start the proxy server once files are built.
+* Use `npm run proxy` or `node dist/backend/proxy.js` to start the proxy server once files are built.
 
 Options for the proxy server:
-* Use `node dist/proxy/proxy.js httpPort=9000` to use a different port for the web server.
-* Use `node dist/proxy/proxy.js` to start the proxy server with no web server.
+* Use `node dist/backend/proxy.js port=9000` to use a different port for the web server.
+* Use `node dist/backend/proxy.js` to start the proxy server on the default port.
 
 ## Usage
 
@@ -41,4 +41,4 @@ Options for the proxy server:
 
 ## TODO:
 
-* Build frontend with vite; split up frontend files CSS HTML JS.
+* Expand the Svelte component split if we want to isolate more UI pieces.

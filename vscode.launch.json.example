@@ -11,7 +11,7 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/src/proxy/proxy.ts",
+            "program": "${workspaceFolder}/dist/backend/proxy.js",
             "preLaunchTask": "npm: build",
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
@@ -21,7 +21,7 @@
                 "action": "openExternally"
             },
             "outFiles": [
-                "${workspaceFolder}/dist/**/*.(m|c|)js",
+                "${workspaceFolder}/dist/backend/**/*.(m|c|)js",
                 "!**/node_modules/**"
             ]
         }
