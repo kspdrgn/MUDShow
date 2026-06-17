@@ -1,20 +1,53 @@
 <script lang="ts">
+  import type { CharacterDraft } from '../types';
+
+  const emptyDraft: CharacterDraft = {
+    name: '',
+    host: '',
+    port: '',
+    tls: true,
+    width: '82',
+    sound: false,
+  };
+
   export let open = false;
   export let title = 'add character';
-  export let name = '';
-  export let host = '';
-  export let port = '';
-  export let tls = true;
-  export let width = '82';
-  export let sound = false;
+  export let draft: CharacterDraft = emptyDraft;
 
   export let onCancel: () => void;
-  export let onSave: () => void;
+  export let onSave: (draft: CharacterDraft) => void;
+
+  let name = '';
+  let host = '';
+  let port = '';
+  let tls = true;
+  let width = '82';
+  let sound = false;
+  let lastDraft: CharacterDraft | null = null;
+  let lastOpen = false;
+
+  $: if (open && (!lastOpen || draft !== lastDraft)) {
+    name = draft.name;
+    host = draft.host;
+    port = draft.port;
+    tls = draft.tls;
+    width = draft.width;
+    sound = draft.sound;
+  }
+
+  $: {
+    lastOpen = open;
+    lastDraft = draft;
+  }
+
+  function handleSave(): void {
+    onSave({ name, host, port, tls, width, sound });
+  }
 </script>
 
 {#if open}
   <div
-    id="modal-overlay"
+      id="modal-overlay"
     class="open"
     role="button"
     tabindex="0"
@@ -29,7 +62,7 @@
   >
     <div id="modal">
       <h2>{title}</h2>
-      <form on:submit|preventDefault={onSave}>
+      <form on:submit|preventDefault={handleSave}>
         <div class="field">
           <label for="field-name">name</label>
           <input id="field-name" bind:value={name} autocomplete="off" />

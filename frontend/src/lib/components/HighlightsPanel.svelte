@@ -3,14 +3,15 @@
 
   export let open = false;
   export let highlights: HighlightRule[] = [];
-  export let highlightInput = '';
-  export let highlightColor = '#f1c40f';
-  export let onAdd: () => void;
+  export let onAdd: (pattern: string, color: string) => void;
   export let onDelete: (index: number) => void;
-  let highlightInputEl: HTMLInputElement | null = null;
 
-  export function focus(): void {
-    highlightInputEl?.focus();
+  let pattern = '';
+  let color = '#f1c40f';
+
+  function handleAdd(): void {
+    onAdd(pattern, color);
+    pattern = '';
   }
 </script>
 
@@ -29,16 +30,16 @@
       {/each}
     {/if}
   </div>
-  <form id="highlights-add" on:submit|preventDefault={onAdd}>
+  <form id="highlights-add" on:submit|preventDefault={handleAdd}>
     <input
-      bind:this={highlightInputEl}
+      id="highlight-input"
       type="text"
-      bind:value={highlightInput}
+      bind:value={pattern}
       placeholder="text to highlight..."
       autocomplete="off"
       spellcheck="false"
     />
-    <input type="color" bind:value={highlightColor} />
+    <input type="color" bind:value={color} />
     <button class="btn primary" type="submit">add</button>
   </form>
 </div>

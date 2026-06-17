@@ -1,1 +1,1 @@
-export type { Character, HighlightRule } from '../../../shared/types';
+export type { Character, CharacterDraft, HighlightRule } from '../../../shared/types';

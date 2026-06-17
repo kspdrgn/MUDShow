@@ -1,13 +1,23 @@
-import type { Character, HighlightRule } from './types';
+import { writable, get } from 'svelte/store';
+import type { Character, CharacterDraft, HighlightRule } from './types';
 import { MudConnection } from './connection';
-import { loadNotes, saveCharacters, saveHighlights, saveNotes } from './storage';
+import {
+  loadCharacters,
+  loadHighlights,
+  loadNotes,
+  saveCharacters,
+  saveHighlights,
+  saveNotes as persistNotes,
+} from './storage';
 import { buildHighlightRegexes } from './formatting';
 import { PlayTranscript, playBeep } from './playback';
 
 export type Screen = 'list' | 'play';
 export type ConnectionStatus = 'idle' | 'connected' | 'error';
 
-export interface SessionUi {
+export interface SessionState {
+  characters: Character[];
+  highlights: HighlightRule[];
   screen: Screen;
   currentCharacter: Character | null;
   outputChunks: string[];
@@ -19,68 +29,79 @@ export interface SessionUi {
   connectionStatus: ConnectionStatus;
   hasNewActivity: boolean;
   notes: string;
-  highlightInput: string;
-  highlightColor: string;
-  inputOne: string;
-  inputTwo: string;
   modalOpen: boolean;
   modalTitle: string;
   editingIndex: number | null;
-  modalName: string;
-  modalHost: string;
-  modalPort: string;
-  modalTls: boolean;
-  modalWidth: string;
-  modalSound: boolean;
+  modalDraft: CharacterDraft;
 }
 
-export interface SessionBindings {
-  setUi(patch: Partial<SessionUi>): void;
-  getUi(): SessionUi;
-  getCharacters(): Character[];
-  setCharacters(next: Character[]): void;
-  getHighlights(): HighlightRule[];
-  setHighlights(next: HighlightRule[]): void;
-  focusBar(bar: 1 | 2): void;
-  focusNotes(): void;
-  focusHighlights(): void;
-  scrollToBottom(): void;
-  getTranscriptElement(): HTMLDivElement | null;
+const INITIAL_DRAFT: CharacterDraft = {
+  name: '',
+  host: '',
+  port: '',
+  tls: true,
+  width: '82',
+  sound: false,
+};
+
+function createInitialState(): SessionState {
+  return {
+    characters: loadCharacters(),
+    highlights: loadHighlights(),
+    screen: 'list',
+    currentCharacter: null,
+    outputChunks: [],
+    outputEndsWithBr: true,
+    userScrolled: false,
+    activeBar: 1,
+    notesVisible: false,
+    highlightsVisible: false,
+    connectionStatus: 'idle',
+    hasNewActivity: false,
+    notes: '',
+    modalOpen: false,
+    modalTitle: 'add character',
+    editingIndex: null,
+    modalDraft: { ...INITIAL_DRAFT },
+  };
 }
 
-export class MudSessionController {
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+class MudSession {
+  private readonly state = writable<SessionState>(createInitialState());
   private readonly connection = new MudConnection();
   private readonly transcript = new PlayTranscript();
-  private highlightRegexes: ReturnType<typeof buildHighlightRegexes> = [];
+  private highlightRegexes = buildHighlightRegexes(get(this.state).highlights);
 
-  constructor(private readonly bindings: SessionBindings) {
-    this.highlightRegexes = buildHighlightRegexes(bindings.getHighlights());
-  }
-
-  refreshHighlights(): void {
-    this.highlightRegexes = buildHighlightRegexes(this.bindings.getHighlights());
-  }
+  subscribe = this.state.subscribe;
 
   dispose(): void {
     this.connection.close();
   }
 
+  getState(): SessionState {
+    return get(this.state);
+  }
+
   handleVisibilityChange(): void {
-    const ui = this.bindings.getUi();
+    const state = get(this.state);
 
     if (!document.hidden) {
-      this.bindings.setUi({ hasNewActivity: false });
+      this.patch({ hasNewActivity: false });
 
-      if (!ui.userScrolled) {
-        this.bindings.scrollToBottom();
+      if (!state.userScrolled) {
+        this.scrollToBottom();
       }
     }
   }
 
   handleGlobalKeyDown(event: KeyboardEvent): void {
-    const ui = this.bindings.getUi();
+    const state = get(this.state);
 
-    if (ui.modalOpen) {
+    if (state.modalOpen) {
       if (event.key === 'Escape') {
         event.preventDefault();
         this.closeModal();
@@ -88,18 +109,18 @@ export class MudSessionController {
       return;
     }
 
-    if (ui.screen !== 'play') {
+    if (state.screen !== 'play') {
       return;
     }
 
     if (event.key === 'F1') {
       event.preventDefault();
-      this.bindings.setUi({ activeBar: 1 });
-      this.bindings.focusBar(1);
+      this.patch({ activeBar: 1 });
+      this.focusBar(1);
     } else if (event.key === 'F2') {
       event.preventDefault();
-      this.bindings.setUi({ activeBar: 2 });
-      this.bindings.focusBar(2);
+      this.patch({ activeBar: 2 });
+      this.focusBar(2);
     } else if (event.key === 'F3') {
       event.preventDefault();
       void this.togglePanel('notes');
@@ -110,49 +131,46 @@ export class MudSessionController {
   }
 
   async openModal(index: number | null = null): Promise<void> {
-    const characters = this.bindings.getCharacters();
-    const selected = index === null ? null : characters[index] ?? null;
+    const state = get(this.state);
+    const selected = index === null ? null : state.characters[index] ?? null;
 
     if (selected) {
-      this.bindings.setUi({
+      this.patch({
         modalTitle: 'edit character',
         editingIndex: index,
-        modalName: selected.name,
-        modalHost: selected.host,
-        modalPort: String(selected.port),
-        modalTls: selected.tls !== false,
-        modalWidth: String(selected.width ?? 82),
-        modalSound: selected.sound === true,
+        modalDraft: {
+          name: selected.name,
+          host: selected.host,
+          port: String(selected.port),
+          tls: selected.tls !== false,
+          width: String(selected.width ?? 82),
+          sound: selected.sound === true,
+        },
         modalOpen: true,
       });
     } else {
-      this.bindings.setUi({
+      this.patch({
         modalTitle: 'add character',
         editingIndex: null,
-        modalName: '',
-        modalHost: '',
-        modalPort: '',
-        modalTls: true,
-        modalWidth: '82',
-        modalSound: false,
+        modalDraft: { ...INITIAL_DRAFT },
         modalOpen: true,
       });
     }
 
-    await Promise.resolve();
+    await nextFrame();
     document.getElementById('field-name')?.focus();
   }
 
   closeModal(): void {
-    this.bindings.setUi({ modalOpen: false, editingIndex: null });
+    this.patch({ modalOpen: false });
   }
 
-  saveCharacter(): void {
-    const ui = this.bindings.getUi();
-    const name = ui.modalName.trim();
-    const host = ui.modalHost.trim();
-    const port = Number.parseInt(ui.modalPort, 10);
-    const width = Number.parseInt(ui.modalWidth, 10) || 82;
+  saveCharacter(draft: CharacterDraft): void {
+    const name = draft.name.trim();
+    const host = draft.host.trim();
+    const port = Number.parseInt(draft.port, 10);
+    const width = Number.parseInt(draft.width, 10) || 82;
+    const state = get(this.state);
 
     if (!name || !host || !Number.isFinite(port)) {
       return;
@@ -162,39 +180,50 @@ export class MudSessionController {
       name,
       host,
       port,
-      tls: ui.modalTls,
+      tls: draft.tls,
       width,
-      sound: ui.modalSound,
+      sound: draft.sound,
     };
 
-    const characters = this.bindings.getCharacters();
-    const next = [...characters];
+    const nextCharacters = [...state.characters];
 
-    if (ui.editingIndex === null) {
-      next.push(nextCharacter);
+    if (state.editingIndex === null) {
+      nextCharacters.push(nextCharacter);
     } else {
-      next[ui.editingIndex] = nextCharacter;
+      nextCharacters[state.editingIndex] = nextCharacter;
     }
 
-    this.bindings.setCharacters(next);
-    saveCharacters(next);
-    this.closeModal();
+    saveCharacters(nextCharacters);
+    this.patch({
+      characters: nextCharacters,
+      modalOpen: false,
+      editingIndex: null,
+    });
+
+    if (state.currentCharacter?.name === nextCharacter.name) {
+      this.patch({ currentCharacter: nextCharacter });
+    }
   }
 
   deleteCharacter(index: number): void {
-    const next = [...this.bindings.getCharacters()];
+    const state = get(this.state);
+    const next = [...state.characters];
     next.splice(index, 1);
-    this.bindings.setCharacters(next);
     saveCharacters(next);
+    this.patch({ characters: next });
   }
 
   async connectToCharacter(index: number): Promise<void> {
-    const character = this.bindings.getCharacters()[index];
+    const state = get(this.state);
+    const character = state.characters[index];
     if (!character) {
       return;
     }
 
-    this.bindings.setUi({
+    this.transcript.reset();
+    this.highlightRegexes = buildHighlightRegexes(state.highlights);
+
+    this.patch({
       screen: 'play',
       currentCharacter: character,
       notesVisible: false,
@@ -205,189 +234,170 @@ export class MudSessionController {
       outputEndsWithBr: true,
       userScrolled: false,
       activeBar: 1,
-      inputOne: '',
-      inputTwo: '',
       notes: loadNotes(character.name),
     });
 
-    this.transcript.reset();
-    this.refreshHighlights();
-    this.bindings.focusBar(1);
+    this.focusBar(1);
 
     const url = `ws://localhost:8080?host=${encodeURIComponent(character.host)}&port=${character.port}&tls=${character.tls !== false}`;
 
     this.connection.connect(url, {
       onOpen: () => {
-        this.bindings.setUi({ connectionStatus: 'connected' });
+        this.patch({ connectionStatus: 'connected' });
         void this.appendOutput(`\x1b[90m[connected to ${character.host}:${character.port}]\x1b[0m\n`);
       },
       onMessage: (text) => {
         void this.appendOutput(text);
 
-        const ui = this.bindings.getUi();
-        if (document.hidden && !ui.hasNewActivity) {
+        const current = get(this.state);
+        if (document.hidden && !current.hasNewActivity) {
           if (character.sound) {
             playBeep();
           }
 
-          this.bindings.setUi({ hasNewActivity: true });
+          this.patch({ hasNewActivity: true });
         }
       },
       onClose: () => {
-        this.bindings.setUi({ connectionStatus: 'error' });
+        this.patch({ connectionStatus: 'error' });
         void this.appendOutput('\x1b[90m[disconnected - press F5 to reconnect]\x1b[0m\n');
       },
       onError: () => {
-        this.bindings.setUi({ connectionStatus: 'error' });
+        this.patch({ connectionStatus: 'error' });
         void this.appendOutput('\x1b[31m[connection error]\x1b[0m\n');
       },
     });
   }
 
   async appendOutput(rawText: string): Promise<void> {
+    const state = get(this.state);
     const next = this.transcript.append(rawText, this.highlightRegexes);
-    this.bindings.setUi({
+    this.patch({
       outputChunks: next.chunks,
       outputEndsWithBr: next.endsWithBr,
     });
 
-    await Promise.resolve();
-    const ui = this.bindings.getUi();
-    if (!ui.userScrolled) {
-      this.bindings.scrollToBottom();
+    await nextFrame();
+    if (!state.userScrolled) {
+      this.scrollToBottom();
     }
   }
 
   handleOutputScroll(): void {
-    const outputEl = this.bindings.getTranscriptElement();
+    const outputEl = document.getElementById('output-area');
+
     if (!outputEl) {
       return;
     }
 
     const distance = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight;
-    this.bindings.setUi({ userScrolled: distance > 50 });
+    this.patch({ userScrolled: distance > 50 });
   }
 
   handleInputFocus(bar: 1 | 2): void {
-    this.bindings.setUi({ activeBar: bar });
+    this.patch({ activeBar: bar });
   }
 
-  async handleInputKeydown(event: KeyboardEvent, bar: 1 | 2): Promise<void> {
-    const ui = this.bindings.getUi();
-    const currentValue = bar === 1 ? ui.inputOne : ui.inputTwo;
-    const selectionStart = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.selectionStart : null;
-
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      this.sendInput(currentValue);
-
-      this.bindings.setUi({
-        inputOne: bar === 1 ? '' : ui.inputOne,
-        inputTwo: bar === 2 ? '' : ui.inputTwo,
-      });
-
-      this.transcript.resetCompletion();
-      await Promise.resolve();
-
-      if (!this.bindings.getUi().userScrolled) {
-        this.bindings.scrollToBottom();
-      }
-
-      return;
-    }
-
-    if (event.key === 'Tab') {
-      event.preventDefault();
-      const result = this.transcript.complete(currentValue, selectionStart ?? currentValue.length);
-
-      if (!result) {
-        return;
-      }
-
-      this.bindings.setUi({
-        inputOne: bar === 1 ? result.value : ui.inputOne,
-        inputTwo: bar === 2 ? result.value : ui.inputTwo,
-      });
-
-      await Promise.resolve();
-
-      if (event.currentTarget instanceof HTMLInputElement) {
-        event.currentTarget.setSelectionRange(result.cursor, result.cursor);
-      }
-
-      return;
-    }
-
-    if (event.key !== 'Shift') {
-      this.transcript.resetCompletion();
-    }
-  }
-
-  async togglePanel(panel: 'notes' | 'highlights'): Promise<void> {
-    const ui = this.bindings.getUi();
-    const shouldOpen = panel === 'notes' ? !ui.notesVisible : !ui.highlightsVisible;
-
-    if (panel === 'notes') {
-      this.bindings.setUi({
-        notesVisible: shouldOpen,
-        highlightsVisible: false,
-      });
-    } else {
-      this.bindings.setUi({
-        highlightsVisible: shouldOpen,
-        notesVisible: false,
-      });
-    }
-
-    await Promise.resolve();
-
-    if (shouldOpen) {
-      if (panel === 'notes') {
-        this.bindings.focusNotes();
-      } else {
-        this.bindings.focusHighlights();
-      }
-    } else {
-      this.bindings.focusBar(this.bindings.getUi().activeBar);
-    }
-  }
-
-  addHighlight(): void {
-    const ui = this.bindings.getUi();
-    const pattern = ui.highlightInput.trim();
-
-    if (!pattern) {
-      return;
-    }
-
-    const next = [...this.bindings.getHighlights(), { pattern, color: ui.highlightColor }];
-    this.bindings.setHighlights(next);
-    saveHighlights(next);
-    this.refreshHighlights();
-    this.bindings.setUi({ highlightInput: '' });
-    this.bindings.focusHighlights();
-  }
-
-  deleteHighlight(index: number): void {
-    const next = [...this.bindings.getHighlights()];
-    next.splice(index, 1);
-    this.bindings.setHighlights(next);
-    saveHighlights(next);
-    this.refreshHighlights();
-  }
-
-  handleNotesInput(): void {
-    const ui = this.bindings.getUi();
-    if (ui.currentCharacter) {
-      saveNotes(ui.currentCharacter.name, ui.notes);
-    }
-  }
-
-  private sendInput(value: string): void {
+  handleInputSubmit(bar: 1 | 2, value: string): void {
     if (!value.trim()) {
       return;
     }
 
     this.connection.send(value + '\r\n');
+
+    const state = get(this.state);
+    if (!state.userScrolled) {
+      this.scrollToBottom();
+    }
+  }
+
+  completeInput(value: string, selectionStart: number): { value: string; cursor: number } | null {
+    return this.transcript.complete(value, selectionStart);
+  }
+
+  resetCompletion(): void {
+    this.transcript.resetCompletion();
+  }
+
+  async togglePanel(panel: 'notes' | 'highlights'): Promise<void> {
+    const state = get(this.state);
+    const shouldOpen = panel === 'notes' ? !state.notesVisible : !state.highlightsVisible;
+
+    if (panel === 'notes') {
+      this.patch({
+        notesVisible: shouldOpen,
+        highlightsVisible: false,
+      });
+    } else {
+      this.patch({
+        highlightsVisible: shouldOpen,
+        notesVisible: false,
+      });
+    }
+
+    await nextFrame();
+
+    if (shouldOpen) {
+      if (panel === 'notes') {
+        document.getElementById('notes-editor')?.focus();
+      } else {
+        document.getElementById('highlight-input')?.focus();
+      }
+    } else {
+      this.focusBar(get(this.state).activeBar);
+    }
+  }
+
+  addHighlight(pattern: string, color: string): void {
+    const trimmed = pattern.trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    const state = get(this.state);
+    const next = [...state.highlights, { pattern: trimmed, color }];
+    saveHighlights(next);
+    this.highlightRegexes = buildHighlightRegexes(next);
+    this.patch({ highlights: next });
+  }
+
+  deleteHighlight(index: number): void {
+    const state = get(this.state);
+    const next = [...state.highlights];
+    next.splice(index, 1);
+    saveHighlights(next);
+    this.highlightRegexes = buildHighlightRegexes(next);
+    this.patch({ highlights: next });
+  }
+
+  saveNotes(notes: string): void {
+    const state = get(this.state);
+
+    if (!state.currentCharacter) {
+      return;
+    }
+
+    persistNotes(state.currentCharacter.name, notes);
+    this.patch({ notes });
+  }
+
+  private focusBar(bar: 1 | 2): void {
+    document.getElementById(bar === 1 ? 'input1' : 'input2')?.focus();
+  }
+
+  private scrollToBottom(): void {
+    const outputEl = document.getElementById('output-area');
+    if (!outputEl) {
+      return;
+    }
+
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
+
+  private patch(patch: Partial<SessionState>): void {
+    this.state.update((state) => ({ ...state, ...patch }));
   }
 }
+
+export const session = new MudSession();

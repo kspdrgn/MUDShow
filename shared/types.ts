@@ -7,6 +7,15 @@ export interface Character {
   sound?: boolean;
 }
 
+export interface CharacterDraft {
+  name: string;
+  host: string;
+  port: string;
+  tls: boolean;
+  width: string;
+  sound: boolean;
+}
+
 export interface HighlightRule {
   pattern: string;
   color: string;
