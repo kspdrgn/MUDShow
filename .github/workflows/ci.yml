@@ -90,6 +90,7 @@ jobs:
           $version = '${{ steps.version.outputs.semVer }}'
           $buildInstallers = '${{ github.event_name }}' -eq 'push' -and '${{ github.ref_name }}' -eq 'main'
           $stageRoot = "artifacts\desktop-release"
+          New-Item -ItemType Directory -Force -Path $stageRoot | Out-Null
           Copy-Item "tauri\target\release\mudshow.exe" "$stageRoot\mudshow-$version.exe" -Force
           if ($buildInstallers) {
             New-Item -ItemType Directory -Force -Path "$stageRoot\bundle\msi" | Out-Null
