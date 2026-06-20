@@ -3,3 +3,4 @@ dist/
 .vscode/
 .vs/
 tsconfig.tsbuildinfo
+package-lock.json
