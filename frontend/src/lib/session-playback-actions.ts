@@ -1,5 +1,6 @@
 import type { Writable } from 'svelte/store';
 import type { MudConnection } from './connection';
+import { buildProxyWebSocketUrl } from './runtime';
 import { loadNotes, saveHighlights, saveNotes as persistNotes } from './storage';
 import { buildHighlightRegexes } from './formatting';
 import { PlayTranscript, playBeep } from './playback';
@@ -94,7 +95,7 @@ export function createPlaybackActions({
 
     focusElement('input1');
 
-    const url = `ws://localhost:8080?host=${encodeURIComponent(character.host)}&port=${character.port}&tls=${character.tls !== false}`;
+    const url = buildProxyWebSocketUrl(character.host, character.port, character.tls !== false);
 
     connection.connect(url, {
       onOpen: () => {

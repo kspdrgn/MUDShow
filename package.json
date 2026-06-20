@@ -10,10 +10,15 @@
   },
   "scripts": {
     "start": "pnpm build && pnpm run:backend",
-    "build": "pnpm install && pnpm clean && pnpm build:frontend && pnpm build:backend",
+    "dev": "pnpm dev:desktop",
+    "dev:desktop": "node scripts/dev-desktop.mjs",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "build": "pnpm clean && pnpm build:frontend && pnpm build:backend",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "build:backend": "tsc -p backend/tsconfig.json",
-    "dev:frontend": "pnpm install && vite dev --config frontend/vite.config.ts",
+    "dev:frontend": "vite dev --config frontend/vite.config.ts",
+    "dev:backend": "tsc -p backend/tsconfig.json --watch",
     "run:backend": "node dist/backend/proxy.js port=8080",
     "clean": "rimraf dist",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -26,6 +31,7 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@tauri-apps/cli": "^2.11.2",
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.3",
     "@types/ws": "^8.18.1",

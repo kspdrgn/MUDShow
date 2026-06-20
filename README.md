@@ -17,14 +17,18 @@ Nothing else.
 1. Click Code > Download ZIP, then unzip it.
 2. Have `node` installed globally.
 3. Have `pnpm` installed globally (not just `npm`, do not run `npm install`).
-4. Run `pnpm start`.
-5. Open `http://localhost:8080`.
+4. For the classic browser build, run `pnpm start` and open `http://localhost:8080`.
+5. For the new desktop shell, run `pnpm tauri:dev`.
+6. To test a packaged desktop build, run `pnpm tauri:build`.
 
 ## Starting
 
 * Use `pnpm start` to build and start the proxy and the webserver.
+* Use `pnpm dev` to run the frontend and proxy together for local development.
+* Use `pnpm tauri:dev` to launch the desktop shell in development mode.
+* Use `pnpm tauri:build` to produce a release bundle with the sidecar packaged in.
 * Use `pnpm build` to only build the project.
-* Use `pnpm proxy` or `node dist/backend/proxy.js` to start the proxy server once files are built.
+* Use `pnpm run:backend` or `node dist/backend/proxy.js` to start the proxy server once files are built.
 
 Options for the proxy server:
 * Use `node dist/backend/proxy.js port=9000` to use a different port for the web server.

@@ -1,18 +1,18 @@
 # MUDShow Tauri Checklist
 
 ## Phase 1: Desktop Shell
-- [ ] Add a Tauri app shell that can launch the existing frontend.
-- [ ] Confirm the window opens cleanly in development mode.
-- [ ] Confirm the frontend renders without any Tauri-specific UI changes.
-- [ ] Decide the initial window size, title, and basic app metadata.
-- [ ] Add app icons and packaging metadata for desktop builds.
+- [x] Add a Tauri app shell that can launch the existing frontend.
+- [x] Confirm the window opens cleanly in development mode.
+- [x] Confirm the frontend renders without any Tauri-specific UI changes.
+- [x] Decide the initial window size, title, and basic app metadata.
+- [x] Add app icons and packaging metadata for desktop builds.
 
 ## Phase 2: Sidecar Startup
-- [ ] Package the Node proxy as a Tauri sidecar.
-- [ ] Start the sidecar automatically when the desktop app launches.
-- [ ] Stop the sidecar cleanly when the app exits.
-- [ ] Capture and surface sidecar startup failures.
-- [ ] Verify the proxy is reachable from the frontend in desktop mode.
+- [x] Package the Node proxy as a Tauri sidecar.
+- [x] Start the sidecar automatically when the desktop app launches.
+- [x] Stop the sidecar cleanly when the app exits.
+- [x] Capture and surface sidecar startup failures.
+- [x] Verify the proxy is reachable from the frontend in desktop mode.
 
 ## Phase 3: Runtime Boundary
 - [ ] Replace hardcoded proxy assumptions with a runtime endpoint or config source.
@@ -34,10 +34,10 @@
 - [ ] Confirm activity indication and beep behavior still feel right.
 
 ## Phase 6: Packaging and Release
-- [ ] Create a production build path for frontend, sidecar, and Tauri packaging.
+- [x] Create a production build path for frontend, sidecar, and Tauri packaging.
 - [ ] Verify the packaged app runs without manual proxy setup.
 - [ ] Verify the app can be installed and launched on the target desktop platform.
-- [ ] Add any release scripts or notes needed for repeatable builds.
+- [x] Add any release scripts or notes needed for repeatable builds.
 
 ## Phase 7: Cleanup
 - [ ] Remove or simplify any code that only exists because the app used to be browser-first.
