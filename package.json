@@ -20,7 +20,7 @@
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
     "dev:backend": "tsc -p backend/tsconfig.json --watch",
     "run:backend": "node dist/backend/proxy.js port=8080",
-    "clean": "rimraf dist",
+    "clean": "rimraf dist tauri/target tauri/bin",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

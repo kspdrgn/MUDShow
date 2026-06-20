@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { copyFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import process from 'node:process';
@@ -6,6 +7,9 @@ import process from 'node:process';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tscScript = path.resolve(rootDir, 'node_modules', 'typescript', 'bin', 'tsc');
 const viteScript = path.resolve(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
+const nodeBinPath = process.execPath;
+const nodeTargetTriple = getNodeTargetTriple();
+const stagedNodePath = path.resolve(rootDir, 'tauri', 'bin', `node-${nodeTargetTriple}.exe`);
 const nodeBinDir = path.dirname(process.execPath);
 const childEnv = {
   ...process.env,
@@ -89,6 +93,27 @@ function stopAll() {
   }
 }
 
+function getNodeTargetTriple() {
+  if (process.platform !== 'win32') {
+    throw new Error(`Unsupported platform for desktop development: ${process.platform}`);
+  }
+
+  if (process.arch === 'x64') {
+    return 'x86_64-pc-windows-msvc';
+  }
+
+  if (process.arch === 'arm64') {
+    return 'aarch64-pc-windows-msvc';
+  }
+
+  throw new Error(`Unsupported architecture for desktop development: ${process.arch}`);
+}
+
+async function stageNodeBinary() {
+  await mkdir(path.dirname(stagedNodePath), { recursive: true });
+  await copyFile(nodeBinPath, stagedNodePath);
+}
+
 process.on('SIGINT', () => {
   exiting = true;
   stopAll();
@@ -102,6 +127,7 @@ process.on('SIGTERM', () => {
 });
 
 try {
+  await stageNodeBinary();
   await new Promise((resolve, reject) => {
     const build = execOnce('backend-build', process.execPath, [tscScript, '-p', 'backend/tsconfig.json']);
     build.on('exit', (code, signal) => {
