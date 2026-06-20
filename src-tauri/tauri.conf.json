@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "identifier": "com.mudshow.app",
   "build": {
-    "beforeDevCommand": "C:\\Users\\D\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe scripts/dev-desktop.mjs",
-    "beforeBuildCommand": "C:\\Users\\D\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe scripts/build-desktop.mjs",
+    "beforeDevCommand": "node scripts/dev-desktop.mjs",
+    "beforeBuildCommand": "node scripts/build-desktop.mjs",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../dist/frontend"
   },
