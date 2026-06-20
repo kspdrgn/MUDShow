@@ -1,6 +1,6 @@
 <script lang="ts">
   export let chunks: string[] = [];
-  export let width = '82ch';
+  export let width = 'none';
   export let onScroll: () => void;
 </script>
 

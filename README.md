@@ -15,15 +15,16 @@ Nothing else.
 ## Installation
 
 1. Click Code > Download ZIP, then unzip it.
-2. Have node.js installed.
-3. Run `npm start`.
-4. Open `http://localhost:8080`.
+2. Have `node` installed globally.
+3. Have `pnpm` installed globally (not just `npm`, do not run `npm install`).
+4. Run `pnpm start`.
+5. Open `http://localhost:8080`.
 
 ## Starting
 
-* Use `npm start` to build and start the proxy and the webserver.
-* Use `npm run build` to only build the project.
-* Use `npm run proxy` or `node dist/backend/proxy.js` to start the proxy server once files are built.
+* Use `pnpm start` to build and start the proxy and the webserver.
+* Use `pnpm build` to only build the project.
+* Use `pnpm proxy` or `node dist/backend/proxy.js` to start the proxy server once files are built.
 
 Options for the proxy server:
 * Use `node dist/backend/proxy.js port=9000` to use a different port for the web server.
@@ -31,14 +32,10 @@ Options for the proxy server:
 
 ## Usage
 
-- If you're on Linux, you can try one of the included shell scripts. It does the same thing as step 4, but the proxy will stay open until you Ctrl+C, then get killed.
+- If you're on Linux, you can try one of the included shell scripts. They assume the project has already been built, then launch the proxy until you Ctrl+C.
 - There are two input bars, which can come in handy if someone's talking to you while you're editing a description, for example. Switch to them with F1 or F2.
 - Press F3 to open and close the notes panel. Each character has their own notes. If you value them, back them up regularly.
 - Press F4 to open and close the highlights panel. If you put in a word or phrase, you can make it show up with a different colour. No, there is no regex support.
-- There are options for line width and for a new activity sound in the character editor. Padding seems to take up 2 characters worth of width, so expect to need to increase your MU's expected line width by two.
+- There are options for an optional max line width and for a new activity sound in the character editor. Leave line width blank to use the full window width, or set a cap if you prefer a narrower column.
 - Tab completion only gives you the most recent word, so it's mainly useful for names.
 - If you clear your browser data, you'll lose your characters and their notes.
-
-## TODO:
-
-* Expand the Svelte component split if we want to isolate more UI pieces.

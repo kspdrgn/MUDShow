@@ -267,7 +267,7 @@ body {
 #screen-play {
   display: none;
   flex-direction: column;
-  --play-width: 82ch;
+  --play-width: none;
 }
 
 #screen-play.active {

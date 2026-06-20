@@ -24,7 +24,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
           host: selected.host,
           port: String(selected.port),
           tls: selected.tls !== false,
-          width: String(selected.width ?? 82),
+          width: String(selected.width ?? ''),
           sound: selected.sound === true,
         },
         modalOpen: true,
@@ -38,7 +38,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
           host: '',
           port: '',
           tls: true,
-          width: '82',
+          width: '',
           sound: false,
         },
         modalOpen: true,
@@ -57,7 +57,9 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
     const name = draft.name.trim();
     const host = draft.host.trim();
     const port = Number.parseInt(draft.port, 10);
-    const width = Number.parseInt(draft.width, 10) || 82;
+    const parsedWidth = typeof draft.width !== 'string' || draft.width.trim() === '' || draft.width.trim() === '0'
+      ? undefined
+      : Number.parseInt(draft.width, 10);
     const state = getState();
 
     if (!name || !host || !Number.isFinite(port)) {
@@ -69,9 +71,12 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
       host,
       port,
       tls: draft.tls,
-      width,
       sound: draft.sound,
     };
+
+    if (parsedWidth !== undefined && Number.isFinite(parsedWidth)) {
+      nextCharacter.width = parsedWidth;
+    }
 
     const previousCharacter = state.editingIndex === null ? null : state.characters[state.editingIndex] ?? null;
     const nextCharacters = [...state.characters];

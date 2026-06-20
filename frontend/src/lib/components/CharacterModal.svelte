@@ -6,7 +6,7 @@
     host: '',
     port: '',
     tls: true,
-    width: '82',
+    width: '',
     sound: false,
   };
 
@@ -21,23 +21,16 @@
   let host = '';
   let port = '';
   let tls = true;
-  let width = '82';
+  let width = '';
   let sound = false;
-  let lastDraft: CharacterDraft | null = null;
-  let lastOpen = false;
 
-  $: if (open && (!lastOpen || draft !== lastDraft)) {
+  $: if (open) {
     name = draft.name;
     host = draft.host;
     port = draft.port;
     tls = draft.tls;
     width = draft.width;
     sound = draft.sound;
-  }
-
-  $: {
-    lastOpen = open;
-    lastDraft = draft;
   }
 
   function handleSave(): void {
@@ -82,14 +75,14 @@
           </label>
         </div>
         <div class="field">
-          <label for="field-width">output width (characters)</label>
+          <label for="field-width">max width (optional, characters)</label>
           <input
             id="field-width"
             type="number"
             bind:value={width}
             autocomplete="off"
-            placeholder="82"
-            min="40"
+            placeholder="use 0 for full window"
+            min="0"
             max="300"
           />
         </div>

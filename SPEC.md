@@ -4,7 +4,7 @@
 Provide a minimal client for connecting to a single MU* character/session at a time, with just enough local tooling to support roleplay and day-to-day play.
 
 ## Core Model
-- Local character profile: name, host, port, secure/plain connection choice, preferred output width, activity sound setting.
+- Local character profile: name, host, port, secure/plain connection choice, optional preferred output width, activity sound setting.
 - Per-character notes: locally stored private freeform text associated with a remote character.
 - Global highlight rules: exact-text matches mapped to colors.
 - Session state: active connection, output stream, input focus, and read position.
@@ -14,7 +14,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Allow adding and editing character profiles.
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
-- Preserve line wrapping according to each character’s preferred width.
+- Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width.
 - Provide two independent command input bars.
 - Send entered commands to the active session.
 - Keep a scrollable transcript of session output.

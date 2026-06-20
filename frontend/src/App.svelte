@@ -50,7 +50,7 @@
     notes={$session.notes}
     notesVisible={$session.notesVisible}
     outputChunks={$session.outputChunks}
-    playWidth={`${$session.currentCharacter?.width ?? 82}ch`}
+    playWidth={$session.currentCharacter?.width !== undefined ? `${$session.currentCharacter.width}ch` : 'none'}
     onHighlightAdd={(pattern, color) => session.addHighlight(pattern, color)}
     onHighlightDelete={(index) => session.deleteHighlight(index)}
     onInputFocusBar={(bar) => session.handleInputFocus(bar)}

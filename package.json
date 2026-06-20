@@ -4,16 +4,17 @@
   "description": "MUDShow!",
   "main": "dist/backend/proxy.js",
   "type": "module",
+  "packageManager": "pnpm@11.0.7",
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
-    "start": "npm run build && npm run proxy",
-    "build": "npm run clean && npm run build:frontend && npm run build:backend",
+    "start": "pnpm build && pnpm run:backend",
+    "build": "pnpm install && pnpm clean && pnpm build:frontend && pnpm build:backend",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "build:backend": "tsc -p backend/tsconfig.json",
-    "proxy": "node dist/backend/proxy.js port=8080",
+    "dev:frontend": "pnpm install && vite dev --config frontend/vite.config.ts",
+    "run:backend": "node dist/backend/proxy.js port=8080",
     "clean": "rimraf dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

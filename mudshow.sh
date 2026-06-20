@@ -1,4 +1,5 @@
 #!/bin/bash
+# Requires a built dist/ tree and a globally available node binary.
 cd "$(dirname "$0")"
 node dist/backend/proxy.js port=8080 &
 PROXY_PID=$!

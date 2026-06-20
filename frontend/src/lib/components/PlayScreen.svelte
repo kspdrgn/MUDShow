@@ -12,7 +12,7 @@
   export let notes = '';
   export let notesVisible = false;
   export let outputChunks: string[] = [];
-  export let playWidth = '82ch';
+  export let playWidth = 'none';
   export let onHighlightAdd: (pattern: string, color: string) => void;
   export let onHighlightDelete: (index: number) => void;
   export let onInputFocusBar: (bar: 1 | 2) => void;
