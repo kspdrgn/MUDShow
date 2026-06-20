@@ -73,9 +73,12 @@ jobs:
         shell: pwsh
         run: |
           $version = '${{ steps.version.outputs.semVer }}'
+          $buildInstallers = '${{ github.event_name }}' -eq 'push' -and '${{ github.ref_name }}' -eq 'main'
+          $bundleTargets = if ($buildInstallers) { @('msi', 'nsis') } else { @('app') }
           $configPath = 'tauri/tauri.conf.json'
           $config = Get-Content $configPath -Raw | ConvertFrom-Json
           $config.version = $version
+          $config.bundle.targets = $bundleTargets
           $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding utf8
 
       - name: Build desktop bundle
@@ -85,12 +88,15 @@ jobs:
         shell: pwsh
         run: |
           $version = '${{ steps.version.outputs.semVer }}'
+          $buildInstallers = '${{ github.event_name }}' -eq 'push' -and '${{ github.ref_name }}' -eq 'main'
           $stageRoot = "artifacts\desktop-release"
-          New-Item -ItemType Directory -Force -Path "$stageRoot\bundle\msi" | Out-Null
-          New-Item -ItemType Directory -Force -Path "$stageRoot\bundle\nsis" | Out-Null
           Copy-Item "tauri\target\release\mudshow.exe" "$stageRoot\mudshow-$version.exe" -Force
-          Copy-Item "tauri\target\release\bundle\msi\*.msi" "$stageRoot\bundle\msi" -Force
-          Copy-Item "tauri\target\release\bundle\nsis\*.exe" "$stageRoot\bundle\nsis" -Force
+          if ($buildInstallers) {
+            New-Item -ItemType Directory -Force -Path "$stageRoot\bundle\msi" | Out-Null
+            New-Item -ItemType Directory -Force -Path "$stageRoot\bundle\nsis" | Out-Null
+            Copy-Item "tauri\target\release\bundle\msi\*.msi" "$stageRoot\bundle\msi" -Force
+            Copy-Item "tauri\target\release\bundle\nsis\*.exe" "$stageRoot\bundle\nsis" -Force
+          }
           Set-Content "$stageRoot\version.txt" $version -Encoding utf8
 
       - name: Upload desktop release artifact
