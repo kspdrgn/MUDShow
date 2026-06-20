@@ -1,8 +1,8 @@
 node_modules/
 .pnpm-store/
 dist/
-src-tauri/target/
-src-tauri/bin/
+tauri/target/
+tauri/bin/
 .vscode/
 .vs/
 tsconfig.tsbuildinfo

@@ -4,6 +4,7 @@
 
 - This repo runs inside a restricted sandbox. Prefer commands that stay inside `C:\_\_projects\MUDShow`.
 - The effective checkout path in this environment can differ from the displayed workspace root. Before using absolute paths in commands or patches, confirm the current working directory and prefer relative paths when possible.
+- The Tauri app lives in `tauri/` in this checkout. Use that path for Cargo, Tauri, and release bundle commands instead of `src-tauri/`.
 - The repo expects the local pnpm store at `.pnpm-store` via `.npmrc`. Do not switch back to the global pnpm store unless you intentionally want to reinstall dependencies.
 - If `pnpm` reports an unexpected store location, rerun `pnpm install` from the repo root after deleting `node_modules` only if the user has already asked for that.
 - Tauri commands may need an explicit Node path in the shell environment. If `node` is not on `PATH`, use the known runtime binary:
@@ -18,3 +19,4 @@
 - `pnpm tauri:build` may download Windows bundle tools on first run.
 - If the build fails with a sandbox/network error during bundling, request escalated permissions rather than retrying the same command repeatedly.
 - The desktop sidecar is expected to be bundled as part of the release build, so keep release-only changes compatible with Tauri packaging.
+- `cargo check` against the Tauri crate may still require the staged sidecar binary to exist under `tauri/bin/`. If you see a missing `bin/node-*.exe` error, run the desktop staging script first.

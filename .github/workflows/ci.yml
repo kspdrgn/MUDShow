@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -49,7 +49,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Setup Rust
@@ -58,5 +58,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Stage desktop sidecar
+        run: node scripts/build-desktop.mjs
+
       - name: Cargo check
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        run: cargo check --manifest-path tauri/Cargo.toml

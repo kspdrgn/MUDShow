@@ -9,7 +9,7 @@ const tscScript = path.resolve(rootDir, 'node_modules', 'typescript', 'bin', 'ts
 const viteScript = path.resolve(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
 const nodeBinPath = process.execPath;
 const nodeTargetTriple = getNodeTargetTriple();
-const stagedNodePath = path.resolve(rootDir, 'src-tauri', 'bin', `node-${nodeTargetTriple}.exe`);
+const stagedNodePath = path.resolve(rootDir, 'tauri', 'bin', `node-${nodeTargetTriple}.exe`);
 
 const childEnv = {
   ...process.env,
@@ -59,7 +59,7 @@ async function stageNodeBinary() {
 }
 
 async function main() {
-  await rm(path.resolve(rootDir, 'src-tauri', 'bin'), { recursive: true, force: true });
+  await rm(path.resolve(rootDir, 'tauri', 'bin'), { recursive: true, force: true });
   await run(process.execPath, [tscScript, '-p', 'backend/tsconfig.json']);
   await run(process.execPath, [viteScript, 'build', '--config', 'frontend/vite.config.ts']);
   await stageNodeBinary();
