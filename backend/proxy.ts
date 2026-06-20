@@ -5,6 +5,7 @@ import { connect } from 'node:tls';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
+import { stripTelnet } from './telnet.js';
 
 const PROXY_PORT = 8080;
 
@@ -12,8 +13,7 @@ const server = startServer();
 const wss = new WebSocketServer({ server });
 
 server.listen(PROXY_PORT, () => {
-  console.log(`Server running on port ${PROXY_PORT}`);
-  console.log('Express (HTTP) and WebSocket (ws) are sharing this port');
+  console.log(`HTTP: http://localhost:${PROXY_PORT}`);
 });
 
 wss.on('connection', (ws, req) => {
@@ -72,45 +72,7 @@ wss.on('connection', (ws, req) => {
   ws.on('error', () => mudSocket.destroy());
 });
 
-console.log(`Proxy running on ws://localhost:${PROXY_PORT}`);
-
-function stripTelnet(buf: Buffer): Buffer {
-  const out: number[] = [];
-  let i = 0;
-
-  while (i < buf.length) {
-    if (buf[i] === 0xff) {
-      if (i + 1 >= buf.length) {
-        break;
-      }
-
-      const cmd = buf[i + 1];
-
-      if (cmd >= 0xfb && cmd <= 0xfe) {
-        i += 3;
-      } else if (cmd === 0xf0) {
-        i += 2;
-      } else if (cmd === 0xfa) {
-        i += 2;
-
-        while (i + 1 < buf.length && !(buf[i] === 0xff && buf[i + 1] === 0xf0)) {
-          i++;
-        }
-
-        if (i + 1 < buf.length) {
-          i += 2;
-        }
-      } else {
-        i += 2;
-      }
-    } else {
-      out.push(buf[i]);
-      i++;
-    }
-  }
-
-  return Buffer.from(out);
-}
+console.log(`Proxy: ws://localhost:${PROXY_PORT}`);
 
 function startServer() {
   const app = express();
