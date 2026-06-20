@@ -10,6 +10,12 @@ Add Linux release builds alongside the existing Windows pipeline, with a path to
 - `scripts/build-desktop.mjs` stages a Windows Node sidecar (`node-*.exe`) and will fail on Linux.
 - The existing CI/CD setup currently assumes Windows desktop packaging for the release artifact.
 
+## Possible other approaches and unanswered questions
+
+- Converting backend proxy from node to native Rust may be easier to produce multi-platform builds without needing to ship a Node runtime
+- Not sure the best way to provide a Linux executable
+- Not sure if we can produce the Linux build on a Windows machine. It would be acceptable if we need to use Linux system to produce Linux outputs, but it would be nice to build both from Windows.
+
 ## Phase 1: Linux Release Artifacts
 
 ### Target output
