@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   web-and-backend:
-    name: Build frontend and backend
+    name: Build frontend
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,7 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: pnpm build:frontend
 
   desktop-release:
     name: Build desktop release artifact
