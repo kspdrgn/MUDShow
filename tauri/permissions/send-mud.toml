@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-send-mud"
+description = "Enables the send_mud command without any pre-configured scope."
+commands.allow = ["send_mud"]
+
+[[permission]]
+identifier = "deny-send-mud"
+description = "Denies the send_mud command without any pre-configured scope."
+commands.deny = ["send_mud"]

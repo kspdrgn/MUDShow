@@ -10,6 +10,7 @@
     "frontendDist": "../dist/frontend"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "MUDShow",
@@ -23,12 +24,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": [
-      "bin/node"
-    ],
-    "resources": {
-      "../dist/backend": "backend"
-    },
     "icon": [
       "icons/icon.ico",
       "icons/icon.png"

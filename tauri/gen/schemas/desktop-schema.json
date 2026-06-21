@@ -177,6 +177,60 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-poll-mud`",
+          "type": "string",
+          "const": "default",
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-poll-mud`"
+        },
+        {
+          "description": "Enables the connect_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-connect-mud",
+          "markdownDescription": "Enables the connect_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the disconnect_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-disconnect-mud",
+          "markdownDescription": "Enables the disconnect_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the poll_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-poll-mud",
+          "markdownDescription": "Enables the poll_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the send_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-send-mud",
+          "markdownDescription": "Enables the send_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the connect_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-connect-mud",
+          "markdownDescription": "Denies the connect_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the disconnect_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-disconnect-mud",
+          "markdownDescription": "Denies the disconnect_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the poll_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-poll-mud",
+          "markdownDescription": "Denies the poll_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the send_mud command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-send-mud",
+          "markdownDescription": "Denies the send_mud command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-disconnect-mud"
+description = "Enables the disconnect_mud command without any pre-configured scope."
+commands.allow = ["disconnect_mud"]
+
+[[permission]]
+identifier = "deny-disconnect-mud"
+description = "Denies the disconnect_mud command without any pre-configured scope."
+commands.deny = ["disconnect_mud"]

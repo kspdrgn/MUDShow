@@ -1,6 +1,5 @@
 import type { Writable } from 'svelte/store';
 import type { MudConnection } from './connection';
-import { buildProxyWebSocketUrl } from './runtime';
 import { loadNotes, saveHighlights, saveNotes as persistNotes } from './storage';
 import { buildHighlightRegexes } from './formatting';
 import { PlayTranscript, playBeep } from './playback';
@@ -95,34 +94,39 @@ export function createPlaybackActions({
 
     focusElement('input1');
 
-    const url = buildProxyWebSocketUrl(character.host, character.port, character.tls !== false);
-
-    connection.connect(url, {
-      onOpen: () => {
-        patch({ connectionStatus: 'connected' });
-        void appendOutput(`\x1b[90m[connected to ${character.host}:${character.port}]\x1b[0m\n`);
+    await connection.connect(
+      {
+        host: character.host,
+        port: character.port,
+        tls: character.tls !== false,
       },
-      onMessage: (text) => {
-        void appendOutput(text);
+      {
+        onOpen: () => {
+          patch({ connectionStatus: 'connected' });
+          void appendOutput(`\x1b[90m[connected to ${character.host}:${character.port}]\x1b[0m\n`);
+        },
+        onMessage: (text) => {
+          void appendOutput(text);
 
-        const current = getState();
-        if (document.hidden && !current.hasNewActivity) {
-          if (character.sound) {
-            playBeep();
+          const current = getState();
+          if (document.hidden && !current.hasNewActivity) {
+            if (character.sound) {
+              playBeep();
+            }
+
+            patch({ hasNewActivity: true });
           }
-
-          patch({ hasNewActivity: true });
-        }
+        },
+        onClose: () => {
+          patch({ connectionStatus: 'error' });
+          void appendOutput('\x1b[90m[disconnected - press F5 to reconnect]\x1b[0m\n');
+        },
+        onError: (message) => {
+          patch({ connectionStatus: 'error' });
+          void appendOutput(`\x1b[31m[connection error] ${message}\x1b[0m\n`);
+        },
       },
-      onClose: () => {
-        patch({ connectionStatus: 'error' });
-        void appendOutput('\x1b[90m[disconnected - press F5 to reconnect]\x1b[0m\n');
-      },
-      onError: () => {
-        patch({ connectionStatus: 'error' });
-        void appendOutput('\x1b[31m[connection error]\x1b[0m\n');
-      },
-    });
+    );
   }
 
   async function appendOutput(rawText: string): Promise<void> {

@@ -1,63 +1,22 @@
-use std::{
-  process::{Child, Command, Stdio},
-  sync::Mutex,
-};
+mod mud_backend;
 
-use tauri::{AppHandle, Manager, RunEvent, Runtime, State};
-
-#[derive(Default)]
-struct SidecarProcess(Mutex<Option<Child>>);
+use tauri::Manager;
 
 fn main() {
   tauri::Builder::default()
-    .setup(|app| {
-      if cfg!(not(debug_assertions)) {
-        let child = start_sidecar(app.handle())?;
-        app.manage(SidecarProcess(Mutex::new(Some(child))));
-      }
-
-      Ok(())
-    })
+    .manage(mud_backend::ConnectionManager::default())
+    .invoke_handler(tauri::generate_handler![
+      mud_backend::connect_mud,
+      mud_backend::send_mud,
+      mud_backend::disconnect_mud,
+      mud_backend::poll_mud,
+    ])
     .build(tauri::generate_context!())
     .expect("error while building MUDShow")
     .run(|app_handle, event| match event {
-      RunEvent::ExitRequested { .. } | RunEvent::Exit => {
-        if cfg!(not(debug_assertions)) {
-          stop_sidecar(&app_handle.state::<SidecarProcess>());
-        }
+      tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+        app_handle.state::<mud_backend::ConnectionManager>().disconnect();
       }
       _ => {}
     });
-}
-
-fn start_sidecar<R: Runtime>(app_handle: &AppHandle<R>) -> Result<Child, Box<dyn std::error::Error>> {
-  let resource_dir = app_handle.path().resource_dir()?;
-  let node_path = resource_dir.join("node.exe");
-  let proxy_path = resource_dir.join("backend").join("proxy.js");
-
-  if !node_path.exists() {
-    return Err(format!("Missing packaged Node runtime at {}", node_path.display()).into());
-  }
-
-  if !proxy_path.exists() {
-    return Err(format!("Missing packaged proxy at {}", proxy_path.display()).into());
-  }
-
-  let child = Command::new(node_path)
-    .arg(proxy_path)
-    .env("MUDSHOW_DISABLE_HTTP", "1")
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit())
-    .spawn()?;
-
-  Ok(child)
-}
-
-fn stop_sidecar(state: &State<'_, SidecarProcess>) {
-  if let Ok(mut guard) = state.0.lock() {
-    if let Some(mut child) = guard.take() {
-      let _ = child.kill();
-      let _ = child.wait();
-    }
-  }
 }

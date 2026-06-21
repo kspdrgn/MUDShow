@@ -1,0 +1,10 @@
+# Automatically generated-style app permissions for MUDShow.
+
+[default]
+description = "Default permissions for the MUDShow desktop app."
+permissions = [
+  "allow-connect-mud",
+  "allow-send-mud",
+  "allow-disconnect-mud",
+  "allow-poll-mud",
+]

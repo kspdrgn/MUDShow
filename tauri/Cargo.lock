@@ -1746,6 +1746,7 @@ dependencies = [
 name = "mudshow"
 version = "1.0.0"
 dependencies = [
+ "serde",
  "tauri",
  "tauri-build",
 ]

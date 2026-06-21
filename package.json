@@ -2,39 +2,30 @@
   "name": "mudshow",
   "version": "1.0.0",
   "description": "MUDShow!",
-  "main": "dist/backend/proxy.js",
   "type": "module",
   "packageManager": "pnpm@11.0.7",
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
-    "start": "pnpm build && pnpm run:backend",
-    "dev": "pnpm dev:desktop",
+    "start": "pnpm tauri:dev",
+    "dev": "pnpm tauri:dev",
     "dev:desktop": "node scripts/dev-desktop.mjs",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "build": "pnpm clean && pnpm build:frontend && pnpm build:backend",
+    "build": "pnpm tauri:build",
     "build:frontend": "vite build --config frontend/vite.config.ts",
-    "build:backend": "tsc -p backend/tsconfig.json",
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
-    "dev:backend": "tsc -p backend/tsconfig.json --watch",
-    "run:backend": "node dist/backend/proxy.js port=8080",
     "clean": "rimraf dist tauri/target tauri/bin",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "express": "^5.2.1",
-    "ws": "^8.20.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tauri-apps/cli": "^2.11.2",
-    "@types/express": "^5.0.6",
     "@types/node": "^25.9.3",
-    "@types/ws": "^8.18.1",
     "rimraf": "^6.1.3",
     "svelte": "^5.56.3",
     "typescript": "^6.0.3",

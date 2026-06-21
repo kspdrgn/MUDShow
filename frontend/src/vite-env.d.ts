@@ -1,10 +1,7 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_MUDSHOW_PROXY_URL?: string;
-}
-
 interface Window {
-  __MUDSHOW_PROXY_URL__?: string;
+  __TAURI_INTERNALS__?: {
+    invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
+  };
 }
-
