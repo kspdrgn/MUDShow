@@ -1,1 +1,22 @@
-export type { Character, CharacterDraft, HighlightRule } from '../../../shared/types';
+export interface Character {
+  name: string;
+  host: string;
+  port: number;
+  tls?: boolean;
+  width?: number;
+  sound?: boolean;
+}
+
+export interface CharacterDraft {
+  name: string;
+  host: string;
+  port: string;
+  tls: boolean;
+  width: string;
+  sound: boolean;
+}
+
+export interface HighlightRule {
+  pattern: string;
+  color: string;
+}
