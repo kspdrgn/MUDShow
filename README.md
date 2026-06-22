@@ -21,7 +21,8 @@ Nothing else.
 
 ## Development Options
 
-* Use `pnpm start` to launch the desktop shell in development mode.
+* Use `pnpm start` or `pnpm tauri:dev` to launch the desktop shell in development mode.
+* On Windows, `pnpm start` enables a WebView2 remote debugging port for the frontend. In VS Code, use `Attach to Tauri WebView` from `.vscode/launch.json` to debug the UI while Tauri is running.
 * Use `pnpm build` to produce a release bundle (Windows exe or Linux AppImage).
 * Use `pnpm dev:frontend` to compile and launch the frontend UI code only, without any connection ability.
 

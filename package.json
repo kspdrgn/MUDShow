@@ -8,11 +8,14 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "start": "tauri dev",
-    "build": "tauri build",
+    "start": "pnpm tauri:dev",
+    "dev": "pnpm tauri:dev",
+    "tauri:dev": "node scripts/tauri-dev.mjs",
+    "tauri:build": "tauri build",
+    "build": "pnpm tauri:build",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
-    "clean": "rimraf dist tauri/target",
+    "clean": "rimraf dist tauri/target src-tauri/target tauri/.mudshow-tauri-dev-*.json",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

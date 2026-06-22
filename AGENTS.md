@@ -7,9 +7,9 @@
 - The Tauri app lives in `tauri/` in this checkout. Use that path for Cargo, Tauri, and release bundle commands instead of `src-tauri/`.
 - The repo expects the local pnpm store at `.pnpm-store` via `.npmrc`. Do not switch back to the global pnpm store unless you intentionally want to reinstall dependencies.
 - If `pnpm` reports an unexpected store location, rerun `pnpm install` from the repo root after deleting `node_modules` only if the user has already asked for that.
-- Tauri commands may need an explicit Node path in the shell environment. If `node` is not on `PATH`, use the known runtime binary:
+- Tauri commands may need an explicit Node path in the shell environment. This note is guidance for the shell command itself; it does not automatically change `PATH` for you. If `node` is not on `PATH`, use the known runtime binary directly:
   - `C:\Users\D\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`
-- For Tauri build/dev commands in this repo, make sure `node` is available before invoking `pnpm start` or `pnpm build`.
+- For Tauri build/dev commands in this repo, make sure `node` is available before invoking `pnpm tauri:dev`, `pnpm tauri:build`, `pnpm dev`, or `pnpm build`.
 - Prefer the existing npm scripts and Tauri commands for desktop workflows instead of inventing new shell wrappers.
 - Git may reject the repo with a safe-directory warning in this environment. If that happens, use `git -c safe.directory=<repo path> ...` for the command you need instead of assuming the checkout is broken.
 - If a Windows shell command fails with a sandbox or path-related process error, retry with a simpler single-command form and re-check the current working directory before assuming the repository layout is wrong.

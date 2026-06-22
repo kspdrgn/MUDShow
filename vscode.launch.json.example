@@ -5,24 +5,65 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "node",
+            "name": "Launch Chrome",
             "request": "launch",
-            "name": "Start proxy",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}/dist/backend/proxy.js",
-            "preLaunchTask": "npm: build",
+            "type": "chrome",
+            "url": "http://localhost:8080",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "attach",
+            "name": "Attach Rust to Tauri",
+            "pid": "${command:pickProcess}",
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "serverReadyAction": {
-                "pattern": "Proxy running on ws://localhost:([0-9]+)",
-                "uriFormat": "http://localhost:%s",
-                "action": "openExternally"
-            },
-            "outFiles": [
-                "${workspaceFolder}/dist/backend/**/*.(m|c|)js",
-                "!**/node_modules/**"
+            "sourceLanguages": [
+                "rust"
+            ]
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Frontend (Vite)",
+            "url": "http://127.0.0.1:5173",
+            "webRoot": "${workspaceFolder}/frontend",
+            "sourceMapPathOverrides": {
+                "/@fs/*": "${workspaceFolder}/*",
+                "/src/*": "${workspaceFolder}/frontend/src/*"
+            }
+        },
+        {
+            "type": "node-terminal",
+            "request": "launch",
+            "name": "Start Tauri Dev",
+            "command": "pnpm tauri:dev"
+        },
+        {
+            "type": "chrome",
+            "request": "attach",
+            "name": "Attach to Tauri WebView",
+            "port": 9222,
+            "webRoot": "${workspaceFolder}/frontend",
+            "sourceMapPathOverrides": {
+                "/@fs/*": "${workspaceFolder}/*",
+                "/src/*": "${workspaceFolder}/frontend/src/*"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Tauri Full Stack",
+            "configurations": [
+                "Start Tauri Dev",
+                "Attach Rust to Tauri"
+            ]
+        },
+        {
+            "name": "Debug Tauri UI + Rust",
+            "configurations": [
+                "Start Tauri Dev",
+                "Attach WebView2 to Tauri",
+                "Attach Rust to Tauri"
             ]
         }
     ]
