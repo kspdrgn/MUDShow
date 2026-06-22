@@ -10,20 +10,20 @@ permissions:
   contents: read
 
 jobs:
-  web-and-backend:
-    name: Build frontend
+  frontend:
+    name: Build frontend bundle
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.0.7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -39,17 +39,17 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.0.7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -82,7 +82,7 @@ jobs:
           $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding utf8
 
       - name: Build desktop bundle
-        run: pnpm tauri:build
+        run: pnpm build
 
       - name: Stage desktop release files
         shell: pwsh

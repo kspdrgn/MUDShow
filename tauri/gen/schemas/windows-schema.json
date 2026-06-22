@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-poll-mud`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-poll-mud`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`"
         },
         {
           "description": "Enables the connect_mud command without any pre-configured scope.",
@@ -193,12 +193,6 @@
           "type": "string",
           "const": "allow-disconnect-mud",
           "markdownDescription": "Enables the disconnect_mud command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the poll_mud command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-poll-mud",
-          "markdownDescription": "Enables the poll_mud command without any pre-configured scope."
         },
         {
           "description": "Enables the send_mud command without any pre-configured scope.",
@@ -217,12 +211,6 @@
           "type": "string",
           "const": "deny-disconnect-mud",
           "markdownDescription": "Denies the disconnect_mud command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the poll_mud command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-poll-mud",
-          "markdownDescription": "Denies the poll_mud command without any pre-configured scope."
         },
         {
           "description": "Denies the send_mud command without any pre-configured scope.",

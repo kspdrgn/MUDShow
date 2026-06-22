@@ -3,25 +3,20 @@
   "version": "1.0.0",
   "description": "MUDShow!",
   "type": "module",
-  "packageManager": "pnpm@11.0.7",
+  "packageManager": "pnpm@11.8.0",
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
-    "start": "pnpm tauri:dev",
-    "dev": "pnpm tauri:dev",
-    "dev:desktop": "node scripts/dev-desktop.mjs",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "build": "pnpm tauri:build",
+    "start": "tauri dev",
+    "build": "tauri build",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
-    "clean": "rimraf dist tauri/target tauri/bin",
+    "clean": "rimraf dist tauri/target",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {},
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tauri-apps/cli": "^2.11.2",

@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "identifier": "com.mudshow.app",
   "build": {
-    "beforeDevCommand": "node scripts/dev-desktop.mjs",
-    "beforeBuildCommand": "node scripts/build-desktop.mjs",
+    "beforeDevCommand": "pnpm dev:frontend",
+    "beforeBuildCommand": "pnpm build:frontend",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../dist/frontend"
   },

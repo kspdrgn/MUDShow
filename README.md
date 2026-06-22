@@ -12,31 +12,21 @@ Simple highlighting.
 Tab completion.
 Nothing else.
 
-## Installation
+## Developing / Building
 
 1. Click Code > Download ZIP, then unzip it.
 2. Have `node` installed globally.
 3. Have `pnpm` installed globally (not just `npm`, do not run `npm install`).
-4. For the classic browser build, run `pnpm start` and open `http://localhost:8080`.
-5. For the new desktop shell, run `pnpm tauri:dev`.
-6. To test a packaged desktop build, run `pnpm tauri:build`.
+4. To build and debug the app, run `pnpm start`.
 
-## Starting
+## Development Options
 
-* Use `pnpm start` to build and start the proxy and the webserver.
-* Use `pnpm dev` to run the frontend and proxy together for local development.
-* Use `pnpm tauri:dev` to launch the desktop shell in development mode.
-* Use `pnpm tauri:build` to produce a release bundle with the sidecar packaged in.
-* Use `pnpm build` to only build the project.
-* Use `pnpm run:backend` or `node dist/backend/proxy.js` to start the proxy server once files are built.
-
-Options for the proxy server:
-* Use `node dist/backend/proxy.js port=9000` to use a different port for the web server.
-* Use `node dist/backend/proxy.js` to start the proxy server on the default port.
+* Use `pnpm start` to launch the desktop shell in development mode.
+* Use `pnpm build` to produce a release bundle (Windows exe or Linux AppImage).
+* Use `pnpm dev:frontend` to compile and launch the frontend UI code only, without any connection ability.
 
 ## Usage
 
-- If you're on Linux, you can try one of the included shell scripts. They assume the project has already been built, then launch the proxy until you Ctrl+C.
 - There are two input bars, which can come in handy if someone's talking to you while you're editing a description, for example. Switch to them with F1 or F2.
 - Press F3 to open and close the notes panel. Each character has their own notes. If you value them, back them up regularly.
 - Press F4 to open and close the highlights panel. If you put in a word or phrase, you can make it show up with a different colour. No, there is no regex support.

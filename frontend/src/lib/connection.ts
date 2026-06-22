@@ -1,4 +1,4 @@
-import { invoke } from './tauri';
+import { invoke, listen } from './tauri';
 
 type Handlers = {
   onOpen: () => void;
@@ -21,7 +21,7 @@ type ConnectionEvent =
 export class MudConnection {
   private sessionToken = 0;
   private connected = false;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private unlistenEvents: (() => void) | null = null;
 
   async connect(target: ConnectionTarget, handlers: Handlers): Promise<void> {
     await this.close();
@@ -30,11 +30,11 @@ export class MudConnection {
     this.connected = false;
 
     try {
+      await this.startListening(token, handlers);
       await invoke('connect_mud', target);
       if (this.sessionToken === token) {
         this.connected = true;
         handlers.onOpen();
-        this.startPolling(token, handlers);
       }
     } catch (error) {
       if (this.sessionToken === token) {
@@ -57,57 +57,42 @@ export class MudConnection {
     this.sessionToken += 1;
     this.connected = false;
 
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
+    if (this.unlistenEvents) {
+      const unlisten = this.unlistenEvents;
+      this.unlistenEvents = null;
+      unlisten();
     }
 
     await invoke('disconnect_mud').catch(() => undefined);
   }
 
-  private startPolling(token: number, handlers: Handlers): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-    }
-
-    this.pollTimer = setInterval(() => {
-      void this.pollOnce(token, handlers);
-    }, 100);
-  }
-
-  private async pollOnce(token: number, handlers: Handlers): Promise<void> {
-    if (this.sessionToken !== token) {
-      return;
-    }
-
-    try {
-      const events = await invoke<ConnectionEvent[]>('poll_mud');
+  private async startListening(token: number, handlers: Handlers): Promise<void> {
+    const unlisten = await listen<ConnectionEvent>('mud://event', ({ payload }) => {
       if (this.sessionToken !== token) {
         return;
       }
 
-      for (const event of events) {
-        if (event.kind === 'data') {
-          handlers.onMessage(event.text);
-        } else if (event.kind === 'closed') {
-          this.connected = false;
-          await this.close();
-          handlers.onClose();
-          return;
-        } else {
-          this.connected = false;
-          await this.close();
-          handlers.onError(event.message);
-          return;
-        }
+      if (payload.kind === 'data') {
+        handlers.onMessage(payload.text);
+        return;
       }
-    } catch {
-      if (this.sessionToken === token) {
-        this.connected = false;
-        await this.close();
-        handlers.onError('Connection polling failed.');
+
+      this.connected = false;
+      void this.close();
+
+      if (payload.kind === 'closed') {
+        handlers.onClose();
+      } else {
+        handlers.onError(payload.message);
       }
+    });
+
+    if (this.sessionToken !== token) {
+      unlisten();
+      return;
     }
+
+    this.unlistenEvents = unlisten;
   }
 }
 

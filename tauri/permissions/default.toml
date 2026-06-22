@@ -6,5 +6,4 @@ permissions = [
   "allow-connect-mud",
   "allow-send-mud",
   "allow-disconnect-mud",
-  "allow-poll-mud",
 ]

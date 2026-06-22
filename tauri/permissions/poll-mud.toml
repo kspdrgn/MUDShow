@@ -1,9 +1,0 @@
-[[permission]]
-identifier = "allow-poll-mud"
-description = "Enables the poll_mud command without any pre-configured scope."
-commands.allow = ["poll_mud"]
-
-[[permission]]
-identifier = "deny-poll-mud"
-description = "Denies the poll_mud command without any pre-configured scope."
-commands.deny = ["poll_mud"]
