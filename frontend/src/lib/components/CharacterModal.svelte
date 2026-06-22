@@ -6,6 +6,7 @@
     host: '',
     port: '',
     tls: true,
+    verifyCertificate: true,
     width: '',
     sound: false,
   };
@@ -21,6 +22,7 @@
   let host = '';
   let port = '';
   let tls = true;
+  let verifyCertificate = true;
   let width = '';
   let sound = false;
 
@@ -29,12 +31,19 @@
     host = draft.host;
     port = draft.port;
     tls = draft.tls;
+    verifyCertificate = draft.tls ? draft.verifyCertificate !== false : false;
     width = draft.width;
     sound = draft.sound;
   }
 
   function handleSave(): void {
-    onSave({ name, host, port, tls, width, sound });
+    onSave({ name, host, port, tls, verifyCertificate, width, sound });
+  }
+
+  function handleTlsChange(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement;
+    tls = input.checked;
+    verifyCertificate = input.checked;
   }
 </script>
 
@@ -70,8 +79,19 @@
         </div>
         <div class="field field-check">
           <label for="field-tls">
-            <input id="field-tls" type="checkbox" bind:checked={tls} />
+            <input id="field-tls" type="checkbox" checked={tls} on:change={handleTlsChange} />
             use TLS
+          </label>
+        </div>
+        <div class="field field-check">
+          <label for="field-verify-certificate">
+            <input
+              id="field-verify-certificate"
+              type="checkbox"
+              bind:checked={verifyCertificate}
+              disabled={!tls}
+            />
+            verify certificate
           </label>
         </div>
         <div class="field">

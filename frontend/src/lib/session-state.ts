@@ -29,6 +29,7 @@ export const INITIAL_DRAFT: CharacterDraft = {
   host: '',
   port: '',
   tls: true,
+  verifyCertificate: true,
   width: '',
   sound: false,
 };

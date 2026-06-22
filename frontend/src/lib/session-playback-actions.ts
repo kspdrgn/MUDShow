@@ -99,6 +99,7 @@ export function createPlaybackActions({
         host: character.host,
         port: character.port,
         tls: character.tls !== false,
+        verifyCertificate: character.verifyCertificate !== false,
       },
       {
         onOpen: () => {

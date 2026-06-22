@@ -11,6 +11,7 @@ rust-version = "1.77"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+native-tls = "0.2"
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
 

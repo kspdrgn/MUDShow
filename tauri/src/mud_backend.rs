@@ -3,12 +3,13 @@ use std::{
     net::{Shutdown, TcpStream},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Mutex,
+        Arc, Mutex,
     },
     thread::{self, JoinHandle},
     time::Duration,
 };
 
+use native_tls::{TlsConnector, TlsStream};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -57,8 +58,9 @@ pub fn connect_mud(
     host: String,
     port: u16,
     tls: bool,
+    verify_certificate: bool,
 ) -> Result<(), String> {
-    let handle = open_connection(app, &host, port, tls)?;
+    let handle = open_connection(app, &host, port, tls, verify_certificate)?;
     state.replace(handle);
     Ok(())
 }
@@ -78,20 +80,21 @@ fn open_connection(
     host: &str,
     port: u16,
     tls: bool,
+    verify_certificate: bool,
 ) -> Result<ConnectionHandle, String> {
-    let stream = connect_stream(host, port, tls)?;
-    let reader_stream = stream
-        .try_clone()
-        .map_err(|error| format!("Failed to clone connection stream: {error}"))?;
-    reader_stream
-        .set_read_timeout(Some(READ_TIMEOUT))
-        .map_err(|error| format!("Failed to configure connection timeout: {error}"))?;
+    let stream = Arc::new(Mutex::new(connect_stream(
+        host,
+        port,
+        tls,
+        verify_certificate,
+    )?));
 
-    let stop_requested = std::sync::Arc::new(AtomicBool::new(false));
-    let active = std::sync::Arc::new(AtomicBool::new(true));
+    let stop_requested = Arc::new(AtomicBool::new(false));
+    let active = Arc::new(AtomicBool::new(true));
 
-    let reader_stop = std::sync::Arc::clone(&stop_requested);
-    let reader_active = std::sync::Arc::clone(&active);
+    let reader_stream = Arc::clone(&stream);
+    let reader_stop = Arc::clone(&stop_requested);
+    let reader_active = Arc::clone(&active);
     let reader_app = app.clone();
     let reader = thread::spawn(move || {
         read_connection(reader_stream, reader_stop, reader_active, reader_app);
@@ -105,19 +108,34 @@ fn open_connection(
     })
 }
 
-fn connect_stream(host: &str, port: u16, tls: bool) -> Result<TcpStream, String> {
-    if tls {
-        return Err("TLS connections are not supported in the native Rust backend yet".to_string());
-    }
-
+fn connect_stream(
+    host: &str,
+    port: u16,
+    tls: bool,
+    verify_certificate: bool,
+) -> Result<ConnectionStream, String> {
     let host = normalize_connect_host(host);
     let address = format!("{host}:{port}");
     let tcp = TcpStream::connect(&address)
         .map_err(|error| format!("Failed to connect to {address}: {error}"))?;
     tcp.set_nodelay(true)
         .map_err(|error| format!("Failed to configure TCP socket: {error}"))?;
+    tcp.set_read_timeout(Some(READ_TIMEOUT))
+        .map_err(|error| format!("Failed to configure connection timeout: {error}"))?;
 
-    Ok(tcp)
+    if tls {
+        let mut builder = TlsConnector::builder();
+        builder.danger_accept_invalid_certs(!verify_certificate);
+        let connector = builder
+            .build()
+            .map_err(|error| format!("Failed to initialize TLS connector: {error}"))?;
+        let stream = connector
+            .connect(host, tcp)
+            .map_err(|error| format!("Failed to establish TLS connection to {address}: {error}"))?;
+        return Ok(ConnectionStream::Tls(stream));
+    }
+
+    Ok(ConnectionStream::Plain(tcp))
 }
 
 fn normalize_connect_host(host: &str) -> &str {
@@ -128,7 +146,7 @@ fn normalize_connect_host(host: &str) -> &str {
 }
 
 fn read_connection(
-    mut stream: TcpStream,
+    stream: Arc<Mutex<ConnectionStream>>,
     stop_requested: std::sync::Arc<AtomicBool>,
     active: std::sync::Arc<AtomicBool>,
     app: AppHandle,
@@ -136,7 +154,25 @@ fn read_connection(
     let mut buffer = [0u8; 8192];
 
     while !stop_requested.load(Ordering::SeqCst) {
-        let result = stream.read(&mut buffer);
+        let result = {
+            let mut guard = match stream.lock() {
+                Ok(guard) => guard,
+                Err(_) => {
+                    active.store(false, Ordering::SeqCst);
+                    if !stop_requested.load(Ordering::SeqCst) {
+                        emit_event(
+                            &app,
+                            ConnectionEvent::Error {
+                                message: "Connection state is unavailable".to_string(),
+                            },
+                        );
+                    }
+                    return;
+                }
+            };
+
+            guard.read(&mut buffer)
+        };
 
         match result {
             Ok(0) => {
@@ -224,7 +260,7 @@ fn strip_telnet(buf: &[u8]) -> Vec<u8> {
 struct ConnectionHandle {
     stop_requested: std::sync::Arc<AtomicBool>,
     active: std::sync::Arc<AtomicBool>,
-    stream: TcpStream,
+    stream: Arc<Mutex<ConnectionStream>>,
     reader: Option<JoinHandle<()>>,
 }
 
@@ -238,7 +274,9 @@ impl ConnectionHandle {
         self.stop_requested.store(true, Ordering::SeqCst);
         self.active.store(false, Ordering::SeqCst);
 
-        let _ = self.stream.shutdown(Shutdown::Both);
+        if let Ok(mut stream) = self.stream.lock() {
+            let _ = stream.shutdown();
+        }
 
         if let Some(reader) = self.reader.take() {
             let _ = reader.join();
@@ -250,9 +288,42 @@ impl ConnectionHandle {
             return Err("No active connection".to_string());
         }
 
-        (&self.stream)
+        let mut stream = self
+            .stream
+            .lock()
+            .map_err(|_| "Connection state is unavailable".to_string())?;
+
+        stream
             .write_all(bytes)
             .map_err(|error| format!("Failed to send data: {error}"))
+    }
+}
+
+enum ConnectionStream {
+    Plain(TcpStream),
+    Tls(TlsStream<TcpStream>),
+}
+
+impl ConnectionStream {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        match self {
+            ConnectionStream::Plain(stream) => stream.read(buffer),
+            ConnectionStream::Tls(stream) => stream.read(buffer),
+        }
+    }
+
+    fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
+        match self {
+            ConnectionStream::Plain(stream) => stream.write_all(bytes),
+            ConnectionStream::Tls(stream) => stream.write_all(bytes),
+        }
+    }
+
+    fn shutdown(&mut self) -> io::Result<()> {
+        match self {
+            ConnectionStream::Plain(stream) => stream.shutdown(Shutdown::Both),
+            ConnectionStream::Tls(stream) => stream.get_mut().shutdown(Shutdown::Both),
+        }
     }
 }
 

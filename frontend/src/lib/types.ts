@@ -3,6 +3,7 @@ export interface Character {
   host: string;
   port: number;
   tls?: boolean;
+  verifyCertificate?: boolean;
   width?: number;
   sound?: boolean;
 }
@@ -12,6 +13,7 @@ export interface CharacterDraft {
   host: string;
   port: string;
   tls: boolean;
+  verifyCertificate: boolean;
   width: string;
   sound: boolean;
 }

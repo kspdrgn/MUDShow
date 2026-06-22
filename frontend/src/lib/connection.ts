@@ -11,6 +11,7 @@ type ConnectionTarget = {
   host: string;
   port: number;
   tls: boolean;
+  verifyCertificate: boolean;
 };
 
 type ConnectionEvent =

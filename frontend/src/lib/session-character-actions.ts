@@ -24,6 +24,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
           host: selected.host,
           port: String(selected.port),
           tls: selected.tls !== false,
+          verifyCertificate: selected.tls !== false && selected.verifyCertificate !== false,
           width: String(selected.width ?? ''),
           sound: selected.sound === true,
         },
@@ -38,6 +39,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
           host: '',
           port: '',
           tls: true,
+          verifyCertificate: true,
           width: '',
           sound: false,
         },
@@ -71,6 +73,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
       host,
       port,
       tls: draft.tls,
+      verifyCertificate: draft.tls ? draft.verifyCertificate : false,
       sound: draft.sound,
     };
 
