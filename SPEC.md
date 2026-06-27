@@ -17,6 +17,8 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width.
 - Provide two independent command input bars.
 - Send entered commands to the active session.
+- Keep a finite rolling command history for the current app session only.
+- Use Up/Down to move backward/forward through previously sent commands, restoring any unsent draft before browsing.
 - Keep a scrollable transcript of session output.
 - Auto-scroll when the user has not manually scrolled away.
 - Indicate connection state and errors clearly.
@@ -52,4 +54,5 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - No stat bars, combat HUD, or gameplay automation.
 - No server-side account sync.
 - No shared or cloud persistence.
+- No persistence for command history across app restarts.
 - No rich regex-based highlight language.
