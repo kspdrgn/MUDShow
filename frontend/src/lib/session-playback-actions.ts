@@ -1,6 +1,18 @@
 import type { Writable } from 'svelte/store';
 import type { MudConnection } from './connection';
-import { loadNotes, saveHighlights, saveNotes as persistNotes } from './storage';
+import {
+  appendTranscriptHistory,
+  type TranscriptHistoryEntry,
+  PlayTranscript,
+  playBeep,
+} from './playback';
+import {
+  loadNotes,
+  loadTranscriptHistory,
+  saveHighlights,
+  saveNotes as persistNotes,
+  saveTranscriptHistory,
+} from './storage';
 import { buildHighlightRegexes } from './formatting';
 import {
   createInputBar,
@@ -9,8 +21,7 @@ import {
   normalizeInputBars,
   type InputBarId,
 } from './input-bars';
-import { PlayTranscript, playBeep } from './playback';
-import type { SessionState } from './session-state';
+import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
 
 interface PlaybackActionContext {
@@ -31,6 +42,8 @@ export function createPlaybackActions({
   getHighlightRegexes,
   setHighlightRegexes,
 }: PlaybackActionContext) {
+  let transcriptHistory: TranscriptHistoryEntry[] = [];
+
   function handleVisibilityChange(): void {
     const state = getState();
 
@@ -80,8 +93,19 @@ export function createPlaybackActions({
       return;
     }
 
-    transcript.reset();
-    setHighlightRegexes(buildHighlightRegexes(state.highlights));
+    const maxHistoryLines = character.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+    const highlightRegexes = buildHighlightRegexes(state.highlights);
+    const [notes, history] = await Promise.all([
+      loadNotes(character.name),
+      loadTranscriptHistory(character.name, maxHistoryLines),
+    ]);
+
+    const historySnapshot = maxHistoryLines > 0
+      ? transcript.loadHistory(history, highlightRegexes)
+      : transcript.loadHistory([], highlightRegexes);
+
+    transcriptHistory = history;
+    setHighlightRegexes(highlightRegexes);
 
     const initialBar = state.inputBars[0]?.id ?? 1;
 
@@ -92,11 +116,11 @@ export function createPlaybackActions({
       highlightsVisible: false,
       connectionStatus: 'idle',
       hasNewActivity: false,
-      outputChunks: [],
-      outputEndsWithBr: true,
+      outputChunks: historySnapshot.chunks,
+      outputEndsWithBr: historySnapshot.endsWithBr,
       userScrolled: false,
       activeBar: initialBar,
-      notes: await loadNotes(character.name),
+      notes,
     });
 
     focusElement(getInputBarInputId(initialBar));
@@ -140,6 +164,12 @@ export function createPlaybackActions({
   async function appendOutput(rawText: string): Promise<void> {
     const state = getState();
     const next = transcript.append(rawText, getHighlightRegexes());
+    const maxHistoryLines = state.currentCharacter?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+
+    if (state.currentCharacter && maxHistoryLines > 0) {
+      transcriptHistory = appendTranscriptHistory(transcriptHistory, rawText, maxHistoryLines);
+      void saveTranscriptHistory(state.currentCharacter.name, transcriptHistory, maxHistoryLines);
+    }
 
     patch({
       outputChunks: next.chunks,

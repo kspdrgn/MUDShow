@@ -1,8 +1,10 @@
 import type { Character, HighlightRule } from './types';
+import { trimTranscriptHistory, type TranscriptHistoryEntry } from './playback';
 import { invoke, isTauriAvailable } from './tauri';
 
 const CHARACTER_KEY = 'mudshow_chars';
 const HIGHLIGHT_KEY = 'mudshow_highlights';
+const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
 const STORAGE_MODE_KEY = 'mudshow_storage_mode';
 export type DesktopStorageMode = 'webview' | 'file';
@@ -10,6 +12,7 @@ export type DesktopStorageMode = 'webview' | 'file';
 interface PersistentData {
   characters: Character[];
   highlights: HighlightRule[];
+  history: Record<string, TranscriptHistoryEntry[]>;
   notes: Record<string, string>;
 }
 
@@ -46,6 +49,7 @@ function createEmptyData(): PersistentData {
   return {
     characters: [],
     highlights: [],
+    history: {},
     notes: {},
   };
 }
@@ -62,6 +66,7 @@ function readWebviewData(): PersistentData {
   return {
     characters: safeParse(localStorage.getItem(CHARACTER_KEY), []),
     highlights: safeParse(localStorage.getItem(HIGHLIGHT_KEY), []),
+    history: safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {},
     notes: Object.keys(localStorage)
       .filter((key) => key.startsWith(NOTES_PREFIX))
       .reduce<Record<string, string>>((accumulator, key) => {
@@ -74,6 +79,7 @@ function readWebviewData(): PersistentData {
 function writeWebviewData(data: PersistentData): void {
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data.characters));
   localStorage.setItem(HIGHLIGHT_KEY, JSON.stringify(data.highlights));
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(data.history));
 
   Object.keys(localStorage)
     .filter((key) => key.startsWith(NOTES_PREFIX))
@@ -86,8 +92,16 @@ function writeWebviewData(data: PersistentData): void {
 
 async function readFileData(): Promise<PersistentData> {
   const raw = await invoke<string>('load_app_storage');
+  const parsed = safeParse<Partial<PersistentData>>(raw, {});
 
-  return safeParse(raw, createEmptyData());
+  return {
+    ...createEmptyData(),
+    ...parsed,
+    characters: parsed.characters ?? [],
+    highlights: parsed.highlights ?? [],
+    history: parsed.history ?? {},
+    notes: parsed.notes ?? {},
+  };
 }
 
 async function writeFileData(data: PersistentData): Promise<void> {
@@ -127,6 +141,25 @@ function updateNotes(data: PersistentData, characterName: string, notes: string 
   };
 }
 
+function updateHistory(
+  data: PersistentData,
+  characterName: string,
+  entries: TranscriptHistoryEntry[] | null,
+): PersistentData {
+  const nextHistory = { ...data.history };
+
+  if (entries === null) {
+    delete nextHistory[characterName];
+  } else {
+    nextHistory[characterName] = entries;
+  }
+
+  return {
+    ...data,
+    history: nextHistory,
+  };
+}
+
 export async function loadCharacters(): Promise<Character[]> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
     return safeParse(localStorage.getItem(CHARACTER_KEY), []);
@@ -147,6 +180,93 @@ export async function saveCharacters(characters: Character[]): Promise<void> {
     ...data,
     characters,
   }));
+}
+
+export async function loadTranscriptHistory(
+  characterName: string,
+  maxLines = Number.POSITIVE_INFINITY,
+): Promise<TranscriptHistoryEntry[]> {
+  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
+    return trimTranscriptHistory(history[characterName] ?? [], maxLines);
+  }
+
+  await waitForPendingFileWrites();
+  const data = await readFileData();
+  return trimTranscriptHistory(data.history[characterName] ?? [], maxLines);
+}
+
+export async function saveTranscriptHistory(
+  characterName: string,
+  entries: TranscriptHistoryEntry[],
+  maxLines = Number.POSITIVE_INFINITY,
+): Promise<void> {
+  const nextEntries = trimTranscriptHistory(entries, maxLines);
+
+  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
+    const nextHistory = { ...history };
+
+    if (nextEntries.length > 0) {
+      nextHistory[characterName] = nextEntries;
+    } else {
+      delete nextHistory[characterName];
+    }
+
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    return;
+  }
+
+  await queueFileMutation((data) => updateHistory(data, characterName, nextEntries.length > 0 ? nextEntries : null));
+}
+
+export async function moveTranscriptHistory(fromCharacterName: string, toCharacterName: string): Promise<void> {
+  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
+    const nextHistory = { ...history };
+    const entries = nextHistory[fromCharacterName];
+
+    delete nextHistory[fromCharacterName];
+
+    if (entries !== undefined) {
+      nextHistory[toCharacterName] = entries;
+    } else {
+      delete nextHistory[toCharacterName];
+    }
+
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    return;
+  }
+
+  await queueFileMutation((data) => {
+    const nextHistory = { ...data.history };
+    const entries = nextHistory[fromCharacterName];
+
+    delete nextHistory[fromCharacterName];
+
+    if (entries !== undefined) {
+      nextHistory[toCharacterName] = entries;
+    } else {
+      delete nextHistory[toCharacterName];
+    }
+
+    return {
+      ...data,
+      history: nextHistory,
+    };
+  });
+}
+
+export async function deleteTranscriptHistory(characterName: string): Promise<void> {
+  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
+    const nextHistory = { ...history };
+    delete nextHistory[characterName];
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    return;
+  }
+
+  await queueFileMutation((data) => updateHistory(data, characterName, null));
 }
 
 export async function loadNotes(characterName: string): Promise<string> {

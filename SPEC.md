@@ -6,7 +6,7 @@ MUDShow High-Level Tech-Agnostic Spec
 Provide a minimal client for connecting to a single MU* character/session at a time, with just enough local tooling to support roleplay and day-to-day play.
 
 ## Core Model
-- Local character profile: name, host, port, secure/plain connection choice, optional preferred output width, activity sound setting.
+- Local character profile: name, host, port, secure/plain connection choice, optional preferred output width, rolling output history limit, activity sound setting.
 - Per-character notes: locally stored private freeform text associated with a remote character.
 - Global highlight rules: exact-text matches mapped to colors.
 - Session state: active connection, output stream, input focus, and read position.
@@ -22,6 +22,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - As a player, I can complete recently seen words to speed up typing names.
 - As a player, I can tell at a glance whether the session is connected, disconnected, or in error.
 - As a player, I can notice new activity even when I am away from the app.
+- As a player, I can restore a recent per-character transcript history when I reconnect after an interruption.
 - As a player, I can keep the interface simple and focused on play rather than automation.
 
 ## Non-Goals
@@ -38,6 +39,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 ## High-Level Functional Requirements
 - Show a character list with create, edit, connect, and delete actions.
 - Allow adding and editing character profiles.
+- Allow configuring a per-character transcript history line limit, with 0 disabling history storage and restore. The default is 0.
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
 - Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width.
@@ -60,6 +62,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Support quick toggling of highlighting panel with F4.
 - Play an optional activity alert when the app is unfocused and new output arrives.
 - Track focus/title attention state so the user can see unseen activity.
+- Store a rolling per-character transcript history locally and reload it when reconnecting.
 - Provide a small, low-clutter interface optimized for reading and typing.
 
 ## Input Command History

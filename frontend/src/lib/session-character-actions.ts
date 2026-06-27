@@ -1,7 +1,7 @@
 import type { Writable } from 'svelte/store';
 import type { Character, CharacterDraft } from './types';
-import { deleteNotes, moveNotes, saveCharacters } from './storage';
-import type { SessionState } from './session-state';
+import { deleteNotes, deleteTranscriptHistory, moveNotes, moveTranscriptHistory, saveCharacters } from './storage';
+import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { focusElement, nextFrame } from './session-dom';
 
 interface CharacterActionContext {
@@ -27,6 +27,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
           verifyCertificate: selected.tls !== false && selected.verifyCertificate !== false,
           width: String(selected.width ?? ''),
           sound: selected.sound === true,
+          outputHistoryLines: String(selected.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES),
         },
         modalOpen: true,
       });
@@ -42,6 +43,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
           verifyCertificate: true,
           width: '',
           sound: false,
+          outputHistoryLines: String(DEFAULT_OUTPUT_HISTORY_LINES),
         },
         modalOpen: true,
       });
@@ -58,10 +60,15 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
   function saveCharacter(draft: CharacterDraft): void {
     const name = draft.name.trim();
     const host = draft.host.trim();
-    const port = Number.parseInt(draft.port, 10);
-    const parsedWidth = typeof draft.width !== 'string' || draft.width.trim() === '' || draft.width.trim() === '0'
+    const port = Number.parseInt(String(draft.port), 10);
+    const widthValue = String(draft.width);
+    const parsedWidth = widthValue.trim() === '' || widthValue.trim() === '0'
       ? undefined
-      : Number.parseInt(draft.width, 10);
+      : Number.parseInt(widthValue, 10);
+    const outputHistoryValue = String(draft.outputHistoryLines);
+    const parsedOutputHistoryLines = outputHistoryValue.trim() === ''
+      ? DEFAULT_OUTPUT_HISTORY_LINES
+      : Number.parseInt(outputHistoryValue, 10);
     const state = getState();
 
     if (!name || !host || !Number.isFinite(port)) {
@@ -73,8 +80,13 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
       host,
       port,
       tls: draft.tls,
-      verifyCertificate: draft.tls ? draft.verifyCertificate : false,
+      verifyCertificate: draft.tls
+        ? draft.verifyCertificate
+        : false,
       sound: draft.sound,
+      outputHistoryLines: Number.isFinite(parsedOutputHistoryLines)
+        ? Math.max(0, parsedOutputHistoryLines)
+        : DEFAULT_OUTPUT_HISTORY_LINES,
     };
 
     if (parsedWidth !== undefined && Number.isFinite(parsedWidth)) {
@@ -94,6 +106,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
 
     if (previousCharacter && previousCharacter.name !== nextCharacter.name) {
       void moveNotes(previousCharacter.name, nextCharacter.name);
+      void moveTranscriptHistory(previousCharacter.name, nextCharacter.name);
     }
 
     patch({
@@ -115,6 +128,7 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
 
     if (removed) {
       void deleteNotes(removed.name);
+      void deleteTranscriptHistory(removed.name);
     }
 
     patch({

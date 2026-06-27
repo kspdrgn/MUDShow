@@ -3,6 +3,7 @@ import { createInputBars, type InputBarConfig, type InputBarId } from './input-b
 
 export type Screen = 'list' | 'play';
 export type ConnectionStatus = 'idle' | 'connected' | 'error';
+export const DEFAULT_OUTPUT_HISTORY_LINES = 0;
 
 export interface SessionState {
   characters: Character[];
@@ -33,6 +34,7 @@ export const INITIAL_DRAFT: CharacterDraft = {
   verifyCertificate: true,
   width: '',
   sound: false,
+  outputHistoryLines: String(DEFAULT_OUTPUT_HISTORY_LINES),
 };
 
 export function createInitialState(): SessionState {

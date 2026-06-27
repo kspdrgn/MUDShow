@@ -19,6 +19,7 @@ MUD Text
     [X] Automatic clipboard copy when selecting text
     [ ] Timestamps visible on mouse-over lines
     [ ] Visible Timestamps customizable
+    [X] Output history - Buffer of previous session contents restored for context
   Scrolling
     [ ] Pause auto-scroll when selecting
     [ ] Mousewheel anywhere scrolls the main window
@@ -31,9 +32,9 @@ MUD Text
     [ ] User specified word color highlights
     [ ] Reg-ex highlights
   Logging
-    [ ] One-click logging. Start logging and auto-name log file with date and maybe characters too.
+    [ ] One-click session logging. Start logging and auto-name log file with date and maybe characters too.
     [ ] Visual indicator that logging is enabled
-    [ ] On-the-fly log renaming of active log file
+    [ ] On-the-fly log renaming of active session log file
     [ ] Auto-log everything to separate log file
 
 Multiple Connections

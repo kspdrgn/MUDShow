@@ -30,10 +30,10 @@ VS Code: See file `vscode.launch.json.example` for working launch options. You c
 
 ## Usage
 
-- The app starts with one input bar, and you can add or remove more from the bar controls. Switch between the first two with F1 or F2 when both are present.
-- The bar count resets to one every time you restart the app.
+- The app starts with one input bar, and you can add or remove more from the bar controls in the bottom right. Switch between the first two with F1 or F2 when both are present.
 - Press F3 to open and close the notes panel. Each character has their own notes. If you value them, back them up regularly.
 - Press F4 to open and close the highlights panel. If you put in a word or phrase, you can make it show up with a different colour. No, there is no regex support.
-- There are options for an optional max line width and for a new activity sound in the character editor. Leave line width blank to use the full window width, or set a cap if you prefer a narrower column.
+- There are options for an optional max line width, a new activity sound, and output history lines in the character editor.
+- Output history can be enabled by setting max number of lines to save. Output history will show when reconnecting. Set to 0 to disable.
 - Tab completion only gives you the most recent word, so it's mainly useful for names.
 - If you clear your browser data, you'll lose your characters and their notes.

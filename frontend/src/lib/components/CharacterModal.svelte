@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CharacterDraft } from '../types';
+  import { DEFAULT_OUTPUT_HISTORY_LINES } from '../session-state';
 
   const emptyDraft: CharacterDraft = {
     name: '',
@@ -9,6 +10,7 @@
     verifyCertificate: true,
     width: '',
     sound: false,
+    outputHistoryLines: String(DEFAULT_OUTPUT_HISTORY_LINES),
   };
 
   export let open = false;
@@ -25,6 +27,7 @@
   let verifyCertificate = true;
   let width = '';
   let sound = false;
+  let outputHistoryLines = String(DEFAULT_OUTPUT_HISTORY_LINES);
 
   $: if (open) {
     name = draft.name;
@@ -34,10 +37,20 @@
     verifyCertificate = draft.tls ? draft.verifyCertificate !== false : false;
     width = draft.width;
     sound = draft.sound;
+    outputHistoryLines = draft.outputHistoryLines ?? String(DEFAULT_OUTPUT_HISTORY_LINES);
   }
 
   function handleSave(): void {
-    onSave({ name, host, port, tls, verifyCertificate, width, sound });
+    onSave({
+      name,
+      host,
+      port: String(port),
+      tls,
+      verifyCertificate,
+      width: String(width),
+      sound,
+      outputHistoryLines: String(outputHistoryLines),
+    });
   }
 
   function handleTlsChange(event: Event): void {
@@ -112,6 +125,18 @@
             sound on activity when unfocused
           </label>
         </div>
+        <div class="field">
+          <label for="field-output-history-lines">output history lines</label>
+          <input
+            id="field-output-history-lines"
+          type="number"
+          bind:value={outputHistoryLines}
+          autocomplete="off"
+          min="0"
+          max="10000"
+          placeholder="0"
+        />
+      </div>
         <div class="modal-actions">
           <button class="btn" type="button" on:click={onCancel}>cancel</button>
           <button class="btn primary" type="submit">save</button>

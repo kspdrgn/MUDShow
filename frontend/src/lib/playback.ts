@@ -1,6 +1,57 @@
 import { CompletionManager } from './completion';
 import { ansiToHtml, applyHighlights, stripTelnet, type HighlightRegex } from './formatting';
 
+export interface TranscriptHistoryEntry {
+  text: string;
+  lines: number;
+}
+
+export function countTranscriptLines(rawText: string): number {
+  const text = stripTelnet(rawText).replace(/\r+\n/g, '\n');
+
+  if (!text) {
+    return 0;
+  }
+
+  const breaks = text.match(/\n/g)?.length ?? 0;
+  return breaks + (text.endsWith('\n') ? 0 : 1);
+}
+
+export function trimTranscriptHistory(
+  entries: TranscriptHistoryEntry[],
+  maxLines: number,
+): TranscriptHistoryEntry[] {
+  if (maxLines <= 0) {
+    return [];
+  }
+
+  const nextEntries = entries.filter((entry) => entry.lines > 0);
+  let totalLines = nextEntries.reduce((sum, entry) => sum + entry.lines, 0);
+
+  while (nextEntries.length > 0 && totalLines > maxLines) {
+    totalLines -= nextEntries.shift()?.lines ?? 0;
+  }
+
+  return nextEntries;
+}
+
+export function appendTranscriptHistory(
+  entries: TranscriptHistoryEntry[],
+  rawText: string,
+  maxLines: number,
+): TranscriptHistoryEntry[] {
+  if (maxLines <= 0) {
+    return [];
+  }
+
+  const lines = countTranscriptLines(rawText);
+  if (lines <= 0) {
+    return entries;
+  }
+
+  return trimTranscriptHistory([...entries, { text: rawText, lines }], maxLines);
+}
+
 export class PlayTranscript {
   private completion = new CompletionManager();
   private outputEndsWithBr = true;
@@ -11,6 +62,16 @@ export class PlayTranscript {
     this.chunks = [];
     this.outputEndsWithBr = true;
     this.completion.resetCycle();
+  }
+
+  loadHistory(entries: TranscriptHistoryEntry[], highlightRegexes: HighlightRegex[]): { chunks: string[]; endsWithBr: boolean } {
+    this.reset();
+
+    for (const entry of entries) {
+      this.append(entry.text, highlightRegexes);
+    }
+
+    return { chunks: this.chunks, endsWithBr: this.outputEndsWithBr };
   }
 
   harvest(text: string): void {

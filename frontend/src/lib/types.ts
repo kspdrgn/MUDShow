@@ -6,6 +6,7 @@ export interface Character {
   verifyCertificate?: boolean;
   width?: number;
   sound?: boolean;
+  outputHistoryLines?: number;
 }
 
 export interface CharacterDraft {
@@ -16,6 +17,7 @@ export interface CharacterDraft {
   verifyCertificate: boolean;
   width: string;
   sound: boolean;
+  outputHistoryLines: string;
 }
 
 export interface HighlightRule {
