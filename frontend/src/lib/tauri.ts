@@ -12,6 +12,14 @@ type TauriGlobal = Window & {
   };
 };
 
+export function isTauriAvailable(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return Boolean((window as TauriGlobal).__TAURI_INTERNALS__);
+}
+
 function getTauriGlobal() {
   if (typeof window === 'undefined') {
     throw new Error('Tauri APIs are only available in the desktop webview.');

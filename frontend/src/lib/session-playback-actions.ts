@@ -89,7 +89,7 @@ export function createPlaybackActions({
       outputEndsWithBr: true,
       userScrolled: false,
       activeBar: 1,
-      notes: loadNotes(character.name),
+      notes: await loadNotes(character.name),
     });
 
     focusElement('input1');
@@ -215,7 +215,7 @@ export function createPlaybackActions({
 
     const state = getState();
     const next = [...state.highlights, { pattern: trimmed, color }];
-    saveHighlights(next);
+    void saveHighlights(next);
     setHighlightRegexes(buildHighlightRegexes(next));
     patch({ highlights: next });
   }
@@ -224,7 +224,7 @@ export function createPlaybackActions({
     const state = getState();
     const next = [...state.highlights];
     next.splice(index, 1);
-    saveHighlights(next);
+    void saveHighlights(next);
     setHighlightRegexes(buildHighlightRegexes(next));
     patch({ highlights: next });
   }
@@ -236,7 +236,7 @@ export function createPlaybackActions({
       return;
     }
 
-    persistNotes(state.currentCharacter.name, notes);
+    void persistNotes(state.currentCharacter.name, notes);
     patch({ notes });
   }
 

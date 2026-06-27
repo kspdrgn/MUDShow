@@ -13,6 +13,8 @@
       : 'MUDShow';
 
   onMount(() => {
+    void session.load();
+
     const handleVisibilityChange = () => session.handleVisibilityChange();
     const handleKeyDown = (event: KeyboardEvent) => session.handleGlobalKeyDown(event);
 

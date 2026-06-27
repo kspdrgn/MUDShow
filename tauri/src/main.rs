@@ -1,4 +1,5 @@
 mod mud_backend;
+mod storage;
 
 use tauri::Manager;
 
@@ -9,6 +10,8 @@ fn main() {
             mud_backend::connect_mud,
             mud_backend::send_mud,
             mud_backend::disconnect_mud,
+            storage::load_app_storage,
+            storage::save_app_storage,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MUDShow")

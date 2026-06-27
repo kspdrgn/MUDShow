@@ -1,6 +1,6 @@
 import type { Writable } from 'svelte/store';
 import type { Character, CharacterDraft } from './types';
-import { saveCharacters } from './storage';
+import { deleteNotes, moveNotes, saveCharacters } from './storage';
 import type { SessionState } from './session-state';
 import { focusElement, nextFrame } from './session-dom';
 
@@ -90,7 +90,12 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
       nextCharacters[state.editingIndex] = nextCharacter;
     }
 
-    saveCharacters(nextCharacters);
+    void saveCharacters(nextCharacters);
+
+    if (previousCharacter && previousCharacter.name !== nextCharacter.name) {
+      void moveNotes(previousCharacter.name, nextCharacter.name);
+    }
+
     patch({
       characters: nextCharacters,
       modalOpen: false,
@@ -105,9 +110,20 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
   function deleteCharacter(index: number): void {
     const state = getState();
     const next = [...state.characters];
-    next.splice(index, 1);
-    saveCharacters(next);
-    patch({ characters: next });
+    const [removed] = next.splice(index, 1);
+    void saveCharacters(next);
+
+    if (removed) {
+      void deleteNotes(removed.name);
+    }
+
+    patch({
+      characters: next,
+      currentCharacter:
+        state.currentCharacter?.name === removed?.name ? null : state.currentCharacter,
+      notes:
+        state.currentCharacter?.name === removed?.name ? '' : state.notes,
+    });
   }
 
   return {

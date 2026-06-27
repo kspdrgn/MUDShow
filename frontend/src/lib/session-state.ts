@@ -1,5 +1,4 @@
 import type { Character, CharacterDraft, HighlightRule } from './types';
-import { loadCharacters, loadHighlights } from './storage';
 
 export type Screen = 'list' | 'play';
 export type ConnectionStatus = 'idle' | 'connected' | 'error';
@@ -36,8 +35,8 @@ export const INITIAL_DRAFT: CharacterDraft = {
 
 export function createInitialState(): SessionState {
   return {
-    characters: loadCharacters(),
-    highlights: loadHighlights(),
+    characters: [],
+    highlights: [],
     screen: 'list',
     currentCharacter: null,
     outputChunks: [],
