@@ -31,7 +31,7 @@
 
   <NotesPanel open={notesVisible} {notes} onInput={onNotesInput} />
 
-  <Transcript chunks={outputChunks} width={playWidth} onScroll={onOutputScroll} />
+  <Transcript {activeBar} chunks={outputChunks} width={playWidth} onScroll={onOutputScroll} />
 
   <InputBars
     {activeBar}
