@@ -6,4 +6,3 @@ tauri/.mudshow-tauri-dev-*.json
 .vscode/
 .vs/
 tsconfig.tsbuildinfo
-package-lock.json
