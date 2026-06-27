@@ -16,17 +16,16 @@ Nothing else.
 
 1. Click Code > Download ZIP, then unzip it.
 2. Have `node` version 26 or higher installed globally.
-3. Have `pnpm` installed globally (not just `npm`, do not run `npm install`).
-4. To build and debug the app, run `pnpm start`.
+3. To build and debug the app, run `npm start`.
 
 ## Development Options
 
 VS Code: See file `vscode.launch.json.example` for working launch options. You can copy this file into `/.vscode` to use and modify as needed.
 
-* Use `pnpm start` or `pnpm tauri:dev` to launch the full app in development mode.
-    * On Windows, `pnpm start` enables a WebView2 remote debugging port for the frontend. In VS Code, use `Attach to Tauri WebView` from `.vscode/launch.json` to debug the UI while Tauri is running.
-* Use `pnpm build` to produce a full release bundle (Windows exe or Linux AppImage) and installers.
-* Use `pnpm dev:frontend` to compile and launch the frontend UI code only, without any connection ability.
+* Use `npm start` or `npm run tauri:dev` to launch the full app in development mode.
+    * On Windows, `npm start` enables a WebView2 remote debugging port for the frontend. In VS Code, use `Attach to Tauri WebView` from `.vscode/launch.json` to debug the UI while Tauri is running.
+* Use `npm run build` to produce a full release bundle (Windows exe or Linux AppImage) and installers.
+* Use `npm run dev:frontend` to compile and launch the frontend UI code only, without any connection ability.
 
 ## Usage
 

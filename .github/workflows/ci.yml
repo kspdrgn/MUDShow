@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  NODE_VERSION: 26
+
 on:
   push:
     branches:
@@ -17,22 +20,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.8.0
-
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 26
-          cache: pnpm
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Build
-        run: pnpm build:frontend
+        run: npm run build:frontend
 
   desktop-release:
     name: Build desktop release artifact
@@ -43,22 +41,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.8.0
-
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: 26
-          cache: pnpm
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v4.5.0
@@ -82,7 +75,7 @@ jobs:
           $config | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding utf8
 
       - name: Build desktop bundle
-        run: pnpm build
+        run: npm run build
 
       - name: Stage desktop release files
         shell: pwsh

@@ -28,7 +28,7 @@ Add Linux release builds alongside the existing Windows pipeline, with a path to
 - Split the desktop build logic so Linux does not use the Windows-only sidecar staging path.
 - Add a Linux CI job that:
   - checks out the repo with full history if GitVersion is used
-  - installs Node, pnpm, Rust, and Linux system dependencies
+  - installs Node, npm, Rust, and Linux system dependencies
   - computes the build version
   - builds the frontend and backend
   - runs the Tauri Linux bundler
@@ -88,4 +88,3 @@ Add Linux release builds alongside the existing Windows pipeline, with a path to
 2. Keep the existing GitVersion-based versioning.
 3. Publish Linux artifacts from CD using the existing artifact handoff pattern.
 4. Add an AUR package that consumes the release artifact.
-

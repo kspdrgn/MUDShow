@@ -62,15 +62,11 @@ async function main() {
     childArgs.push('--config', tempConfigPath);
   }
 
-  const child = process.env.npm_execpath
-    ? spawn(process.env.npm_execpath, ['exec', 'tauri', ...childArgs], {
-        stdio: 'inherit',
-        windowsHide: false,
-      })
-    : spawn('pnpm', ['exec', 'tauri', ...childArgs], {
-        stdio: 'inherit',
-        windowsHide: false,
-      });
+  const tauriCli = resolve(repoRoot, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
+  const child = spawn(process.execPath, [tauriCli, ...childArgs], {
+    stdio: 'inherit',
+    windowsHide: false,
+  });
 
   const cleanup = () => {
     try {
