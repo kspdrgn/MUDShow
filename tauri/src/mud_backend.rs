@@ -1,21 +1,21 @@
 use std::{
-    io::{self, Read, Write},
-    net::TcpStream,
+    io,
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::{self, Receiver, Sender, TryRecvError},
         Arc, Mutex,
     },
-    thread::{self, JoinHandle},
-    time::Duration,
 };
 
-use native_tls::{TlsConnector, TlsStream};
+use native_tls::TlsConnector;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    sync::{mpsc as async_mpsc, watch},
+};
+use tokio_native_tls::TlsConnector as TokioTlsConnector;
 
-// Keep outbound sends wake-on-send while letting idle reads sleep longer to save power.
-const READ_TIMEOUT: Duration = Duration::from_millis(250);
 const MUD_EVENT_NAME: &str = "mud://event";
 
 #[derive(Default)]
@@ -54,7 +54,7 @@ impl ConnectionManager {
 }
 
 #[tauri::command]
-pub fn connect_mud(
+pub async fn connect_mud(
     app: AppHandle,
     state: State<'_, ConnectionManager>,
     host: String,
@@ -62,7 +62,7 @@ pub fn connect_mud(
     tls: bool,
     verify_certificate: bool,
 ) -> Result<(), String> {
-    let handle = open_connection(app, &host, port, tls, verify_certificate)?;
+    let handle = open_connection(app, &host, port, tls, verify_certificate).await?;
     state.replace(handle);
     Ok(())
 }
@@ -77,35 +77,33 @@ pub fn disconnect_mud(state: State<'_, ConnectionManager>) {
     state.disconnect();
 }
 
-fn open_connection(
+async fn open_connection(
     app: AppHandle,
     host: &str,
     port: u16,
     tls: bool,
     verify_certificate: bool,
 ) -> Result<ConnectionHandle, String> {
-    let stream = connect_stream(host, port, tls, verify_certificate)?;
-    let (outgoing_tx, outgoing_rx) = mpsc::channel();
+    let stream = connect_stream(host, port, tls, verify_certificate).await?;
+    let (outgoing_tx, outgoing_rx) = async_mpsc::unbounded_channel();
+    let (stop_tx, stop_rx) = watch::channel(false);
 
-    let stop_requested = Arc::new(AtomicBool::new(false));
     let active = Arc::new(AtomicBool::new(true));
-
-    let worker_stop = Arc::clone(&stop_requested);
     let worker_active = Arc::clone(&active);
     let worker_app = app.clone();
-    let worker = thread::spawn(move || {
-        run_connection(stream, outgoing_rx, worker_stop, worker_active, worker_app);
+
+    tauri::async_runtime::spawn(async move {
+        run_connection(stream, outgoing_rx, stop_rx, worker_active, worker_app).await;
     });
 
     Ok(ConnectionHandle {
-        stop_requested,
         active,
+        stop_tx,
         outgoing_tx: Some(outgoing_tx),
-        worker: Some(worker),
     })
 }
 
-fn connect_stream(
+async fn connect_stream(
     host: &str,
     port: u16,
     tls: bool,
@@ -113,12 +111,12 @@ fn connect_stream(
 ) -> Result<ConnectionStream, String> {
     let host = normalize_connect_host(host);
     let address = format!("{host}:{port}");
+
     let tcp = TcpStream::connect(&address)
+        .await
         .map_err(|error| format!("Failed to connect to {address}: {error}"))?;
     tcp.set_nodelay(true)
         .map_err(|error| format!("Failed to configure TCP socket: {error}"))?;
-    tcp.set_read_timeout(Some(READ_TIMEOUT))
-        .map_err(|error| format!("Failed to configure connection timeout: {error}"))?;
 
     if tls {
         let mut builder = TlsConnector::builder();
@@ -126,8 +124,10 @@ fn connect_stream(
         let connector = builder
             .build()
             .map_err(|error| format!("Failed to initialize TLS connector: {error}"))?;
+        let connector = TokioTlsConnector::from(connector);
         let stream = connector
             .connect(host, tcp)
+            .await
             .map_err(|error| format!("Failed to establish TLS connection to {address}: {error}"))?;
         return Ok(ConnectionStream::Tls(stream));
     }
@@ -142,73 +142,70 @@ fn normalize_connect_host(host: &str) -> &str {
     }
 }
 
-fn run_connection(
+async fn run_connection(
     mut stream: ConnectionStream,
-    outgoing_rx: Receiver<Vec<u8>>,
-    stop_requested: std::sync::Arc<AtomicBool>,
-    active: std::sync::Arc<AtomicBool>,
+    mut outgoing_rx: async_mpsc::UnboundedReceiver<Vec<u8>>,
+    mut stop_rx: watch::Receiver<bool>,
+    active: Arc<AtomicBool>,
     app: AppHandle,
 ) {
     let mut buffer = [0u8; 8192];
 
-    while !stop_requested.load(Ordering::SeqCst) {
-        loop {
-            match outgoing_rx.try_recv() {
-                Ok(bytes) => {
-                    if let Err(error) = stream.write_all(&bytes) {
-                        active.store(false, Ordering::SeqCst);
-                        if !stop_requested.load(Ordering::SeqCst) {
+    loop {
+        tokio::select! {
+            biased;
+            _ = stop_rx.changed() => {
+                break;
+            }
+            maybe_bytes = outgoing_rx.recv() => {
+                match maybe_bytes {
+                    Some(bytes) => {
+                        if let Err(error) = stream.write_all(&bytes).await {
+                            active.store(false, Ordering::SeqCst);
                             emit_event(
                                 &app,
                                 ConnectionEvent::Error {
                                     message: format!("Failed to send data: {error}"),
                                 },
                             );
+                            return;
                         }
+                    }
+                    None => {
+                        break;
+                    }
+                }
+            }
+            result = stream.read(&mut buffer) => {
+                match result {
+                    Ok(0) => {
+                        active.store(false, Ordering::SeqCst);
+                        emit_event(
+                            &app,
+                            ConnectionEvent::Closed {
+                                reason: "Remote host closed the connection".to_string(),
+                            },
+                        );
+                        return;
+                    }
+                    Ok(bytes_read) => {
+                        let cleaned = strip_telnet(&buffer[..bytes_read]);
+                        if !cleaned.is_empty() {
+                            let text = String::from_utf8_lossy(&cleaned).replace("\r\n", "\n");
+                            emit_event(&app, ConnectionEvent::Data { text });
+                        }
+                    }
+                    Err(error) => {
+                        active.store(false, Ordering::SeqCst);
+                        emit_event(
+                            &app,
+                            ConnectionEvent::Error {
+                                message: format!("Connection error: {error}"),
+                            },
+                        );
                         return;
                     }
                 }
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => break,
-            }
-        }
-
-        let result = stream.read(&mut buffer);
-
-        match result {
-            Ok(0) => {
-                active.store(false, Ordering::SeqCst);
-                if !stop_requested.load(Ordering::SeqCst) {
-                    emit_event(
-                        &app,
-                        ConnectionEvent::Closed {
-                            reason: "Remote host closed the connection".to_string(),
-                        },
-                    );
-                }
-                return;
-            }
-            Ok(bytes_read) => {
-                let cleaned = strip_telnet(&buffer[..bytes_read]);
-                if !cleaned.is_empty() {
-                    let text = String::from_utf8_lossy(&cleaned).replace("\r\n", "\n");
-                    emit_event(&app, ConnectionEvent::Data { text });
-                }
-            }
-            Err(error)
-                if error.kind() == io::ErrorKind::WouldBlock
-                    || error.kind() == io::ErrorKind::TimedOut => {}
-            Err(error) => {
-                active.store(false, Ordering::SeqCst);
-                if !stop_requested.load(Ordering::SeqCst) {
-                    emit_event(
-                        &app,
-                        ConnectionEvent::Error {
-                            message: format!("Connection error: {error}"),
-                        },
-                    );
-                }
-                return;
             }
         }
     }
@@ -259,27 +256,20 @@ fn strip_telnet(buf: &[u8]) -> Vec<u8> {
 }
 
 struct ConnectionHandle {
-    stop_requested: std::sync::Arc<AtomicBool>,
-    active: std::sync::Arc<AtomicBool>,
-    outgoing_tx: Option<Sender<Vec<u8>>>,
-    worker: Option<JoinHandle<()>>,
+    active: Arc<AtomicBool>,
+    stop_tx: watch::Sender<bool>,
+    outgoing_tx: Option<async_mpsc::UnboundedSender<Vec<u8>>>,
 }
 
 impl ConnectionHandle {
     fn mark_active(&mut self) {
-        self.stop_requested.store(false, Ordering::SeqCst);
         self.active.store(true, Ordering::SeqCst);
     }
 
     fn stop(&mut self) {
-        self.stop_requested.store(true, Ordering::SeqCst);
         self.active.store(false, Ordering::SeqCst);
-
+        let _ = self.stop_tx.send(true);
         self.outgoing_tx.take();
-
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
     }
 
     fn send(&self, bytes: &[u8]) -> Result<(), String> {
@@ -300,21 +290,21 @@ impl ConnectionHandle {
 
 enum ConnectionStream {
     Plain(TcpStream),
-    Tls(TlsStream<TcpStream>),
+    Tls(tokio_native_tls::TlsStream<TcpStream>),
 }
 
 impl ConnectionStream {
-    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+    async fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         match self {
-            ConnectionStream::Plain(stream) => stream.read(buffer),
-            ConnectionStream::Tls(stream) => stream.read(buffer),
+            ConnectionStream::Plain(stream) => stream.read(buffer).await,
+            ConnectionStream::Tls(stream) => stream.read(buffer).await,
         }
     }
 
-    fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
+    async fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
         match self {
-            ConnectionStream::Plain(stream) => stream.write_all(bytes),
-            ConnectionStream::Tls(stream) => stream.write_all(bytes),
+            ConnectionStream::Plain(stream) => stream.write_all(bytes).await,
+            ConnectionStream::Tls(stream) => stream.write_all(bytes).await,
         }
     }
 }
