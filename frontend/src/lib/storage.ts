@@ -25,9 +25,9 @@ function getDesktopStorageMode(): DesktopStorageMode {
     return 'webview';
   }
 
-  return localStorage.getItem(STORAGE_MODE_KEY) === 'webview'
-    ? 'webview'
-    : 'file';
+  return localStorage.getItem(STORAGE_MODE_KEY) === 'file'
+    ? 'file'
+    : 'webview';
 }
 
 function safeParse<T>(raw: string | null, fallback: T): T {

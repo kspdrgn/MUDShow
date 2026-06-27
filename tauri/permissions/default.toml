@@ -6,4 +6,6 @@ permissions = [
   "allow-connect-mud",
   "allow-send-mud",
   "allow-disconnect-mud",
+  "allow-load-app-storage",
+  "allow-save-app-storage",
 ]

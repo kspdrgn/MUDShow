@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-load-app-storage`\n- `allow-save-app-storage`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-load-app-storage`\n- `allow-save-app-storage`"
         },
         {
           "description": "Enables the connect_mud command without any pre-configured scope.",
@@ -193,6 +193,18 @@
           "type": "string",
           "const": "allow-disconnect-mud",
           "markdownDescription": "Enables the disconnect_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the load_app_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-load-app-storage",
+          "markdownDescription": "Enables the load_app_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_app_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-app-storage",
+          "markdownDescription": "Enables the save_app_storage command without any pre-configured scope."
         },
         {
           "description": "Enables the send_mud command without any pre-configured scope.",
@@ -211,6 +223,18 @@
           "type": "string",
           "const": "deny-disconnect-mud",
           "markdownDescription": "Denies the disconnect_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the load_app_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-load-app-storage",
+          "markdownDescription": "Denies the load_app_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_app_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-app-storage",
+          "markdownDescription": "Denies the save_app_storage command without any pre-configured scope."
         },
         {
           "description": "Denies the send_mud command without any pre-configured scope.",

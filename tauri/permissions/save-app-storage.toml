@@ -1,0 +1,11 @@
+# Allows the frontend to save the persisted app storage.
+
+[[permission]]
+identifier = "allow-save-app-storage"
+description = "Enables the save_app_storage command without any pre-configured scope."
+commands.allow = ["save_app_storage"]
+
+[[permission]]
+identifier = "deny-save-app-storage"
+description = "Denies the save_app_storage command without any pre-configured scope."
+commands.deny = ["save_app_storage"]
