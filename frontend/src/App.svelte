@@ -47,6 +47,7 @@
   <PlayScreen
     activeBar={$session.activeBar}
     connectionStatus={$session.connectionStatus}
+    bars={$session.inputBars}
     highlights={$session.highlights}
     highlightsVisible={$session.highlightsVisible}
     notes={$session.notes}
@@ -58,6 +59,9 @@
     onInputFocusBar={(bar) => session.handleInputFocus(bar)}
     onInputSubmit={(bar, value) => session.handleInputSubmit(bar, value)}
     onInputComplete={(bar, value, selectionStart) => session.completeInput(value, selectionStart)}
+    onInputAddBar={(bar) => void session.addInputBarAfter(bar)}
+    onInputRemoveBar={(bar) => void session.removeInputBar(bar)}
+    onInputResizeBar={(bar, delta) => session.resizeInputBar(bar, delta)}
     onNotesInput={(notes) => session.saveNotes(notes)}
     onOutputScroll={() => session.handleOutputScroll()}
   />

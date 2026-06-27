@@ -1,7 +1,8 @@
 <script lang="ts">
   import { copyTextToClipboard, focusElement } from '../session-dom';
+  import { getInputBarInputId, type InputBarId } from '../input-bars';
 
-  export let activeBar: 1 | 2 = 1;
+  export let activeBar: InputBarId = 1;
   export let chunks: string[] = [];
   export let width = 'none';
   export let onScroll: () => void;
@@ -10,15 +11,16 @@
     const selection = window.getSelection();
     const text = selection?.toString() ?? '';
 
-    if (!text.trim()) {
+    if (text.trim()) {
+      try {
+        await copyTextToClipboard(text);
+      } finally {
+        focusElement(getInputBarInputId(activeBar));
+      }
       return;
     }
 
-    try {
-      await copyTextToClipboard(text);
-    } finally {
-      focusElement(activeBar === 1 ? 'input1' : 'input2');
-    }
+    focusElement(getInputBarInputId(activeBar));
   }
 </script>
 

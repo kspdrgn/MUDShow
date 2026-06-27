@@ -1,4 +1,5 @@
 import type { Character, CharacterDraft, HighlightRule } from './types';
+import { createInputBars, type InputBarConfig, type InputBarId } from './input-bars';
 
 export type Screen = 'list' | 'play';
 export type ConnectionStatus = 'idle' | 'connected' | 'error';
@@ -6,12 +7,13 @@ export type ConnectionStatus = 'idle' | 'connected' | 'error';
 export interface SessionState {
   characters: Character[];
   highlights: HighlightRule[];
+  inputBars: InputBarConfig[];
   screen: Screen;
   currentCharacter: Character | null;
   outputChunks: string[];
   outputEndsWithBr: boolean;
   userScrolled: boolean;
-  activeBar: 1 | 2;
+  activeBar: InputBarId;
   notesVisible: boolean;
   highlightsVisible: boolean;
   connectionStatus: ConnectionStatus;
@@ -37,6 +39,7 @@ export function createInitialState(): SessionState {
   return {
     characters: [],
     highlights: [],
+    inputBars: createInputBars(1),
     screen: 'list',
     currentCharacter: null,
     outputChunks: [],

@@ -1,8 +1,8 @@
 Input Box
   [X] Input Command History
   [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text
-  [?] Multiple Input Boxes - Buttons to spawn or remove more inputs
-  [ ] Resize input height by lines
+  [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
+  [X] Resize input height by lines
   [?] TAB auto-complete of names/objects known or in MUD text
   [ ] Spellcheck
   [ ] Thesaurus

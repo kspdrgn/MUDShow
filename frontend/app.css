@@ -488,40 +488,42 @@ body {
 }
 
 .input-bar {
-  display: flex;
-  align-items: center;
-  background: var(--input-bg);
   position: relative;
+  background: var(--input-bg);
 }
 
 .input-bar.focused {
   background: var(--input-active);
 }
 
-.input-indicator {
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  padding: 0 6px;
-  letter-spacing: 0.1em;
-  flex-shrink: 0;
-  user-select: none;
-}
-
-.input-bar.focused .input-indicator {
-  color: var(--accent);
-}
-
 .mud-input {
-  flex: 1;
   background: transparent;
   border: none;
   outline: none;
   font-family: var(--font-mono);
   font-size: 13px;
+  line-height: 1.55;
   color: var(--text-bright);
-  padding: 6px 0;
+  padding: 0.6rem 0.7rem 0.6rem 0.7rem;
   caret-color: var(--accent);
+  resize: none;
+  width: 100%;
+  display: block;
+  min-height: calc(1.55em + 1.2rem);
+  overflow: hidden;
+}
+
+.status-dot-slot {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.status-dot-slot #status-dot {
+  margin: 0;
 }
 
 #status-dot {
@@ -529,7 +531,6 @@ body {
   height: 5px;
   border-radius: 50%;
   background: var(--text-dim);
-  margin: 0 8px;
   flex-shrink: 0;
   transition: background 0.3s;
 }
@@ -540,6 +541,60 @@ body {
 
 #status-dot.error {
   background: var(--danger);
+}
+
+.input-controls {
+  position: absolute;
+  right: 2.2rem;
+  top: auto;
+  bottom: 0.35rem;
+  width: 4.8rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.input-controls.visible {
+  opacity: 1;
+}
+
+.input-control-grid {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.input-control {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border-active);
+  border-radius: 999px;
+  background: rgba(5, 5, 5, 0.88);
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    border-color 0.12s,
+    background 0.12s;
+}
+
+.input-control:hover {
+  color: var(--text-bright);
+  border-color: var(--text-dim);
+  background: rgba(13, 13, 16, 0.95);
+}
+
+.input-control.hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @media (max-width: 640px) {

@@ -2,6 +2,13 @@ import type { Writable } from 'svelte/store';
 import type { MudConnection } from './connection';
 import { loadNotes, saveHighlights, saveNotes as persistNotes } from './storage';
 import { buildHighlightRegexes } from './formatting';
+import {
+  createInputBar,
+  getInputBarInputId,
+  getNextInputBarId,
+  normalizeInputBars,
+  type InputBarId,
+} from './input-bars';
 import { PlayTranscript, playBeep } from './playback';
 import type { SessionState } from './session-state';
 import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
@@ -51,14 +58,12 @@ export function createPlaybackActions({
       return;
     }
 
-    if (event.key === 'F1') {
+    const hotkeyBar = state.inputBars.find((bar) => bar.label === event.key);
+
+    if (hotkeyBar) {
       event.preventDefault();
-      patch({ activeBar: 1 });
-      focusElement('input1');
-    } else if (event.key === 'F2') {
-      event.preventDefault();
-      patch({ activeBar: 2 });
-      focusElement('input2');
+      patch({ activeBar: hotkeyBar.id });
+      focusElement(getInputBarInputId(hotkeyBar.id));
     } else if (event.key === 'F3') {
       event.preventDefault();
       void togglePanel('notes');
@@ -78,6 +83,8 @@ export function createPlaybackActions({
     transcript.reset();
     setHighlightRegexes(buildHighlightRegexes(state.highlights));
 
+    const initialBar = state.inputBars[0]?.id ?? 1;
+
     patch({
       screen: 'play',
       currentCharacter: character,
@@ -88,11 +95,11 @@ export function createPlaybackActions({
       outputChunks: [],
       outputEndsWithBr: true,
       userScrolled: false,
-      activeBar: 1,
+      activeBar: initialBar,
       notes: await loadNotes(character.name),
     });
 
-    focusElement('input1');
+    focusElement(getInputBarInputId(initialBar));
 
     await connection.connect(
       {
@@ -156,11 +163,11 @@ export function createPlaybackActions({
     patch({ userScrolled: distance > 50 });
   }
 
-  function handleInputFocus(bar: 1 | 2): void {
+  function handleInputFocus(bar: InputBarId): void {
     patch({ activeBar: bar });
   }
 
-  function handleInputSubmit(_bar: 1 | 2, value: string): void {
+  function handleInputSubmit(_bar: InputBarId, value: string): void {
     if (!value.trim()) {
       return;
     }
@@ -202,8 +209,77 @@ export function createPlaybackActions({
     if (shouldOpen) {
       focusElement(panel === 'notes' ? 'notes-editor' : 'highlight-input');
     } else {
-      focusElement(getState().activeBar === 1 ? 'input1' : 'input2');
+      focusElement(getInputBarInputId(getState().activeBar));
     }
+  }
+
+  async function addInputBarAfter(barId: InputBarId): Promise<void> {
+    const state = getState();
+    const currentIndex = state.inputBars.findIndex((bar) => bar.id === barId);
+    const insertIndex = currentIndex >= 0 ? currentIndex + 1 : state.inputBars.length;
+    const nextBar = createInputBar(getNextInputBarId(state.inputBars));
+
+    const nextBars = normalizeInputBars([
+      ...state.inputBars.slice(0, insertIndex),
+      nextBar,
+      ...state.inputBars.slice(insertIndex),
+    ]);
+
+    patch({
+      inputBars: nextBars,
+      activeBar: nextBar.id,
+    });
+
+    await nextFrame();
+    focusElement(getInputBarInputId(nextBar.id));
+  }
+
+  async function removeInputBar(barId: InputBarId): Promise<void> {
+    const state = getState();
+    if (state.inputBars.length <= 1) {
+      return;
+    }
+
+    const currentIndex = state.inputBars.findIndex((bar) => bar.id === barId);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const remainingBars = normalizeInputBars(
+      state.inputBars.filter((bar) => bar.id !== barId),
+    );
+
+    const nextActiveBar =
+      state.activeBar === barId
+        ? remainingBars[Math.min(currentIndex, remainingBars.length - 1)]?.id ??
+          remainingBars[remainingBars.length - 1]?.id ??
+          remainingBars[0]?.id ??
+          state.activeBar
+        : state.activeBar;
+
+    patch({
+      inputBars: remainingBars,
+      activeBar: nextActiveBar,
+    });
+
+    await nextFrame();
+    focusElement(getInputBarInputId(nextActiveBar));
+  }
+
+  function resizeInputBar(barId: InputBarId, delta: -1 | 1): void {
+    const state = getState();
+    const nextBars = state.inputBars.map((bar) => {
+      if (bar.id !== barId) {
+        return bar;
+      }
+
+      return {
+        ...bar,
+        lines: Math.min(10, Math.max(1, bar.lines + delta)),
+      };
+    });
+
+    patch({ inputBars: normalizeInputBars(nextBars) });
   }
 
   function addHighlight(pattern: string, color: string): void {
@@ -251,6 +327,9 @@ export function createPlaybackActions({
     completeInput,
     resetCompletion,
     togglePanel,
+    addInputBarAfter,
+    removeInputBar,
+    resizeInputBar,
     addHighlight,
     deleteHighlight,
     saveNotes,

@@ -29,7 +29,7 @@
 ## Phase 5: Frontend Fit
 - [ ] Audit browser-only APIs and confirm which ones work unchanged in Tauri.
 - [ ] Keep keyboard shortcuts working in the desktop window.
-- [ ] Confirm focus switching between the two input bars still works.
+- [ ] Confirm focus switching between the available input bars still works.
 - [ ] Confirm notes and highlights panels still open and close correctly.
 - [ ] Confirm activity indication and beep behavior still feel right.
 

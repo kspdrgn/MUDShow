@@ -41,7 +41,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
 - Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width.
-- Provide two independent command input bars.
+- Provide a modular set of command input bars, starting with one and allowing more to be added.
 - Send entered commands to the active session.
 - Keep a session-scoped command history queue with a finite limit of 50 entries.
 - Use Up/Down to move backward/forward through the queue, including unsent drafts and edited history entries.
@@ -55,8 +55,9 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Add and remove highlight rules.
 - Apply highlight colors to matching text in session output.
 - Support simple word completion from recently seen session text.
-- Support quick switching between the two input bars.
-- Support quick toggling of notes and highlights panels.
+- Support quick switching between the first two input bars with F1 and F2 when both are present.
+- Support quick toggling of notes panel with F3.
+- Support quick toggling of highlighting panel with F4.
 - Play an optional activity alert when the app is unfocused and new output arrives.
 - Track focus/title attention state so the user can see unseen activity.
 - Provide a small, low-clutter interface optimized for reading and typing.
@@ -65,7 +66,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - The client keeps a single command history queue for the current app session.
 - The queue is finite and should retain the most recent 50 entries.
 - History is not persisted across app restarts.
-- History is shared by both input bars.
+- History is shared by all input bars.
 - When the user submits a command, that command is appended to the queue if it is not already the most recent entry.
 - When the user types a command without submitting it and then starts browsing history, that typed text becomes part of the same queue.
 - When the user browses a recalled history entry and edits it, the edited text is stored as a new queue entry rather than replacing the earlier entry.
