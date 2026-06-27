@@ -21,6 +21,8 @@ Nothing else.
 
 ## Development Options
 
+VS Code: See file `vscode.launch.json.example` for working launch options. You can copy this file into `/.vscode` to use and modify as needed.
+
 * Use `pnpm start` or `pnpm tauri:dev` to launch the full app in development mode.
     * On Windows, `pnpm start` enables a WebView2 remote debugging port for the frontend. In VS Code, use `Attach to Tauri WebView` from `.vscode/launch.json` to debug the UI while Tauri is running.
 * Use `pnpm build` to produce a full release bundle (Windows exe or Linux AppImage) and installers.
