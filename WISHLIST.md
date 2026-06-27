@@ -1,6 +1,6 @@
 Input Box
   [X] Input Command History
-  [ ] Re-focus - Automatically bring keyboard focus back to input box after selecting world text
+  [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text
   [?] Multiple Input Boxes - Buttons to spawn or remove more inputs
   [ ] Resize input height by lines
   [?] TAB auto-complete of names/objects known or in MUD text
@@ -16,7 +16,7 @@ MUD Text
   Contents
     [ ] Clickable links
     [ ] Auto-show image links
-    [ ] Automatic clipboard copy when selecting text
+    [X] Automatic clipboard copy when selecting text
     [ ] Timestamps visible on mouse-over lines
     [ ] Visible Timestamps customizable
   Scrolling
