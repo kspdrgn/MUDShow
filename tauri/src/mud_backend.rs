@@ -1,8 +1,9 @@
 use std::{
     io::{self, Read, Write},
-    net::{Shutdown, TcpStream},
+    net::TcpStream,
     sync::{
         atomic::{AtomicBool, Ordering},
+        mpsc::{self, Receiver, Sender, TryRecvError},
         Arc, Mutex,
     },
     thread::{self, JoinHandle},
@@ -13,6 +14,7 @@ use native_tls::{TlsConnector, TlsStream};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
+// Keep outbound sends wake-on-send while letting idle reads sleep longer to save power.
 const READ_TIMEOUT: Duration = Duration::from_millis(250);
 const MUD_EVENT_NAME: &str = "mud://event";
 
@@ -82,29 +84,24 @@ fn open_connection(
     tls: bool,
     verify_certificate: bool,
 ) -> Result<ConnectionHandle, String> {
-    let stream = Arc::new(Mutex::new(connect_stream(
-        host,
-        port,
-        tls,
-        verify_certificate,
-    )?));
+    let stream = connect_stream(host, port, tls, verify_certificate)?;
+    let (outgoing_tx, outgoing_rx) = mpsc::channel();
 
     let stop_requested = Arc::new(AtomicBool::new(false));
     let active = Arc::new(AtomicBool::new(true));
 
-    let reader_stream = Arc::clone(&stream);
-    let reader_stop = Arc::clone(&stop_requested);
-    let reader_active = Arc::clone(&active);
-    let reader_app = app.clone();
-    let reader = thread::spawn(move || {
-        read_connection(reader_stream, reader_stop, reader_active, reader_app);
+    let worker_stop = Arc::clone(&stop_requested);
+    let worker_active = Arc::clone(&active);
+    let worker_app = app.clone();
+    let worker = thread::spawn(move || {
+        run_connection(stream, outgoing_rx, worker_stop, worker_active, worker_app);
     });
 
     Ok(ConnectionHandle {
         stop_requested,
         active,
-        stream,
-        reader: Some(reader),
+        outgoing_tx: Some(outgoing_tx),
+        worker: Some(worker),
     })
 }
 
@@ -145,8 +142,9 @@ fn normalize_connect_host(host: &str) -> &str {
     }
 }
 
-fn read_connection(
-    stream: Arc<Mutex<ConnectionStream>>,
+fn run_connection(
+    mut stream: ConnectionStream,
+    outgoing_rx: Receiver<Vec<u8>>,
     stop_requested: std::sync::Arc<AtomicBool>,
     active: std::sync::Arc<AtomicBool>,
     app: AppHandle,
@@ -154,25 +152,28 @@ fn read_connection(
     let mut buffer = [0u8; 8192];
 
     while !stop_requested.load(Ordering::SeqCst) {
-        let result = {
-            let mut guard = match stream.lock() {
-                Ok(guard) => guard,
-                Err(_) => {
-                    active.store(false, Ordering::SeqCst);
-                    if !stop_requested.load(Ordering::SeqCst) {
-                        emit_event(
-                            &app,
-                            ConnectionEvent::Error {
-                                message: "Connection state is unavailable".to_string(),
-                            },
-                        );
+        loop {
+            match outgoing_rx.try_recv() {
+                Ok(bytes) => {
+                    if let Err(error) = stream.write_all(&bytes) {
+                        active.store(false, Ordering::SeqCst);
+                        if !stop_requested.load(Ordering::SeqCst) {
+                            emit_event(
+                                &app,
+                                ConnectionEvent::Error {
+                                    message: format!("Failed to send data: {error}"),
+                                },
+                            );
+                        }
+                        return;
                     }
-                    return;
                 }
-            };
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => break,
+            }
+        }
 
-            guard.read(&mut buffer)
-        };
+        let result = stream.read(&mut buffer);
 
         match result {
             Ok(0) => {
@@ -260,8 +261,8 @@ fn strip_telnet(buf: &[u8]) -> Vec<u8> {
 struct ConnectionHandle {
     stop_requested: std::sync::Arc<AtomicBool>,
     active: std::sync::Arc<AtomicBool>,
-    stream: Arc<Mutex<ConnectionStream>>,
-    reader: Option<JoinHandle<()>>,
+    outgoing_tx: Option<Sender<Vec<u8>>>,
+    worker: Option<JoinHandle<()>>,
 }
 
 impl ConnectionHandle {
@@ -274,12 +275,10 @@ impl ConnectionHandle {
         self.stop_requested.store(true, Ordering::SeqCst);
         self.active.store(false, Ordering::SeqCst);
 
-        if let Ok(mut stream) = self.stream.lock() {
-            let _ = stream.shutdown();
-        }
+        self.outgoing_tx.take();
 
-        if let Some(reader) = self.reader.take() {
-            let _ = reader.join();
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
         }
     }
 
@@ -288,14 +287,14 @@ impl ConnectionHandle {
             return Err("No active connection".to_string());
         }
 
-        let mut stream = self
-            .stream
-            .lock()
-            .map_err(|_| "Connection state is unavailable".to_string())?;
+        let sender = self
+            .outgoing_tx
+            .as_ref()
+            .ok_or_else(|| "No active connection".to_string())?;
 
-        stream
-            .write_all(bytes)
-            .map_err(|error| format!("Failed to send data: {error}"))
+        sender
+            .send(bytes.to_vec())
+            .map_err(|_| "No active connection".to_string())
     }
 }
 
@@ -316,13 +315,6 @@ impl ConnectionStream {
         match self {
             ConnectionStream::Plain(stream) => stream.write_all(bytes),
             ConnectionStream::Tls(stream) => stream.write_all(bytes),
-        }
-    }
-
-    fn shutdown(&mut self) -> io::Result<()> {
-        match self {
-            ConnectionStream::Plain(stream) => stream.shutdown(Shutdown::Both),
-            ConnectionStream::Tls(stream) => stream.get_mut().shutdown(Shutdown::Both),
         }
     }
 }
