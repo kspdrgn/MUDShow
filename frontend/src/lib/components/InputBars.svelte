@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import StatusDot from './StatusDot.svelte';
 
   export let activeBar: 1 | 2 = 1;
@@ -17,6 +18,10 @@
   let inputTwo = '';
   let input1El: HTMLInputElement | null = null;
   let input2El: HTMLInputElement | null = null;
+
+  onMount(() => {
+    input1El?.focus();
+  });
 
   interface HistoryBrowseState {
     cursor: number | null;
