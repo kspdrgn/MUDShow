@@ -3,6 +3,7 @@ node_modules/
 dist/
 tauri/target/
 tauri/bin/
+tauri/.mudshow-tauri-dev-*.json
 .vscode/
 .vs/
 tsconfig.tsbuildinfo
