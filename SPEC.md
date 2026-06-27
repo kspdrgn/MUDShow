@@ -1,4 +1,6 @@
-# MUDShow High-Level Tech-Agnostic Spec
+MUDShow High-Level Tech-Agnostic Spec
+
+# Overview
 
 ## Purpose
 Provide a minimal client for connecting to a single MU* character/session at a time, with just enough local tooling to support roleplay and day-to-day play.
@@ -8,32 +10,6 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Per-character notes: locally stored private freeform text associated with a remote character.
 - Global highlight rules: exact-text matches mapped to colors.
 - Session state: active connection, output stream, input focus, and read position.
-
-## Functional Requirements
-- Show a character list with create, edit, connect, and delete actions.
-- Allow adding and editing character profiles.
-- Connect to a remote MU* endpoint using the selected profile.
-- Display incoming text stream with basic terminal-style formatting.
-- Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width.
-- Provide two independent command input bars.
-- Send entered commands to the active session.
-- Keep a finite rolling command history for the current app session only.
-- Use Up/Down to move backward/forward through previously sent commands, restoring any unsent draft before browsing.
-- Keep a scrollable transcript of session output.
-- Auto-scroll when the user has not manually scrolled away.
-- Indicate connection state and errors clearly.
-- Allow reconnecting after disconnect.
-- Store characters, notes, and highlights locally on the user’s device.
-- Open and close a notes panel for the active character.
-- Open and close a highlights panel for global rules.
-- Add and remove highlight rules.
-- Apply highlight colors to matching text in session output.
-- Support simple word completion from recently seen session text.
-- Support quick switching between the two input bars.
-- Support quick toggling of notes and highlights panels.
-- Play an optional activity alert when the app is unfocused and new output arrives.
-- Track focus/title attention state so the user can see unseen activity.
-- Provide a small, low-clutter interface optimized for reading and typing.
 
 ## User Stories
 - As a player, I can save multiple characters so I can return to different worlds or accounts quickly.
@@ -56,3 +32,44 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - No shared or cloud persistence.
 - No persistence for command history across app restarts.
 - No rich regex-based highlight language.
+
+# Requirements 
+
+## High-Level Functional Requirements
+- Show a character list with create, edit, connect, and delete actions.
+- Allow adding and editing character profiles.
+- Connect to a remote MU* endpoint using the selected profile.
+- Display incoming text stream with basic terminal-style formatting.
+- Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width.
+- Provide two independent command input bars.
+- Send entered commands to the active session.
+- Keep a session-scoped command history queue with a finite limit of 50 entries.
+- Use Up/Down to move backward/forward through the queue, including unsent drafts and edited history entries.
+- Keep a scrollable transcript of session output.
+- Auto-scroll when the user has not manually scrolled away.
+- Indicate connection state and errors clearly.
+- Allow reconnecting after disconnect.
+- Store characters, notes, and highlights locally on the user’s device.
+- Open and close a notes panel for the active character.
+- Open and close a highlights panel for global rules.
+- Add and remove highlight rules.
+- Apply highlight colors to matching text in session output.
+- Support simple word completion from recently seen session text.
+- Support quick switching between the two input bars.
+- Support quick toggling of notes and highlights panels.
+- Play an optional activity alert when the app is unfocused and new output arrives.
+- Track focus/title attention state so the user can see unseen activity.
+- Provide a small, low-clutter interface optimized for reading and typing.
+
+## Input Command History
+- The client keeps a single command history queue for the current app session.
+- The queue is finite and should retain the most recent 50 entries.
+- History is not persisted across app restarts.
+- History is shared by both input bars.
+- When the user submits a command, that command is appended to the queue if it is not already the most recent entry.
+- When the user types a command without submitting it and then starts browsing history, that typed text becomes part of the same queue.
+- When the user browses a recalled history entry and edits it, the edited text is stored as a new queue entry rather than replacing the earlier entry.
+- `Up` moves backward through the queue toward older entries.
+- `Down` moves forward through the queue toward newer entries.
+- When `Down` is pressed at the newest queue entry, the input is cleared without changing the queue.
+- After that clear, `Up` should show the last queue entry again.

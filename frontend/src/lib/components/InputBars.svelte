@@ -17,16 +17,16 @@
   let inputTwo = '';
   let input1El: HTMLInputElement | null = null;
   let input2El: HTMLInputElement | null = null;
+
+  interface HistoryBrowseState {
+    cursor: number | null;
+    editIndex: number | null;
+  }
+
   let history: string[] = [];
-  let historyState: Record<
-    1 | 2,
-    {
-      draft: string;
-      cursor: number | null;
-    }
-  > = {
-    1: { draft: '', cursor: null },
-    2: { draft: '', cursor: null },
+  let historyState: Record<1 | 2, HistoryBrowseState> = {
+    1: { cursor: null, editIndex: null },
+    2: { cursor: null, editIndex: null },
   };
 
   function getInput(bar: 1 | 2): HTMLInputElement | null {
@@ -45,32 +45,71 @@
     }
   }
 
-  function getHistoryEntry(bar: 1 | 2): { draft: string; cursor: number | null } {
+  function getEntry(bar: 1 | 2): HistoryBrowseState {
     return historyState[bar];
   }
 
-  function setHistoryEntry(bar: 1 | 2, next: { draft: string; cursor: number | null }): void {
+  function setEntry(bar: 1 | 2, next: HistoryBrowseState): void {
     historyState = {
       ...historyState,
       [bar]: next,
     };
   }
 
-  function resetHistory(bar: 1 | 2): void {
-    setHistoryEntry(bar, { draft: '', cursor: null });
+  function resetEntry(bar: 1 | 2): void {
+    setEntry(bar, { cursor: null, editIndex: null });
   }
 
-  function rememberDraft(bar: 1 | 2, value: string): void {
-    setHistoryEntry(bar, { draft: value, cursor: null });
+  function shiftState(removed: number): void {
+    if (removed <= 0) {
+      return;
+    }
+
+    const shift = (value: number | null): number | null => {
+      if (value === null) {
+        return null;
+      }
+
+      return Math.max(0, value - removed);
+    };
+
+    historyState = {
+      1: {
+        cursor: shift(historyState[1].cursor),
+        editIndex: shift(historyState[1].editIndex),
+      },
+      2: {
+        cursor: shift(historyState[2].cursor),
+        editIndex: shift(historyState[2].editIndex),
+      },
+    };
   }
 
-  function pushHistory(value: string): void {
-    const next = [...history, value];
-    history = next.length > HISTORY_LIMIT ? next.slice(next.length - HISTORY_LIMIT) : next;
+  function appendHistory(value: string): number {
+    history = [...history, value];
+
+    if (history.length <= HISTORY_LIMIT) {
+      return history.length - 1;
+    }
+
+    const removed = history.length - HISTORY_LIMIT;
+    history = history.slice(removed);
+    shiftState(removed);
+    return history.length - 1;
   }
 
-  function showHistoryValue(bar: 1 | 2, index: number): void {
-    const nextValue = history[index] ?? '';
+  function updateHistory(index: number, value: string): void {
+    if (index < 0 || index >= history.length) {
+      return;
+    }
+
+    const next = [...history];
+    next[index] = value;
+    history = next;
+  }
+
+  function setCursorValue(bar: 1 | 2, cursor: number): void {
+    const nextValue = history[cursor] ?? '';
     setValue(bar, nextValue);
 
     requestAnimationFrame(() => {
@@ -78,59 +117,70 @@
     });
   }
 
-  function moveHistory(bar: 1 | 2, direction: -1 | 1): boolean {
-    const entry = getHistoryEntry(bar);
+  function startBrowseFromCurrentValue(bar: 1 | 2): boolean {
     const currentValue = getValue(bar);
+    const nextValue = currentValue.trim();
 
-    if (direction === -1) {
-      if (history.length === 0) {
-        return false;
-      }
-
-      if (entry.cursor === null) {
-        setHistoryEntry(bar, {
-          draft: currentValue,
-          cursor: history.length - 1,
-        });
-        showHistoryValue(bar, history.length - 1);
-        return true;
-      }
-
-      if (entry.cursor > 0) {
-        const nextCursor = entry.cursor - 1;
-        setHistoryEntry(bar, {
-          ...entry,
-          cursor: nextCursor,
-        });
-        showHistoryValue(bar, nextCursor);
-        return true;
-      }
-
-      return true;
-    }
-
-    if (entry.cursor === null) {
+    if (!nextValue && history.length === 0) {
       return false;
     }
 
-    if (entry.cursor < history.length - 1) {
-      const nextCursor = entry.cursor + 1;
-      setHistoryEntry(bar, {
-        ...entry,
-        cursor: nextCursor,
+    let cursor = history.length - 1;
+
+    if (nextValue) {
+      if (history[history.length - 1] !== nextValue) {
+        appendHistory(nextValue);
+      }
+
+      cursor = history.length > 1 ? history.length - 2 : history.length - 1;
+    }
+
+    if (cursor < 0) {
+      return false;
+    }
+
+    setEntry(bar, { cursor, editIndex: null });
+    setCursorValue(bar, cursor);
+    return true;
+  }
+
+  function moveHistory(bar: 1 | 2, direction: -1 | 1): boolean {
+    const entry = getEntry(bar);
+
+    if (entry.cursor === null) {
+      if (direction === 1) {
+        return false;
+      }
+
+      return startBrowseFromCurrentValue(bar);
+    }
+
+    if (direction === -1) {
+      if (entry.cursor === 0) {
+        return true;
+      }
+
+      const cursor = entry.cursor - 1;
+      setEntry(bar, {
+        cursor,
+        editIndex: entry.editIndex === cursor ? entry.editIndex : null,
       });
-      showHistoryValue(bar, nextCursor);
+      setCursorValue(bar, cursor);
       return true;
     }
 
-    const draftValue = entry.draft;
-    setValue(bar, draftValue);
-    setHistoryEntry(bar, { draft: draftValue, cursor: null });
+    if (entry.cursor >= history.length - 1) {
+      setValue(bar, '');
+      resetEntry(bar);
+      return true;
+    }
 
-    requestAnimationFrame(() => {
-      getInput(bar)?.setSelectionRange(draftValue.length, draftValue.length);
+    const cursor = entry.cursor + 1;
+    setEntry(bar, {
+      cursor,
+      editIndex: entry.editIndex === cursor ? entry.editIndex : null,
     });
-
+    setCursorValue(bar, cursor);
     return true;
   }
 
@@ -142,11 +192,13 @@
     if (event.key === 'Enter') {
       event.preventDefault();
       onSubmit(bar, currentValue);
-      if (currentValue.trim()) {
-        pushHistory(currentValue);
+
+      if (currentValue.trim() && history[history.length - 1] !== currentValue) {
+        appendHistory(currentValue);
       }
+
       setValue(bar, '');
-      resetHistory(bar);
+      resetEntry(bar);
       return;
     }
 
@@ -171,7 +223,6 @@
       }
 
       setValue(bar, result.value);
-      setHistoryEntry(bar, { draft: result.value, cursor: null });
 
       requestAnimationFrame(() => {
         input?.setSelectionRange(result.cursor, result.cursor);
@@ -186,7 +237,28 @@
       return;
     }
 
-    rememberDraft(bar, target.value);
+    const entry = getEntry(bar);
+
+    if (entry.cursor === null) {
+      return;
+    }
+
+    if (entry.editIndex !== null && entry.cursor === entry.editIndex) {
+      updateHistory(entry.editIndex, target.value);
+      return;
+    }
+
+    const selectedValue = history[entry.cursor] ?? '';
+
+    if (target.value === selectedValue) {
+      return;
+    }
+
+    const nextEditIndex = appendHistory(target.value);
+    setEntry(bar, {
+      cursor: nextEditIndex,
+      editIndex: nextEditIndex,
+    });
   }
 </script>
 
