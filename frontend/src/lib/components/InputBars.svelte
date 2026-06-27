@@ -207,13 +207,13 @@
       return;
     }
 
-    if (event.key === 'ArrowUp') {
+    if (event.ctrlKey && event.key === 'ArrowUp') {
       event.preventDefault();
       moveHistory(bar, -1);
       return;
     }
 
-    if (event.key === 'ArrowDown') {
+    if (event.ctrlKey && event.key === 'ArrowDown') {
       event.preventDefault();
       moveHistory(bar, 1);
       return;

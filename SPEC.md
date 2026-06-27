@@ -69,7 +69,8 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - When the user submits a command, that command is appended to the queue if it is not already the most recent entry.
 - When the user types a command without submitting it and then starts browsing history, that typed text becomes part of the same queue.
 - When the user browses a recalled history entry and edits it, the edited text is stored as a new queue entry rather than replacing the earlier entry.
-- `Up` moves backward through the queue toward older entries.
-- `Down` moves forward through the queue toward newer entries.
-- When `Down` is pressed at the newest queue entry, the input is cleared without changing the queue.
-- After that clear, `Up` should show the last queue entry again.
+- `Ctrl+Up` moves backward through the queue toward older entries.
+- `Ctrl+Down` moves forward through the queue toward newer entries.
+- When `Ctrl+Down` is pressed at the newest queue entry, the input is cleared without changing the queue.
+- After that clear, `Ctrl+Up` should show the last queue entry again.
+- Plain arrow keys should keep normal caret movement behavior inside the input.
