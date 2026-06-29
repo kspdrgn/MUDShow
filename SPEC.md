@@ -65,6 +65,8 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Store a rolling per-character transcript history locally and reload it when reconnecting.
 - Provide a small, low-clutter interface optimized for reading and typing.
 
+# Feature Breakdown
+
 ## Input Command History
 - The client keeps a single command history queue for the current app session.
 - The queue is finite and should retain the most recent 50 entries.
@@ -78,3 +80,94 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - When `Ctrl+Down` is pressed at the newest queue entry, the input is cleared without changing the queue.
 - After that clear, `Ctrl+Up` should show the last queue entry again.
 - Plain arrow keys should keep normal caret movement behavior inside the input.
+
+## Global App Settings
+
+App
+  - Settings json file location
+
+Activity Notification
+  - Blink app
+  - Show in app title
+
+Connections
+  - Connection timeout (seconds)
+  - Connection retries
+  - Send TCP Keepalives (SO_KEEPALIVE)
+
+Spellcheck language and/or dictionary
+
+UI color scheme
+
+Window
+  - On top
+  - Transparency
+
+## Heirarchical Settings Overview
+
+Many settings can apply to a MU world as a whole or only to specific characters within the world. This interface appears as a tree with each known MU world, containing each owned character. A 'Default' character exists for every world, which cannot be renamed, and is used to connect without using any specific character settings.
+
+## World Settings / Character Settings
+
+Uses heirarchical settings.
+
+World Connection Settings
+  - Name, shown in tab
+  - Host URL/IP
+  - Port
+  - Use TLS
+  - Verify TLS certificate
+
+Character Settings
+  - Name, shown in tab
+  - Connection string - Optional, command sent upon connection to log in character
+  - Always-Log file setup
+  - Output-History enabled and how many lines to save/restore
+  - Activity notification sound per character
+
+## Trigger / Highlight Settings
+
+Uses heirarchical settings.
+
+## Fonts and Colors Settings
+
+Uses heirarchical settings.
+
+Font and color settings are the same between worlds and characters. Characters can have override settings that are different from the world settings.
+
+# UI Layout
+
+## PlayScreen Layout
+
+PlayScreen
+  - HighlightsPanel
+  - NotesPanel
+  - Transcript
+  - InputBars
+
+## Current Layout, 1 character at a time
+
+### UI Layout
+
+App - no tabs
+  - CharacterList
+    - CharacterModal
+  - PlayScreen
+
+## Possible future Layout, multiple characters at once, tab navigation?
+
+### UI Layout
+
+App - Tabbed interface
+  - CharacterList tab
+      - CharacterEdit - Formerly CharacterModal - Character-specific configuration.
+  - AppSettings tab - Global application configuration, not character specific. Storage location of json database file, etc.
+  - PlayScreen tab per connection
+
+### Tab Behavior
+  - Every connected world character will have its own tab.
+  - Tabs can be closed.
+  - Only one tab can be opened at a time per world character.
+  - Tab names appear with world name and character name.
+  - If no tabs are open, the connection selector tab should be shown.
+  - Connection tabs are not restored between app sessions.

@@ -1,5 +1,13 @@
 # Feature Wishlist / Plan
 
+## Top TODO
+
+- Tabs, multiple connections
+- Session Logging
+- Image link display
+- Spellcheck
+- App Settings, database location control
+
 ## Input Box
   - [X] Input Command History
   - [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text
@@ -39,6 +47,17 @@
     - [ ] On-the-fly log renaming of active session log file
     - [ ] Auto-log everything to separate log file
 
+## Database MUD text backend
+
+Instead of storing world text as the contents of the play window, it should be stored locally in a database. Likely using SQLite.
+
+This would support:
+  - Virtualized scrolling
+  - Longer history
+  - Changing timestamp display on the fly
+  - More logging control, save without timestamps, etc
+  - Ability to pop-out and pop-in breakouts of conversations
+
 ## Multiple Connections
   - [ ] Tabs for worlds
   - [ ] CTRL+TAB switch worlds
@@ -76,3 +95,6 @@
 ## Window
   - [ ] On-top option
   - [ ] Window transparency
+  - [ ] Tabbed interface, multiple connections at once
+  - [ ] App settings
+  - [ ] Heirarchical world and character settings
