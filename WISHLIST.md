@@ -91,6 +91,10 @@ This would support:
   - Other
     - [ ] WS sidebar
     - [ ] WHO popout
+  - Help!
+    - [ ] Help guide for basic taps commands
+    - [ ] Click commands to see their help text
+    - [ ] Break-out help text to separate window
 
 ## Window
   - [ ] On-top option
