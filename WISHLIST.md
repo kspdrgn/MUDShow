@@ -5,7 +5,6 @@
 - Tabs, multiple connections
 - Session Logging
 - Image link display
-- Spellcheck
 - App Settings, database location control
 
 ## Input Box
@@ -14,7 +13,7 @@
   - [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
   - [X] Resize input height by lines
   - [?] TAB auto-complete of names/objects known or in MUD text
-  - [ ] Spellcheck
+  - [X] Spellcheck
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator
 

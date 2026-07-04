@@ -468,7 +468,7 @@
           rows={clampInputBarLines(bar.lines)}
           bind:value={values[bar.id]}
           autocomplete="off"
-          spellcheck="false"
+          spellcheck="true"
           on:focus={() => handleFocus(bar.id)}
           on:input={(event) => handleInput(bar.id, event)}
           on:keydown={(event) => handleKeydown(event, bar.id)}

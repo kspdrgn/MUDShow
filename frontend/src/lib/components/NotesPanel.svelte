@@ -22,7 +22,7 @@
   <textarea
     id="notes-editor"
     bind:value={draft}
-    spellcheck="false"
+    spellcheck="true"
     placeholder="notes for this character..."
     on:input={() => onInput(draft)}
   ></textarea>
