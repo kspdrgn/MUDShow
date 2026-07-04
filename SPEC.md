@@ -67,6 +67,18 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 
 # Feature Breakdown
 
+## Multiple Input Areas
+
+- The user can spawn additional input boxes if they want to enter text without disturbing the current input box
+- The user can close input boxes, their contents if any will be preserved in the input history
+- The user can resize the input boxes larger or smaller vertically by 1 line increments
+
+## Input Spellcheck
+
+- The input text box should highlight known spelling errors with red underlines
+- Indicated typos should offer spelling correction suggestions
+- The spelling check system should allow local overrides, these will be stored app-wide and not scoped by world or character yet
+
 ## Input Command History
 - The client keeps a single command history queue for the current app session.
 - The queue is finite and should retain the most recent 50 entries.
@@ -103,13 +115,13 @@ Window
   - On top
   - Transparency
 
-## Heirarchical Settings Overview
+## Hierarchical Settings Overview
 
 Many settings can apply to a MU world as a whole or only to specific characters within the world. This interface appears as a tree with each known MU world, containing each owned character. A 'Default' character exists for every world, which cannot be renamed, and is used to connect without using any specific character settings.
 
 ## World Settings / Character Settings
 
-Uses heirarchical settings.
+Uses hierarchical settings.
 
 World Connection Settings
   - Name, shown in tab
@@ -127,11 +139,11 @@ Character Settings
 
 ## Trigger / Highlight Settings
 
-Uses heirarchical settings.
+Uses hierarchical settings.
 
 ## Fonts and Colors Settings
 
-Uses heirarchical settings.
+Uses hierarchical settings.
 
 Font and color settings are the same between worlds and characters. Characters can have override settings that are different from the world settings.
 

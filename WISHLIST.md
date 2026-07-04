@@ -60,14 +60,16 @@ This would support:
   - Virtualized scrolling
   - Longer history
   - Changing timestamp display on the fly
+  - Timestamps visible on mouse-over lines
   - More logging control, save without timestamps, etc
   - Ability to pop-out and pop-in breakouts of conversations
+  - Output history would support rich reformatting to match current session settings
 
 ## Multiple Connections
-  - [ ] Tabs for worlds
+  - [ ] UI tabs for viewing worlds, their activity and logging status, and for switching between them
   - [ ] CTRL+TAB switch worlds
-  - [ ] Reconnect without closing world
-  - [ ] Disconnect without closing world
+  - [ ] Reconnect without closing world tab
+  - [ ] Disconnect without closing world tab
 
 ## Taps Integrations
   - Editors
@@ -80,6 +82,9 @@ This would support:
     - [ ] Inject echo command on demand
     - [ ] MOTD hiding
     - [ ] Room description capture
+  - Name Awareness
+    - Support automatic name color variation even if they're not in your wf/database
+    - Support visual format differentiation of different poses by different people
   - WF
     - [ ] WF sidebar
     - [ ] Address-book style list, local database of whole WF
@@ -106,4 +111,4 @@ This would support:
   - [ ] Window transparency
   - [ ] Tabbed interface, multiple connections at once
   - [ ] App settings
-  - [ ] Heirarchical world and character settings
+  - [ ] Hierarchical world and character settings
