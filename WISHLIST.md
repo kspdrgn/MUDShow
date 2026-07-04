@@ -29,6 +29,7 @@
     - [ ] Timestamps visible on mouse-over lines
     - [ ] Visible Timestamps customizable
     - [X] Output history - Buffer of previous session contents restored for context
+    - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
   - Scrolling
     - [ ] Pause auto-scroll when selecting
     - [ ] Mousewheel anywhere scrolls the main window
@@ -38,8 +39,13 @@
     - [ ] Pause automatic scroll to bottom when scrolled up manually
     - [ ] Shortcut button to scroll to bottom appears when scrolled up manually
   - Highlighting
-    - [ ] User specified word color highlights
+    - [ ] Separate name highlights from complex (regex?) highlights, simplify name handling
+    - [ ] Click highlight color to change it
+    - [ ] Inputting a name to highlight should trim whitespace
+    - [ ] User specified word color highlights, with word boundary, with case sensitivity
     - [ ] Reg-ex highlights
+    - [ ] Automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff
+    - [ ] Automatic name color even if they're not in your wf/database
   - Logging
     - [ ] One-click session logging. Start logging and auto-name log file with date and maybe characters too.
     - [ ] Visual indicator that logging is enabled
