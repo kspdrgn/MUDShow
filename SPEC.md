@@ -20,10 +20,11 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - As a player, I can keep private notes for each character.
 - As a player, I can define highlighted phrases so important names or words stand out.
 - As a player, I can complete recently seen words to speed up typing names.
-- As a player, I can tell at a glance whether the session is connected, disconnected, or in error.
+- As a player, I can tell at a glance whether the session is connected, disconnected, or had a connection error.
 - As a player, I can notice new activity even when I am away from the app.
 - As a player, I can restore a recent per-character transcript history when I reconnect after an interruption.
 - As a player, I can keep the interface simple and focused on play rather than automation.
+- As a player, all my settings should be saved to a simple user-readable file format that I can manage the location of.
 
 ## Non-Goals
 - No mapping.
@@ -46,7 +47,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Provide a modular set of command input bars, starting with one and allowing more to be added.
 - Send entered commands to the active session.
 - Keep a session-scoped command history queue with a finite limit of 50 entries.
-- Use Up/Down to move backward/forward through the queue, including unsent drafts and edited history entries.
+- Use Ctrl+Up/Ctrl+Down to move backward/forward through the queue, including unsent drafts and edited history entries.
 - Keep a scrollable transcript of session output.
 - Auto-scroll when the user has not manually scrolled away.
 - Indicate connection state and errors clearly.
@@ -97,6 +98,8 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 
 Many settings can apply to a MU world as a whole or only to specific characters within the world. This interface appears as a tree with each known MU world, containing each owned character. A 'Default' character exists for every world, which cannot be renamed, and is used to connect without using any specific character settings.
 
+All connections to a MU server are done through the World + Character context, even if the character is the default unnamed fake character.
+
 ## Trigger / Highlight Settings
 
 Uses hierarchical settings.
@@ -106,6 +109,10 @@ Uses hierarchical settings.
 Uses hierarchical settings.
 
 Font and color settings are the same between worlds and characters. Characters can have override settings that are different from the world settings.
+
+## Transcript
+
+Selecting text will automatically copy to clipboard and return keyboard focus to the last active input box
 
 # UI Layout
 
@@ -187,7 +194,7 @@ World Connection Settings
   - Host URL/IP
   - Port
   - Use TLS
-  - Verify TLS certificate
+  - Verify TLS certificate or not
 
 Character Settings
   - Name, shown in tab
@@ -195,6 +202,7 @@ Character Settings
   - Always-Log file setup
   - Output-History enabled and how many lines to save/restore
   - Activity notification sound per character
+  - Renaming a saved character will migrate any persisted history and settings to stay associated to the new character name
 
 ## PlayScreen Layout - World and Character Tab
 
@@ -203,7 +211,7 @@ Main content and interaction space for a single world and character.
 PlayScreen
   - HighlightsPanel - Toggle, anchored to top
   - NotesPanel - Toggle, anchored to top
-  - Transcript - Fills most space in the middle
+  - Transcript - Fills most space in the middle. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
 
   - AppSettings tab - Global application configuration, not character specific. Storage location of json database file, etc.

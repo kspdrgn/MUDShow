@@ -2,11 +2,12 @@
 
 ## Top TODO
 
-- Tabs, multiple connections
-- App Settings, database location control
-- Session Logging
-- Image link display
-- Easier/better name highlighting config
+- [ ] App Settings, database location control
+- [ ] Tabs, multiple connections
+- [ ] Session Logging
+- [ ] Image link display
+- [ ] Easier/better name highlighting config
+- [ ] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
 
 ## Input Box
   - [X] Input Command History
