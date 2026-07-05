@@ -95,19 +95,20 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 
 ## Global App Settings
 
-App
-  - Settings json file location
+Database
+  - Show current user settings data location
+  - Change/migrate user data files location
 
 Activity Notification
-  - Blink app
-  - Show in app title
+  - Blink app or not
+  - Show activity in app title, how to show it, or not
 
 Connections
   - Connection timeout (seconds)
   - Connection retries
   - Send TCP Keepalives (SO_KEEPALIVE)
 
-Spellcheck language and/or dictionary
+Spellcheck language and/or dictionary to use
 
 UI color scheme
 

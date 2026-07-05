@@ -3,9 +3,10 @@
 ## Top TODO
 
 - Tabs, multiple connections
+- App Settings, database location control
 - Session Logging
 - Image link display
-- App Settings, database location control
+- Easier/better name highlighting config
 
 ## Input Box
   - [X] Input Command History
@@ -54,7 +55,7 @@
 
 ## Database MUD text backend
 
-Instead of storing world text as the contents of the play window, it should be stored locally in a database. Likely using SQLite.
+Instead of storing world text simply as the contents of the play window, it should be stored locally in a SQLite database. Database exports should be user-readable such as  JSONL, or structured text.
 
 This would support:
   - Virtualized scrolling
@@ -64,6 +65,7 @@ This would support:
   - More logging control, save without timestamps, etc
   - Ability to pop-out and pop-in breakouts of conversations
   - Output history would support rich reformatting to match current session settings
+  - Save database version code so user database files can be converted or upgraded losslessly as the app changes. Version such as "j1" for json version 1 storage schema, or "b1" for binary storage version 1.
 
 ## Multiple Connections
   - [ ] UI tabs for viewing worlds, their activity and logging status, and for switching between them
@@ -83,8 +85,10 @@ This would support:
     - [ ] MOTD hiding
     - [ ] Room description capture
   - Name Awareness
-    - Support automatic name color variation even if they're not in your wf/database
-    - Support visual format differentiation of different poses by different people
+    - [ ] Detect known character names in poses, pages, whispers, DMs
+    - [ ] Support automatic name color variation even if they're not in your wf/database
+    - [ ] Support visual format differentiation of different poses by different people
+    - [ ] Support integration with WF/WS and local contact list
   - WF
     - [ ] WF sidebar
     - [ ] Address-book style list, local database of whole WF
