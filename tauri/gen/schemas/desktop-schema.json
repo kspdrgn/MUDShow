@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-load-app-storage`\n- `allow-save-app-storage`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-load-app-storage`\n- `allow-save-app-storage`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`"
         },
         {
           "description": "Enables the connect_mud command without any pre-configured scope.",
@@ -213,6 +213,24 @@
           "markdownDescription": "Enables the send_mud command without any pre-configured scope."
         },
         {
+          "description": "Enables the window_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-close",
+          "markdownDescription": "Enables the window_close command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the window_minimize command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-minimize",
+          "markdownDescription": "Enables the window_minimize command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the window_toggle_maximize command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-toggle-maximize",
+          "markdownDescription": "Enables the window_toggle_maximize command without any pre-configured scope."
+        },
+        {
           "description": "Denies the connect_mud command without any pre-configured scope.",
           "type": "string",
           "const": "deny-connect-mud",
@@ -241,6 +259,24 @@
           "type": "string",
           "const": "deny-send-mud",
           "markdownDescription": "Denies the send_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-close",
+          "markdownDescription": "Denies the window_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_minimize command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-minimize",
+          "markdownDescription": "Denies the window_minimize command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_toggle_maximize command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-toggle-maximize",
+          "markdownDescription": "Denies the window_toggle_maximize command without any pre-configured scope."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

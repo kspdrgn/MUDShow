@@ -24,6 +24,7 @@ export interface SessionState {
   modalTitle: string;
   editingIndex: number | null;
   modalDraft: CharacterDraft;
+  worldSelectorOpen: boolean;
 }
 
 export const INITIAL_DRAFT: CharacterDraft = {
@@ -57,5 +58,6 @@ export function createInitialState(): SessionState {
     modalTitle: 'add character',
     editingIndex: null,
     modalDraft: { ...INITIAL_DRAFT },
+    worldSelectorOpen: false,
   };
 }

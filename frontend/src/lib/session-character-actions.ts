@@ -57,6 +57,14 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
     patch({ modalOpen: false });
   }
 
+  function openWorldSelector(): void {
+    patch({ worldSelectorOpen: true });
+  }
+
+  function closeWorldSelector(): void {
+    patch({ worldSelectorOpen: false });
+  }
+
   function saveCharacter(draft: CharacterDraft): void {
     const name = draft.name.trim();
     const host = draft.host.trim();
@@ -143,6 +151,8 @@ export function createCharacterActions({ getState, patch }: CharacterActionConte
   return {
     openModal,
     closeModal,
+    openWorldSelector,
+    closeWorldSelector,
     saveCharacter,
     deleteCharacter,
   };

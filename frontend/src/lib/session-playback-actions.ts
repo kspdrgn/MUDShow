@@ -67,6 +67,14 @@ export function createPlaybackActions({
       return;
     }
 
+    if (state.worldSelectorOpen) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        patch({ worldSelectorOpen: false });
+      }
+      return;
+    }
+
     if (state.screen !== 'play') {
       return;
     }

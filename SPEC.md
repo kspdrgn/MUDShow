@@ -93,7 +93,67 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - After that clear, `Ctrl+Up` should show the last queue entry again.
 - Plain arrow keys should keep normal caret movement behavior inside the input.
 
-## Global App Settings
+## Hierarchical Settings Overview
+
+Many settings can apply to a MU world as a whole or only to specific characters within the world. This interface appears as a tree with each known MU world, containing each owned character. A 'Default' character exists for every world, which cannot be renamed, and is used to connect without using any specific character settings.
+
+## Trigger / Highlight Settings
+
+Uses hierarchical settings.
+
+## Fonts and Colors Settings
+
+Uses hierarchical settings.
+
+Font and color settings are the same between worlds and characters. Characters can have override settings that are different from the world settings.
+
+# UI Layout
+
+The app shows a minimal layout with tabs at the top and the open tab filling all the space beneath.
+
+## Title Bar
+
+The window title bar is custom styled, and does not show the standard OS controls. Empty areas are draggable to move the window.
+
+Anchored to the left:
+- Static app title as a guaranteed draggable area
+- App tabs display, occupies all available width:
+  - From left to right, show each open world as a tab
+  - At the end of the tabs list is a '+' button to add new tabs
+
+Anchored to the right:
+  - App hamburger menu
+  - OS window controls: minimize, maximize, close
+
+## Tab Bar
+  - Every connected world character will have its own tab.
+  - Tabs can be closed.
+  - Only one tab can be opened at a time per world character. Attempting to open the same character will instead activate that tab.
+  - Tab names appear with world name and character name.
+  - If no tabs are open, the quick connect interface should be shown centered in the empty content space.
+  - Connection tabs are not restored between app sessions.
+
+## Quick Connect Menu
+
+The '+' button on the tab bar shows the quick connect menu as a dropdown menu. This displays a list of saved worlds and characters. Clicking a row will open a new tab. It also shows a gear icon labelled "Edit Characters" that will open the characters menu interface in a new tab.
+
+## App Hamburger Menu
+
+- Characters - opens Characters Tab
+- App Settings - opens App Settings Tab
+
+# Possible Tab Contents
+
+## Home Panel
+
+This panel cannot be opened manually and does not show as a tab. It displays when no tabs are opened.
+
+Contents:
+- Large app title and about information
+- Centered display of the Quick Connect Menu, which contains a link to the Characters edit tab
+- Link to app settings tab
+
+## App Settings Tab
 
 Database
   - Show current user settings data location
@@ -116,11 +176,9 @@ Window
   - On top
   - Transparency
 
-## Hierarchical Settings Overview
+## Characters Tab
 
-Many settings can apply to a MU world as a whole or only to specific characters within the world. This interface appears as a tree with each known MU world, containing each owned character. A 'Default' character exists for every world, which cannot be renamed, and is used to connect without using any specific character settings.
-
-## World Settings / Character Settings
+This shows a list of all saved worlds and characters, with ability to add more and edit anything.
 
 Uses hierarchical settings.
 
@@ -138,49 +196,15 @@ Character Settings
   - Output-History enabled and how many lines to save/restore
   - Activity notification sound per character
 
-## Trigger / Highlight Settings
+## PlayScreen Layout - World and Character Tab
 
-Uses hierarchical settings.
-
-## Fonts and Colors Settings
-
-Uses hierarchical settings.
-
-Font and color settings are the same between worlds and characters. Characters can have override settings that are different from the world settings.
-
-# UI Layout
-
-## PlayScreen Layout
+Main content and interaction space for a single world and character.
 
 PlayScreen
-  - HighlightsPanel
-  - NotesPanel
-  - Transcript
-  - InputBars
+  - HighlightsPanel - Toggle, anchored to top
+  - NotesPanel - Toggle, anchored to top
+  - Transcript - Fills most space in the middle
+  - InputBars - Anchored to the bottom, contains one or more input areas
 
-## Current Layout, 1 character at a time
-
-### UI Layout
-
-App - no tabs
-  - CharacterList
-    - CharacterModal
-  - PlayScreen
-
-## Possible future Layout, multiple characters at once, tab navigation?
-
-### UI Layout
-
-App - Tabbed interface
-  - CharacterList tab
-      - CharacterEdit - Formerly CharacterModal - Character-specific configuration.
   - AppSettings tab - Global application configuration, not character specific. Storage location of json database file, etc.
   - PlayScreen tab per connection
-
-### Tab Behavior
-  - Every connected world character will have its own tab.
-  - Tabs can be closed.
-  - Only one tab can be opened at a time per world character.
-  - Tab names appear with world name and character name.
-  - If no tabs are open, the connection selector tab should be shown.
-  - Connection tabs are not restored between app sessions.
