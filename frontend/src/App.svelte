@@ -8,7 +8,6 @@
   import SettingsPage from './lib/components/SettingsPage.svelte';
   import TopBar from './lib/components/TopBar.svelte';
   import WorldModal from './lib/components/WorldModal.svelte';
-  import WorldSelectorModal from './lib/components/WorldSelectorModal.svelte';
   import { session } from './lib/session';
   import type { AppTab } from './lib/tabs';
   import type { WorldTabSessionState } from './lib/world-session';
@@ -83,9 +82,23 @@
   <main id="app-main">
     {#if activeTab === null}
       <HomePanel
-        onOpenCharacters={() => session.selectTab('characters')}
+        worlds={$session.worlds}
+        characters={$session.characters}
+        onConnectWorld={(worldId) => {
+          const defaultCharacterIndex = $session.characters.findIndex(
+            (character) => character.worldId === worldId && character.isDefault,
+          );
+          const fallbackCharacterIndex =
+            defaultCharacterIndex >= 0
+              ? defaultCharacterIndex
+              : $session.characters.findIndex((character) => character.worldId === worldId);
+          if (fallbackCharacterIndex >= 0) {
+            void session.connectToCharacter(fallbackCharacterIndex);
+          }
+        }}
+        onConnectCharacter={(index) => void session.connectToCharacter(index)}
+        onOpenCharactersTab={() => session.selectTab('characters')}
         onOpenSettings={() => session.selectTab('settings')}
-        onOpenWorldSelector={() => session.openWorldSelector()}
       />
     {:else if activeTab.kind === 'characters'}
       <WorldsAndCharactersEditor
@@ -142,30 +155,6 @@
     {/if}
   </main>
 </div>
-
-<WorldSelectorModal
-  open={$session.worldSelectorOpen}
-  worlds={$session.worlds}
-  characters={$session.characters}
-  onCancel={() => session.closeWorldSelector()}
-  onConnectWorld={(worldId) => {
-    const defaultCharacterIndex = $session.characters.findIndex(
-      (character) => character.worldId === worldId && character.isDefault,
-    );
-    if (defaultCharacterIndex >= 0) {
-      session.closeWorldSelector();
-      void session.connectToCharacter(defaultCharacterIndex);
-    }
-  }}
-  onConnectCharacter={(index) => {
-    session.closeWorldSelector();
-    void session.connectToCharacter(index);
-  }}
-  onAddWorld={() => {
-    session.closeWorldSelector();
-    void session.openWorldModal();
-  }}
-/>
 
 <CharacterModal
   open={$session.modalOpen && $session.modalKind === 'character'}

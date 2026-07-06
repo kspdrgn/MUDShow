@@ -180,14 +180,6 @@ export function createCharacterActions({
     });
   }
 
-  function openWorldSelector(): void {
-    patch({ worldSelectorOpen: true });
-  }
-
-  function closeWorldSelector(): void {
-    patch({ worldSelectorOpen: false });
-  }
-
   async function saveWorld(draft: WorldDraft): Promise<void> {
     const nextWorld = createWorldRecordFromDraft(draft);
     const state = getState();
@@ -306,8 +298,6 @@ export function createCharacterActions({
     openWorldModal,
     openCharacterModal,
     closeModal,
-    openWorldSelector,
-    closeWorldSelector,
     saveWorld,
     saveCharacter,
     deleteWorld,

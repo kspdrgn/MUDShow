@@ -1,7 +1,13 @@
 <script lang="ts">
-  export let onOpenCharacters: () => void;
+  import QuickConnectPanel from './QuickConnectPanel.svelte';
+  import type { CharacterRecord, WorldRecord } from '../types';
+
+  export let worlds: WorldRecord[] = [];
+  export let characters: CharacterRecord[] = [];
+  export let onConnectWorld: (worldId: string) => void;
+  export let onConnectCharacter: (index: number) => void;
+  export let onOpenCharactersTab: () => void;
   export let onOpenSettings: () => void;
-  export let onOpenWorldSelector: () => void;
 </script>
 
 <section id="screen-home" class="screen-panel">
@@ -11,13 +17,15 @@
       <p>Open a tab to start a session, manage characters, or adjust app settings.</p>
     </div>
 
+    <QuickConnectPanel
+      worlds={worlds}
+      characters={characters}
+      onConnectWorld={onConnectWorld}
+      onConnectCharacter={onConnectCharacter}
+      onOpenWorldsAndCharacters={onOpenCharactersTab}
+    />
+
     <div class="home-actions">
-      <button type="button" class="btn primary" on:click={onOpenWorldSelector}>
-        connect to a world
-      </button>
-      <button type="button" class="btn" on:click={onOpenCharacters}>
-        open characters
-      </button>
       <button type="button" class="btn" on:click={onOpenSettings}>
         open app settings
       </button>

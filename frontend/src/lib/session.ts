@@ -162,7 +162,6 @@ function createSession() {
       activeTabId: tabId,
       modalOpen: false,
       modalKind: null,
-      worldSelectorOpen: false,
     }));
   }
 
@@ -178,7 +177,7 @@ function createSession() {
     if (!tab) {
       if (tabId === CHARACTERS_TAB_ID || tabId === SETTINGS_TAB_ID) {
         const specialTab = ensureSpecialTab(tabId === CHARACTERS_TAB_ID ? 'characters' : 'settings');
-        patch({ activeTabId: specialTab.id, modalOpen: false, modalKind: null, worldSelectorOpen: false });
+        patch({ activeTabId: specialTab.id, modalOpen: false, modalKind: null });
       }
       return;
     }
@@ -193,7 +192,6 @@ function createSession() {
       activeTabId: tabId,
       modalOpen: false,
       modalKind: null,
-      worldSelectorOpen: false,
     });
   }
 

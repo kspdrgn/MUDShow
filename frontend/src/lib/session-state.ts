@@ -21,7 +21,6 @@ export interface SessionState {
   editingIndex: number | null;
   modalDraft: CharacterDraft;
   characterWorldId: string | null;
-  worldSelectorOpen: boolean;
 }
 
 export const INITIAL_WORLD_DRAFT: WorldDraft = {
@@ -55,6 +54,5 @@ export function createInitialState(): SessionState {
     editingIndex: null,
     modalDraft: { ...INITIAL_DRAFT },
     characterWorldId: null,
-    worldSelectorOpen: false,
   };
 }
