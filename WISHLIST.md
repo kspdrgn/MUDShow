@@ -3,11 +3,11 @@
 ## Top TODO
 
 - [ ] App Settings, database location control
+- [ ] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
 - [ ] Tabs, multiple connections
 - [ ] Session Logging
 - [ ] Image link display
 - [ ] Easier/better name highlighting config
-- [ ] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
 
 ## Input Box
   - [X] Input Command History
@@ -40,6 +40,7 @@
     - [ ] Keep bottom line in view when resizing
     - [ ] Pause automatic scroll to bottom when scrolled up manually
     - [ ] Shortcut button to scroll to bottom appears when scrolled up manually
+    - [ ] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
   - Highlighting
     - [ ] Separate name highlights from complex (regex?) highlights, simplify name handling
     - [ ] Click highlight color to change it

@@ -2,8 +2,6 @@ import type { Writable } from 'svelte/store';
 import type { MudConnection } from './connection';
 import {
   appendTranscriptHistory,
-  type TranscriptHistoryEntry,
-  PlayTranscript,
   playBeep,
 } from './playback';
 import {
@@ -16,42 +14,94 @@ import {
 import { buildHighlightRegexes } from './formatting';
 import {
   createInputBar,
-  getInputBarInputId,
   getNextInputBarId,
   normalizeInputBars,
   type InputBarId,
 } from './input-bars';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
+import type { CharacterRecord, WorldRecord } from './types';
+import type { WorldTabSessionState } from './world-session';
+import {
+  getWorldDomScope,
+  getWorldHighlightInputId,
+  getWorldInputBarInputId,
+  getWorldNotesEditorId,
+  getWorldOutputAreaId,
+} from './world-dom';
 
 interface PlaybackActionContext {
   state: Writable<SessionState>;
   getState: () => SessionState;
   patch: (patch: Partial<SessionState>) => void;
-  connection: MudConnection;
-  transcript: PlayTranscript;
+  getActiveWorldTabId: () => string | null;
+  getWorldSession: (tabId: string) => WorldTabSessionState;
+  ensureWorldSession: (tabId: string) => WorldTabSessionState;
+  updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
+  setWorldOutput: (tabId: string, outputChunks: string[], outputEndsWithBr: boolean) => void;
+  activateWorldTab: (tabId: string) => void;
+  getWorldConnection: (tabId: string) => MudConnection | null;
   getHighlightRegexes: () => ReturnType<typeof buildHighlightRegexes>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
+  ensureWorldTab: (world: WorldRecord, character: CharacterRecord) => string;
 }
 
 export function createPlaybackActions({
   getState,
   patch,
-  connection,
-  transcript,
+  getActiveWorldTabId,
+  getWorldSession,
+  ensureWorldSession,
+  updateWorldSession,
+  setWorldOutput,
+  activateWorldTab,
+  getWorldConnection,
   getHighlightRegexes,
   setHighlightRegexes,
+  ensureWorldTab,
 }: PlaybackActionContext) {
-  let transcriptHistory: TranscriptHistoryEntry[] = [];
+  function getActiveWorldSession(): WorldTabSessionState | null {
+    const tabId = getActiveWorldTabId();
+    return tabId ? getWorldSession(tabId) : null;
+  }
+
+  function getActiveWorldScope(): string | null {
+    const tabId = getActiveWorldTabId();
+    return tabId ? getWorldDomScope(tabId) : null;
+  }
+
+  async function appendOutputToTab(tabId: string, rawText: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    const next = session.transcript.append(rawText, getHighlightRegexes());
+    const maxHistoryLines = session.currentCharacter?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+
+    if (session.currentCharacter && maxHistoryLines > 0) {
+      const transcriptHistory = appendTranscriptHistory(session.transcriptHistory, rawText, maxHistoryLines);
+      updateWorldSession(tabId, { transcriptHistory });
+      void saveTranscriptHistory(session.currentCharacter.id, transcriptHistory, maxHistoryLines);
+    }
+
+    setWorldOutput(tabId, next.chunks, next.endsWithBr);
+
+    await nextFrame();
+    if (getActiveWorldTabId() === tabId && !session.userScrolled) {
+      scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
+    }
+  }
 
   function handleVisibilityChange(): void {
-    const state = getState();
-
     if (!document.hidden) {
-      patch({ hasNewActivity: false });
+      const tabId = getActiveWorldTabId();
+      if (!tabId) {
+        return;
+      }
 
-      if (!state.userScrolled) {
-        scrollElementToBottom('output-area');
+      const session = getWorldSession(tabId);
+      updateWorldSession(tabId, { hasNewActivity: false });
+
+      const scope = getActiveWorldScope();
+      if (scope && !session.userScrolled) {
+        scrollElementToBottom(getWorldOutputAreaId(scope));
       }
     }
   }
@@ -75,16 +125,24 @@ export function createPlaybackActions({
       return;
     }
 
-    if (state.screen !== 'play') {
+    if (getActiveWorldTabId() === null) {
       return;
     }
 
-    const hotkeyBar = state.inputBars.find((bar) => bar.label === event.key);
+    const session = getActiveWorldSession();
+    if (!session) {
+      return;
+    }
+
+    const hotkeyBar = session.inputBars.find((bar) => bar.label === event.key);
 
     if (hotkeyBar) {
       event.preventDefault();
-      patch({ activeBar: hotkeyBar.id });
-      focusElement(getInputBarInputId(hotkeyBar.id));
+      updateWorldSession(getActiveWorldTabId()!, { activeBar: hotkeyBar.id });
+      const scope = getActiveWorldScope();
+      if (scope) {
+        focusElement(getWorldInputBarInputId(scope, hotkeyBar.id));
+      }
     } else if (event.key === 'F3') {
       event.preventDefault();
       void togglePanel('notes');
@@ -101,108 +159,129 @@ export function createPlaybackActions({
       return;
     }
 
-    const maxHistoryLines = character.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
-    const highlightRegexes = buildHighlightRegexes(state.highlights);
-    const [notes, history] = await Promise.all([
-      loadNotes(character.name),
-      loadTranscriptHistory(character.name, maxHistoryLines),
-    ]);
+    const world = state.worlds.find((entry) => entry.id === character.worldId);
+    if (!world) {
+      return;
+    }
 
-    const historySnapshot = maxHistoryLines > 0
-      ? transcript.loadHistory(history, highlightRegexes)
-      : transcript.loadHistory([], highlightRegexes);
+    const tabId = ensureWorldTab(world, character);
+    const session = ensureWorldSession(tabId);
+    const connection = getWorldConnection(tabId);
 
-    transcriptHistory = history;
-    setHighlightRegexes(highlightRegexes);
+    if (!connection) {
+      return;
+    }
 
-    const initialBar = state.inputBars[0]?.id ?? 1;
+    const activeBar = session.activeBar ?? session.inputBars[0]?.id ?? 1;
+    const shouldInitializeSession = session.currentCharacter === null;
 
-    patch({
-      screen: 'play',
-      currentCharacter: character,
-      notesVisible: false,
-      highlightsVisible: false,
-      connectionStatus: 'idle',
-      hasNewActivity: false,
-      outputChunks: historySnapshot.chunks,
-      outputEndsWithBr: historySnapshot.endsWithBr,
-      userScrolled: false,
-      activeBar: initialBar,
-      notes,
-    });
+    if (shouldInitializeSession) {
+      const maxHistoryLines = character.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+      const highlightRegexes = buildHighlightRegexes(state.highlights);
+      const [notes, history] = await Promise.all([
+        loadNotes(character.id, false),
+        loadTranscriptHistory(character.id, maxHistoryLines, false),
+      ]);
 
-    focusElement(getInputBarInputId(initialBar));
+      const historySnapshot = maxHistoryLines > 0
+        ? session.transcript.loadHistory(history, highlightRegexes)
+        : session.transcript.loadHistory([], highlightRegexes);
+
+      setHighlightRegexes(highlightRegexes);
+
+      updateWorldSession(tabId, {
+        currentWorld: world,
+        currentCharacter: character,
+        notesVisible: false,
+        highlightsVisible: false,
+        connectionStatus: 'connecting',
+        disconnectReason: null,
+        hasNewActivity: false,
+        outputChunks: historySnapshot.chunks,
+        outputEndsWithBr: historySnapshot.endsWithBr,
+        outputRevision: session.outputRevision + 1,
+        userScrolled: false,
+        activeBar,
+        notes,
+        transcriptHistory: history,
+      });
+    } else {
+      updateWorldSession(tabId, {
+        currentWorld: world,
+        currentCharacter: character,
+        connectionStatus: 'connecting',
+        disconnectReason: null,
+        hasNewActivity: false,
+      });
+    }
+
+    activateWorldTab(tabId);
+    focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), activeBar));
 
     await connection.connect(
       {
-        host: character.host,
-        port: character.port,
-        tls: character.tls !== false,
-        verifyCertificate: character.verifyCertificate !== false,
+        host: world.host,
+        port: world.port,
+        tls: world.tls,
+        verifyCertificate: world.verifyCertificate,
       },
       {
         onOpen: () => {
-          patch({ connectionStatus: 'connected' });
-          void appendOutput(`\x1b[90m[connected to ${character.host}:${character.port}]\x1b[0m\n`);
+          updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });
+          void appendOutputToTab(tabId, `\x1b[90m[connected to ${world.host}:${world.port}]\x1b[0m\n`);
         },
         onMessage: (text) => {
-          void appendOutput(text);
+          void appendOutputToTab(tabId, text);
 
-          const current = getState();
+          const current = getWorldSession(tabId);
           if (document.hidden && !current.hasNewActivity) {
             if (character.sound) {
               playBeep();
             }
 
-            patch({ hasNewActivity: true });
+            updateWorldSession(tabId, { hasNewActivity: true });
           }
         },
         onClose: () => {
-          patch({ connectionStatus: 'error' });
-          void appendOutput('\x1b[90m[disconnected - press F5 to reconnect]\x1b[0m\n');
+          updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'remote' });
+          void appendOutputToTab(tabId, '\x1b[90m[disconnected - reconnect available]\x1b[0m\n');
         },
         onError: (message) => {
-          patch({ connectionStatus: 'error' });
-          void appendOutput(`\x1b[31m[connection error] ${message}\x1b[0m\n`);
+          updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'error' });
+          void appendOutputToTab(tabId, `\x1b[31m[connection error] ${message}\x1b[0m\n`);
         },
       },
     );
   }
 
-  async function appendOutput(rawText: string): Promise<void> {
-    const state = getState();
-    const next = transcript.append(rawText, getHighlightRegexes());
-    const maxHistoryLines = state.currentCharacter?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
-
-    if (state.currentCharacter && maxHistoryLines > 0) {
-      transcriptHistory = appendTranscriptHistory(transcriptHistory, rawText, maxHistoryLines);
-      void saveTranscriptHistory(state.currentCharacter.name, transcriptHistory, maxHistoryLines);
-    }
-
-    patch({
-      outputChunks: next.chunks,
-      outputEndsWithBr: next.endsWithBr,
-    });
-
-    await nextFrame();
-    if (!state.userScrolled) {
-      scrollElementToBottom('output-area');
-    }
-  }
-
   function handleOutputScroll(): void {
-    const outputEl = document.getElementById('output-area');
+    const scope = getActiveWorldScope();
+    if (!scope) {
+      return;
+    }
+
+    const outputEl = document.getElementById(getWorldOutputAreaId(scope));
 
     if (!outputEl) {
       return;
     }
 
     const distance = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight;
-    patch({ userScrolled: distance > 50 });
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    updateWorldSession(tabId, { userScrolled: distance > 50 });
   }
 
   function handleInputFocus(bar: InputBarId): void {
-    patch({ activeBar: bar });
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    updateWorldSession(tabId, { activeBar: bar });
   }
 
   function handleInputSubmit(_bar: InputBarId, value: string): void {
@@ -210,33 +289,48 @@ export function createPlaybackActions({
       return;
     }
 
-    connection.send(value + '\r\n');
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
 
-    const state = getState();
-    if (!state.userScrolled) {
-      scrollElementToBottom('output-area');
+    getWorldConnection(tabId)?.send(value + '\r\n');
+
+    const session = getWorldSession(tabId);
+    if (!session.userScrolled) {
+      const scope = getActiveWorldScope();
+      if (scope) {
+        scrollElementToBottom(getWorldOutputAreaId(scope));
+      }
     }
   }
 
   function completeInput(value: string, selectionStart: number): { value: string; cursor: number } | null {
-    return transcript.complete(value, selectionStart);
+    const session = getActiveWorldSession();
+    return session ? session.transcript.complete(value, selectionStart) : null;
   }
 
   function resetCompletion(): void {
-    transcript.resetCompletion();
+    const session = getActiveWorldSession();
+    session?.transcript.resetCompletion();
   }
 
   async function togglePanel(panel: 'notes' | 'highlights'): Promise<void> {
-    const state = getState();
-    const shouldOpen = panel === 'notes' ? !state.notesVisible : !state.highlightsVisible;
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    const shouldOpen = panel === 'notes' ? !session.notesVisible : !session.highlightsVisible;
 
     if (panel === 'notes') {
-      patch({
+      updateWorldSession(tabId, {
         notesVisible: shouldOpen,
         highlightsVisible: false,
       });
     } else {
-      patch({
+      updateWorldSession(tabId, {
         highlightsVisible: shouldOpen,
         notesVisible: false,
       });
@@ -245,68 +339,86 @@ export function createPlaybackActions({
     await nextFrame();
 
     if (shouldOpen) {
-      focusElement(panel === 'notes' ? 'notes-editor' : 'highlight-input');
+      const scope = getActiveWorldScope();
+      if (scope) {
+        focusElement(panel === 'notes' ? getWorldNotesEditorId(scope) : getWorldHighlightInputId(scope));
+      }
     } else {
-      focusElement(getInputBarInputId(getState().activeBar));
+      focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar));
     }
   }
 
   async function addInputBarAfter(barId: InputBarId): Promise<void> {
-    const state = getState();
-    const currentIndex = state.inputBars.findIndex((bar) => bar.id === barId);
-    const insertIndex = currentIndex >= 0 ? currentIndex + 1 : state.inputBars.length;
-    const nextBar = createInputBar(getNextInputBarId(state.inputBars));
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    const currentIndex = session.inputBars.findIndex((bar) => bar.id === barId);
+    const insertIndex = currentIndex >= 0 ? currentIndex + 1 : session.inputBars.length;
+    const nextBar = createInputBar(getNextInputBarId(session.inputBars));
 
     const nextBars = normalizeInputBars([
-      ...state.inputBars.slice(0, insertIndex),
+      ...session.inputBars.slice(0, insertIndex),
       nextBar,
-      ...state.inputBars.slice(insertIndex),
+      ...session.inputBars.slice(insertIndex),
     ]);
 
-    patch({
+    updateWorldSession(tabId, {
       inputBars: nextBars,
       activeBar: nextBar.id,
     });
 
     await nextFrame();
-    focusElement(getInputBarInputId(nextBar.id));
+    focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), nextBar.id));
   }
 
   async function removeInputBar(barId: InputBarId): Promise<void> {
-    const state = getState();
-    if (state.inputBars.length <= 1) {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
       return;
     }
 
-    const currentIndex = state.inputBars.findIndex((bar) => bar.id === barId);
+    const session = getWorldSession(tabId);
+    if (session.inputBars.length <= 1) {
+      return;
+    }
+
+    const currentIndex = session.inputBars.findIndex((bar) => bar.id === barId);
     if (currentIndex < 0) {
       return;
     }
 
     const remainingBars = normalizeInputBars(
-      state.inputBars.filter((bar) => bar.id !== barId),
+      session.inputBars.filter((bar) => bar.id !== barId),
     );
 
     const nextActiveBar =
-      state.activeBar === barId
-        ? remainingBars[Math.min(currentIndex, remainingBars.length - 1)]?.id ??
+      session.activeBar === barId
+        ? remainingBars[Math.min(currentIndex, remainingBars.length - 1)]?.id ?? 
           remainingBars[remainingBars.length - 1]?.id ??
           remainingBars[0]?.id ??
-          state.activeBar
-        : state.activeBar;
+          session.activeBar
+        : session.activeBar;
 
-    patch({
+    updateWorldSession(tabId, {
       inputBars: remainingBars,
       activeBar: nextActiveBar,
     });
 
     await nextFrame();
-    focusElement(getInputBarInputId(nextActiveBar));
+    focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), nextActiveBar));
   }
 
   function resizeInputBar(barId: InputBarId, delta: -1 | 1): void {
-    const state = getState();
-    const nextBars = state.inputBars.map((bar) => {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    const nextBars = session.inputBars.map((bar) => {
       if (bar.id !== barId) {
         return bar;
       }
@@ -317,7 +429,7 @@ export function createPlaybackActions({
       };
     });
 
-    patch({ inputBars: normalizeInputBars(nextBars) });
+    updateWorldSession(tabId, { inputBars: normalizeInputBars(nextBars) });
   }
 
   function addHighlight(pattern: string, color: string): void {
@@ -344,21 +456,24 @@ export function createPlaybackActions({
   }
 
   function saveNotes(notes: string): void {
-    const state = getState();
-
-    if (!state.currentCharacter) {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
       return;
     }
 
-    void persistNotes(state.currentCharacter.name, notes);
-    patch({ notes });
+    const session = getWorldSession(tabId);
+    if (!session.currentCharacter) {
+      return;
+    }
+
+    void persistNotes(session.currentCharacter.id, notes);
+    updateWorldSession(tabId, { notes });
   }
 
   return {
     handleVisibilityChange,
     handleGlobalKeyDown,
     connectToCharacter,
-    appendOutput,
     handleOutputScroll,
     handleInputFocus,
     handleInputSubmit,

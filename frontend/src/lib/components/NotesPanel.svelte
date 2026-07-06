@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { getWorldNotesEditorId, getWorldNotesPanelId } from '../world-dom';
+
   export let open = false;
   export let notes = '';
+  export let scope = 'world';
   export let onInput: (notes: string) => void;
 
   let draft = notes;
@@ -17,10 +20,10 @@
   }
 </script>
 
-<div id="notes-panel" class:open={open}>
-  <div id="notes-label">notes</div>
+<div class="notes-panel" id={getWorldNotesPanelId(scope)} class:open={open}>
+  <div class="notes-label">notes</div>
   <textarea
-    id="notes-editor"
+    id={getWorldNotesEditorId(scope)}
     bind:value={draft}
     spellcheck="true"
     placeholder="notes for this character..."

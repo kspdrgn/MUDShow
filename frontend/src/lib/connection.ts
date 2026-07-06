@@ -15,11 +15,13 @@ type ConnectionTarget = {
 };
 
 type ConnectionEvent =
-  | { kind: 'data'; text: string }
-  | { kind: 'closed'; reason: string }
-  | { kind: 'error'; message: string };
+  | { connectionId: string; kind: 'data'; text: string }
+  | { connectionId: string; kind: 'closed'; reason: string }
+  | { connectionId: string; kind: 'error'; message: string };
 
 export class MudConnection {
+  constructor(private readonly connectionId: string) {}
+
   private sessionToken = 0;
   private connected = false;
   private unlistenEvents: (() => void) | null = null;
@@ -32,7 +34,7 @@ export class MudConnection {
 
     try {
       await this.startListening(token, handlers);
-      await invoke('connect_mud', target);
+      await invoke('connect_mud', { connectionId: this.connectionId, ...target });
       if (this.sessionToken === token) {
         this.connected = true;
         handlers.onOpen();
@@ -51,7 +53,7 @@ export class MudConnection {
       return;
     }
 
-    void invoke('send_mud', { text }).catch(() => undefined);
+    void invoke('send_mud', { connectionId: this.connectionId, text }).catch(() => undefined);
   }
 
   async close(): Promise<void> {
@@ -64,11 +66,15 @@ export class MudConnection {
       unlisten();
     }
 
-    await invoke('disconnect_mud').catch(() => undefined);
+    await invoke('disconnect_mud', { connectionId: this.connectionId }).catch(() => undefined);
   }
 
   private async startListening(token: number, handlers: Handlers): Promise<void> {
     const unlisten = await listen<ConnectionEvent>('mud://event', ({ payload }) => {
+      if (payload.connectionId !== this.connectionId) {
+        return;
+      }
+
       if (this.sessionToken !== token) {
         return;
       }

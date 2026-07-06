@@ -1,37 +1,27 @@
-import type { Character, HighlightRule } from './types';
+import type { CharacterRecord, HighlightRule, WorldRecord } from './types';
 import { trimTranscriptHistory, type TranscriptHistoryEntry } from './playback';
 import { invoke, isTauriAvailable } from './tauri';
 
+const WORLD_KEY = 'mudshow_worlds';
 const CHARACTER_KEY = 'mudshow_chars';
 const HIGHLIGHT_KEY = 'mudshow_highlights';
 const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
 const STORAGE_MODE_KEY = 'mudshow_storage_mode';
+const STORAGE_SCHEMA_VERSION = 1;
+
 export type DesktopStorageMode = 'webview' | 'file';
 
 interface PersistentData {
-  characters: Character[];
+  schemaVersion: number;
+  worlds: WorldRecord[];
+  characters: CharacterRecord[];
   highlights: HighlightRule[];
   history: Record<string, TranscriptHistoryEntry[]>;
   notes: Record<string, string>;
 }
 
 let fileWriteQueue: Promise<void> = Promise.resolve();
-
-/** Support local storage both in webview and json file:
- * - 'webview profile' for web deployment. Works in Tauri too, but will write a file in local user profile.
- * - 'file' for external json file storage. Not 'Tauri Store' Better for backup, and user readable.
- */
-function getDesktopStorageMode(): DesktopStorageMode {
-  // TODO: implement user settings to switch between webview profile, and external json storage.
-  if (!isTauriAvailable()) {
-    return 'webview';
-  }
-
-  return localStorage.getItem(STORAGE_MODE_KEY) === 'file'
-    ? 'file'
-    : 'webview';
-}
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) {
@@ -45,8 +35,15 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
+function createId(prefix: string): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function createEmptyData(): PersistentData {
   return {
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    worlds: [],
     characters: [],
     highlights: [],
     history: {},
@@ -54,29 +51,158 @@ function createEmptyData(): PersistentData {
   };
 }
 
-export function setDesktopStorageMode(mode: DesktopStorageMode): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  localStorage.setItem(STORAGE_MODE_KEY, mode);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function readWebviewData(): PersistentData {
+function toStringValue(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function toBooleanValue(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function toNumberValue(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeWorldRecord(value: unknown): WorldRecord | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const host = toStringValue(value.host).trim();
+  const port = toNumberValue(value.port, Number.NaN);
+
+  if (!host || !Number.isFinite(port)) {
+    return null;
+  }
+
+  const tls = toBooleanValue(value.tls, true);
+  const verifyCertificate = tls && toBooleanValue(value.verifyCertificate, true);
+
   return {
-    characters: safeParse(localStorage.getItem(CHARACTER_KEY), []),
-    highlights: safeParse(localStorage.getItem(HIGHLIGHT_KEY), []),
-    history: safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {},
-    notes: Object.keys(localStorage)
-      .filter((key) => key.startsWith(NOTES_PREFIX))
-      .reduce<Record<string, string>>((accumulator, key) => {
-        accumulator[key.slice(NOTES_PREFIX.length)] = localStorage.getItem(key) ?? '';
-        return accumulator;
-      }, {}),
+    id: toStringValue(value.id).trim() || createId('world'),
+    name: toStringValue(value.name).trim() || `${host}:${port}`,
+    host,
+    port,
+    tls,
+    verifyCertificate,
   };
 }
 
+function normalizeCharacterRecord(value: unknown): CharacterRecord | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const worldId = toStringValue(value.worldId).trim();
+  const name = toStringValue(value.name).trim();
+
+  if (!worldId || !name) {
+    return null;
+  }
+
+  return {
+    id: toStringValue(value.id).trim() || createId('character'),
+    worldId,
+    name,
+    isDefault: toBooleanValue(value.isDefault, false),
+    width: typeof value.width === 'number' && Number.isFinite(value.width) ? value.width : undefined,
+    sound: typeof value.sound === 'boolean' ? value.sound : undefined,
+    outputHistoryLines:
+      typeof value.outputHistoryLines === 'number' && Number.isFinite(value.outputHistoryLines)
+        ? value.outputHistoryLines
+        : undefined,
+  };
+}
+
+function createDefaultCharacter(worldId: string): CharacterRecord {
+  return {
+    id: createId('character'),
+    worldId,
+    name: 'Default',
+    isDefault: true,
+  };
+}
+
+function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
+  const byKey = new Map<string, WorldRecord>();
+
+  for (const world of worlds) {
+    const key = [world.host, world.port, world.tls ? '1' : '0', world.verifyCertificate ? '1' : '0'].join('|');
+    if (!byKey.has(key)) {
+      byKey.set(key, world);
+    }
+  }
+
+  return [...byKey.values()];
+}
+
+function ensureDefaultCharacters(data: PersistentData): PersistentData {
+  const nextCharacters = [...data.characters];
+  const existingDefaults = new Set(nextCharacters.filter((character) => character.isDefault).map((character) => character.worldId));
+
+  for (const world of data.worlds) {
+    if (!existingDefaults.has(world.id)) {
+      nextCharacters.push(createDefaultCharacter(world.id));
+    }
+  }
+
+  return {
+    ...data,
+    characters: nextCharacters,
+  };
+}
+
+function normalizePersistentData(
+  raw: Partial<Omit<PersistentData, 'characters' | 'worlds'>> & { characters?: unknown; worlds?: unknown },
+): PersistentData {
+  const worldRecords = Array.isArray(raw.worlds)
+    ? raw.worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null)
+    : [];
+
+  const characterRecords = Array.isArray(raw.characters)
+    ? raw.characters.map((entry) => normalizeCharacterRecord(entry)).filter((entry): entry is CharacterRecord => entry !== null)
+    : [];
+
+  const data = ensureDefaultCharacters({
+    schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : STORAGE_SCHEMA_VERSION,
+    worlds: dedupeWorlds(worldRecords),
+    characters: characterRecords,
+    highlights: Array.isArray(raw.highlights) ? raw.highlights : [],
+    history: isRecord(raw.history) ? (raw.history as Record<string, TranscriptHistoryEntry[]>) : {},
+    notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
+  });
+
+  return data;
+}
+
+function readWebviewData(): PersistentData {
+  const worlds = safeParse<unknown>(localStorage.getItem(WORLD_KEY), []);
+  const characters = safeParse<unknown>(localStorage.getItem(CHARACTER_KEY), []);
+  const highlights = safeParse<HighlightRule[]>(localStorage.getItem(HIGHLIGHT_KEY), []);
+  const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
+  const notes = Object.keys(localStorage)
+    .filter((key) => key.startsWith(NOTES_PREFIX))
+    .reduce<Record<string, string>>((accumulator, key) => {
+      accumulator[key.slice(NOTES_PREFIX.length)] = localStorage.getItem(key) ?? '';
+      return accumulator;
+    }, {});
+
+  return normalizePersistentData({
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    worlds,
+    characters,
+    highlights,
+    history,
+    notes,
+  });
+}
+
 function writeWebviewData(data: PersistentData): void {
+  localStorage.setItem(WORLD_KEY, JSON.stringify(data.worlds));
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data.characters));
   localStorage.setItem(HIGHLIGHT_KEY, JSON.stringify(data.highlights));
   localStorage.setItem(HISTORY_KEY, JSON.stringify(data.history));
@@ -92,16 +218,8 @@ function writeWebviewData(data: PersistentData): void {
 
 async function readFileData(): Promise<PersistentData> {
   const raw = await invoke<string>('load_app_storage');
-  const parsed = safeParse<Partial<PersistentData>>(raw, {});
-
-  return {
-    ...createEmptyData(),
-    ...parsed,
-    characters: parsed.characters ?? [],
-    highlights: parsed.highlights ?? [],
-    history: parsed.history ?? {},
-    notes: parsed.notes ?? {},
-  };
+  const parsed = safeParse<Partial<Omit<PersistentData, 'characters' | 'worlds'>> & { characters?: unknown; worlds?: unknown }>(raw, {});
+  return normalizePersistentData(parsed);
 }
 
 async function writeFileData(data: PersistentData): Promise<void> {
@@ -114,25 +232,48 @@ async function waitForPendingFileWrites(): Promise<void> {
   await fileWriteQueue;
 }
 
+async function readPersistentData(waitForWrites: boolean): Promise<PersistentData> {
+  if (waitForWrites) {
+    await waitForPendingFileWrites();
+  }
+
+  return readFileData();
+}
+
 function queueFileMutation(mutator: (data: PersistentData) => PersistentData): Promise<void> {
-  fileWriteQueue = fileWriteQueue.then(async () => {
-    const current = await readFileData();
-    const next = mutator(current);
-    await writeFileData(next);
-  }).catch((error) => {
-    console.error('failed to persist MUDShow data:', error);
-  });
+  fileWriteQueue = fileWriteQueue
+    .then(async () => {
+      const current = await readFileData();
+      const next = mutator(current);
+      await writeFileData(next);
+    })
+    .catch((error) => {
+      console.error('failed to persist MUDShow data:', error);
+    });
 
   return fileWriteQueue;
 }
 
+function getDesktopStorageMode(): DesktopStorageMode {
+  if (!isTauriAvailable()) {
+    return 'webview';
+  }
+
+  return localStorage.getItem(STORAGE_MODE_KEY) === 'file' ? 'file' : 'webview';
+}
+
+function resolveCharacterNoteKey(characterName: string): string {
+  return characterName.trim();
+}
+
 function updateNotes(data: PersistentData, characterName: string, notes: string | null): PersistentData {
+  const key = resolveCharacterNoteKey(characterName);
   const nextNotes = { ...data.notes };
 
   if (notes === null) {
-    delete nextNotes[characterName];
+    delete nextNotes[key];
   } else {
-    nextNotes[characterName] = notes;
+    nextNotes[key] = notes;
   }
 
   return {
@@ -146,12 +287,13 @@ function updateHistory(
   characterName: string,
   entries: TranscriptHistoryEntry[] | null,
 ): PersistentData {
+  const key = resolveCharacterNoteKey(characterName);
   const nextHistory = { ...data.history };
 
   if (entries === null) {
-    delete nextHistory[characterName];
+    delete nextHistory[key];
   } else {
-    nextHistory[characterName] = entries;
+    nextHistory[key] = entries;
   }
 
   return {
@@ -160,9 +302,53 @@ function updateHistory(
   };
 }
 
-export async function loadCharacters(): Promise<Character[]> {
+export function setDesktopStorageMode(mode: DesktopStorageMode): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  localStorage.setItem(STORAGE_MODE_KEY, mode);
+}
+
+export async function loadWorlds(): Promise<WorldRecord[]> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    return safeParse(localStorage.getItem(CHARACTER_KEY), []);
+    return readWebviewData().worlds;
+  }
+
+  await waitForPendingFileWrites();
+  const data = await readFileData();
+  return data.worlds;
+}
+
+export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
+  const normalizedWorlds = dedupeWorlds(
+    worlds
+      .map((entry) => normalizeWorldRecord(entry))
+      .filter((entry): entry is WorldRecord => entry !== null),
+  );
+
+  const update = (data: PersistentData): PersistentData => {
+    const worldIds = new Set(normalizedWorlds.map((world) => world.id));
+    const nextCharacters = data.characters.filter((character) => character.isDefault || worldIds.has(character.worldId));
+
+    return ensureDefaultCharacters({
+      ...data,
+      worlds: normalizedWorlds,
+      characters: nextCharacters,
+    });
+  };
+
+  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+    writeWebviewData(update(readWebviewData()));
+    return;
+  }
+
+  await queueFileMutation(update);
+}
+
+export async function loadCharacters(): Promise<CharacterRecord[]> {
+  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+    return readWebviewData().characters;
   }
 
   await waitForPendingFileWrites();
@@ -170,30 +356,44 @@ export async function loadCharacters(): Promise<Character[]> {
   return data.characters;
 }
 
-export async function saveCharacters(characters: Character[]): Promise<void> {
+export async function saveCharacters(characters: CharacterRecord[]): Promise<void> {
+  const normalizedCharacters = characters
+    .map((entry) => normalizeCharacterRecord(entry))
+    .filter((entry): entry is CharacterRecord => entry !== null);
+
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    localStorage.setItem(CHARACTER_KEY, JSON.stringify(characters));
+    const current = readWebviewData();
+    writeWebviewData({
+      ...current,
+      characters: ensureDefaultCharacters({
+        ...current,
+        characters: normalizedCharacters,
+      }).characters,
+    });
     return;
   }
 
   await queueFileMutation((data) => ({
     ...data,
-    characters,
+    characters: ensureDefaultCharacters({
+      ...data,
+      characters: normalizedCharacters,
+    }).characters,
   }));
 }
 
 export async function loadTranscriptHistory(
   characterName: string,
   maxLines = Number.POSITIVE_INFINITY,
+  waitForWrites = true,
 ): Promise<TranscriptHistoryEntry[]> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
-    return trimTranscriptHistory(history[characterName] ?? [], maxLines);
+    const history = readWebviewData().history;
+    return trimTranscriptHistory(history[resolveCharacterNoteKey(characterName)] ?? [], maxLines);
   }
 
-  await waitForPendingFileWrites();
-  const data = await readFileData();
-  return trimTranscriptHistory(data.history[characterName] ?? [], maxLines);
+  const data = await readPersistentData(waitForWrites);
+  return trimTranscriptHistory(data.history[resolveCharacterNoteKey(characterName)] ?? [], maxLines);
 }
 
 export async function saveTranscriptHistory(
@@ -204,16 +404,8 @@ export async function saveTranscriptHistory(
   const nextEntries = trimTranscriptHistory(entries, maxLines);
 
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
-    const nextHistory = { ...history };
-
-    if (nextEntries.length > 0) {
-      nextHistory[characterName] = nextEntries;
-    } else {
-      delete nextHistory[characterName];
-    }
-
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    const current = readWebviewData();
+    writeWebviewData(updateHistory(current, characterName, nextEntries.length > 0 ? nextEntries : null));
     return;
   }
 
@@ -222,32 +414,35 @@ export async function saveTranscriptHistory(
 
 export async function moveTranscriptHistory(fromCharacterName: string, toCharacterName: string): Promise<void> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
-    const nextHistory = { ...history };
-    const entries = nextHistory[fromCharacterName];
+    const current = readWebviewData();
+    const nextHistory = { ...current.history };
+    const entries = nextHistory[resolveCharacterNoteKey(fromCharacterName)];
 
-    delete nextHistory[fromCharacterName];
+    delete nextHistory[resolveCharacterNoteKey(fromCharacterName)];
 
     if (entries !== undefined) {
-      nextHistory[toCharacterName] = entries;
+      nextHistory[resolveCharacterNoteKey(toCharacterName)] = entries;
     } else {
-      delete nextHistory[toCharacterName];
+      delete nextHistory[resolveCharacterNoteKey(toCharacterName)];
     }
 
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    writeWebviewData({
+      ...current,
+      history: nextHistory,
+    });
     return;
   }
 
   await queueFileMutation((data) => {
     const nextHistory = { ...data.history };
-    const entries = nextHistory[fromCharacterName];
+    const entries = nextHistory[resolveCharacterNoteKey(fromCharacterName)];
 
-    delete nextHistory[fromCharacterName];
+    delete nextHistory[resolveCharacterNoteKey(fromCharacterName)];
 
     if (entries !== undefined) {
-      nextHistory[toCharacterName] = entries;
+      nextHistory[resolveCharacterNoteKey(toCharacterName)] = entries;
     } else {
-      delete nextHistory[toCharacterName];
+      delete nextHistory[resolveCharacterNoteKey(toCharacterName)];
     }
 
     return {
@@ -259,29 +454,32 @@ export async function moveTranscriptHistory(fromCharacterName: string, toCharact
 
 export async function deleteTranscriptHistory(characterName: string): Promise<void> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
-    const nextHistory = { ...history };
-    delete nextHistory[characterName];
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    const current = readWebviewData();
+    const nextHistory = { ...current.history };
+    delete nextHistory[resolveCharacterNoteKey(characterName)];
+    writeWebviewData({
+      ...current,
+      history: nextHistory,
+    });
     return;
   }
 
   await queueFileMutation((data) => updateHistory(data, characterName, null));
 }
 
-export async function loadNotes(characterName: string): Promise<string> {
+export async function loadNotes(characterName: string, waitForWrites = true): Promise<string> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    return localStorage.getItem(`${NOTES_PREFIX}${characterName}`) ?? '';
+    return readWebviewData().notes[resolveCharacterNoteKey(characterName)] ?? '';
   }
 
-  await waitForPendingFileWrites();
-  const data = await readFileData();
-  return data.notes[characterName] ?? '';
+  const data = await readPersistentData(waitForWrites);
+  return data.notes[resolveCharacterNoteKey(characterName)] ?? '';
 }
 
 export async function saveNotes(characterName: string, notes: string): Promise<void> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    localStorage.setItem(`${NOTES_PREFIX}${characterName}`, notes);
+    const current = readWebviewData();
+    writeWebviewData(updateNotes(current, characterName, notes));
     return;
   }
 
@@ -290,28 +488,34 @@ export async function saveNotes(characterName: string, notes: string): Promise<v
 
 export async function moveNotes(fromCharacterName: string, toCharacterName: string): Promise<void> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    const notes = localStorage.getItem(`${NOTES_PREFIX}${fromCharacterName}`);
+    const current = readWebviewData();
+    const notes = current.notes[resolveCharacterNoteKey(fromCharacterName)];
+    const nextNotes = { ...current.notes };
 
-    if (notes === null) {
-      localStorage.removeItem(`${NOTES_PREFIX}${toCharacterName}`);
-      return;
+    if (notes === null || notes === undefined) {
+      delete nextNotes[resolveCharacterNoteKey(toCharacterName)];
+    } else {
+      nextNotes[resolveCharacterNoteKey(toCharacterName)] = notes;
     }
 
-    localStorage.removeItem(`${NOTES_PREFIX}${fromCharacterName}`);
-    localStorage.setItem(`${NOTES_PREFIX}${toCharacterName}`, notes);
+    delete nextNotes[resolveCharacterNoteKey(fromCharacterName)];
+    writeWebviewData({
+      ...current,
+      notes: nextNotes,
+    });
     return;
   }
 
   await queueFileMutation((data) => {
     const nextNotes = { ...data.notes };
-    const notes = nextNotes[fromCharacterName];
+    const notes = nextNotes[resolveCharacterNoteKey(fromCharacterName)];
 
-    delete nextNotes[fromCharacterName];
+    delete nextNotes[resolveCharacterNoteKey(fromCharacterName)];
 
     if (notes !== undefined) {
-      nextNotes[toCharacterName] = notes;
+      nextNotes[resolveCharacterNoteKey(toCharacterName)] = notes;
     } else {
-      delete nextNotes[toCharacterName];
+      delete nextNotes[resolveCharacterNoteKey(toCharacterName)];
     }
 
     return {
@@ -323,7 +527,13 @@ export async function moveNotes(fromCharacterName: string, toCharacterName: stri
 
 export async function deleteNotes(characterName: string): Promise<void> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    localStorage.removeItem(`${NOTES_PREFIX}${characterName}`);
+    const current = readWebviewData();
+    const nextNotes = { ...current.notes };
+    delete nextNotes[resolveCharacterNoteKey(characterName)];
+    writeWebviewData({
+      ...current,
+      notes: nextNotes,
+    });
     return;
   }
 
@@ -332,7 +542,7 @@ export async function deleteNotes(characterName: string): Promise<void> {
 
 export async function loadHighlights(): Promise<HighlightRule[]> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    return safeParse(localStorage.getItem(HIGHLIGHT_KEY), []);
+    return readWebviewData().highlights;
   }
 
   await waitForPendingFileWrites();
@@ -342,7 +552,11 @@ export async function loadHighlights(): Promise<HighlightRule[]> {
 
 export async function saveHighlights(rules: HighlightRule[]): Promise<void> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    localStorage.setItem(HIGHLIGHT_KEY, JSON.stringify(rules));
+    const current = readWebviewData();
+    writeWebviewData({
+      ...current,
+      highlights: rules,
+    });
     return;
   }
 
@@ -352,7 +566,40 @@ export async function saveHighlights(rules: HighlightRule[]): Promise<void> {
   }));
 }
 
-export async function loadSessionData(): Promise<{ characters: Character[]; highlights: HighlightRule[] }> {
-  const [characters, highlights] = await Promise.all([loadCharacters(), loadHighlights()]);
-  return { characters, highlights };
+export async function saveConnectionData(worlds: WorldRecord[], characters: CharacterRecord[]): Promise<void> {
+  const normalizedWorlds = dedupeWorlds(
+    worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null),
+  );
+  const normalizedCharacters = characters
+    .map((entry) => normalizeCharacterRecord(entry))
+    .filter((entry): entry is CharacterRecord => entry !== null);
+
+  const nextData = ensureDefaultCharacters({
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    worlds: normalizedWorlds,
+    characters: normalizedCharacters,
+    highlights: [],
+    history: {},
+    notes: {},
+  });
+
+  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+    writeWebviewData({
+      ...readWebviewData(),
+      worlds: nextData.worlds,
+      characters: nextData.characters,
+    });
+    return;
+  }
+
+  await queueFileMutation((data) => ({
+    ...data,
+    worlds: nextData.worlds,
+    characters: nextData.characters,
+  }));
+}
+
+export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; characters: CharacterRecord[]; highlights: HighlightRule[] }> {
+  const [worlds, characters, highlights] = await Promise.all([loadWorlds(), loadCharacters(), loadHighlights()]);
+  return { worlds, characters, highlights };
 }

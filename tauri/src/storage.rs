@@ -31,7 +31,7 @@ pub fn load_app_storage() -> Result<String, String> {
     match fs::read_to_string(&path) {
         Ok(contents) => Ok(contents),
         Err(error) if error.kind() == ErrorKind::NotFound => Ok(String::from(
-            r#"{"characters":[],"highlights":[],"notes":{}}"#,
+            r#"{"schemaVersion":1,"worlds":[],"characters":[],"highlights":[],"history":{},"notes":{}}"#,
         )),
         Err(error) => Err(format!(
             "failed to read storage file {}: {error}",

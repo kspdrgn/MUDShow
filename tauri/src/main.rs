@@ -54,7 +54,7 @@ fn main() {
             tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
                 app_handle
                     .state::<mud_backend::ConnectionManager>()
-                    .disconnect();
+                    .disconnect_all();
             }
             _ => {}
         });

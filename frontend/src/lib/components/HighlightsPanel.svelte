@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { HighlightRule } from '../types';
+  import { getWorldHighlightInputId, getWorldHighlightsPanelId } from '../world-dom';
 
   export let open = false;
   export let highlights: HighlightRule[] = [];
+  export let scope = 'world';
   export let onAdd: (pattern: string, color: string) => void;
   export let onDelete: (index: number) => void;
 
@@ -15,9 +17,9 @@
   }
 </script>
 
-<div id="highlights-panel" class:open={open}>
-  <div id="highlights-label">highlights</div>
-  <div id="highlights-list">
+<div class="highlights-panel" id={getWorldHighlightsPanelId(scope)} class:open={open}>
+  <div class="highlights-label">highlights</div>
+  <div class="highlights-list">
     {#if highlights.length === 0}
       <div style="padding:0.5rem 0.8rem;color:var(--text-dim);font-size:0.8rem;">no highlights yet</div>
     {:else}
@@ -30,9 +32,9 @@
       {/each}
     {/if}
   </div>
-  <form id="highlights-add" on:submit|preventDefault={handleAdd}>
+  <form class="highlights-add" on:submit|preventDefault={handleAdd}>
     <input
-      id="highlight-input"
+      id={getWorldHighlightInputId(scope)}
       type="text"
       bind:value={pattern}
       placeholder="text to highlight..."

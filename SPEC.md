@@ -33,6 +33,7 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - No server-side account sync.
 - No shared or cloud persistence.
 - No persistence for command history across app restarts.
+- No persistence for tabs across app restarts.
 - No rich regex-based highlight language.
 
 # Requirements 
@@ -53,6 +54,8 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 - Indicate connection state and errors clearly.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and highlights locally on the user’s device.
+- Store rolling per-character transcript history locally and reload it when reconnecting.
+- Do not persist input history across app restarts.
 - Open and close a notes panel for the active character.
 - Open and close a highlights panel for global rules.
 - Add and remove highlight rules.
@@ -117,6 +120,7 @@ Selecting text will automatically copy to clipboard and return keyboard focus to
 # UI Layout
 
 The app shows a minimal layout with tabs at the top and the open tab filling all the space beneath.
+If no tabs are open, the Home Panel is shown instead of a tab.
 
 ## Title Bar
 
@@ -137,8 +141,11 @@ Anchored to the right:
   - Tabs can be closed.
   - Only one tab can be opened at a time per world character. Attempting to open the same character will instead activate that tab.
   - Tab names appear with world name and character name.
-  - If no tabs are open, the quick connect interface should be shown centered in the empty content space.
+  - If no tabs are open, the Home Panel should be shown centered in the empty content space.
   - Connection tabs are not restored between app sessions.
+  - Characters and App Settings are opened only when the user chooses them and are not instantiated until then.
+  - Tabs will have an X button anchored on their right side to close a tab. Connected worlds will display a popup modal confirmation before allowing the close action.
+  - Tabs can be dragged to re-order them within the tab bar arbitrarily
 
 ## Quick Connect Menu
 
@@ -146,8 +153,8 @@ The '+' button on the tab bar shows the quick connect menu as a dropdown menu. T
 
 ## App Hamburger Menu
 
-- Characters - opens Characters Tab
-- App Settings - opens App Settings Tab
+- Characters - opens or creates the Characters Tab
+- App Settings - opens or creates the App Settings Tab
 
 # Possible Tab Contents
 
@@ -161,6 +168,8 @@ Contents:
 - Link to app settings tab
 
 ## App Settings Tab
+
+This tab is created only when the user opens it.
 
 Database
   - Show current user settings data location
@@ -186,6 +195,7 @@ Window
 ## Characters Tab
 
 This shows a list of all saved worlds and characters, with ability to add more and edit anything.
+This tab is created only when the user opens it.
 
 Uses hierarchical settings.
 
@@ -204,6 +214,8 @@ Character Settings
   - Activity notification sound per character
   - Renaming a saved character will migrate any persisted history and settings to stay associated to the new character name
 
+Deleting a world or a character will not be allowed if there is an open tab on that world or character.
+
 ## PlayScreen Layout - World and Character Tab
 
 Main content and interaction space for a single world and character.
@@ -214,5 +226,5 @@ PlayScreen
   - Transcript - Fills most space in the middle. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
 
-  - AppSettings tab - Global application configuration, not character specific. Storage location of json database file, etc.
-  - PlayScreen tab per connection
+  - One PlayScreen instance per world tab.
+  - Each PlayScreen instance keeps its own transcript view, scroll position, input bars, panel visibility, and connection status while that tab remains open.

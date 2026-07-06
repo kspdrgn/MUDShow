@@ -6,14 +6,17 @@
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
 
+  export let scope = 'world';
+  export let visible = true;
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
-  export let connectionStatus: 'idle' | 'connected' | 'error' = 'idle';
+  export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
   export let highlights: HighlightRule[] = [];
   export let highlightsVisible = false;
   export let notes = '';
   export let notesVisible = false;
   export let outputChunks: string[] = [];
+  export let outputRevision = 0;
   export let playWidth = 'none';
   export let onHighlightAdd: (pattern: string, color: string) => void;
   export let onHighlightDelete: (index: number) => void;
@@ -31,17 +34,20 @@
   export let onOutputScroll: () => void;
 </script>
 
-<div id="screen-play" class="active" style={`--play-width: ${playWidth};`}>
-  <HighlightsPanel open={highlightsVisible} {highlights} onAdd={onHighlightAdd} onDelete={onHighlightDelete} />
+<div class:active={visible} class="screen-play" style={`--play-width: ${playWidth};`}>
+  <HighlightsPanel open={highlightsVisible} {highlights} {scope} onAdd={onHighlightAdd} onDelete={onHighlightDelete} />
 
-  <NotesPanel open={notesVisible} {notes} onInput={onNotesInput} />
+  <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} />
 
-  <Transcript {activeBar} chunks={outputChunks} width={playWidth} onScroll={onOutputScroll} />
+  {#key outputRevision}
+    <Transcript {activeBar} chunks={outputChunks} width={playWidth} {scope} onScroll={onOutputScroll} />
+  {/key}
 
   <InputBars
     {bars}
     {activeBar}
     {connectionStatus}
+    {scope}
     onFocusBar={onInputFocusBar}
     onSubmit={onInputSubmit}
     onComplete={onInputComplete}

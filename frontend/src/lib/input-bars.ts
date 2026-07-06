@@ -56,3 +56,11 @@ export function getInputBarInputId(barId: InputBarId): string {
 export function getInputBarContainerId(barId: InputBarId): string {
   return `bar-${barId}`;
 }
+
+export function getScopedInputBarInputId(scope: string, barId: InputBarId): string {
+  return `${scope}-input-${barId}`;
+}
+
+export function getScopedInputBarContainerId(scope: string, barId: InputBarId): string {
+  return `${scope}-bar-${barId}`;
+}

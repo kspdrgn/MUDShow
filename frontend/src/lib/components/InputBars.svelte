@@ -4,8 +4,8 @@
   import StatusDot from './StatusDot.svelte';
   import {
     clampInputBarLines,
-    getInputBarContainerId,
-    getInputBarInputId,
+    getScopedInputBarContainerId,
+    getScopedInputBarInputId,
     MAX_INPUT_BAR_LINES,
     MIN_INPUT_BAR_LINES,
     type InputBarConfig,
@@ -14,7 +14,7 @@
 
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
-  export let connectionStatus: 'idle' | 'connected' | 'error' = 'idle';
+  export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
   export let onFocusBar: (bar: InputBarId) => void;
   export let onSubmit: (bar: InputBarId, value: string) => void;
   export let onComplete: (
@@ -25,6 +25,7 @@
   export let onAddBar: (bar: InputBarId) => void;
   export let onRemoveBar: (bar: InputBarId) => void;
   export let onResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
+  export let scope = 'world';
 
   const HISTORY_LIMIT = 50;
   const CONTROL_FADE_DELAY = 1400;
@@ -44,7 +45,7 @@
   $: lastSelectedBar = activeBar;
 
   function getInput(bar: InputBarId): HTMLTextAreaElement | null {
-    return document.getElementById(getInputBarInputId(bar)) as HTMLTextAreaElement | null;
+    return document.getElementById(getScopedInputBarInputId(scope, bar)) as HTMLTextAreaElement | null;
   }
 
   function focusBar(bar: InputBarId): void {
@@ -458,13 +459,13 @@
   }
 </script>
 
-<div id="input-area">
-  <div id="input-area-inner">
+<div class="input-area">
+  <div class="input-area-inner">
     {#each bars as bar (bar.id)}
-      <div class:focused={activeBar === bar.id} class="input-bar" id={getInputBarContainerId(bar.id)}>
+      <div class:focused={activeBar === bar.id} class="input-bar" id={getScopedInputBarContainerId(scope, bar.id)}>
         <textarea
           class="mud-input"
-          id={getInputBarInputId(bar.id)}
+          id={getScopedInputBarInputId(scope, bar.id)}
           rows={clampInputBarLines(bar.lines)}
           bind:value={values[bar.id]}
           autocomplete="off"

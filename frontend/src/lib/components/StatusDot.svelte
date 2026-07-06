@@ -1,9 +1,10 @@
 <script lang="ts">
-  export let status: 'idle' | 'connected' | 'error' = 'idle';
+  export let status: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
 </script>
 
 <div
-  id="status-dot"
+  class="status-dot"
+  class:connecting={status === 'connecting'}
   class:connected={status === 'connected'}
-  class:error={status === 'error'}
+  class:disconnected={status === 'disconnected'}
 ></div>
