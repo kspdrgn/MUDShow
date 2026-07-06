@@ -71,6 +71,13 @@ Provide a minimal client for connecting to a single MU* character/session at a t
 
 # Feature Breakdown
 
+## Input Re-Focus
+
+Keyboard focus should be automatically restored to the last selected input box:
+- When doing one-shot UI actions, like toggling a global setting from the menu
+- When switching active world tabs
+- When selecting output text to copy it
+
 ## Multiple Input Areas
 
 - The user can spawn additional input boxes if they want to enter text without disturbing the current input box

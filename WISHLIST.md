@@ -2,16 +2,16 @@
 
 ## Top TODO
 
-- [ ] App Settings, database location control
-- [ ] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
-- [ ] Tabs, multiple connections
+- [X] Tabs, multiple connections
+- [WIP] App Settings, database location control
+- [WIP] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
 - [ ] Session Logging
 - [ ] Image link display
 - [ ] Easier/better name highlighting config
 
 ## Input Box
   - [X] Input Command History
-  - [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text
+  - [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text or clicking one-shot UI stuff
   - [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
   - [X] Resize input height by lines
   - [?] TAB auto-complete of names/objects known or in MUD text
