@@ -49,9 +49,11 @@
               on:click={() => onConnectCharacter(characters.findIndex((entry) => entry.id === character.id))}
             >
               <span class="titlebar-quick-connect-name">{character.name}</span>
+              <!--
               <span class="titlebar-quick-connect-meta">
                 {character.sound ? 'sound on' : 'sound off'} · history {character.outputHistoryLines ?? 0}
               </span>
+              -->
               <span class="titlebar-quick-connect-action">connect</span>
             </button>
           {/each}

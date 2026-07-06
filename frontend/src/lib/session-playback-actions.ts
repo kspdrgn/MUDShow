@@ -41,6 +41,7 @@ interface PlaybackActionContext {
   setWorldOutput: (tabId: string, outputChunks: string[], outputEndsWithBr: boolean) => void;
   activateWorldTab: (tabId: string) => void;
   getWorldConnection: (tabId: string) => MudConnection | null;
+  closeWorldTabConnection: (tabId: string) => Promise<void>;
   getHighlightRegexes: () => ReturnType<typeof buildHighlightRegexes>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
   ensureWorldTab: (world: WorldRecord, character: CharacterRecord) => string;
@@ -56,6 +57,7 @@ export function createPlaybackActions({
   setWorldOutput,
   activateWorldTab,
   getWorldConnection,
+  closeWorldTabConnection,
   getHighlightRegexes,
   setHighlightRegexes,
   ensureWorldTab,
@@ -244,6 +246,43 @@ export function createPlaybackActions({
         },
       },
     );
+  }
+
+  async function reconnectWorldTab(tabId: string): Promise<void> {
+    const state = getState();
+    const tab = state.tabs.find((entry) => entry.id === tabId);
+    const session = getWorldSession(tabId);
+
+    if (!tab || tab.kind !== 'world' || !session.currentCharacter || !session.currentWorld) {
+      return;
+    }
+
+    const characterIndex = state.characters.findIndex((character) => character.id === session.currentCharacter?.id);
+    if (characterIndex < 0) {
+      return;
+    }
+
+    await connectToCharacter(characterIndex);
+  }
+
+  async function disconnectWorldTab(tabId: string): Promise<void> {
+    const tab = getState().tabs.find((entry) => entry.id === tabId);
+    const session = getWorldSession(tabId);
+
+    if (!tab || tab.kind !== 'world') {
+      return;
+    }
+
+    if (session.connectionStatus === 'idle' || session.connectionStatus === 'disconnected') {
+      return;
+    }
+
+    updateWorldSession(tabId, {
+      connectionStatus: 'disconnected',
+      disconnectReason: 'manual',
+    });
+
+    await closeWorldTabConnection(tabId);
   }
 
   function handleOutputScroll(): void {
@@ -466,6 +505,8 @@ export function createPlaybackActions({
     handleVisibilityChange,
     handleGlobalKeyDown,
     connectToCharacter,
+    reconnectWorldTab,
+    disconnectWorldTab,
     handleOutputScroll,
     handleInputFocus,
     handleInputSubmit,

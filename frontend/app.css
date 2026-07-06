@@ -170,44 +170,70 @@ body {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
+  padding: 0 10px 0 12px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+  border-radius: 10px 10px 7px 7px;
+  background: rgba(255, 255, 255, 0.02);
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.12s ease;
   -webkit-app-region: no-drag;
 }
 
-.world-tab-group.active .world-tab {
+.world-tab-group.active,
+.world-tab-group:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.world-tab-group.active {
   color: var(--text-bright);
   background: rgba(74, 158, 255, 0.16);
   border-color: rgba(74, 158, 255, 0.38);
 }
 
 .world-tab {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-width: 0;
   max-width: 180px;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid transparent;
-  border-bottom-color: rgba(255, 255, 255, 0.07);
-  border-radius: 10px 10px 7px 7px;
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--text-dim);
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
   transition:
     background 0.12s ease,
     color 0.12s ease,
     border-color 0.12s ease,
     transform 0.12s ease;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1;
   -webkit-app-region: no-drag;
 }
 
 .world-tab:hover {
+  color: inherit;
+  border-color: transparent;
+  background: transparent;
+}
+
+.world-tab-group.active .world-tab {
   color: var(--text-bright);
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+}
+
+.world-tab-group:not(.active) .world-tab {
+  color: var(--text-dim);
 }
 
 .world-tab-add {
@@ -229,6 +255,7 @@ body {
 .world-tab-close {
   width: 20px;
   height: 20px;
+  flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
@@ -238,17 +265,35 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  pointer-events: none;
   transition:
+    opacity 0.12s ease,
     color 0.12s ease,
     background 0.12s ease,
     border-color 0.12s ease;
   -webkit-app-region: no-drag;
 }
 
+.world-tab-group:hover .world-tab-close,
+.world-tab-group:focus-within .world-tab-close {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .world-tab-close:hover {
   color: var(--text-bright);
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.world-tab-status {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 #titlebar-actions {
@@ -321,6 +366,13 @@ body {
 .titlebar-quick-connect-dropdown[data-side='left'] {
   left: auto;
   right: 0;
+}
+
+.titlebar-context-menu {
+  position: fixed;
+  top: 0;
+  right: auto;
+  min-width: 180px;
 }
 
 .titlebar-dropdown-empty {
@@ -442,6 +494,7 @@ body {
   border-radius: 10px;
   background: transparent;
   color: var(--text);
+  width: 100%;
   text-align: left;
   padding: 8px 10px;
   cursor: pointer;
@@ -455,6 +508,30 @@ body {
   color: var(--text-bright);
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+.titlebar-menu-item:disabled {
+  color: var(--text-dim);
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+  opacity: 0.55;
+}
+
+.titlebar-menu-item:disabled:hover {
+  color: var(--text-dim);
+  background: transparent;
+  border-color: transparent;
+}
+
+.titlebar-context-menu-item {
+  justify-content: flex-start;
+}
+
+.titlebar-context-menu-separator {
+  height: 1px;
+  margin: 2px 2px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .window-controls {

@@ -59,10 +59,13 @@
   <TopBar
     tabs={$session.tabs}
     activeTabId={$session.activeTabId}
+    worldSessions={$session.worldSessions}
     worlds={$session.worlds}
     characters={$session.characters}
     onSelectTab={(tabId) => session.selectTab(tabId)}
     onCloseTab={(tabId) => session.closeTab(tabId)}
+    onReconnectTab={(tabId) => void session.reconnectWorldTab(tabId)}
+    onDisconnectTab={(tabId) => void session.disconnectWorldTab(tabId)}
     onConnectWorld={(worldId) => {
       const defaultCharacterIndex = $session.characters.findIndex(
         (character) => character.worldId === worldId && character.isDefault,

@@ -3,7 +3,7 @@ import type { AppTab } from './tabs';
 import type { WorldTabSessionState } from './world-session';
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected';
-export type DisconnectReason = 'user' | 'remote' | 'error' | null;
+export type DisconnectReason = 'manual' | 'remote' | 'error' | null;
 export const DEFAULT_OUTPUT_HISTORY_LINES = 0;
 
 export interface SessionState {

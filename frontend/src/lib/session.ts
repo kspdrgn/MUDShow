@@ -155,6 +155,15 @@ function createSession() {
     }
   }
 
+  async function closeWorldTabConnection(tabId: string): Promise<void> {
+    const connection = worldConnections.get(tabId);
+    if (!connection) {
+      return;
+    }
+
+    await connection.close();
+  }
+
   function activateWorldTab(tabId: string): void {
     ensureWorldSession(tabId);
     state.update((current) => ({
@@ -411,6 +420,7 @@ function createSession() {
     setWorldOutput,
     activateWorldTab,
     getWorldConnection,
+    closeWorldTabConnection,
     getHighlightRegexes: () => highlightRegexes,
     setHighlightRegexes: (regexes) => {
       highlightRegexes = regexes;

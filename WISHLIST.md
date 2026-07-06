@@ -3,8 +3,8 @@
 ## Top TODO
 
 - [X] Tabs, multiple connections
-- [WIP] App Settings, database location control
-- [WIP] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
+- [ ] [WIP] App Settings, database location control
+- [ ] [WIP] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
 - [ ] Session Logging
 - [ ] Image link display
 - [ ] Easier/better name highlighting config
@@ -14,7 +14,7 @@
   - [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text or clicking one-shot UI stuff
   - [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
   - [X] Resize input height by lines
-  - [?] TAB auto-complete of names/objects known or in MUD text
+  - [ ] [?] TAB auto-complete of names/objects known or in MUD text
   - [X] Spellcheck
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator
@@ -72,8 +72,11 @@ This would support:
 ## Multiple Connections
   - [ ] UI tabs for viewing worlds, their activity and logging status, and for switching between them
   - [ ] CTRL+TAB switch worlds
-  - [ ] Reconnect without closing world tab
-  - [ ] Disconnect without closing world tab
+  - [ ] CTRL+F4 to close active tab
+  - [X] Reconnect without closing world tab
+  - [X] Disconnect without closing world tab
+  - [ ] Confirm closing connected tab, no matter the means of closing the tab (even closing the whole app should trigger this)
+  - [ ] Confirm closing un-logged tab (if this reminder is enabled in options)
 
 ## Taps Integrations
   - Editors
