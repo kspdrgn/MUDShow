@@ -14,7 +14,7 @@
   <div class="home-panel">
     <div class="home-copy">
       <h1>mudshow</h1>
-      <p>Open a tab to start a session, manage characters, or adjust app settings.</p>
+      <p>Select a character to connect.</p>
     </div>
 
     <QuickConnectPanel

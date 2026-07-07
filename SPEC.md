@@ -151,7 +151,9 @@ Anchored to the right:
   - If no tabs are open, the Home Panel should be shown centered in the empty content space.
   - Connection tabs are not restored between app sessions.
   - Characters and App Settings are opened only when the user chooses them and are not instantiated until then.
-  - Tabs will have an X button anchored on their right side to close a tab. Connected worlds will display a popup modal confirmation before allowing the close action.
+  - Tabs will have an X button anchored on their right side to close a tab.
+  - CTRL+F4 will close the active tab.
+  - Closing a connected or connecting world tab requires confirmation. Clicking the tab X shows a small dropdown anchored to that X, while Ctrl+F4 uses a centered modal confirmation.
   - Tabs can be dragged to re-order them within the tab bar arbitrarily
 
 ## Quick Connect Menu
@@ -220,6 +222,11 @@ Character Settings
   - Output-History enabled and how many lines to save/restore
   - Activity notification sound per character
   - Renaming a saved character will migrate any persisted history and settings to stay associated to the new character name
+
+Deleting a world or a character requires confirmation before it takes effect.
+- Deleting a world warns that all saved characters for that world will be removed.
+- Deleting a character warns that its saved notes, highlights, and stored history will be removed.
+- The delete confirmation is the same whether the action is triggered from a world row or a character row.
 
 Deleting a world or a character will not be allowed if there is an open tab on that world or character.
 

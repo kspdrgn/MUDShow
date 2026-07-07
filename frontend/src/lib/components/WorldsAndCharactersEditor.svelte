@@ -10,6 +10,57 @@
   export let onEditCharacter: (index: number) => void;
   export let onDeleteCharacter: (index: number) => void;
   export let onConnectCharacter: (index: number) => void;
+
+  type DeleteTarget =
+    | { kind: 'world'; index: number; worldName: string }
+    | { kind: 'character'; index: number; characterName: string };
+
+  let pendingDelete: DeleteTarget | null = null;
+
+  function requestDeleteWorld(index: number): void {
+    const world = worlds[index];
+    if (!world) {
+      return;
+    }
+
+    pendingDelete = {
+      kind: 'world',
+      index,
+      worldName: world.name,
+    };
+  }
+
+  function requestDeleteCharacter(index: number): void {
+    const character = characters[index];
+    if (!character) {
+      return;
+    }
+
+    pendingDelete = {
+      kind: 'character',
+      index,
+      characterName: character.name,
+    };
+  }
+
+  function closeDeleteConfirm(): void {
+    pendingDelete = null;
+  }
+
+  function confirmDelete(): void {
+    if (!pendingDelete) {
+      return;
+    }
+
+    const target = pendingDelete;
+    pendingDelete = null;
+
+    if (target.kind === 'world') {
+      onDeleteWorld(target.index);
+    } else {
+      onDeleteCharacter(target.index);
+    }
+  }
 </script>
 
 <div id="screen-list">
@@ -76,7 +127,7 @@
           </button>
           <button class="btn primary" on:click|stopPropagation={() => onOpenCharacter(world.id, null)}>+ character</button>
           <button class="btn" on:click|stopPropagation={() => onEditWorld(worldIndex)}>edit world</button>
-          <button class="btn danger" on:click|stopPropagation={() => onDeleteWorld(worldIndex)}>del world</button>
+          <button class="btn danger" on:click|stopPropagation={() => requestDeleteWorld(worldIndex)}>del world</button>
         </div>
       </div>
 
@@ -91,7 +142,7 @@
           <div class="char-actions">
             <button class="btn primary" on:click={() => onConnectCharacter(characters.indexOf(character))}>connect</button>
             <button class="btn" on:click={() => onEditCharacter(characters.indexOf(character))}>edit</button>
-            <button class="btn danger" on:click={() => onDeleteCharacter(characters.indexOf(character))}>del</button>
+            <button class="btn danger" on:click={() => requestDeleteCharacter(characters.indexOf(character))}>del</button>
           </div>
         </div>
       {/each}
@@ -102,3 +153,50 @@
     <button class="btn primary" on:click={() => onOpenWorld(null)}>+ add world</button>
   </div>
 </div>
+
+{#if pendingDelete}
+  <div
+    id="modal-overlay"
+    class="open"
+    role="button"
+    tabindex="0"
+    aria-label="close delete confirmation"
+    on:click|self={closeDeleteConfirm}
+    on:keydown={(event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        closeDeleteConfirm();
+      }
+    }}
+  >
+    <div id="modal">
+      <h2>
+        {#if pendingDelete.kind === 'world'}
+          delete {pendingDelete.worldName}?
+        {:else}
+          confirm delete
+        {/if}
+      </h2>
+      {#if pendingDelete.kind === 'world'}
+        {@const world = worlds[pendingDelete.index] ?? null}
+        {#if world}
+          <p class="settings-note">
+            {world.host}:{world.port}
+          </p>
+        {/if}
+        <p class="settings-note">Deleting a world will remove all saved characters!</p>
+        <p class="settings-note">
+          Deleting a character will remove all saved notes, highlights, and stored history.
+        </p>
+      {:else}
+        <p class="settings-note">
+          Deleting a character will remove all saved notes, highlights, and stored history.
+        </p>
+      {/if}
+      <div class="modal-actions">
+        <button class="btn" type="button" on:click={closeDeleteConfirm}>cancel</button>
+        <button class="btn danger" type="button" on:click={confirmDelete}>delete</button>
+      </div>
+    </div>
+  </div>
+{/if}

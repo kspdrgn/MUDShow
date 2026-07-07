@@ -14,10 +14,14 @@
   export let tabs: AppTab[] = [];
   export let activeTabId: string | null = null;
   export let worldSessions: Record<string, WorldTabSessionState> = {};
+  export let closeConfirmTabId: string | null = null;
+  export let closeConfirmMode: 'modal' | 'dropdown' | null = null;
   export let worlds: WorldRecord[] = [];
   export let characters: CharacterRecord[] = [];
   export let onSelectTab: (tabId: string) => void;
-  export let onCloseTab: (tabId: string) => void;
+  export let onCloseTab: (tabId: string, source?: 'mouse' | 'shortcut') => void;
+  export let onCancelCloseConfirm: () => void;
+  export let onConfirmCloseTab: () => void;
   export let onReconnectTab: (tabId: string) => void;
   export let onDisconnectTab: (tabId: string) => void;
   export let onConnectWorld: (worldId: string) => void;
@@ -39,6 +43,12 @@
   let worldContextMenuSession: WorldTabSessionState | null = null;
   let worldContextMenuCanReconnect = false;
   let worldContextMenuCanDisconnect = false;
+  let closeConfirmDropdown: HTMLDivElement | null = null;
+  let closeConfirmPosition = { x: 0, y: 0 };
+  let closeConfirmAnchorRect: DOMRect | null = null;
+  let closeConfirmTab: AppTab | null = null;
+  let closeConfirmWorldName = '';
+  const tabCloseButtons: Record<string, HTMLButtonElement | null> = {};
 
   $: worldContextMenuTab = worldContextMenuTabId
     ? tabs.find((tab) => tab.id === worldContextMenuTabId) ?? null
@@ -58,6 +68,30 @@
     worldContextMenuSession !== null &&
     (worldContextMenuSession.connectionStatus === 'connecting' ||
       worldContextMenuSession.connectionStatus === 'connected');
+  $: closeConfirmTab = closeConfirmTabId ? tabs.find((tab) => tab.id === closeConfirmTabId) ?? null : null;
+  $: closeConfirmWorldName = closeConfirmTabId
+    ? worldSessions[closeConfirmTabId]?.currentWorld?.name ??
+      worldSessions[closeConfirmTabId]?.currentCharacter?.name ??
+      closeConfirmTab?.title ??
+      'this world'
+    : '';
+
+  function isCloseConfirmDropdownOpen(): boolean {
+    return closeConfirmMode === 'dropdown' && closeConfirmTab !== null;
+  }
+
+  function setCloseConfirmAnchor(target: EventTarget | null): void {
+    if (!(target instanceof HTMLElement)) {
+      closeConfirmAnchorRect = null;
+      return;
+    }
+
+    closeConfirmAnchorRect = target.getBoundingClientRect();
+    closeConfirmPosition = {
+      x: closeConfirmAnchorRect.left,
+      y: closeConfirmAnchorRect.bottom + 10,
+    };
+  }
 
   function toggleMenu(event: MouseEvent): void {
     event.stopPropagation();
@@ -89,6 +123,33 @@
   function closeWorldContextMenu(): void {
     worldContextMenuOpen = false;
     worldContextMenuTabId = null;
+  }
+
+  function updateCloseConfirmPosition(): void {
+    if (!isCloseConfirmDropdownOpen()) {
+      return;
+    }
+
+    if (!closeConfirmAnchorRect || !closeConfirmDropdown) {
+      return;
+    }
+
+    const margin = 8;
+    const dropdownRect = closeConfirmDropdown.getBoundingClientRect();
+    const preferredLeft = closeConfirmAnchorRect.left - Math.max(0, dropdownRect.width - closeConfirmAnchorRect.width);
+    const preferredTop = closeConfirmAnchorRect.bottom + 10;
+    const maxLeft = window.innerWidth - dropdownRect.width - margin;
+    const maxTop = window.innerHeight - dropdownRect.height - margin;
+    const top = maxTop >= preferredTop ? preferredTop : Math.max(preferredTop, margin);
+
+    closeConfirmPosition = {
+      x: Math.max(margin, Math.min(preferredLeft, maxLeft)),
+      y: top,
+    };
+  }
+
+  $: if (isCloseConfirmDropdownOpen()) {
+    void tick().then(updateCloseConfirmPosition);
   }
 
   function updateQuickConnectSide(): void {
@@ -156,6 +217,13 @@
       if (worldContextMenuDropdown && !worldContextMenuDropdown.contains(event.target as Node)) {
         worldContextMenuOpen = false;
       }
+
+      if (closeConfirmDropdown && !closeConfirmDropdown.contains(event.target as Node)) {
+        if (isCloseConfirmDropdownOpen()) {
+          closeConfirmAnchorRect = null;
+          onCancelCloseConfirm();
+        }
+      }
     };
 
     const handleDocumentContextMenu = (event: MouseEvent) => {
@@ -169,6 +237,8 @@
         menuOpen = false;
         quickConnectOpen = false;
         closeWorldContextMenu();
+        closeConfirmAnchorRect = null;
+        onCancelCloseConfirm();
       }
     };
 
@@ -179,6 +249,10 @@
 
       if (worldContextMenuOpen) {
         updateWorldContextMenuPosition();
+      }
+
+      if (isCloseConfirmDropdownOpen()) {
+        updateCloseConfirmPosition();
       }
     };
 
@@ -233,6 +307,7 @@
         <div
           class="world-tab-group"
           class:active={tab.id === activeTabId}
+          class:confirming={closeConfirmMode === 'dropdown' && closeConfirmTabId === tab.id}
           role="group"
           aria-label={`${tab.title} tab`}
           on:contextmenu={(event) => handleTabContextMenu(event, tab)}
@@ -252,17 +327,19 @@
 
           {#if tab.closable}
             <button
-              type="button"
-              class="world-tab-close"
-              title={`close ${tab.title}`}
-              aria-label={`close ${tab.title}`}
-              on:click|stopPropagation={() => {
-                closeWorldContextMenu();
-                onCloseTab(tab.id);
-              }}
-              >
-                ×
-              </button>
+              bind:this={tabCloseButtons[tab.id]}
+            type="button"
+            class="world-tab-close"
+            title={`close ${tab.title}`}
+            aria-label={`close ${tab.title}`}
+            on:click|stopPropagation={(event) => {
+              setCloseConfirmAnchor(event.currentTarget);
+              closeWorldContextMenu();
+              onCloseTab(tab.id, 'mouse');
+            }}
+          >
+              X
+            </button>
           {/if}
 
           {#if tab.kind === 'world'}
@@ -273,6 +350,28 @@
         </div>
       {/each}
     </div>
+
+    {#if isCloseConfirmDropdownOpen() && closeConfirmTab}
+      <div
+        bind:this={closeConfirmDropdown}
+        class="titlebar-dropdown titlebar-close-confirm-dropdown"
+        role="menu"
+        aria-label="close tab confirmation"
+        style={`left: ${closeConfirmPosition.x}px; top: ${closeConfirmPosition.y}px;`}
+      >
+        <p class="titlebar-close-confirm-copy">World {closeConfirmWorldName} is connected.</p>
+        <div class="titlebar-close-confirm-actions">
+          <button
+            type="button"
+            class="titlebar-menu-item titlebar-close-confirm-item danger"
+            role="menuitem"
+            on:click={() => onConfirmCloseTab()}
+          >
+            disconnect and close
+          </button>
+        </div>
+      </div>
+    {/if}
 
     <div class="titlebar-quick-connect" bind:this={quickConnectContainer}>
       <button
@@ -349,7 +448,7 @@
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item"
         role="menuitem"
-        on:click={() => handleWorldContextMenuAction(() => onCloseTab(worldContextMenuTab.id))}
+        on:click={() => handleWorldContextMenuAction(() => onCloseTab(worldContextMenuTab.id, 'mouse'))}
       >
         close
       </button>

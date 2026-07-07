@@ -5,6 +5,7 @@
 - [X] Tabs, multiple connections
 - [ ] [WIP] App Settings, database location control
 - [ ] [WIP] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
+- [ ] Config versioning, migration with schema changes
 - [ ] Session Logging
 - [ ] Image link display
 - [ ] Easier/better name highlighting config
@@ -72,10 +73,11 @@ This would support:
 ## Multiple Connections
   - [ ] UI tabs for viewing worlds, their activity and logging status, and for switching between them
   - [ ] CTRL+TAB switch worlds
-  - [ ] CTRL+F4 to close active tab
+  - [X] CTRL+F4 to close active tab
   - [X] Reconnect without closing world tab
   - [X] Disconnect without closing world tab
-  - [ ] Confirm closing connected tab, no matter the means of closing the tab (even closing the whole app should trigger this)
+  - [X] Confirm closing connected tab, no matter the means of closing the tab
+  - [ ] Confirm closing the app if tabs are connected
   - [ ] Confirm closing un-logged tab (if this reminder is enabled in options)
 
 ## Taps Integrations

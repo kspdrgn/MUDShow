@@ -42,6 +42,7 @@ interface PlaybackActionContext {
   activateWorldTab: (tabId: string) => void;
   getWorldConnection: (tabId: string) => MudConnection | null;
   closeWorldTabConnection: (tabId: string) => Promise<void>;
+  closeTab: (tabId: string, source?: 'mouse' | 'shortcut') => void;
   getHighlightRegexes: () => ReturnType<typeof buildHighlightRegexes>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
   ensureWorldTab: (world: WorldRecord, character: CharacterRecord) => string;
@@ -58,6 +59,7 @@ export function createPlaybackActions({
   activateWorldTab,
   getWorldConnection,
   closeWorldTabConnection,
+  closeTab,
   getHighlightRegexes,
   setHighlightRegexes,
   ensureWorldTab,
@@ -111,11 +113,31 @@ export function createPlaybackActions({
   function handleGlobalKeyDown(event: KeyboardEvent): void {
     const state = getState();
 
+    if (state.closeConfirmTabId !== null) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        patch({ closeConfirmTabId: null });
+      }
+      return;
+    }
+
     if (state.modalOpen) {
       if (event.key === 'Escape') {
         event.preventDefault();
         patch({ modalOpen: false });
       }
+      return;
+    }
+
+    if (event.ctrlKey && event.key === 'F4') {
+      event.preventDefault();
+
+      const activeTabId = state.activeTabId;
+      if (activeTabId !== null) {
+        patch({ modalOpen: false, modalKind: null });
+        closeTab(activeTabId, 'shortcut');
+      }
+
       return;
     }
 

@@ -164,6 +164,50 @@ function createSession() {
     await connection.close();
   }
 
+  function shouldConfirmWorldTabClose(tabId: string): boolean {
+    const tab = getTab(tabId);
+    if (!tab || tab.kind !== 'world') {
+      return false;
+    }
+
+    const session = getWorldSession(tabId);
+    return session.connectionStatus === 'connected' || session.connectionStatus === 'connecting';
+  }
+
+  function closeTabImmediately(tabId: string): void {
+    const current = getState();
+    const tab = current.tabs.find((item) => item.id === tabId);
+
+    if (!tab || !tab.closable) {
+      return;
+    }
+
+    const nextTabs = current.tabs.filter((item) => item.id !== tabId);
+    const nextWorldSessions = { ...current.worldSessions };
+    delete nextWorldSessions[tabId];
+
+    if (tab.kind === 'world') {
+      releaseWorldConnection(tab.id);
+    }
+
+    const nextActiveTabId =
+      current.activeTabId === tabId
+        ? nextTabs.find((item) => item.kind === 'world')?.id ??
+          nextTabs.find((item) => item.id === SETTINGS_TAB_ID)?.id ??
+          nextTabs.find((item) => item.id === CHARACTERS_TAB_ID)?.id ??
+          nextTabs[0]?.id ??
+          null
+        : current.activeTabId;
+
+    state.set({
+      ...current,
+      tabs: nextTabs,
+      activeTabId: nextActiveTabId,
+      worldSessions: nextWorldSessions,
+      closeConfirmTabId: null,
+    });
+  }
+
   function activateWorldTab(tabId: string): void {
     ensureWorldSession(tabId);
     state.update((current) => ({
@@ -292,7 +336,7 @@ function createSession() {
     return tab.id;
   }
 
-  function closeTab(tabId: string): void {
+  function closeTabImmediately(tabId: string): void {
     const current = getState();
     const tab = current.tabs.find((item) => item.id === tabId);
 
@@ -322,7 +366,36 @@ function createSession() {
       tabs: nextTabs,
       activeTabId: nextActiveTabId,
       worldSessions: nextWorldSessions,
+      closeConfirmTabId: null,
+      closeConfirmMode: null,
     });
+  }
+
+  function closeTab(tabId: string, source: 'mouse' | 'shortcut' = 'mouse'): void {
+    if (shouldConfirmWorldTabClose(tabId)) {
+      patch({
+        closeConfirmTabId: tabId,
+        closeConfirmMode: source === 'shortcut' ? 'modal' : 'dropdown',
+        modalOpen: false,
+        modalKind: null,
+      });
+      return;
+    }
+
+    closeTabImmediately(tabId);
+  }
+
+  function cancelCloseConfirm(): void {
+    patch({ closeConfirmTabId: null, closeConfirmMode: null });
+  }
+
+  function confirmCloseTab(): void {
+    const tabId = getState().closeConfirmTabId;
+    if (!tabId) {
+      return;
+    }
+
+    closeTabImmediately(tabId);
   }
 
   function deleteWorldTabsForCharacter(characterId: string): void {
@@ -421,6 +494,7 @@ function createSession() {
     activateWorldTab,
     getWorldConnection,
     closeWorldTabConnection,
+    closeTab,
     getHighlightRegexes: () => highlightRegexes,
     setHighlightRegexes: (regexes) => {
       highlightRegexes = regexes;
@@ -438,6 +512,8 @@ function createSession() {
     },
     selectTab,
     closeTab,
+    cancelCloseConfirm,
+    confirmCloseTab,
     ensureWorldTab,
     getWorldSession,
     getWorldConnection,

@@ -3,6 +3,7 @@
   import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
   import WorldsAndCharactersEditor from './lib/components/WorldsAndCharactersEditor.svelte';
   import CharacterModal from './lib/components/CharacterModal.svelte';
+  import ConfirmCloseTabModal from './lib/components/ConfirmCloseTabModal.svelte';
   import HomePanel from './lib/components/HomePanel.svelte';
   import PlayScreen from './lib/components/PlayScreen.svelte';
   import SettingsPage from './lib/components/SettingsPage.svelte';
@@ -60,10 +61,14 @@
     tabs={$session.tabs}
     activeTabId={$session.activeTabId}
     worldSessions={$session.worldSessions}
+    closeConfirmTabId={$session.closeConfirmTabId}
+    closeConfirmMode={$session.closeConfirmMode}
     worlds={$session.worlds}
     characters={$session.characters}
     onSelectTab={(tabId) => session.selectTab(tabId)}
-    onCloseTab={(tabId) => session.closeTab(tabId)}
+    onCloseTab={(tabId, source) => session.closeTab(tabId, source)}
+    onCancelCloseConfirm={() => session.cancelCloseConfirm()}
+    onConfirmCloseTab={() => session.confirmCloseTab()}
     onReconnectTab={(tabId) => void session.reconnectWorldTab(tabId)}
     onDisconnectTab={(tabId) => void session.disconnectWorldTab(tabId)}
     onConnectWorld={(worldId) => {
@@ -178,4 +183,18 @@
   draft={$session.worldModalDraft}
   onCancel={() => session.closeModal()}
   onSave={(draft) => session.saveWorld(draft)}
+/>
+
+<ConfirmCloseTabModal
+  open={$session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null}
+  worldName={
+    $session.closeConfirmTabId
+      ? $session.worldSessions[$session.closeConfirmTabId]?.currentWorld?.name ??
+        $session.worldSessions[$session.closeConfirmTabId]?.currentCharacter?.name ??
+        $session.tabs.find((tab) => tab.id === $session.closeConfirmTabId)?.title ??
+        'this world'
+      : ''
+  }
+  onCancel={() => session.cancelCloseConfirm()}
+  onConfirm={() => session.confirmCloseTab()}
 />
