@@ -99,6 +99,7 @@ function normalizeCharacterRecord(value: unknown): CharacterRecord | null {
 
   const worldId = toStringValue(value.worldId).trim();
   const name = toStringValue(value.name).trim();
+  const isDefault = toBooleanValue(value.isDefault, false);
 
   if (!worldId || !name) {
     return null;
@@ -108,12 +109,16 @@ function normalizeCharacterRecord(value: unknown): CharacterRecord | null {
     id: toStringValue(value.id).trim() || createId('character'),
     worldId,
     name,
-    isDefault: toBooleanValue(value.isDefault, false),
+    isDefault,
     width: typeof value.width === 'number' && Number.isFinite(value.width) ? value.width : undefined,
     sound: typeof value.sound === 'boolean' ? value.sound : undefined,
     outputHistoryLines:
       typeof value.outputHistoryLines === 'number' && Number.isFinite(value.outputHistoryLines)
         ? value.outputHistoryLines
+        : undefined,
+    connectString:
+      !isDefault && typeof value.connectString === 'string' && value.connectString.trim()
+        ? value.connectString
         : undefined,
   };
 }
@@ -127,20 +132,7 @@ function createDefaultCharacter(worldId: string): CharacterRecord {
   };
 }
 
-function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
-  const byKey = new Map<string, WorldRecord>();
-
-  for (const world of worlds) {
-    const key = [world.host, world.port, world.tls ? '1' : '0', world.verifyCertificate ? '1' : '0'].join('|');
-    if (!byKey.has(key)) {
-      byKey.set(key, world);
-    }
-  }
-
-  return [...byKey.values()];
-}
-
-function ensureDefaultCharacters(data: PersistentData): PersistentData {
+function injectDefaultCharacters(data: PersistentData): PersistentData {
   const nextCharacters = [...data.characters];
   const existingDefaults = new Set(nextCharacters.filter((character) => character.isDefault).map((character) => character.worldId));
 
@@ -156,6 +148,34 @@ function ensureDefaultCharacters(data: PersistentData): PersistentData {
   };
 }
 
+function stripDefaultCharacters(characters: CharacterRecord[]): CharacterRecord[] {
+  return characters.filter((character) => !character.isDefault);
+}
+
+function buildSessionCharacters(worlds: WorldRecord[], characters: CharacterRecord[]): CharacterRecord[] {
+  return injectDefaultCharacters({
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    worlds,
+    characters,
+    highlights: [],
+    history: {},
+    notes: {},
+  }).characters;
+}
+
+function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
+  const byKey = new Map<string, WorldRecord>();
+
+  for (const world of worlds) {
+    const key = [world.host, world.port, world.tls ? '1' : '0', world.verifyCertificate ? '1' : '0'].join('|');
+    if (!byKey.has(key)) {
+      byKey.set(key, world);
+    }
+  }
+
+  return [...byKey.values()];
+}
+
 function normalizePersistentData(
   raw: Partial<Omit<PersistentData, 'characters' | 'worlds'>> & { characters?: unknown; worlds?: unknown },
 ): PersistentData {
@@ -167,16 +187,14 @@ function normalizePersistentData(
     ? raw.characters.map((entry) => normalizeCharacterRecord(entry)).filter((entry): entry is CharacterRecord => entry !== null)
     : [];
 
-  const data = ensureDefaultCharacters({
+  return {
     schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : STORAGE_SCHEMA_VERSION,
     worlds: dedupeWorlds(worldRecords),
     characters: characterRecords,
     highlights: Array.isArray(raw.highlights) ? raw.highlights : [],
     history: isRecord(raw.history) ? (raw.history as Record<string, TranscriptHistoryEntry[]>) : {},
     notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
-  });
-
-  return data;
+  };
 }
 
 function readWebviewData(): PersistentData {
@@ -329,13 +347,13 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
 
   const update = (data: PersistentData): PersistentData => {
     const worldIds = new Set(normalizedWorlds.map((world) => world.id));
-    const nextCharacters = data.characters.filter((character) => character.isDefault || worldIds.has(character.worldId));
+    const nextCharacters = data.characters.filter((character) => worldIds.has(character.worldId));
 
-    return ensureDefaultCharacters({
+    return {
       ...data,
       worlds: normalizedWorlds,
       characters: nextCharacters,
-    });
+    };
   };
 
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
@@ -348,37 +366,33 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
 
 export async function loadCharacters(): Promise<CharacterRecord[]> {
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
-    return readWebviewData().characters;
+    return stripDefaultCharacters(readWebviewData().characters);
   }
 
   await waitForPendingFileWrites();
   const data = await readFileData();
-  return data.characters;
+  return stripDefaultCharacters(data.characters);
 }
 
 export async function saveCharacters(characters: CharacterRecord[]): Promise<void> {
-  const normalizedCharacters = characters
+  const normalizedCharacters = stripDefaultCharacters(
+    characters
     .map((entry) => normalizeCharacterRecord(entry))
-    .filter((entry): entry is CharacterRecord => entry !== null);
+    .filter((entry): entry is CharacterRecord => entry !== null),
+  );
 
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
     const current = readWebviewData();
     writeWebviewData({
       ...current,
-      characters: ensureDefaultCharacters({
-        ...current,
-        characters: normalizedCharacters,
-      }).characters,
+      characters: normalizedCharacters,
     });
     return;
   }
 
   await queueFileMutation((data) => ({
     ...data,
-    characters: ensureDefaultCharacters({
-      ...data,
-      characters: normalizedCharacters,
-    }).characters,
+    characters: normalizedCharacters,
   }));
 }
 
@@ -570,18 +584,19 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
   const normalizedWorlds = dedupeWorlds(
     worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null),
   );
-  const normalizedCharacters = characters
+  const normalizedCharacters = stripDefaultCharacters(
+    characters
     .map((entry) => normalizeCharacterRecord(entry))
-    .filter((entry): entry is CharacterRecord => entry !== null);
-
-  const nextData = ensureDefaultCharacters({
+    .filter((entry): entry is CharacterRecord => entry !== null),
+  );
+  const nextData: PersistentData = {
     schemaVersion: STORAGE_SCHEMA_VERSION,
     worlds: normalizedWorlds,
     characters: normalizedCharacters,
     highlights: [],
     history: {},
     notes: {},
-  });
+  };
 
   if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
     writeWebviewData({
@@ -601,5 +616,9 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
 
 export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; characters: CharacterRecord[]; highlights: HighlightRule[] }> {
   const [worlds, characters, highlights] = await Promise.all([loadWorlds(), loadCharacters(), loadHighlights()]);
-  return { worlds, characters, highlights };
+  return {
+    worlds,
+    characters: buildSessionCharacters(worlds, characters),
+    highlights,
+  };
 }

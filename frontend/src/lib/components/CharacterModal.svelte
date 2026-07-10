@@ -7,6 +7,7 @@
     width: '',
     sound: false,
     outputHistoryLines: String(DEFAULT_OUTPUT_HISTORY_LINES),
+    connectString: '',
   };
 
   export let open = false;
@@ -21,12 +22,14 @@
   let width = '';
   let sound = false;
   let outputHistoryLines = String(DEFAULT_OUTPUT_HISTORY_LINES);
+  let connectString = '';
 
   $: if (open) {
     name = draft.name;
     width = draft.width;
     sound = draft.sound;
     outputHistoryLines = draft.outputHistoryLines ?? String(DEFAULT_OUTPUT_HISTORY_LINES);
+    connectString = draft.connectString ?? '';
   }
 
   function handleSave(): void {
@@ -35,6 +38,7 @@
       width: String(width),
       sound,
       outputHistoryLines: String(outputHistoryLines),
+      connectString: String(connectString),
     });
   }
 </script>
@@ -93,6 +97,10 @@
             max="10000"
             placeholder="0"
           />
+        </div>
+        <div class="field">
+          <label for="field-connect-string">connect string (optional)</label>
+          <input id="field-connect-string" bind:value={connectString} autocomplete="off" />
         </div>
         <div class="modal-actions">
           <button class="btn" type="button" on:click={onCancel}>cancel</button>

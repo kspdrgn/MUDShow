@@ -478,6 +478,8 @@
         <div
           class:visible={controlsVisible[bar.id] !== false}
           class="input-controls"
+          role="group"
+          aria-label={`Input bar ${bar.id} controls`}
           on:mouseenter={() => handleControlEnter(bar.id)}
           on:mouseleave={() => handleControlLeave(bar.id)}
           >

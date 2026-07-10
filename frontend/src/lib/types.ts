@@ -15,6 +15,7 @@ export interface CharacterRecord {
   width?: number;
   sound?: boolean;
   outputHistoryLines?: number;
+  connectString?: string;
 }
 
 export interface WorldDraft {
@@ -30,6 +31,7 @@ export interface CharacterDraft {
   width: string;
   sound: boolean;
   outputHistoryLines: string;
+  connectString: string;
 }
 
 export interface HighlightRule {

@@ -65,6 +65,7 @@ function createCharacterRecordFromDraft(
     outputHistoryLines: Number.isFinite(parsedOutputHistoryLines)
       ? Math.max(0, parsedOutputHistoryLines)
       : DEFAULT_OUTPUT_HISTORY_LINES,
+    connectString: existing?.isDefault ? undefined : draft.connectString.trim() || undefined,
   };
 
   if (parsedWidth !== undefined && Number.isFinite(parsedWidth)) {
@@ -90,6 +91,7 @@ function createCharacterDraftFromCharacter(character: CharacterRecord): Characte
     width: String(character.width ?? ''),
     sound: character.sound === true,
     outputHistoryLines: String(character.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES),
+    connectString: character.isDefault ? '' : character.connectString ?? '',
   };
 }
 
@@ -141,10 +143,14 @@ export function createCharacterActions({
 
     const selected = index === null ? null : state.characters[index] ?? null;
 
+    if (selected?.isDefault) {
+      return;
+    }
+
     if (selected) {
       patch({
         modalKind: 'character',
-        modalTitle: selected.isDefault ? 'edit default character' : 'edit character',
+        modalTitle: 'edit character',
         editingIndex: index,
         characterWorldId: worldId,
         modalDraft: createCharacterDraftFromCharacter(selected),
@@ -161,6 +167,7 @@ export function createCharacterActions({
           width: '',
           sound: false,
           outputHistoryLines: String(DEFAULT_OUTPUT_HISTORY_LINES),
+          connectString: '',
         },
         modalOpen: true,
       });

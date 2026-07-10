@@ -3,9 +3,16 @@
 ## Top TODO
 
 - [X] Tabs, multiple connections
+- [ ] [WIP] Character Settings
+  - [X] make hierarchical
+  - [X] add world without character
+  - [X] auto-add default character, don't save
+  - [X] add characters under a world
+  - [X] de-dupe quick connect list
+  - [ ] improve characters edit page
+  - [X] add initial connect string (for login).
 - [ ] [WIP] App Settings, database location control
-- [ ] [WIP] Character Settings - make hierarchical, add world without character, auto-add default character, add characters under a world, de-dupe quick connect list, improve characters edit page.
-- [ ] Config versioning, migration with schema changes
+- [ ] [WIP] Config versioning, migration with schema changes
 - [ ] Session Logging
 - [ ] Image link display
 - [ ] Easier/better name highlighting config
@@ -15,7 +22,7 @@
   - [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text or clicking one-shot UI stuff
   - [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
   - [X] Resize input height by lines
-  - [ ] [?] TAB auto-complete of names/objects known or in MUD text
+  - [ ] [WIP untested] TAB auto-complete of names/objects known or in MUD text
   - [X] Spellcheck
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator

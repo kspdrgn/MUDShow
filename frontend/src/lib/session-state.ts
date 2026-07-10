@@ -38,6 +38,7 @@ export const INITIAL_DRAFT: CharacterDraft = {
   width: '',
   sound: false,
   outputHistoryLines: String(DEFAULT_OUTPUT_HISTORY_LINES),
+  connectString: '',
 };
 
 export function createInitialState(): SessionState {

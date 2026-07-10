@@ -243,6 +243,9 @@ export function createPlaybackActions({
       },
       {
         onOpen: () => {
+          if (character.connectString && character.connectString.trim()) {
+            connection.send(`${character.connectString}\r\n`);
+          }
           updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });
           void appendOutputToTab(tabId, `\x1b[90m[connected to ${world.host}:${world.port}]\x1b[0m\n`);
         },

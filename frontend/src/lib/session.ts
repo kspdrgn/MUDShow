@@ -336,41 +336,6 @@ function createSession() {
     return tab.id;
   }
 
-  function closeTabImmediately(tabId: string): void {
-    const current = getState();
-    const tab = current.tabs.find((item) => item.id === tabId);
-
-    if (!tab || !tab.closable) {
-      return;
-    }
-
-    const nextTabs = current.tabs.filter((item) => item.id !== tabId);
-    const nextWorldSessions = { ...current.worldSessions };
-    delete nextWorldSessions[tabId];
-
-    if (tab.kind === 'world') {
-      releaseWorldConnection(tab.id);
-    }
-
-    const nextActiveTabId =
-      current.activeTabId === tabId
-        ? nextTabs.find((item) => item.kind === 'world')?.id ??
-          nextTabs.find((item) => item.id === SETTINGS_TAB_ID)?.id ??
-          nextTabs.find((item) => item.id === CHARACTERS_TAB_ID)?.id ??
-          nextTabs[0]?.id ??
-          null
-        : current.activeTabId;
-
-    state.set({
-      ...current,
-      tabs: nextTabs,
-      activeTabId: nextActiveTabId,
-      worldSessions: nextWorldSessions,
-      closeConfirmTabId: null,
-      closeConfirmMode: null,
-    });
-  }
-
   function closeTab(tabId: string, source: 'mouse' | 'shortcut' = 'mouse'): void {
     if (shouldConfirmWorldTabClose(tabId)) {
       patch({
