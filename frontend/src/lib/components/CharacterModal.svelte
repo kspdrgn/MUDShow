@@ -58,7 +58,7 @@
       }
     }}
   >
-    <div id="modal">
+    <div id="modal" class="character-modal">
       <h2>{title}</h2>
       {#if worldName}
         <p class="settings-note">world: {worldName}</p>

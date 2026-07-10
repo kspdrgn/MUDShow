@@ -141,7 +141,7 @@
           </div>
           <div class="char-actions">
             <button class="btn primary" on:click={() => onConnectCharacter(characters.indexOf(character))}>connect</button>
-            <button class="btn" on:click={() => onEditCharacter(characters.indexOf(character))}>edit</button>
+            <button class="btn" on:click={() => onEditCharacter(characters.indexOf(character))}>edit char</button>
             <button class="btn danger" on:click={() => requestDeleteCharacter(characters.indexOf(character))}>del</button>
           </div>
         </div>
