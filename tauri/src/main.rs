@@ -45,6 +45,7 @@ fn main() {
             mud_backend::connect_mud,
             mud_backend::send_mud,
             mud_backend::disconnect_mud,
+            storage::get_app_storage_path,
             storage::load_app_storage,
             storage::save_app_storage,
         ])

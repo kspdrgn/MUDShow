@@ -787,6 +787,15 @@ body {
   line-height: 1.35;
 }
 
+.disabled-field,
+.disabled-field > label,
+.disabled-field > span,
+.disabled-field span {
+  text-decoration-line: line-through;
+  text-decoration-thickness: from-font;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
+
 .field > label,
 .field > span {
   display: block;

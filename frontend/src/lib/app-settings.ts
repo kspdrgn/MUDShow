@@ -15,7 +15,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  storageMode: 'webview',
+  storageMode: 'file',
   titleAttention: true,
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
@@ -55,7 +55,7 @@ export function loadAppSettings(): AppSettings {
   const settings: AppSettings = {
     ...DEFAULT_APP_SETTINGS,
     ...raw,
-    storageMode: raw.storageMode === 'file' ? 'file' : 'webview',
+    storageMode: 'file',
     titleAttention: raw.titleAttention !== false,
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
@@ -87,7 +87,7 @@ export function saveAppSettings(settings: AppSettings): void {
 
   const next: AppSettings = {
     ...settings,
-    storageMode: settings.storageMode === 'file' ? 'file' : 'webview',
+    storageMode: 'file',
     titleAttention: settings.titleAttention !== false,
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),

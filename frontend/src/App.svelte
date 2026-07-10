@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
+  import { getAppStoragePath } from './lib/storage';
   import WorldsAndCharactersEditor from './lib/components/WorldsAndCharactersEditor.svelte';
   import CharacterModal from './lib/components/CharacterModal.svelte';
   import ConfirmCloseTabModal from './lib/components/ConfirmCloseTabModal.svelte';
@@ -10,16 +11,32 @@
   import TopBar from './lib/components/TopBar.svelte';
   import WorldModal from './lib/components/WorldModal.svelte';
   import { session } from './lib/session';
+  import { isTauriAvailable } from './lib/tauri';
   import type { AppTab } from './lib/tabs';
   import type { WorldTabSessionState } from './lib/world-session';
 
   let appSettings = loadAppSettings();
+  let storageFilePath: string | null = null;
   let activeTab: AppTab | null = null;
   let activeWorldSession: WorldTabSessionState | null = null;
+
+  async function refreshStorageFilePath(): Promise<void> {
+    if (!isTauriAvailable()) {
+      storageFilePath = null;
+      return;
+    }
+
+    try {
+      storageFilePath = await getAppStoragePath();
+    } catch {
+      storageFilePath = null;
+    }
+  }
 
   function updateAppSettings(patch: Partial<AppSettings>): void {
     appSettings = { ...appSettings, ...patch };
     saveAppSettings(appSettings);
+    void refreshStorageFilePath();
   }
 
   $: activeTab = $session.tabs.find((tab) => tab.id === $session.activeTabId) ?? null;
@@ -37,6 +54,7 @@
 
   onMount(() => {
     void session.load();
+    void refreshStorageFilePath();
 
     const handleVisibilityChange = () => session.handleVisibilityChange();
     const handleKeyDown = (event: KeyboardEvent) => session.handleGlobalKeyDown(event);
@@ -159,6 +177,7 @@
       <SettingsPage
         settings={appSettings}
         onChange={updateAppSettings}
+        storageFilePath={storageFilePath}
       />
     {/if}
   </main>

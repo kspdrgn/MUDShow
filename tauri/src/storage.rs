@@ -1,32 +1,38 @@
-use std::env;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
+use tauri::Manager;
+
 const STORAGE_FILE_NAME: &str = "mudshow-data.json";
 const STORAGE_TEMP_FILE_NAME: &str = "mudshow-data.json.tmp";
 
-fn storage_path() -> Result<PathBuf, String> {
-    let executable = env::current_exe().map_err(|error| format!("failed to locate executable: {error}"))?;
-    let directory = executable
-        .parent()
-        .ok_or_else(|| String::from("failed to determine executable directory"))?;
-
-    Ok(directory.join(STORAGE_FILE_NAME))
+fn storage_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+    app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("failed to resolve app local data directory: {error}"))
 }
 
-fn temp_storage_path() -> Result<PathBuf, String> {
-    let executable = env::current_exe().map_err(|error| format!("failed to locate executable: {error}"))?;
-    let directory = executable
-        .parent()
-        .ok_or_else(|| String::from("failed to determine executable directory"))?;
+fn storage_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+    Ok(storage_dir(app)?.join(STORAGE_FILE_NAME))
+}
 
-    Ok(directory.join(STORAGE_TEMP_FILE_NAME))
+fn temp_storage_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+    Ok(storage_dir(app)?.join(STORAGE_TEMP_FILE_NAME))
 }
 
 #[tauri::command]
-pub fn load_app_storage() -> Result<String, String> {
-    let path = storage_path()?;
+pub fn get_app_storage_path<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<String, String> {
+    let path = storage_path(&app)?;
+    Ok(path.display().to_string())
+}
+
+#[tauri::command]
+pub fn load_app_storage<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<String, String> {
+    let path = storage_path(&app)?;
 
     match fs::read_to_string(&path) {
         Ok(contents) => Ok(contents),
@@ -41,9 +47,12 @@ pub fn load_app_storage() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn save_app_storage(json: String) -> Result<(), String> {
-    let path = storage_path()?;
-    let temp_path = temp_storage_path()?;
+pub fn save_app_storage<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    json: String,
+) -> Result<(), String> {
+    let path = storage_path(&app)?;
+    let temp_path = temp_storage_path(&app)?;
 
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {

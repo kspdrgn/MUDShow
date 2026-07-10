@@ -1,0 +1,11 @@
+# Allows the frontend to read the persisted app storage file location.
+
+[[permission]]
+identifier = "allow-get-app-storage-path"
+description = "Enables the get_app_storage_path command without any pre-configured scope."
+commands.allow = ["get_app_storage_path"]
+
+[[permission]]
+identifier = "deny-get-app-storage-path"
+description = "Denies the get_app_storage_path command without any pre-configured scope."
+commands.deny = ["get_app_storage_path"]

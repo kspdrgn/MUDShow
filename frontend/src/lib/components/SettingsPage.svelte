@@ -3,6 +3,7 @@
 
   export let settings: AppSettings;
   export let onChange: (patch: Partial<AppSettings>) => void;
+  export let storageFilePath: string | null;
 </script>
 
 <section id="screen-settings" class="screen-panel">
@@ -21,17 +22,22 @@
         <select
           id="storage-mode"
           value={settings.storageMode}
-          on:change={(event) =>
-            onChange({
-              storageMode: (event.currentTarget as HTMLSelectElement).value === 'file'
-                ? 'file'
-                : 'webview',
-            })}
+          disabled
+          on:change={() => onChange({ storageMode: 'file' })}
         >
-          <option value="webview">webview profile</option>
           <option value="file">external json file</option>
         </select>
       </div>
+      <label class="field">
+        <span>storage file location</span>
+        <input
+          type="text"
+          value={storageFilePath ?? 'loading storage file location...'}
+          disabled
+          readonly
+          spellcheck="false"
+        />
+      </label>
       <p class="settings-note">
         The current mode is saved locally and reused on startup.
       </p>
@@ -52,13 +58,14 @@
     <section class="settings-card">
       <h2>connections</h2>
       <div class="settings-stack">
-        <label class="field">
+        <label class="field disabled-field">
           <span>connection timeout (seconds)</span>
           <input
             type="number"
             min="1"
             step="1"
             value={settings.connectionTimeoutSeconds}
+            disabled
             on:input={(event) =>
               onChange({
                 connectionTimeoutSeconds: Number((event.currentTarget as HTMLInputElement).value),
@@ -66,13 +73,14 @@
           />
         </label>
 
-        <label class="field">
+        <label class="field disabled-field">
           <span>connection retries</span>
           <input
             type="number"
             min="0"
             step="1"
             value={settings.connectionRetries}
+            disabled
             on:input={(event) =>
               onChange({
                 connectionRetries: Number((event.currentTarget as HTMLInputElement).value),
@@ -80,10 +88,11 @@
           />
         </label>
 
-        <label class="settings-toggle">
+        <label class="settings-toggle disabled-field">
           <input
             type="checkbox"
             checked={settings.keepAlive}
+            disabled
             on:change={(event) => onChange({ keepAlive: (event.currentTarget as HTMLInputElement).checked })}
           />
           <span>send tcp keepalives</span>
@@ -93,11 +102,12 @@
 
     <section class="settings-card">
       <h2>spellcheck</h2>
-      <label class="field">
+      <label class="field disabled-field">
         <span>dictionary language</span>
         <input
           type="text"
           value={settings.spellcheckLanguage}
+          disabled
           on:input={(event) =>
             onChange({
               spellcheckLanguage: (event.currentTarget as HTMLInputElement).value,
@@ -108,10 +118,11 @@
 
     <section class="settings-card">
       <h2>ui</h2>
-      <label class="field">
+      <label class="field disabled-field">
         <span>color scheme</span>
         <select
           value={settings.colorScheme}
+          disabled
           on:change={(event) =>
             onChange({ colorScheme: (event.currentTarget as HTMLSelectElement).value })}
         >
@@ -125,16 +136,17 @@
     <section class="settings-card">
       <h2>window</h2>
       <div class="settings-stack">
-        <label class="settings-toggle">
+        <label class="settings-toggle disabled-field">
           <input
             type="checkbox"
             checked={settings.alwaysOnTop}
+            disabled
             on:change={(event) => onChange({ alwaysOnTop: (event.currentTarget as HTMLInputElement).checked })}
           />
           <span>keep the app on top</span>
         </label>
 
-        <label class="field">
+        <label class="field disabled-field">
           <span>transparency</span>
           <input
             type="range"
@@ -142,6 +154,7 @@
             max="100"
             step="1"
             value={settings.transparency}
+            disabled
             on:input={(event) =>
               onChange({ transparency: Number((event.currentTarget as HTMLInputElement).value) })}
           />

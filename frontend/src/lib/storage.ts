@@ -7,10 +7,9 @@ const CHARACTER_KEY = 'mudshow_chars';
 const HIGHLIGHT_KEY = 'mudshow_highlights';
 const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
-const STORAGE_MODE_KEY = 'mudshow_storage_mode';
 const STORAGE_SCHEMA_VERSION = 1;
 
-export type DesktopStorageMode = 'webview' | 'file';
+export type DesktopStorageMode = 'file';
 
 interface PersistentData {
   schemaVersion: number;
@@ -240,6 +239,10 @@ async function readFileData(): Promise<PersistentData> {
   return normalizePersistentData(parsed);
 }
 
+export async function getAppStoragePath(): Promise<string> {
+  return invoke<string>('get_app_storage_path');
+}
+
 async function writeFileData(data: PersistentData): Promise<void> {
   await invoke<void>('save_app_storage', {
     json: JSON.stringify(data),
@@ -270,14 +273,6 @@ function queueFileMutation(mutator: (data: PersistentData) => PersistentData): P
     });
 
   return fileWriteQueue;
-}
-
-function getDesktopStorageMode(): DesktopStorageMode {
-  if (!isTauriAvailable()) {
-    return 'webview';
-  }
-
-  return localStorage.getItem(STORAGE_MODE_KEY) === 'file' ? 'file' : 'webview';
 }
 
 function resolveCharacterNoteKey(characterName: string): string {
@@ -321,15 +316,11 @@ function updateHistory(
 }
 
 export function setDesktopStorageMode(mode: DesktopStorageMode): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  localStorage.setItem(STORAGE_MODE_KEY, mode);
+  void mode;
 }
 
 export async function loadWorlds(): Promise<WorldRecord[]> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     return readWebviewData().worlds;
   }
 
@@ -356,7 +347,7 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
     };
   };
 
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     writeWebviewData(update(readWebviewData()));
     return;
   }
@@ -365,7 +356,7 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
 }
 
 export async function loadCharacters(): Promise<CharacterRecord[]> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     return stripDefaultCharacters(readWebviewData().characters);
   }
 
@@ -381,7 +372,7 @@ export async function saveCharacters(characters: CharacterRecord[]): Promise<voi
     .filter((entry): entry is CharacterRecord => entry !== null),
   );
 
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     writeWebviewData({
       ...current,
@@ -401,7 +392,7 @@ export async function loadTranscriptHistory(
   maxLines = Number.POSITIVE_INFINITY,
   waitForWrites = true,
 ): Promise<TranscriptHistoryEntry[]> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const history = readWebviewData().history;
     return trimTranscriptHistory(history[resolveCharacterNoteKey(characterName)] ?? [], maxLines);
   }
@@ -417,7 +408,7 @@ export async function saveTranscriptHistory(
 ): Promise<void> {
   const nextEntries = trimTranscriptHistory(entries, maxLines);
 
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     writeWebviewData(updateHistory(current, characterName, nextEntries.length > 0 ? nextEntries : null));
     return;
@@ -427,7 +418,7 @@ export async function saveTranscriptHistory(
 }
 
 export async function moveTranscriptHistory(fromCharacterName: string, toCharacterName: string): Promise<void> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     const nextHistory = { ...current.history };
     const entries = nextHistory[resolveCharacterNoteKey(fromCharacterName)];
@@ -467,7 +458,7 @@ export async function moveTranscriptHistory(fromCharacterName: string, toCharact
 }
 
 export async function deleteTranscriptHistory(characterName: string): Promise<void> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     const nextHistory = { ...current.history };
     delete nextHistory[resolveCharacterNoteKey(characterName)];
@@ -482,7 +473,7 @@ export async function deleteTranscriptHistory(characterName: string): Promise<vo
 }
 
 export async function loadNotes(characterName: string, waitForWrites = true): Promise<string> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     return readWebviewData().notes[resolveCharacterNoteKey(characterName)] ?? '';
   }
 
@@ -491,7 +482,7 @@ export async function loadNotes(characterName: string, waitForWrites = true): Pr
 }
 
 export async function saveNotes(characterName: string, notes: string): Promise<void> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     writeWebviewData(updateNotes(current, characterName, notes));
     return;
@@ -501,7 +492,7 @@ export async function saveNotes(characterName: string, notes: string): Promise<v
 }
 
 export async function moveNotes(fromCharacterName: string, toCharacterName: string): Promise<void> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     const notes = current.notes[resolveCharacterNoteKey(fromCharacterName)];
     const nextNotes = { ...current.notes };
@@ -540,7 +531,7 @@ export async function moveNotes(fromCharacterName: string, toCharacterName: stri
 }
 
 export async function deleteNotes(characterName: string): Promise<void> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     const nextNotes = { ...current.notes };
     delete nextNotes[resolveCharacterNoteKey(characterName)];
@@ -555,7 +546,7 @@ export async function deleteNotes(characterName: string): Promise<void> {
 }
 
 export async function loadHighlights(): Promise<HighlightRule[]> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     return readWebviewData().highlights;
   }
 
@@ -565,7 +556,7 @@ export async function loadHighlights(): Promise<HighlightRule[]> {
 }
 
 export async function saveHighlights(rules: HighlightRule[]): Promise<void> {
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     const current = readWebviewData();
     writeWebviewData({
       ...current,
@@ -598,7 +589,7 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
     notes: {},
   };
 
-  if (!isTauriAvailable() || getDesktopStorageMode() === 'webview') {
+  if (!isTauriAvailable()) {
     writeWebviewData({
       ...readWebviewData(),
       worlds: nextData.worlds,
