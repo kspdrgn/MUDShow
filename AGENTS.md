@@ -1,20 +1,22 @@
 # AGENTS.md
 
+## Instruction Sources - AGENTS.md and AGENTS.local.md
+
+- Treat this file as the shared project-wide instruction set.
+- If a local `AGENTS.local.md` file exists in the repository root, read it before starting work and follow its instructions too.
+- Instructions in `AGENTS.local.md` may override conflicting instructions in this shared `AGENTS.md` file. The `AGENTS.local.md` file is intended only for instructions that are specific to the local system.
+- Do not create `AGENTS.local.md` unless the user explicitly asks for it.
+- If a task encounters sandbox restrictions that could be worked around by agent instructions, offer to add these instructions to the `AGENTS.local.md` file.
+
 ## Local Setup Notes
 
-- This repo runs inside a restricted sandbox. Prefer commands that stay inside `C:\_\_projects\MUDShow`.
-- The effective checkout path in this environment can differ from the displayed workspace root. Before using absolute paths in commands or patches, confirm the current working directory and prefer relative paths when possible.
 - The Tauri app lives in `tauri/` in this checkout. Use that path for Cargo, Tauri, and release bundle commands instead of `src-tauri/`.
 - The repo uses npm for local development. If dependencies need to be refreshed in the sandbox, use `npm ci` from the repo root.
-- If a frontend TypeScript pass fails because the sandbox denies the shell launcher under `node_modules/.bin`, run TypeScript through the explicit Node runtime. A reliable fallback is:
-  - `C:\Users\D\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe node_modules/typescript/lib/tsc.js --noEmit -p tsconfig.json`
-  - Do not rely on a shell shim if it resolves poorly in the sandbox.
-- Tauri commands may need an explicit Node path in the shell environment. This note is guidance for the shell command itself; it does not automatically change `PATH` for you. If `node` is not on `PATH`, use the known runtime binary directly:
-  - `C:\Users\D\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`
+- If a frontend TypeScript pass fails because the sandbox denies the shell launcher under `node_modules/.bin`, use the explicit Node runtime described in `AGENTS.local.md` and avoid relying on a shell shim if it resolves poorly in the sandbox.
 - For Tauri build/dev commands in this repo, make sure `node` is available before invoking `npm run tauri:dev`, `npm run tauri:build`, `npm run dev:frontend`, or `npm run build`.
 - Prefer the existing npm scripts and Tauri commands for desktop workflows instead of inventing new shell wrappers.
 - Git may reject the repo with a safe-directory warning in this environment. If that happens, use `git -c safe.directory=<repo path> ...` for the command you need instead of assuming the checkout is broken.
-- If a Windows shell command fails with a sandbox or path-related process error, retry with a simpler single-command form and re-check the current working directory before assuming the repository layout is wrong.
+- If a Windows shell command fails with a sandbox or path-related process error, retry with a simpler single-command form, confirm the current working directory, and check `AGENTS.local.md` for any machine-specific path guidance before assuming the repository layout is wrong.
 
 ## Release Build Notes
 
