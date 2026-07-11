@@ -16,10 +16,6 @@
 - Default log folder location
   - The app uses a safe default location when this setting is null or invalid.
   - Session logs are created in this folder unless the user explicitly chooses a different destination.
-- Image link display
-  - When enabled, image URLs in transcript output may display as inline previews instead of plain clickable links.
-  - When disabled, image URLs remain clickable text links only.
-  - This setting applies globally to the transcript display.
 
 # World Settings
 - Connection info:

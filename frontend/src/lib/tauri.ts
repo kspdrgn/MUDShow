@@ -38,6 +38,17 @@ export async function invoke<T>(command: string, args?: Record<string, unknown>)
   return getTauriGlobal().invoke<T>(command, args);
 }
 
+export async function openExternalUrl(url: string): Promise<void> {
+  if (isTauriAvailable()) {
+    await invoke('open_external_url', { url });
+    return;
+  }
+
+  if (typeof window !== 'undefined') {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
 export async function listen<T>(
   event: string,
   handler: (event: { event: string; id: number; payload: T }) => void,

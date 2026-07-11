@@ -15,6 +15,7 @@ type AnsiStyle = {
 };
 
 const ANSI_SEQUENCE_RE = /\x1b\[[0-9;?]*[ -\/]*[@-~]/g;
+const URL_RE = /https?:\/\/[^\s<>"'`]+/gi;
 
 const ANSI_PALETTE = [
   '#000000',
@@ -42,6 +43,10 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
+function escapeHtmlAttribute(text: string): string {
+  return escapeHtml(text).replace(/"/g, '&quot;');
+}
+
 export function stripTelnet(text: string): string {
   return text.replace(/\xff[\xfb-\xfe]./gs, '').replace(/\xff\xf0/gs, '');
 }
@@ -52,6 +57,89 @@ function escapeAndPreserveLayout(text: string): string {
   return escapeHtml(sanitized)
     .replace(/\n/g, '<br>')
     .replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length));
+}
+
+function splitTrailingPunctuation(url: string): { url: string; trailing: string } {
+  const trailingChars = new Set(['.', ',', '!', '?', ':', ';', '"', '\'', ')', ']', '}']);
+  let end = url.length;
+
+  while (end > 0) {
+    const character = url[end - 1];
+    if (!trailingChars.has(character)) {
+      break;
+    }
+
+    if (character === ')') {
+      const openCount = (url.slice(0, end - 1).match(/\(/g) ?? []).length;
+      const closeCount = (url.slice(0, end - 1).match(/\)/g) ?? []).length;
+      if (closeCount < openCount) {
+        break;
+      }
+    }
+
+    if (character === ']') {
+      const openCount = (url.slice(0, end - 1).match(/\[/g) ?? []).length;
+      const closeCount = (url.slice(0, end - 1).match(/\]/g) ?? []).length;
+      if (closeCount < openCount) {
+        break;
+      }
+    }
+
+    if (character === '}') {
+      const openCount = (url.slice(0, end - 1).match(/\{/g) ?? []).length;
+      const closeCount = (url.slice(0, end - 1).match(/\}/g) ?? []).length;
+      if (closeCount < openCount) {
+        break;
+      }
+    }
+
+    end -= 1;
+  }
+
+  return {
+    url: url.slice(0, end),
+    trailing: url.slice(end),
+  };
+}
+
+function normalizeExternalUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.href;
+    }
+  } catch {
+    // Fall through to the raw URL below.
+  }
+
+  return url;
+}
+
+function renderLinkedText(text: string): string {
+  let result = '';
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(URL_RE)) {
+    const index = match.index ?? lastIndex;
+    const rawUrl = match[0];
+    const { url, trailing } = splitTrailingPunctuation(rawUrl);
+
+    result += escapeAndPreserveLayout(text.slice(lastIndex, index));
+
+    if (url) {
+      const href = escapeHtmlAttribute(normalizeExternalUrl(url));
+      result += `<a class="output-link" href="${href}" tabindex="-1" rel="noopener noreferrer">${escapeAndPreserveLayout(url)}</a>`;
+    }
+
+    if (trailing) {
+      result += escapeAndPreserveLayout(trailing);
+    }
+
+    lastIndex = index + rawUrl.length;
+  }
+
+  result += escapeAndPreserveLayout(text.slice(lastIndex));
+  return result;
 }
 
 function ansi256ToCssColor(code: number): string | null {
@@ -263,7 +351,7 @@ export function ansiToHtml(text: string): string {
       }
     }
 
-    result += escapeAndPreserveLayout(chunk);
+    result += renderLinkedText(chunk);
   };
 
   for (const match of text.matchAll(ANSI_SEQUENCE_RE)) {

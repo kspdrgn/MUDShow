@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `core:window:allow-start-dragging`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `core:window:allow-start-dragging`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`"
         },
         {
           "description": "Enables the connect_mud command without any pre-configured scope.",
@@ -211,6 +211,12 @@
           "type": "string",
           "const": "allow-move-app-storage-file",
           "markdownDescription": "Enables the move_app_storage_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_external_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-external-url",
+          "markdownDescription": "Enables the open_external_url command without any pre-configured scope."
         },
         {
           "description": "Enables the reveal_app_storage_file command without any pre-configured scope.",
@@ -289,6 +295,12 @@
           "type": "string",
           "const": "deny-move-app-storage-file",
           "markdownDescription": "Denies the move_app_storage_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_external_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-external-url",
+          "markdownDescription": "Denies the open_external_url command without any pre-configured scope."
         },
         {
           "description": "Denies the reveal_app_storage_file command without any pre-configured scope.",

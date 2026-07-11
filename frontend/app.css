@@ -1184,6 +1184,22 @@ body {
   scrollbar-color: var(--border-active) transparent;
 }
 
+.output-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 0.12em;
+  cursor: pointer;
+}
+
+.output-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.output-link:focus {
+  outline: none;
+}
+
 .output-area::-webkit-scrollbar,
 .notes-editor::-webkit-scrollbar {
   width: 4px;

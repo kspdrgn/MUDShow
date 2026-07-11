@@ -1,6 +1,8 @@
 mod mud_backend;
 mod storage;
 
+use std::process::Command;
+
 use tauri::{Manager, Window};
 
 #[tauri::command]
@@ -40,6 +42,49 @@ fn window_start_dragging(window: Window) -> Result<(), String> {
     window.start_dragging().map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    let url = url.trim();
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Err(String::from("only http and https URLs can be opened"));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()
+            .map_err(|error| format!("failed to open the external URL: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(url)
+            .spawn()
+            .map_err(|error| format!("failed to open the external URL: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map_err(|error| format!("failed to open the external URL: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = url;
+        Err(String::from(
+            "opening external URLs is not supported on this platform",
+        ))
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(mud_backend::ConnectionManager::default())
@@ -60,6 +105,7 @@ fn main() {
             window_toggle_maximize,
             window_close,
             window_start_dragging,
+            open_external_url,
             mud_backend::connect_mud,
             mud_backend::send_mud,
             mud_backend::disconnect_mud,
