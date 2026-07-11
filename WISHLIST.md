@@ -3,16 +3,16 @@
 ## Top TODO
 
 - [X] Tabs, multiple connections
-- [ ] [WIP] Character Settings
+- [X] Character Settings
   - [X] make hierarchical
   - [X] add world without character
   - [X] auto-add default character, don't save
   - [X] add characters under a world
   - [X] de-dupe quick connect list
-  - [ ] improve characters edit page
+  - [X] improve characters edit page
   - [X] add initial connect string (for login).
 - [ ] [WIP] App Settings, database location control
-- [ ] [WIP] Config versioning, migration with schema changes
+- [ ] [WIP] (untested, still at v1) Config versioning, migration with schema changes
 - [ ] Session Logging
 - [ ] Image link display
 - [ ] Easier/better name highlighting config
@@ -78,7 +78,10 @@ This would support:
   - Save database version code so user database files can be converted or upgraded losslessly as the app changes. Version such as "j1" for json version 1 storage schema, or "b1" for binary storage version 1.
 
 ## Multiple Connections
-  - [ ] UI tabs for viewing worlds, their activity and logging status, and for switching between them
+  - [ ] UI tabs for active viewing worlds and allowing switching between them
+    - [ ] show connection status
+    - [ ] show activity status
+    - [ ] show logging status
   - [ ] CTRL+TAB switch worlds
   - [X] CTRL+F4 to close active tab
   - [X] Reconnect without closing world tab
@@ -87,7 +90,16 @@ This would support:
   - [ ] Confirm closing the app if tabs are connected
   - [ ] Confirm closing un-logged tab (if this reminder is enabled in options)
 
+## Window
+  - [ ] On-top option
+  - [ ] Window transparency
+  - [ ] Tabbed interface, multiple connections at once
+  - [ ] App settings
+  - [ ] Hierarchical world and character settings
+
 ## Taps Integrations
+  - Plugin System
+    - [ ] Specific MU integrations should be managed as modular plugins
   - Editors
     - [ ] Description editor
     - [ ] Morph editor
@@ -123,10 +135,3 @@ This would support:
     - [ ] Help guide for basic taps commands
     - [ ] Click commands to see their help text
     - [ ] Break-out help text to separate window
-
-## Window
-  - [ ] On-top option
-  - [ ] Window transparency
-  - [ ] Tabbed interface, multiple connections at once
-  - [ ] App settings
-  - [ ] Hierarchical world and character settings
