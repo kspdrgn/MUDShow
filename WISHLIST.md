@@ -34,8 +34,8 @@
     - [ ] Customize base colors, ANSI overrides
     - [ ] Background image
   - Contents
-    - [ ] Clickable links
-    - [ ] Auto-show image links
+    - [X] Clickable links
+    - [X] Auto-preview image links
     - [X] Automatic clipboard copy when selecting text
     - [ ] Timestamps visible on mouse-over lines
     - [ ] Visible Timestamps customizable
@@ -43,9 +43,9 @@
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
   - Scrolling
     - [ ] Pause auto-scroll when selecting
-    - [ ] Mousewheel anywhere scrolls the main window
-    - [ ] END key anywhere scrolls to end
-    - [ ] PAGE UP / PAGE DOWN keys anywhere scroll main text
+    - [ ] END key in input area scrolls main output text to end
+    - [ ] PAGE UP / PAGE DOWN keys in input area scrolls main output text
+    - [ ] Mouse wheel on input area scrolls main output text
     - [ ] Keep bottom line in view when resizing
     - [X] Pause automatic scroll to bottom when scrolled up manually
     - [X] Shortcut button to scroll to bottom appears when scrolled up manually

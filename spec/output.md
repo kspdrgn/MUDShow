@@ -1,3 +1,4 @@
+# Output / Transcript
 
 ## Transcript
 
@@ -5,11 +6,15 @@ Selecting text will automatically copy to clipboard and return keyboard focus to
 
 HTTP and HTTPS URLs in transcript text are rendered as clickable links. Clicking a link opens it in the user's default browser, while plain text selection and copy behavior still work normally.
 
+## Automatic Scrolling
+
 When new transcript content arrives, the output panel scrolls down to keep the most recent content in view.
 
 If the user manually scrolls away from the bottom, automatic scrolling pauses and a floating scroll-to-bottom button appears in the lower-right corner of the output panel.
 
-Clicking the button scrolls the output panel to the bottom and restores automatic scrolling for new transcript content.
+Clicking the scroll-to-bottom button scrolls the output panel to the bottom and restores automatic scrolling for new transcript content.
+
+## Split Output when Scrolling
 
 If the app setting "show current output when scrolling up" is enabled, scrolling away from the bottom splits the transcript into two stacked displays:
 
@@ -18,6 +23,8 @@ If the app setting "show current output when scrolling up" is enabled, scrolling
 - The bottom display does not show image previews, even when transcript image previews are enabled, so it can stay compact.
 
 When the user scrolls the top display back to the bottom, or presses the scroll-to-bottom button, the split collapses back into the normal single transcript view.
+
+## Image Link Previews
 
 When image link previews are enabled in app settings:
 
@@ -28,5 +35,4 @@ When image link previews are enabled in app settings:
 
 ## Status Messages
 
-- The output area shows a short status message when session logging starts.
-- The output area shows a short status message when session logging stops.
+The output area shows a short status message for changes in connection or logging state.

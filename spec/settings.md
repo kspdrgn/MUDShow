@@ -1,9 +1,13 @@
-# Settings and Permenant State
+# Settings and Permanent State
 
 - App settings
 - World and character settings
 - Fonts and colors settings
 - Highlight settings
+
+# Persistence / Storage
+
+The application database is stored in a JSON file to be easily readable and manageable by the user. The file stores a version of the schema used, which is used to automatically upgrade the database file to newer versions. Any breaking change to the storage schema should increment the storage version used.
 
 # App Settings
 
@@ -18,9 +22,6 @@
   - The default is off.
   - The setting is stored locally with the rest of the app settings.
 - Show current output when scrolling up
-  - A boolean app setting controls whether scrolling away from the bottom splits the transcript into a history area and a pinned live output area.
-  - The default is on.
-  - When enabled, the pinned live output area does not show image previews so it stays compact.
 - Default log folder location
   - The app uses a safe default location when this setting is null or invalid.
   - Session logs are created in this folder unless the user explicitly chooses a different destination.
