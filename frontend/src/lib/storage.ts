@@ -148,10 +148,6 @@ function injectDefaultCharacters(data: PersistentData): PersistentData {
   };
 }
 
-function stripDefaultCharacters(characters: CharacterRecord[]): CharacterRecord[] {
-  return characters.filter((character) => !character.isDefault);
-}
-
 function buildSessionCharacters(worlds: WorldRecord[], characters: CharacterRecord[]): CharacterRecord[] {
   return injectDefaultCharacters({
     schemaVersion: STORAGE_SCHEMA_VERSION,
@@ -377,7 +373,11 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
 
   const update = (data: PersistentData): PersistentData => {
     const worldIds = new Set(normalizedWorlds.map((world) => world.id));
-    const nextCharacters = data.characters.filter((character) => worldIds.has(character.worldId));
+    const nextCharacters = injectDefaultCharacters({
+      ...data,
+      worlds: normalizedWorlds,
+      characters: data.characters.filter((character) => worldIds.has(character.worldId)),
+    }).characters;
 
     return {
       ...data,
@@ -396,22 +396,21 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
 
 export async function loadCharacters(): Promise<CharacterRecord[]> {
   if (!isTauriAvailable()) {
-    return stripDefaultCharacters(readWebviewData().characters);
+    const data = readWebviewData();
+    return buildSessionCharacters(data.worlds, data.characters);
   }
 
   return withStorageAccess(async () => {
     await waitForPendingFileWrites();
     const data = await readFileData();
-    return stripDefaultCharacters(data.characters);
+    return buildSessionCharacters(data.worlds, data.characters);
   });
 }
 
 export async function saveCharacters(characters: CharacterRecord[]): Promise<void> {
-  const normalizedCharacters = stripDefaultCharacters(
-    characters
+  const normalizedCharacters = characters
     .map((entry) => normalizeCharacterRecord(entry))
-    .filter((entry): entry is CharacterRecord => entry !== null),
-  );
+    .filter((entry): entry is CharacterRecord => entry !== null);
 
   if (!isTauriAvailable()) {
     const current = readWebviewData();
@@ -618,10 +617,11 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
   const normalizedWorlds = dedupeWorlds(
     worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null),
   );
-  const normalizedCharacters = stripDefaultCharacters(
+  const normalizedCharacters = buildSessionCharacters(
+    normalizedWorlds,
     characters
-    .map((entry) => normalizeCharacterRecord(entry))
-    .filter((entry): entry is CharacterRecord => entry !== null),
+      .map((entry) => normalizeCharacterRecord(entry))
+      .filter((entry): entry is CharacterRecord => entry !== null),
   );
   const nextData: PersistentData = {
     schemaVersion: STORAGE_SCHEMA_VERSION,
