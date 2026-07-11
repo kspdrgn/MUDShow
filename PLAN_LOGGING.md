@@ -173,9 +173,9 @@ The plan should keep the UI minimal and consistent with the current layout.
 
 Likely UI surface options:
 
-- add a small logging control in the world tab header or top bar menu
 - add a compact action in the world tab context menu
-- optionally add a button near the input bars if that is more discoverable
+- add a small logging status indicator in the world tab header
+- also add the same status indicator in the inputbars component
 
 Checklist:
 
