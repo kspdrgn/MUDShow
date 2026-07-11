@@ -4,6 +4,7 @@
 - spec/input.md - Primary user input area and features
 - spec/layout.md - App and world UI/UX structure and rules
 - spec/output.md - Primary display window and features
+- spec/logging.md - Session logging behavior and file handling
 - spec/settings.md - App and world settings
 
 ## Purpose
@@ -25,6 +26,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can define highlighted phrases so important names or words stand out.
 - As a player, I can complete recently seen words to speed up typing names.
 - As a player, I can tell at a glance whether the session is connected, disconnected, or had a connection error.
+- As a player, I can start, stop, and rename a session log for a world tab.
 - As a player, I can notice new activity even when I am away from the app.
 - As a player, I can restore a recent per-character transcript history when I reconnect after an interruption.
 - As a player, I can keep the interface simple and focused on play rather than automation.
@@ -55,6 +57,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Keep a scrollable transcript of session output.
 - Auto-scroll when the user has not manually scrolled away.
 - Indicate connection state and errors clearly.
+- Allow session logging for an active world tab.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and highlights locally on the user’s device.
 - Store rolling per-character transcript history locally and reload it when reconnecting.

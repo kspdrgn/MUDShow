@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
-  import { getAppStoragePath } from './lib/storage';
+  import { moveAppStorageFile, revealAppStorageFile, setAppStoragePath } from './lib/storage';
   import WorldsAndCharactersEditor from './lib/components/WorldsAndCharactersEditor.svelte';
   import CharacterModal from './lib/components/CharacterModal.svelte';
   import ConfirmCloseTabModal from './lib/components/ConfirmCloseTabModal.svelte';
@@ -11,32 +11,55 @@
   import TopBar from './lib/components/TopBar.svelte';
   import WorldModal from './lib/components/WorldModal.svelte';
   import { session } from './lib/session';
-  import { isTauriAvailable } from './lib/tauri';
   import type { AppTab } from './lib/tabs';
   import type { WorldTabSessionState } from './lib/world-session';
 
   let appSettings = loadAppSettings();
-  let storageFilePath: string | null = null;
+  let storageFilePath: string | null = appSettings.storageFilePath;
   let activeTab: AppTab | null = null;
   let activeWorldSession: WorldTabSessionState | null = null;
 
-  async function refreshStorageFilePath(): Promise<void> {
-    if (!isTauriAvailable()) {
-      storageFilePath = null;
-      return;
-    }
-
+  async function initializeStoragePath(): Promise<void> {
     try {
-      storageFilePath = await getAppStoragePath();
+      const requestedPath = appSettings.storageFilePath;
+      const resolvedPath = await setAppStoragePath(requestedPath);
+      storageFilePath = resolvedPath;
+
+      if (requestedPath !== null && requestedPath !== resolvedPath) {
+        appSettings = { ...appSettings, storageFilePath: null };
+        saveAppSettings(appSettings);
+      }
     } catch {
-      storageFilePath = null;
+      storageFilePath = appSettings.storageFilePath;
     }
   }
 
   function updateAppSettings(patch: Partial<AppSettings>): void {
     appSettings = { ...appSettings, ...patch };
     saveAppSettings(appSettings);
-    void refreshStorageFilePath();
+  }
+
+  async function handleRevealStorageLocation(): Promise<void> {
+    try {
+      await revealAppStorageFile();
+    } catch (error) {
+      console.error('failed to reveal the storage location:', error);
+    }
+  }
+
+  async function handleMoveStorageLocation(): Promise<void> {
+    try {
+      const nextPath = await moveAppStorageFile();
+      if (!nextPath) {
+        return;
+      }
+
+      appSettings = { ...appSettings, storageFilePath: nextPath };
+      saveAppSettings(appSettings);
+      storageFilePath = nextPath;
+    } catch (error) {
+      console.error('failed to move the storage location:', error);
+    }
   }
 
   $: activeTab = $session.tabs.find((tab) => tab.id === $session.activeTabId) ?? null;
@@ -53,16 +76,24 @@
         : 'MUDShow';
 
   onMount(() => {
-    void session.load();
-    void refreshStorageFilePath();
-
     const handleVisibilityChange = () => session.handleVisibilityChange();
     const handleKeyDown = (event: KeyboardEvent) => session.handleGlobalKeyDown(event);
+    let disposed = false;
+
+    void (async () => {
+      await initializeStoragePath();
+      if (disposed) {
+        return;
+      }
+
+      void session.load();
+    })();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      disposed = true;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('keydown', handleKeyDown);
       session.dispose();
@@ -178,6 +209,8 @@
         settings={appSettings}
         onChange={updateAppSettings}
         storageFilePath={storageFilePath}
+        onRevealStorageLocation={() => void handleRevealStorageLocation()}
+        onMoveStorageLocation={() => void handleMoveStorageLocation()}
       />
     {/if}
   </main>

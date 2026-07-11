@@ -11,12 +11,12 @@
   - [X] de-dupe quick connect list
   - [X] improve characters edit page
   - [X] add initial connect string (for login).
-- [ ] [WIP] App Settings, database location control
+- [X] App Settings, database location control
 - [ ] [WIP] (untested, still at v1) Config versioning, migration with schema changes
 - [ ] Clickable HTTP* links
 - [ ] Image link display, toggle with app setting
-- [ ] Session Logging
-- [ ] Easier/better name highlighting config
+- [ ] Session Logging TBD
+- [ ] Easier/better name highlighting config TBD
 
 ## Input Box
   - [X] Input Command History
@@ -89,14 +89,11 @@ This would support:
   - [X] Disconnect without closing world tab
   - [X] Confirm closing connected tab, no matter the means of closing the tab
   - [ ] Confirm closing the app if tabs are connected
-  - [ ] Confirm closing un-logged tab (if this reminder is enabled in options)
+  - [ ] Confirm closing un-logged tab (if this reminder is enabled in app settings)
 
 ## Window
   - [ ] On-top option
   - [ ] Window transparency
-  - [ ] Tabbed interface, multiple connections at once
-  - [ ] App settings
-  - [ ] Hierarchical world and character settings
 
 ## Taps Integrations
   - Plugin System

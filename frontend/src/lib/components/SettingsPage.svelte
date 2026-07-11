@@ -4,6 +4,8 @@
   export let settings: AppSettings;
   export let onChange: (patch: Partial<AppSettings>) => void;
   export let storageFilePath: string | null;
+  export let onRevealStorageLocation: () => void;
+  export let onMoveStorageLocation: () => void;
 </script>
 
 <section id="screen-settings" class="screen-panel">
@@ -28,15 +30,46 @@
           <option value="file">external json file</option>
         </select>
       </div>
-      <label class="field">
+      <label class="field storage-location-field">
         <span>storage file location</span>
-        <input
-          type="text"
-          value={storageFilePath ?? 'loading storage file location...'}
-          disabled
-          readonly
-          spellcheck="false"
-        />
+        <div class="storage-location-row">
+          <input
+            type="text"
+            value={storageFilePath ?? 'loading storage file location...'}
+            disabled
+            readonly
+            spellcheck="false"
+          />
+          <div class="storage-location-actions">
+            <button
+              type="button"
+              class="icon-button"
+              title="Open the database folder and select the file."
+              aria-label="Open the database folder and select the file."
+              disabled={storageFilePath === null}
+              on:click={onRevealStorageLocation}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
+                <path d="M3.5 8.5V6.75a1 1 0 0 1 1-1H10l1.75 1.75H20a1 1 0 0 1 1 1V10" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icon-button danger"
+              title="Move the database file to a new location."
+              aria-label="Move the database file to a new location."
+              disabled={storageFilePath === null}
+              on:click={onMoveStorageLocation}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
+                <path d="M14 13.5h5" />
+                <path d="m16.5 11 2.5 2.5-2.5 2.5" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </label>
       <p class="settings-note">
         The current mode is saved locally and reused on startup.

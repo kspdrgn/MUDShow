@@ -8,6 +8,18 @@
 # App Settings
 
 - Database file location
+  - The app uses the default location when this setting is null or invalid.
+  - The setting is only populated after the database file has been moved.
+  - App settings include actions to reveal the current database folder and move the database file.
+  - A white folder button opens the current database folder in the OS file manager and selects the file.
+  - A red folder move button opens a native save dialog, copies the database file to the selected location, and removes the old file after a successful copy when it is safe to do so.
+- Default log folder location
+  - The app uses a safe default location when this setting is null or invalid.
+  - Session logs are created in this folder unless the user explicitly chooses a different destination.
+- Image link display
+  - When enabled, image URLs in transcript output may display as inline previews instead of plain clickable links.
+  - When disabled, image URLs remain clickable text links only.
+  - This setting applies globally to the transcript display.
 
 # World Settings
 - Connection info:

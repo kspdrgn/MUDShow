@@ -22,6 +22,7 @@ Anchored to the right:
   - Tabs can be closed.
   - Only one tab can be opened at a time per world character. Attempting to open the same character will instead activate that tab.
   - Tab names appear with world name and character name.
+  - Connected tabs show a connection status dot and, when logging is active, a second logging status dot beneath it.
   - If no tabs are open, the Home Panel should be shown centered in the empty content space.
   - Connection tabs are not restored between app sessions.
   - Characters and App Settings are opened only when the user chooses them and are not instantiated until then.
@@ -57,6 +58,8 @@ This tab is created only when the user opens it.
 Database
   - Show current user settings data location
   - Change/migrate user data files location
+  - Open the current database folder and select the file
+  - Move the current database file to a new location with a native save dialog
 
 Activity Notification
   - Blink app or not
@@ -92,7 +95,6 @@ World Connection Settings
 Character Settings
   - Name, shown in tab
   - Connection string - Optional, command sent upon connection to log in character
-  - Always-Log file setup
   - Output-History enabled and how many lines to save/restore
   - Activity notification sound per character
   - Renaming a saved character will migrate any persisted history and settings to stay associated to the new character name
@@ -113,6 +115,8 @@ PlayScreen
   - NotesPanel - Toggle, anchored to top
   - Transcript - Fills most space in the middle. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
+  - Logging controls - Start, stop, and rename the active log file for the current world tab.
+  - The active input bar shows a logging status dot beneath the connection status dot when logging is active.
 
   - One PlayScreen instance per world tab.
   - Each PlayScreen instance keeps its own transcript view, scroll position, input bars, panel visibility, and connection status while that tab remains open.

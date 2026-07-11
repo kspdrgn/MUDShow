@@ -1,0 +1,11 @@
+# Allows the frontend to reveal the current app storage file in the system file manager.
+
+[[permission]]
+identifier = "allow-reveal-app-storage-file"
+description = "Enables the reveal_app_storage_file command without any pre-configured scope."
+commands.allow = ["reveal_app_storage_file"]
+
+[[permission]]
+identifier = "deny-reveal-app-storage-file"
+description = "Denies the reveal_app_storage_file command without any pre-configured scope."
+commands.deny = ["reveal_app_storage_file"]

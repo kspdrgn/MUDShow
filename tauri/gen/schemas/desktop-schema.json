@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `core:window:allow-start-dragging`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `core:window:allow-start-dragging`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `core:window:allow-start-dragging`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `core:window:allow-start-dragging`"
         },
         {
           "description": "Enables the connect_mud command without any pre-configured scope.",
@@ -207,6 +207,18 @@
           "markdownDescription": "Enables the load_app_storage command without any pre-configured scope."
         },
         {
+          "description": "Enables the move_app_storage_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-move-app-storage-file",
+          "markdownDescription": "Enables the move_app_storage_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reveal_app_storage_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reveal-app-storage-file",
+          "markdownDescription": "Enables the reveal_app_storage_file command without any pre-configured scope."
+        },
+        {
           "description": "Enables the save_app_storage command without any pre-configured scope.",
           "type": "string",
           "const": "allow-save-app-storage",
@@ -217,6 +229,12 @@
           "type": "string",
           "const": "allow-send-mud",
           "markdownDescription": "Enables the send_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_app_storage_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-app-storage-path",
+          "markdownDescription": "Enables the set_app_storage_path command without any pre-configured scope."
         },
         {
           "description": "Enables the window_close command without any pre-configured scope.",
@@ -267,6 +285,18 @@
           "markdownDescription": "Denies the load_app_storage command without any pre-configured scope."
         },
         {
+          "description": "Denies the move_app_storage_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-move-app-storage-file",
+          "markdownDescription": "Denies the move_app_storage_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reveal_app_storage_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reveal-app-storage-file",
+          "markdownDescription": "Denies the reveal_app_storage_file command without any pre-configured scope."
+        },
+        {
           "description": "Denies the save_app_storage command without any pre-configured scope.",
           "type": "string",
           "const": "deny-save-app-storage",
@@ -277,6 +307,12 @@
           "type": "string",
           "const": "deny-send-mud",
           "markdownDescription": "Denies the send_mud command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_app_storage_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-app-storage-path",
+          "markdownDescription": "Denies the set_app_storage_path command without any pre-configured scope."
         },
         {
           "description": "Denies the window_close command without any pre-configured scope.",

@@ -43,6 +43,18 @@ fn window_start_dragging(window: Window) -> Result<(), String> {
 fn main() {
     tauri::Builder::default()
         .manage(mud_backend::ConnectionManager::default())
+        .setup(|app| {
+            let default_storage_path = match storage::default_storage_path(app.handle()) {
+                Ok(path) => path,
+                Err(error) => {
+                    return Err(Box::new(tauri::Error::Setup(
+                        Box::<dyn std::error::Error>::from(std::io::Error::other(error)).into(),
+                    )));
+                }
+            };
+            app.manage(storage::StorageLocationState::new(default_storage_path));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             window_minimize,
             window_toggle_maximize,
@@ -51,9 +63,12 @@ fn main() {
             mud_backend::connect_mud,
             mud_backend::send_mud,
             mud_backend::disconnect_mud,
+            storage::set_app_storage_path,
             storage::get_app_storage_path,
             storage::load_app_storage,
             storage::save_app_storage,
+            storage::reveal_app_storage_file,
+            storage::move_app_storage_file,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MUDShow")

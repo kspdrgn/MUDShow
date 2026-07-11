@@ -837,6 +837,76 @@ body {
   accent-color: var(--accent);
 }
 
+.storage-location-field {
+  gap: 0.45rem;
+}
+
+.storage-location-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.storage-location-row input {
+  flex: 1 1 auto;
+}
+
+.storage-location-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+}
+
+.icon-button {
+  width: 2.15rem;
+  min-width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-active);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-bright);
+  cursor: pointer;
+  transition:
+    color 0.1s,
+    border-color 0.1s,
+    background 0.1s,
+    transform 0.1s;
+}
+
+.icon-button:hover {
+  border-color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.icon-button.danger {
+  color: var(--danger);
+}
+
+.icon-button.danger:hover {
+  border-color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.icon-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
+.icon-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .field textarea {
   min-height: 6rem;
   resize: vertical;

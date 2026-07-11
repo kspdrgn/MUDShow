@@ -4,6 +4,7 @@ const SETTINGS_KEY = 'mudshow_app_settings';
 
 export interface AppSettings {
   storageMode: DesktopStorageMode;
+  storageFilePath: string | null;
   titleAttention: boolean;
   connectionTimeoutSeconds: number;
   connectionRetries: number;
@@ -16,6 +17,7 @@ export interface AppSettings {
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   storageMode: 'file',
+  storageFilePath: null,
   titleAttention: true,
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
@@ -46,6 +48,15 @@ function clampTransparency(value: number): number {
   return Math.min(100, Math.max(60, Math.round(value)));
 }
 
+function normalizeStorageFilePath(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export function loadAppSettings(): AppSettings {
   if (typeof window === 'undefined') {
     return { ...DEFAULT_APP_SETTINGS };
@@ -56,6 +67,7 @@ export function loadAppSettings(): AppSettings {
     ...DEFAULT_APP_SETTINGS,
     ...raw,
     storageMode: 'file',
+    storageFilePath: normalizeStorageFilePath(raw.storageFilePath),
     titleAttention: raw.titleAttention !== false,
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
@@ -88,6 +100,7 @@ export function saveAppSettings(settings: AppSettings): void {
   const next: AppSettings = {
     ...settings,
     storageMode: 'file',
+    storageFilePath: normalizeStorageFilePath(settings.storageFilePath),
     titleAttention: settings.titleAttention !== false,
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),

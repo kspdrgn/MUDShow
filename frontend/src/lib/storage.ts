@@ -21,6 +21,7 @@ interface PersistentData {
 }
 
 let fileWriteQueue: Promise<void> = Promise.resolve();
+let storageAccessQueue: Promise<void> = Promise.resolve();
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) {
@@ -243,6 +244,23 @@ export async function getAppStoragePath(): Promise<string> {
   return invoke<string>('get_app_storage_path');
 }
 
+export async function setAppStoragePath(path: string | null): Promise<string> {
+  return invoke<string>('set_app_storage_path', {
+    path,
+  });
+}
+
+export async function revealAppStorageFile(): Promise<void> {
+  await invoke<void>('reveal_app_storage_file');
+}
+
+export async function moveAppStorageFile(): Promise<string | null> {
+  return withStorageAccess(async () => {
+    await waitForPendingFileWrites();
+    return invoke<string | null>('move_app_storage_file');
+  });
+}
+
 async function writeFileData(data: PersistentData): Promise<void> {
   await invoke<void>('save_app_storage', {
     json: JSON.stringify(data),
@@ -253,24 +271,43 @@ async function waitForPendingFileWrites(): Promise<void> {
   await fileWriteQueue;
 }
 
-async function readPersistentData(waitForWrites: boolean): Promise<PersistentData> {
-  if (waitForWrites) {
-    await waitForPendingFileWrites();
-  }
+async function withStorageAccess<T>(work: () => Promise<T>): Promise<T> {
+  const previousAccess = storageAccessQueue;
+  let releaseAccess!: () => void;
 
-  return readFileData();
+  storageAccessQueue = new Promise<void>((resolve) => {
+    releaseAccess = resolve;
+  });
+
+  await previousAccess;
+
+  try {
+    return await work();
+  } finally {
+    releaseAccess();
+  }
+}
+
+async function readPersistentData(waitForWrites: boolean): Promise<PersistentData> {
+  return withStorageAccess(async () => {
+    if (waitForWrites) {
+      await waitForPendingFileWrites();
+    }
+
+    return readFileData();
+  });
 }
 
 function queueFileMutation(mutator: (data: PersistentData) => PersistentData): Promise<void> {
-  fileWriteQueue = fileWriteQueue
-    .then(async () => {
-      const current = await readFileData();
-      const next = mutator(current);
-      await writeFileData(next);
-    })
-    .catch((error) => {
-      console.error('failed to persist MUDShow data:', error);
-    });
+  const pendingWrites = fileWriteQueue;
+  fileWriteQueue = withStorageAccess(async () => {
+    await pendingWrites;
+    const current = await readFileData();
+    const next = mutator(current);
+    await writeFileData(next);
+  }).catch((error) => {
+    console.error('failed to persist MUDShow data:', error);
+  });
 
   return fileWriteQueue;
 }
@@ -324,9 +361,11 @@ export async function loadWorlds(): Promise<WorldRecord[]> {
     return readWebviewData().worlds;
   }
 
-  await waitForPendingFileWrites();
-  const data = await readFileData();
-  return data.worlds;
+  return withStorageAccess(async () => {
+    await waitForPendingFileWrites();
+    const data = await readFileData();
+    return data.worlds;
+  });
 }
 
 export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
@@ -360,9 +399,11 @@ export async function loadCharacters(): Promise<CharacterRecord[]> {
     return stripDefaultCharacters(readWebviewData().characters);
   }
 
-  await waitForPendingFileWrites();
-  const data = await readFileData();
-  return stripDefaultCharacters(data.characters);
+  return withStorageAccess(async () => {
+    await waitForPendingFileWrites();
+    const data = await readFileData();
+    return stripDefaultCharacters(data.characters);
+  });
 }
 
 export async function saveCharacters(characters: CharacterRecord[]): Promise<void> {
@@ -397,8 +438,9 @@ export async function loadTranscriptHistory(
     return trimTranscriptHistory(history[resolveCharacterNoteKey(characterName)] ?? [], maxLines);
   }
 
-  const data = await readPersistentData(waitForWrites);
-  return trimTranscriptHistory(data.history[resolveCharacterNoteKey(characterName)] ?? [], maxLines);
+  return readPersistentData(waitForWrites).then((data) =>
+    trimTranscriptHistory(data.history[resolveCharacterNoteKey(characterName)] ?? [], maxLines),
+  );
 }
 
 export async function saveTranscriptHistory(
@@ -477,8 +519,7 @@ export async function loadNotes(characterName: string, waitForWrites = true): Pr
     return readWebviewData().notes[resolveCharacterNoteKey(characterName)] ?? '';
   }
 
-  const data = await readPersistentData(waitForWrites);
-  return data.notes[resolveCharacterNoteKey(characterName)] ?? '';
+  return readPersistentData(waitForWrites).then((data) => data.notes[resolveCharacterNoteKey(characterName)] ?? '');
 }
 
 export async function saveNotes(characterName: string, notes: string): Promise<void> {
@@ -550,9 +591,11 @@ export async function loadHighlights(): Promise<HighlightRule[]> {
     return readWebviewData().highlights;
   }
 
-  await waitForPendingFileWrites();
-  const data = await readFileData();
-  return data.highlights;
+  return withStorageAccess(async () => {
+    await waitForPendingFileWrites();
+    const data = await readFileData();
+    return data.highlights;
+  });
 }
 
 export async function saveHighlights(rules: HighlightRule[]): Promise<void> {
@@ -606,10 +649,22 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
 }
 
 export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; characters: CharacterRecord[]; highlights: HighlightRule[] }> {
-  const [worlds, characters, highlights] = await Promise.all([loadWorlds(), loadCharacters(), loadHighlights()]);
-  return {
-    worlds,
-    characters: buildSessionCharacters(worlds, characters),
-    highlights,
-  };
+  if (!isTauriAvailable()) {
+    const data = readWebviewData();
+    return {
+      worlds: data.worlds,
+      characters: buildSessionCharacters(data.worlds, data.characters),
+      highlights: data.highlights,
+    };
+  }
+
+  return withStorageAccess(async () => {
+    await waitForPendingFileWrites();
+    const data = await readFileData();
+    return {
+      worlds: data.worlds,
+      characters: buildSessionCharacters(data.worlds, data.characters),
+      highlights: data.highlights,
+    };
+  });
 }
