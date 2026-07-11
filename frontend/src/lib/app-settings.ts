@@ -6,6 +6,7 @@ export interface AppSettings {
   storageMode: DesktopStorageMode;
   storageFilePath: string | null;
   titleAttention: boolean;
+  linkImagePreviews: boolean;
   connectionTimeoutSeconds: number;
   connectionRetries: number;
   keepAlive: boolean;
@@ -19,6 +20,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   storageMode: 'file',
   storageFilePath: null,
   titleAttention: true,
+  linkImagePreviews: false,
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
   keepAlive: true,
@@ -69,6 +71,7 @@ export function loadAppSettings(): AppSettings {
     storageMode: 'file',
     storageFilePath: normalizeStorageFilePath(raw.storageFilePath),
     titleAttention: raw.titleAttention !== false,
+    linkImagePreviews: raw.linkImagePreviews === true,
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
       : DEFAULT_APP_SETTINGS.connectionTimeoutSeconds,
@@ -102,6 +105,7 @@ export function saveAppSettings(settings: AppSettings): void {
     storageMode: 'file',
     storageFilePath: normalizeStorageFilePath(settings.storageFilePath),
     titleAttention: settings.titleAttention !== false,
+    linkImagePreviews: settings.linkImagePreviews === true,
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),
     keepAlive: settings.keepAlive !== false,

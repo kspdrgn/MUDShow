@@ -1,5 +1,5 @@
 import { CompletionManager } from './completion';
-import { ansiToHtml, applyHighlights, stripTelnet, type HighlightRegex } from './formatting';
+import { stripTelnet } from './formatting';
 
 export interface TranscriptHistoryEntry {
   text: string;
@@ -64,11 +64,11 @@ export class PlayTranscript {
     this.completion.resetCycle();
   }
 
-  loadHistory(entries: TranscriptHistoryEntry[], highlightRegexes: HighlightRegex[]): { chunks: string[]; endsWithBr: boolean } {
+  loadHistory(entries: TranscriptHistoryEntry[]): { chunks: string[]; endsWithBr: boolean } {
     this.reset();
 
     for (const entry of entries) {
-      this.append(entry.text, highlightRegexes);
+      this.append(entry.text);
     }
 
     return { chunks: this.chunks, endsWithBr: this.outputEndsWithBr };
@@ -78,19 +78,18 @@ export class PlayTranscript {
     this.completion.harvest(text);
   }
 
-  append(rawText: string, highlightRegexes: HighlightRegex[]): { chunks: string[]; endsWithBr: boolean } {
+  append(rawText: string): { chunks: string[]; endsWithBr: boolean } {
     const text = stripTelnet(rawText).replace(/\r+\n/g, '\n');
     this.completion.harvest(text);
 
-    let html = ansiToHtml(text);
-    html = applyHighlights(html, highlightRegexes);
+    let chunk = text;
 
-    if (!this.outputEndsWithBr && !html.startsWith('<br>')) {
-      html = '<br>' + html;
+    if (!this.outputEndsWithBr && !chunk.startsWith('\n')) {
+      chunk = '\n' + chunk;
     }
 
-    this.outputEndsWithBr = /<br>\s*(?:<\/[^>]+>)*\s*$/.test(html);
-    this.chunks = [...this.chunks, html];
+    this.outputEndsWithBr = chunk.endsWith('\n');
+    this.chunks = [...this.chunks, chunk];
 
     if (this.chunks.length > this.maxChunks) {
       this.chunks = this.chunks.slice(-this.maxChunks);

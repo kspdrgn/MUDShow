@@ -76,7 +76,7 @@ export function createPlaybackActions({
 
   async function appendOutputToTab(tabId: string, rawText: string): Promise<void> {
     const session = getWorldSession(tabId);
-    const next = session.transcript.append(rawText, getHighlightRegexes());
+    const next = session.transcript.append(rawText);
     const maxHistoryLines = session.currentCharacter?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
 
     if (session.currentCharacter && maxHistoryLines > 0) {
@@ -200,8 +200,8 @@ export function createPlaybackActions({
       ]);
 
       const historySnapshot = maxHistoryLines > 0
-        ? session.transcript.loadHistory(history, highlightRegexes)
-        : session.transcript.loadHistory([], highlightRegexes);
+        ? session.transcript.loadHistory(history)
+        : session.transcript.loadHistory([]);
 
       setHighlightRegexes(highlightRegexes);
 
@@ -329,6 +329,16 @@ export function createPlaybackActions({
     }
 
     updateWorldSession(tabId, { userScrolled: distance > 50 });
+  }
+
+  function handleScrollToBottom(): void {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    updateWorldSession(tabId, { userScrolled: false });
+    scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
   }
 
   function handleInputFocus(bar: InputBarId): void {
@@ -533,6 +543,7 @@ export function createPlaybackActions({
     reconnectWorldTab,
     disconnectWorldTab,
     handleOutputScroll,
+    handleScrollToBottom,
     handleInputFocus,
     handleInputSubmit,
     completeInput,

@@ -16,6 +16,8 @@ type AnsiStyle = {
 
 const ANSI_SEQUENCE_RE = /\x1b\[[0-9;?]*[ -\/]*[@-~]/g;
 const URL_RE = /https?:\/\/[^\s<>"'`]+/gi;
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif', '.svg']);
+const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
 
 const ANSI_PALETTE = [
   '#000000',
@@ -115,20 +117,78 @@ function normalizeExternalUrl(url: string): string {
   return url;
 }
 
-function renderLinkedText(text: string): string {
+function isImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(normalizeExternalUrl(url));
+    const pathname = parsed.pathname.toLowerCase();
+    return [...IMAGE_EXTENSIONS].some((extension) => pathname.endsWith(extension));
+  } catch {
+    return false;
+  }
+}
+
+function renderImagePreview(url: string, href: string): string {
+  return (
+    `<a class="output-link output-link-preview" href="${escapeHtmlAttribute(href)}" data-preview-url="${escapeHtmlAttribute(href)}" tabindex="-1" rel="noopener noreferrer">` +
+    `<img class="output-link-preview-image" src="${escapeHtmlAttribute(href)}" data-preview-url="${escapeHtmlAttribute(href)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` +
+    `</a>`
+  );
+}
+
+function renderPreviewRow(previews: string[]): string {
+  if (previews.length === 0) {
+    return '';
+  }
+
+  return `<div class="output-link-preview-row">${previews.join('')}</div>`;
+}
+
+function renderLinkedText(text: string, linkImagePreviews: boolean): { html: string; previews: string[] } {
   let result = '';
   let lastIndex = 0;
+  const previews: string[] = [];
 
   for (const match of text.matchAll(URL_RE)) {
     const index = match.index ?? lastIndex;
     const rawUrl = match[0];
     const { url, trailing } = splitTrailingPunctuation(rawUrl);
+    const normalizedUrl = normalizeExternalUrl(url);
+    const previewEligible = isImageUrl(url);
 
     result += escapeAndPreserveLayout(text.slice(lastIndex, index));
 
+    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+      console.info('[MUDShow] transcript URL match', {
+        rawUrl,
+        url,
+        normalizedUrl,
+        previewEligible,
+        previewsEnabled: linkImagePreviews,
+        trailing,
+      });
+    }
+
     if (url) {
-      const href = escapeHtmlAttribute(normalizeExternalUrl(url));
-      result += `<a class="output-link" href="${href}" tabindex="-1" rel="noopener noreferrer">${escapeAndPreserveLayout(url)}</a>`;
+      const href = normalizedUrl;
+      result += `<a class="output-link" href="${escapeHtmlAttribute(href)}" tabindex="-1" rel="noopener noreferrer">${escapeAndPreserveLayout(url)}</a>`;
+
+      if (linkImagePreviews && previewEligible) {
+        if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+          console.info('[MUDShow] image preview queued', {
+            url: href,
+            sourceText: url,
+          });
+        }
+        previews.push(renderImagePreview(url, href));
+      } else if (linkImagePreviews) {
+        if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+          console.info('[MUDShow] image preview skipped', {
+            url: href,
+            sourceText: url,
+            reason: 'url does not end with a supported image extension',
+          });
+        }
+      }
     }
 
     if (trailing) {
@@ -139,7 +199,7 @@ function renderLinkedText(text: string): string {
   }
 
   result += escapeAndPreserveLayout(text.slice(lastIndex));
-  return result;
+  return { html: result, previews };
 }
 
 function ansi256ToCssColor(code: number): string | null {
@@ -328,35 +388,83 @@ function styleToCss(style: AnsiStyle): string | null {
 }
 
 export function ansiToHtml(text: string): string {
-  let result = '';
+  return renderTranscriptHtml(text, false);
+}
+
+function flushStyledChunk(
+  result: string[],
+  chunk: string,
+  currentStyle: AnsiStyle,
+  openStyle: string | null,
+  linkImagePreviews: boolean,
+  previews: string[],
+): { openStyle: string | null } {
+  if (!chunk) {
+    return { openStyle };
+  }
+
+  const style = styleToCss(currentStyle);
+
+  if (style !== openStyle) {
+    if (openStyle) {
+      result.push('</span>');
+    }
+
+    openStyle = style;
+    if (openStyle) {
+      result.push(`<span style="${openStyle}">`);
+    }
+  }
+
+  const rendered = renderLinkedText(chunk, linkImagePreviews);
+  result.push(rendered.html);
+  previews.push(...rendered.previews);
+  return { openStyle };
+}
+
+function flushLineBreak(
+  result: string[],
+  openStyle: string | null,
+  previews: string[],
+): string | null {
+  if (openStyle) {
+    result.push('</span>');
+  }
+
+  result.push('<br>');
+
+  if (previews.length > 0) {
+    result.push(renderPreviewRow(previews));
+    previews.length = 0;
+  }
+  return openStyle;
+}
+
+export function renderTranscriptHtml(text: string, linkImagePreviews = false): string {
+  let result: string[] = [];
   let openStyle: string | null = null;
   let currentStyle: AnsiStyle = {};
   let lastIndex = 0;
+  const linePreviews: string[] = [];
 
   const flushText = (chunk: string) => {
-    if (!chunk) {
-      return;
-    }
+    ({ openStyle } = flushStyledChunk(result, chunk, currentStyle, openStyle, linkImagePreviews, linePreviews));
+  };
 
-    const style = styleToCss(currentStyle);
-
-    if (style !== openStyle) {
-      if (openStyle) {
-        result += '</span>';
-      }
-
-      openStyle = style;
-      if (openStyle) {
-        result += `<span style="${openStyle}">`;
+  const flushTextWithNewlines = (chunk: string) => {
+    const parts = chunk.split('\n');
+    for (let i = 0; i < parts.length; i += 1) {
+      flushText(parts[i]);
+      if (i < parts.length - 1) {
+        flushLineBreak(result, openStyle, linePreviews);
+        openStyle = null;
       }
     }
-
-    result += renderLinkedText(chunk);
   };
 
   for (const match of text.matchAll(ANSI_SEQUENCE_RE)) {
     const index = match.index ?? lastIndex;
-    flushText(text.slice(lastIndex, index));
+    flushTextWithNewlines(text.slice(lastIndex, index));
 
     const sequence = match[0];
     if (sequence.endsWith('m')) {
@@ -370,13 +478,21 @@ export function ansiToHtml(text: string): string {
     lastIndex = index + sequence.length;
   }
 
-  flushText(text.slice(lastIndex));
+  flushTextWithNewlines(text.slice(lastIndex));
 
   if (openStyle) {
-    result += '</span>';
+    result.push('</span>');
   }
 
-  return result;
+  if (linePreviews.length > 0) {
+    result.push(renderPreviewRow(linePreviews));
+  }
+
+  return result.join('');
+}
+
+export function ansiToHtmlWithPreviews(text: string, linkImagePreviews = false): string {
+  return renderTranscriptHtml(text, linkImagePreviews);
 }
 
 export function buildHighlightRegexes(rules: HighlightRule[]): HighlightRegex[] {

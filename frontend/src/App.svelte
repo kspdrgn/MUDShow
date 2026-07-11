@@ -188,6 +188,8 @@
         highlightsVisible={worldSession.highlightsVisible}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
+        linkImagePreviews={appSettings.linkImagePreviews}
+        userScrolled={worldSession.userScrolled}
         outputChunks={worldSession.outputChunks}
         outputRevision={worldSession.outputRevision}
         playWidth={worldSession.currentCharacter?.width !== undefined ? `${worldSession.currentCharacter.width}ch` : 'none'}
@@ -201,6 +203,7 @@
         onInputResizeBar={(bar, delta) => session.resizeInputBar(bar, delta)}
         onNotesInput={(notes) => session.saveNotes(notes)}
         onOutputScroll={() => session.handleOutputScroll()}
+        onScrollToBottom={() => session.handleScrollToBottom()}
       />
     {/each}
 

@@ -13,6 +13,10 @@
   - App settings include actions to reveal the current database folder and move the database file.
   - A white folder button opens the current database folder in the OS file manager and selects the file.
   - A red folder move button opens a native save dialog, copies the database file to the selected location, and removes the old file after a successful copy when it is safe to do so.
+- Image link previews
+  - A boolean app setting controls whether image URLs in transcript links may later render inline previews.
+  - The default is off.
+  - The setting is stored locally with the rest of the app settings.
 - Default log folder location
   - The app uses a safe default location when this setting is null or invalid.
   - Session logs are created in this folder unless the user explicitly chooses a different destination.

@@ -1184,6 +1184,14 @@ body {
   scrollbar-color: var(--border-active) transparent;
 }
 
+.output-transcript-shell {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+}
+
 .output-link {
   color: inherit;
   text-decoration: underline;
@@ -1200,6 +1208,31 @@ body {
   outline: none;
 }
 
+.output-link-preview {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  text-decoration: none;
+}
+
+.output-link-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.3rem 0 0.5rem;
+}
+
+.output-link-preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: 16rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 0.35rem;
+}
+
 .output-area::-webkit-scrollbar,
 .notes-editor::-webkit-scrollbar {
   width: 4px;
@@ -1213,6 +1246,43 @@ body {
 .output-area::-webkit-scrollbar-thumb,
 .notes-editor::-webkit-scrollbar-thumb {
   background: var(--border-active);
+}
+
+.output-scroll-bottom-button {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  width: 3em;
+  height: 3em;
+  border-radius: 999px;
+  border: 1px solid var(--border-active);
+  background: rgba(5, 5, 5, 0.92);
+  color: var(--text-bright);
+  font-family: var(--font-ui);
+  font-size: 1.35rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 4;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.output-scroll-bottom-button:hover {
+  transform: translateY(-1px);
+  border-color: var(--text-dim);
+  background: rgba(13, 13, 16, 0.98);
+}
+
+.output-scroll-bottom-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .ansi-30 {

@@ -89,6 +89,22 @@
     </section>
 
     <section class="settings-card">
+      <h2>links</h2>
+      <label class="settings-toggle">
+        <input
+          type="checkbox"
+          checked={settings.linkImagePreviews}
+          on:change={(event) =>
+            onChange({ linkImagePreviews: (event.currentTarget as HTMLInputElement).checked })}
+        />
+        <span>show image previews for links</span>
+      </label>
+      <p class="settings-note">
+        When enabled, image URLs can later render inline previews instead of staying text-only links.
+      </p>
+    </section>
+
+    <section class="settings-card">
       <h2>connections</h2>
       <div class="settings-stack">
         <label class="field disabled-field">

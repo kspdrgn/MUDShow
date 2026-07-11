@@ -15,6 +15,8 @@
   export let highlightsVisible = false;
   export let notes = '';
   export let notesVisible = false;
+  export let linkImagePreviews = false;
+  export let userScrolled = false;
   export let outputChunks: string[] = [];
   export let outputRevision = 0;
   export let playWidth = 'none';
@@ -32,6 +34,7 @@
   export let onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
   export let onNotesInput: (notes: string) => void;
   export let onOutputScroll: () => void;
+  export let onScrollToBottom: () => void;
 </script>
 
 <div class:active={visible} class="screen-play" style={`--play-width: ${playWidth};`}>
@@ -40,7 +43,17 @@
   <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} />
 
   {#key outputRevision}
-    <Transcript {activeBar} chunks={outputChunks} width={playWidth} {scope} onScroll={onOutputScroll} />
+    <Transcript
+      {activeBar}
+      chunks={outputChunks}
+      width={playWidth}
+      {scope}
+      {highlights}
+      {linkImagePreviews}
+      {userScrolled}
+      onScroll={onOutputScroll}
+      onScrollToBottom={onScrollToBottom}
+    />
   {/key}
 
   <InputBars
