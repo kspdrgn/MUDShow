@@ -33,6 +33,7 @@
   let worldContextMenuOpen = false;
   let worldContextMenuTabId: string | null = null;
   let quickConnectSide: 'left' | 'right' = 'right';
+  let titlebarElement: HTMLElement | null = null;
   let menuContainer: HTMLDivElement | null = null;
   let quickConnectContainer: HTMLDivElement | null = null;
   let quickConnectButton: HTMLButtonElement | null = null;
@@ -258,12 +259,14 @@
 
     document.addEventListener('click', handleDocumentClick);
     document.addEventListener('contextmenu', handleDocumentContextMenu);
+    titlebarElement?.addEventListener('mousedown', startTitlebarDrag);
     window.addEventListener('keydown', handleEscape);
     window.addEventListener('resize', handleResize);
 
     return () => {
       document.removeEventListener('click', handleDocumentClick);
       document.removeEventListener('contextmenu', handleDocumentContextMenu);
+      titlebarElement?.removeEventListener('mousedown', startTitlebarDrag);
       window.removeEventListener('keydown', handleEscape);
       window.removeEventListener('resize', handleResize);
     };
@@ -293,9 +296,30 @@
     await invoke('window_close');
   }
 
+  function shouldStartTitlebarDrag(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    return target.closest(
+      '.world-tab-group, .titlebar-quick-connect, .titlebar-dropdown, #titlebar-actions, button, input, textarea, select, a',
+    ) === null;
+  }
+
+  function startTitlebarDrag(event: MouseEvent): void {
+    if (event.button !== 0 || !shouldStartTitlebarDrag(event.target)) {
+      return;
+    }
+
+    event.preventDefault();
+    void invoke('window_start_dragging').catch((error) => {
+      console.error('failed to start window drag', error);
+    });
+  }
+
 </script>
 
-<header id="titlebar" data-tauri-drag-region>
+<header id="titlebar" data-tauri-drag-region bind:this={titlebarElement}>
   <div id="titlebar-brand" aria-hidden="true">
     <span class="titlebar-app-name">MUDShow</span>
   </div>

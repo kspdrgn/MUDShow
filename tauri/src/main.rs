@@ -35,6 +35,11 @@ fn window_close(window: Window) {
     let _ = window.close();
 }
 
+#[tauri::command]
+fn window_start_dragging(window: Window) -> Result<(), String> {
+    window.start_dragging().map_err(|error| error.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(mud_backend::ConnectionManager::default())
@@ -42,6 +47,7 @@ fn main() {
             window_minimize,
             window_toggle_maximize,
             window_close,
+            window_start_dragging,
             mud_backend::connect_mud,
             mud_backend::send_mud,
             mud_backend::disconnect_mud,

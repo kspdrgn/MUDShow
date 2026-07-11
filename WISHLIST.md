@@ -13,8 +13,9 @@
   - [X] add initial connect string (for login).
 - [ ] [WIP] App Settings, database location control
 - [ ] [WIP] (untested, still at v1) Config versioning, migration with schema changes
+- [ ] Clickable HTTP* links
+- [ ] Image link display, toggle with app setting
 - [ ] Session Logging
-- [ ] Image link display
 - [ ] Easier/better name highlighting config
 
 ## Input Box
@@ -65,7 +66,7 @@
 
 ## Database MUD text backend
 
-Instead of storing world text simply as the contents of the play window, it should be stored locally in a SQLite database. Database exports should be user-readable such as  JSONL, or structured text.
+Instead of storing world text simply as the contents of the play window, it should be stored locally in an in-memory SQLite database. Future file databases or exports should be user-readable such as  JSONL, or structured text.
 
 This would support:
   - Virtualized scrolling
@@ -79,7 +80,7 @@ This would support:
 
 ## Multiple Connections
   - [ ] UI tabs for active viewing worlds and allowing switching between them
-    - [ ] show connection status
+    - [X] show connection status
     - [ ] show activity status
     - [ ] show logging status
   - [ ] CTRL+TAB switch worlds
