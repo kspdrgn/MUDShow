@@ -11,6 +11,14 @@ If the user manually scrolls away from the bottom, automatic scrolling pauses an
 
 Clicking the button scrolls the output panel to the bottom and restores automatic scrolling for new transcript content.
 
+If the app setting "show current output when scrolling up" is enabled, scrolling away from the bottom splits the transcript into two stacked displays:
+
+- The top display takes most of the space, stays scrollable, and contains the scroll-to-bottom button.
+- The bottom display stays pinned to the live output at the bottom of the panel and does not allow manual scrolling.
+- The bottom display does not show image previews, even when transcript image previews are enabled, so it can stay compact.
+
+When the user scrolls the top display back to the bottom, or presses the scroll-to-bottom button, the split collapses back into the normal single transcript view.
+
 When image link previews are enabled in app settings:
 
 - The original link text remains visible in the transcript.

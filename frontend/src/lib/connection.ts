@@ -15,6 +15,7 @@ type ConnectionTarget = {
 };
 
 type ConnectionEvent =
+  | { connectionId: string; kind: 'opened' }
   | { connectionId: string; kind: 'data'; text: string }
   | { connectionId: string; kind: 'closed'; reason: string }
   | { connectionId: string; kind: 'error'; message: string };
@@ -24,6 +25,7 @@ export class MudConnection {
 
   private sessionToken = 0;
   private connected = false;
+  private opened = false;
   private unlistenEvents: (() => void) | null = null;
 
   async connect(target: ConnectionTarget, handlers: Handlers): Promise<void> {
@@ -31,11 +33,12 @@ export class MudConnection {
 
     const token = ++this.sessionToken;
     this.connected = false;
+    this.opened = false;
 
     try {
       await this.startListening(token, handlers);
       await invoke('connect_mud', { connectionId: this.connectionId, ...target });
-      if (this.sessionToken === token) {
+      if (this.sessionToken === token && !this.opened) {
         this.connected = true;
         handlers.onOpen();
       }
@@ -76,6 +79,13 @@ export class MudConnection {
       }
 
       if (this.sessionToken !== token) {
+        return;
+      }
+
+      if (payload.kind === 'opened') {
+        this.opened = true;
+        this.connected = true;
+        handlers.onOpen();
         return;
       }
 

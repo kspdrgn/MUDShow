@@ -7,6 +7,7 @@ export interface AppSettings {
   storageFilePath: string | null;
   titleAttention: boolean;
   linkImagePreviews: boolean;
+  showCurrentOutputWhenScrollingUp: boolean;
   connectionTimeoutSeconds: number;
   connectionRetries: number;
   keepAlive: boolean;
@@ -21,6 +22,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   storageFilePath: null,
   titleAttention: true,
   linkImagePreviews: false,
+  showCurrentOutputWhenScrollingUp: true,
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
   keepAlive: true,
@@ -72,6 +74,7 @@ export function loadAppSettings(): AppSettings {
     storageFilePath: normalizeStorageFilePath(raw.storageFilePath),
     titleAttention: raw.titleAttention !== false,
     linkImagePreviews: raw.linkImagePreviews === true,
+    showCurrentOutputWhenScrollingUp: raw.showCurrentOutputWhenScrollingUp !== false,
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
       : DEFAULT_APP_SETTINGS.connectionTimeoutSeconds,
@@ -106,6 +109,7 @@ export function saveAppSettings(settings: AppSettings): void {
     storageFilePath: normalizeStorageFilePath(settings.storageFilePath),
     titleAttention: settings.titleAttention !== false,
     linkImagePreviews: settings.linkImagePreviews === true,
+    showCurrentOutputWhenScrollingUp: settings.showCurrentOutputWhenScrollingUp !== false,
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),
     keepAlive: settings.keepAlive !== false,

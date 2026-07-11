@@ -189,9 +189,9 @@
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
+        showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         userScrolled={worldSession.userScrolled}
         outputChunks={worldSession.outputChunks}
-        outputRevision={worldSession.outputRevision}
         playWidth={worldSession.currentCharacter?.width !== undefined ? `${worldSession.currentCharacter.width}ch` : 'none'}
         onHighlightAdd={(pattern, color) => session.addHighlight(pattern, color)}
         onHighlightDelete={(index) => session.deleteHighlight(index)}

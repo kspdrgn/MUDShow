@@ -13,8 +13,8 @@
   - [X] add initial connect string (for login).
 - [X] App Settings, database location control
 - [ ] [WIP] (untested, still at v1) Config versioning, migration with schema changes
-- [ ] Clickable HTTP* links
-- [ ] Image link display, toggle with app setting
+- [X] Clickable HTTP* links
+- [X] Image link display, toggle with app setting
 - [ ] Session Logging TBD
 - [ ] Easier/better name highlighting config TBD
 
@@ -47,9 +47,9 @@
     - [ ] END key anywhere scrolls to end
     - [ ] PAGE UP / PAGE DOWN keys anywhere scroll main text
     - [ ] Keep bottom line in view when resizing
-    - [ ] Pause automatic scroll to bottom when scrolled up manually
-    - [ ] Shortcut button to scroll to bottom appears when scrolled up manually
-    - [ ] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
+    - [X] Pause automatic scroll to bottom when scrolled up manually
+    - [X] Shortcut button to scroll to bottom appears when scrolled up manually
+    - [X] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
   - Highlighting
     - [ ] Separate name highlights from complex (regex?) highlights, simplify name handling
     - [ ] Click highlight color to change it

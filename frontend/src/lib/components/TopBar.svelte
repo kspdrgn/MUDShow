@@ -62,7 +62,6 @@
     worldContextMenuTab?.kind === 'world' &&
     worldContextMenuSession !== null &&
     worldContextMenuSession.connectionStatus === 'disconnected' &&
-    worldContextMenuSession.disconnectReason !== 'manual' &&
     worldContextMenuSession.currentCharacter !== null;
   $: worldContextMenuCanDisconnect =
     worldContextMenuTab?.kind === 'world' &&

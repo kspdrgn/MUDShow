@@ -17,6 +17,10 @@
   - A boolean app setting controls whether image URLs in transcript links may later render inline previews.
   - The default is off.
   - The setting is stored locally with the rest of the app settings.
+- Show current output when scrolling up
+  - A boolean app setting controls whether scrolling away from the bottom splits the transcript into a history area and a pinned live output area.
+  - The default is on.
+  - When enabled, the pinned live output area does not show image previews so it stays compact.
 - Default log folder location
   - The app uses a safe default location when this setting is null or invalid.
   - Session logs are created in this folder unless the user explicitly chooses a different destination.

@@ -1163,9 +1163,9 @@ body {
 
 .output-area {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0;
   padding: 0.5rem 0.7rem;
+  position: relative;
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.55;
@@ -1177,9 +1177,6 @@ body {
     'liga' 0,
     'clig' 0,
     'calt' 0;
-  max-width: var(--play-width);
-  width: 100%;
-  margin: 0 auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border-active) transparent;
 }
@@ -1190,6 +1187,57 @@ body {
   min-height: 0;
   width: 100%;
   display: flex;
+  flex-direction: column;
+}
+
+.output-area--history {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.output-transcript-shell--split .output-area--history {
+  flex: 1 1 0;
+}
+
+.output-transcript-shell--split .output-area--live {
+  flex: 0 0 20%;
+  border-top: 1px solid var(--border);
+}
+
+.output-area--history {
+  overflow: hidden;
+}
+
+.output-area--live {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.output-area--history-scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.5rem 0.7rem;
+}
+
+.output-area-content {
+  width: 100%;
+  max-width: var(--play-width);
+  margin: 0 auto;
+}
+
+.output-area--history-scroller .output-area-content {
+  min-height: 100%;
+}
+
+.output-area-content--live {
+  flex: 0 0 auto;
 }
 
 .output-link {
@@ -1233,17 +1281,17 @@ body {
   border-radius: 0.35rem;
 }
 
-.output-area::-webkit-scrollbar,
+.output-area--history::-webkit-scrollbar,
 .notes-editor::-webkit-scrollbar {
   width: 4px;
 }
 
-.output-area::-webkit-scrollbar-track,
+.output-area--history::-webkit-scrollbar-track,
 .notes-editor::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.output-area::-webkit-scrollbar-thumb,
+.output-area--history::-webkit-scrollbar-thumb,
 .notes-editor::-webkit-scrollbar-thumb {
   background: var(--border-active);
 }

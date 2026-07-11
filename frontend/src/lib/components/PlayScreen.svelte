@@ -16,9 +16,9 @@
   export let notes = '';
   export let notesVisible = false;
   export let linkImagePreviews = false;
+  export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
   export let outputChunks: string[] = [];
-  export let outputRevision = 0;
   export let playWidth = 'none';
   export let onHighlightAdd: (pattern: string, color: string) => void;
   export let onHighlightDelete: (index: number) => void;
@@ -42,19 +42,18 @@
 
   <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} />
 
-  {#key outputRevision}
-    <Transcript
-      {activeBar}
-      chunks={outputChunks}
-      width={playWidth}
-      {scope}
-      {highlights}
-      {linkImagePreviews}
-      {userScrolled}
-      onScroll={onOutputScroll}
-      onScrollToBottom={onScrollToBottom}
-    />
-  {/key}
+  <Transcript
+    {activeBar}
+    chunks={outputChunks}
+    width={playWidth}
+    {scope}
+    {highlights}
+    {linkImagePreviews}
+    {showCurrentOutputWhenScrollingUp}
+    {userScrolled}
+    onScroll={onOutputScroll}
+    onScrollToBottom={onScrollToBottom}
+  />
 
   <InputBars
     {bars}

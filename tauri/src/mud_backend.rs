@@ -168,6 +168,7 @@ async fn open_connection(
     verify_certificate: bool,
 ) -> Result<ConnectionHandle, String> {
     let stream = connect_stream(host, port, tls, verify_certificate).await?;
+    emit_event(&app, &connection_id, ConnectionEvent::Opened);
     let (outgoing_tx, outgoing_rx) = async_mpsc::unbounded_channel();
     let (stop_tx, stop_rx) = watch::channel(false);
 
@@ -425,6 +426,7 @@ impl ConnectionStream {
 #[derive(Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum ConnectionEvent {
+    Opened,
     Data { text: String },
     Closed { reason: String },
     Error { message: String },

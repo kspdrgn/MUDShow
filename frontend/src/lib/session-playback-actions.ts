@@ -93,6 +93,10 @@ export function createPlaybackActions({
     }
   }
 
+  async function appendConnectionStatusToTab(tabId: string, rawText: string): Promise<void> {
+    await appendOutputToTab(tabId, rawText);
+  }
+
   function handleVisibilityChange(): void {
     if (!document.hidden) {
       const tabId = getActiveWorldTabId();
@@ -247,7 +251,7 @@ export function createPlaybackActions({
             connection.send(`${character.connectString}\r\n`);
           }
           updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });
-          void appendOutputToTab(tabId, `\x1b[90m[connected to ${world.host}:${world.port}]\x1b[0m\n`);
+          void appendConnectionStatusToTab(tabId, `\x1b[90m[connected to ${world.host}:${world.port}]\x1b[0m\n`);
         },
         onMessage: (text) => {
           void appendOutputToTab(tabId, text);
@@ -263,11 +267,11 @@ export function createPlaybackActions({
         },
         onClose: () => {
           updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'remote' });
-          void appendOutputToTab(tabId, '\x1b[90m[disconnected - reconnect available]\x1b[0m\n');
+          void appendConnectionStatusToTab(tabId, '\x1b[90m[disconnected - reconnect available]\x1b[0m\n');
         },
         onError: (message) => {
           updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'error' });
-          void appendOutputToTab(tabId, `\x1b[31m[connection error] ${message}\x1b[0m\n`);
+          void appendConnectionStatusToTab(tabId, `\x1b[31m[connection error] ${message}\x1b[0m\n`);
         },
       },
     );
@@ -307,6 +311,8 @@ export function createPlaybackActions({
       disconnectReason: 'manual',
     });
 
+    void appendConnectionStatusToTab(tabId, '\x1b[90m[disconnected]\x1b[0m\n');
+
     await closeWorldTabConnection(tabId);
   }
 
@@ -338,7 +344,10 @@ export function createPlaybackActions({
     }
 
     updateWorldSession(tabId, { userScrolled: false });
-    scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
+    const scope = getWorldDomScope(tabId);
+    void nextFrame().then(() => {
+      scrollElementToBottom(getWorldOutputAreaId(scope));
+    });
   }
 
   function handleInputFocus(bar: InputBarId): void {

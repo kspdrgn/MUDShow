@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { applyHighlights, buildHighlightRegexes, renderTranscriptHtml } from '../formatting';
   import { copyTextToClipboard, focusElement, nextFrame, scrollElementToBottom } from '../session-dom';
   import { openExternalUrl } from '../tauri';
@@ -14,18 +13,24 @@
   export let scope = 'world';
   export let highlights: HighlightRule[] = [];
   export let linkImagePreviews = false;
+  export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
   export let onScroll: () => void;
   export let onScrollToBottom: () => void;
 
-  let outputArea: HTMLDivElement | null = null;
   let highlightRegexes = buildHighlightRegexes(highlights);
   let renderedChunks: string[] = [];
+  let liveRenderedChunks: string[] = [];
+  let splitView = false;
 
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: renderedChunks = chunks.map((chunk) =>
     applyHighlights(renderTranscriptHtml(chunk, linkImagePreviews), highlightRegexes),
   );
+  $: liveRenderedChunks = chunks.map((chunk) =>
+    applyHighlights(renderTranscriptHtml(chunk, false), highlightRegexes),
+  );
+  $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
 
   async function handleMouseUp(): Promise<void> {
     const selection = window.getSelection();
@@ -117,50 +122,60 @@
   function handleScrollToBottomClick(): void {
     onScrollToBottom();
   }
-
-  onMount(() => {
-    const node = outputArea;
-
-    if (!node) {
-      return undefined;
-    }
-
-    node.addEventListener('mouseup', handleMouseUp);
-    node.addEventListener('click', handleClick);
-    node.addEventListener('load', handlePreviewLoad, true);
-    node.addEventListener('error', handlePreviewError, true);
-
-    return () => {
-      node.removeEventListener('mouseup', handleMouseUp);
-      node.removeEventListener('click', handleClick);
-      node.removeEventListener('load', handlePreviewLoad, true);
-      node.removeEventListener('error', handlePreviewError, true);
-    };
-  });
 </script>
 
-<div class="output-transcript-shell" style={`--play-width: ${width};`}>
-  <div
-    bind:this={outputArea}
-    class="output-area"
-    id={`${scope}-output-area`}
-    role="region"
-    aria-label="Transcript output"
-    on:scroll={onScroll}
-  >
-    {#each renderedChunks as renderedChunk}
-      <div class="output-chunk">{@html renderedChunk}</div>
-    {/each}
+<div
+  class={`output-transcript-shell${splitView ? ' output-transcript-shell--split' : ''}`}
+  style={`--play-width: ${width};`}
+>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div class="output-area output-area--history">
+    <div
+      class="output-area output-area--history-scroller"
+      id={`${scope}-output-area`}
+      role="region"
+      aria-label={splitView ? 'Transcript history' : 'Transcript output'}
+      on:mouseup={handleMouseUp}
+      on:click={handleClick}
+      on:scroll={onScroll}
+      on:load|capture={handlePreviewLoad}
+      on:error|capture={handlePreviewError}
+    >
+      <div class="output-area-content">
+        {#each renderedChunks as renderedChunk}
+          <div class="output-chunk">{@html renderedChunk}</div>
+        {/each}
+      </div>
+    </div>
+
+    {#if userScrolled}
+      <button
+        type="button"
+        class="output-scroll-bottom-button"
+        aria-label="Scroll to bottom"
+        on:click={handleScrollToBottomClick}
+      >
+        ↓
+      </button>
+    {/if}
   </div>
 
-  {#if userScrolled}
-    <button
-      type="button"
-      class="output-scroll-bottom-button"
-      aria-label="Scroll to bottom"
-      on:click={handleScrollToBottomClick}
+  {#if splitView}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div
+      class="output-area output-area--live"
+      role="region"
+      aria-label="Current output"
+      on:mouseup={handleMouseUp}
+      on:click={handleClick}
     >
-      ↓
-    </button>
+      <div class="output-area-content output-area-content--live">
+        {#each liveRenderedChunks as renderedChunk}
+          <div class="output-chunk">{@html renderedChunk}</div>
+        {/each}
+      </div>
+    </div>
   {/if}
 </div>

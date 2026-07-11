@@ -105,6 +105,24 @@
     </section>
 
     <section class="settings-card">
+      <h2>transcript</h2>
+      <label class="settings-toggle">
+        <input
+          type="checkbox"
+          checked={settings.showCurrentOutputWhenScrollingUp}
+          on:change={(event) =>
+            onChange({
+              showCurrentOutputWhenScrollingUp: (event.currentTarget as HTMLInputElement).checked,
+            })}
+        />
+        <span>show current output while scrolling up</span>
+      </label>
+      <p class="settings-note">
+        When enabled, the transcript splits into a scrollable history area and a pinned live output area while you read older text.
+      </p>
+    </section>
+
+    <section class="settings-card">
       <h2>connections</h2>
       <div class="settings-stack">
         <label class="field disabled-field">
