@@ -667,6 +667,7 @@
           bind:this={quickConnectDropdown}
           class="titlebar-dropdown titlebar-quick-connect-dropdown"
           data-side={quickConnectSide}
+          on:click|stopPropagation
         >
           <QuickConnectPanel
             worlds={worlds}

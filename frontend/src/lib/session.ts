@@ -287,6 +287,43 @@ function createSession() {
     });
   }
 
+  function selectNextTab(): void {
+    const current = getState();
+    if (current.tabs.length === 0) {
+      return;
+    }
+
+    const activeIndex = current.activeTabId === null
+      ? -1
+      : current.tabs.findIndex((tab) => tab.id === current.activeTabId);
+    const nextTab = current.tabs[(activeIndex + 1) % current.tabs.length] ?? current.tabs[0] ?? null;
+
+    if (!nextTab) {
+      return;
+    }
+
+    selectTab(nextTab.id);
+  }
+
+  function selectPreviousTab(): void {
+    const current = getState();
+    if (current.tabs.length === 0) {
+      return;
+    }
+
+    const activeIndex = current.activeTabId === null
+      ? -1
+      : current.tabs.findIndex((tab) => tab.id === current.activeTabId);
+    const previousIndex = activeIndex <= 0 ? current.tabs.length - 1 : activeIndex - 1;
+    const previousTab = current.tabs[previousIndex] ?? current.tabs[0] ?? null;
+
+    if (!previousTab) {
+      return;
+    }
+
+    selectTab(previousTab.id);
+  }
+
   async function openCharactersTab(): Promise<void> {
     selectTab(CHARACTERS_TAB_ID);
     await nextFrame();
@@ -578,6 +615,8 @@ function createSession() {
       }
     },
     selectTab,
+    selectNextTab,
+    selectPreviousTab,
     reorderTab,
     closeTab,
     cancelCloseConfirm,

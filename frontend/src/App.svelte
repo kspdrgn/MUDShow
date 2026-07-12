@@ -126,6 +126,15 @@ import type { WorldTabSessionState } from './lib/world-session';
     storageImportNoticeOpen = false;
   }
 
+  function isModalOpen(): boolean {
+    return (
+      $session.modalOpen ||
+      ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') ||
+      loggingModalTabId !== null ||
+      storageImportNoticeOpen
+    );
+  }
+
   async function handleMoveLogFolder(): Promise<void> {
     try {
       const nextFolder = await moveDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? (await getDefaultLogFolder()));
@@ -175,7 +184,19 @@ import type { WorldTabSessionState } from './lib/world-session';
 
   onMount(() => {
     const handleVisibilityChange = () => session.handleVisibilityChange();
-    const handleKeyDown = (event: KeyboardEvent) => session.handleGlobalKeyDown(event);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key === 'Tab' && !isModalOpen()) {
+        event.preventDefault();
+        if (event.shiftKey) {
+          void session.selectPreviousTab();
+        } else {
+          void session.selectNextTab();
+        }
+        return;
+      }
+
+      session.handleGlobalKeyDown(event);
+    };
     const startupOverlay = document.getElementById('startup-overlay');
     let disposed = false;
 
