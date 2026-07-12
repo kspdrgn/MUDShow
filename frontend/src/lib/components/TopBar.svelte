@@ -31,6 +31,8 @@
   export let onConnectWorld: (worldId: string) => void;
   export let onConnectCharacter: (index: number) => void;
   export let onOpenCharactersTab: () => void;
+  export let onEditWorldTab: (tabId: string) => void;
+  export let onEditCharacterTab: (tabId: string) => void;
 
   let menuOpen = false;
   let quickConnectOpen = false;
@@ -52,6 +54,8 @@
   let worldContextMenuCanDisconnect = false;
   let worldContextMenuCanQuickLog = false;
   let worldContextMenuCanStopLogging = false;
+  let worldContextMenuCanEditWorld = false;
+  let worldContextMenuCanEditCharacter = false;
   let closeConfirmDropdown: HTMLDivElement | null = null;
   let closeConfirmPosition = { x: 0, y: 0 };
   let closeConfirmAnchorRect: DOMRect | null = null;
@@ -103,6 +107,15 @@
     worldContextMenuTab?.kind === 'world' &&
     worldContextMenuSession !== null &&
     worldContextMenuSession.loggingActive;
+  $: worldContextMenuCanEditWorld =
+    worldContextMenuTab?.kind === 'world' &&
+    worldContextMenuSession !== null &&
+    worldContextMenuSession.currentWorld !== null;
+  $: worldContextMenuCanEditCharacter =
+    worldContextMenuTab?.kind === 'world' &&
+    worldContextMenuSession !== null &&
+    worldContextMenuSession.currentCharacter !== null &&
+    !worldContextMenuSession.currentCharacter.isDefault;
   $: closeConfirmTab = closeConfirmTabId ? tabs.find((tab) => tab.id === closeConfirmTabId) ?? null : null;
   $: closeConfirmWorldName = closeConfirmTabId
     ? worldSessions[closeConfirmTabId]?.currentWorld?.name ??
@@ -728,6 +741,27 @@
           on:click={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuTab.id))}
         >
           logging...
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          disabled={!worldContextMenuCanEditWorld}
+          on:click={() => worldContextMenuCanEditWorld && handleWorldContextMenuAction(() => onEditWorldTab(worldContextMenuTab.id))}
+        >
+          edit world
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          disabled={!worldContextMenuCanEditCharacter}
+          on:click={() =>
+            worldContextMenuCanEditCharacter &&
+            handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuTab.id))
+          }
+        >
+          edit character
         </button>
 
         <div class="titlebar-context-menu-separator" aria-hidden="true"></div>

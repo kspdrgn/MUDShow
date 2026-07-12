@@ -287,6 +287,11 @@ function createSession() {
     });
   }
 
+  async function openCharactersTab(): Promise<void> {
+    selectTab(CHARACTERS_TAB_ID);
+    await nextFrame();
+  }
+
   function reorderTab(tabId: string, targetIndex: number): void {
     const current = getState();
     const currentIndex = current.tabs.findIndex((tab) => tab.id === tabId);
@@ -532,6 +537,38 @@ function createSession() {
 
   clearLoggingQueue = playbackActions.clearLoggingQueue;
 
+  async function openWorldEditorFromWorldTab(tabId: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    const world = session.currentWorld;
+    if (!world) {
+      return;
+    }
+
+    const worldIndex = getState().worlds.findIndex((entry) => entry.id === world.id);
+    if (worldIndex < 0) {
+      return;
+    }
+
+    await openCharactersTab();
+    await characterActions.openWorldModal(worldIndex);
+  }
+
+  async function openCharacterEditorFromWorldTab(tabId: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    const character = session.currentCharacter;
+    if (!character || character.isDefault) {
+      return;
+    }
+
+    const characterIndex = getState().characters.findIndex((entry) => entry.id === character.id);
+    if (characterIndex < 0) {
+      return;
+    }
+
+    await openCharactersTab();
+    await characterActions.openCharacterModal(character.worldId, characterIndex);
+  }
+
   return {
     subscribe: state.subscribe,
     load,
@@ -551,6 +588,8 @@ function createSession() {
     refreshWorldTabs,
     deleteWorldTabsForCharacter,
     deleteWorldTabsForWorld,
+    openWorldEditorFromWorldTab,
+    openCharacterEditorFromWorldTab,
     ...characterActions,
     ...playbackActions,
   };

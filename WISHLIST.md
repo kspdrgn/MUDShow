@@ -18,7 +18,7 @@ MVP Features:
 - [X] Image link display, toggle with app setting
 - [ ] [WIP] (needs testing) Session Logging
 - [X] input: pageup/pagedown/end/home keys pass thru to output
-- [ ] tab menu: shortcut to edit world and/or character?
+- [X] tab menu: shortcut to edit world and/or character?
 - [X] quick log: change name format to spaces not dashes
 
 Bugs:

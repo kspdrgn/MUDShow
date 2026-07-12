@@ -245,6 +245,8 @@ import type { WorldTabSessionState } from './lib/world-session';
     }}
     onConnectCharacter={(index) => void session.connectToCharacter(index)}
     onOpenCharactersTab={() => session.selectTab('characters')}
+    onEditWorldTab={(tabId) => void session.openWorldEditorFromWorldTab(tabId)}
+    onEditCharacterTab={(tabId) => void session.openCharacterEditorFromWorldTab(tabId)}
   />
 
   <main id="app-main">
