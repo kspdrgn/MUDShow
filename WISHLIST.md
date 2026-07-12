@@ -16,7 +16,16 @@
 - [X] Clickable HTTP* links
 - [X] Image link display, toggle with app setting
 - [ ] [WIP] (needs testing) Session Logging
+- [ ] Linux: Fix resize frame, can't resize bottom, right edge works but is tiny
+- [ ] Fix tab reordering
+
 - [ ] Easier/better name highlighting config TBD
+- [ ] Fix app release pipeline? main branch makes 'release' but no artifacts?
+- [ ] Linux: Release build?
+- [ ] Auto-updater:
+  - [ ] Tauri updater package
+  - [ ] Windows partial update packages, signed and onto github
+  - [ ] Linux idk, needs release build too
 
 ## Input Box
   - [X] Input Command History

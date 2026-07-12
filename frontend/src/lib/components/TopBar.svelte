@@ -19,6 +19,7 @@
   export let worlds: WorldRecord[] = [];
   export let characters: CharacterRecord[] = [];
   export let onSelectTab: (tabId: string) => void;
+  export let onReorderTab: (tabId: string, targetIndex: number) => void;
   export let onCloseTab: (tabId: string, source?: 'mouse' | 'shortcut') => void;
   export let onCancelCloseConfirm: () => void;
   export let onConfirmCloseTab: () => void;
@@ -37,10 +38,12 @@
   let worldContextMenuTabId: string | null = null;
   let quickConnectSide: 'left' | 'right' = 'right';
   let titlebarElement: HTMLElement | null = null;
+  let titlebarTabsElement: HTMLDivElement | null = null;
   let menuContainer: HTMLDivElement | null = null;
   let quickConnectContainer: HTMLDivElement | null = null;
   let quickConnectButton: HTMLButtonElement | null = null;
   let quickConnectDropdown: HTMLDivElement | null = null;
+  let worldTabsElement: HTMLDivElement | null = null;
   let worldContextMenuDropdown: HTMLDivElement | null = null;
   let worldContextMenuPosition = { x: 0, y: 0 };
   let worldContextMenuTab: AppTab | null = null;
@@ -55,6 +58,25 @@
   let closeConfirmTab: AppTab | null = null;
   let closeConfirmWorldName = '';
   const tabCloseButtons: Record<string, HTMLButtonElement | null> = {};
+  const tabGroupElements: Record<string, HTMLDivElement | null> = {};
+  const TAB_DRAG_THRESHOLD = 6;
+
+  type TabDragState = {
+    tabId: string;
+    pointerId: number;
+    pointerTarget: HTMLButtonElement | null;
+    startX: number;
+    startY: number;
+    clientX: number;
+    clientY: number;
+    isDragging: boolean;
+    dropIndex: number;
+    indicatorLeft: number;
+  };
+
+  let tabDragState: TabDragState | null = null;
+  let suppressTabClickId: string | null = null;
+  let suppressTabClickTimeout: ReturnType<typeof setTimeout> | null = null;
 
   $: worldContextMenuTab = worldContextMenuTabId
     ? tabs.find((tab) => tab.id === worldContextMenuTabId) ?? null
@@ -136,6 +158,183 @@
   function closeWorldContextMenu(): void {
     worldContextMenuOpen = false;
     worldContextMenuTabId = null;
+  }
+
+  function closeTabDrag(): void {
+    const drag = tabDragState;
+    if (drag?.pointerTarget && drag.pointerTarget.hasPointerCapture(drag.pointerId)) {
+      drag.pointerTarget.releasePointerCapture(drag.pointerId);
+    }
+
+    tabDragState = null;
+  }
+
+  function clearSuppressedTabClick(): void {
+    if (suppressTabClickTimeout !== null) {
+      clearTimeout(suppressTabClickTimeout);
+      suppressTabClickTimeout = null;
+    }
+
+    suppressTabClickId = null;
+  }
+
+  function scheduleSuppressedTabClick(tabId: string): void {
+    clearSuppressedTabClick();
+    suppressTabClickId = tabId;
+    suppressTabClickTimeout = setTimeout(() => {
+      if (suppressTabClickId === tabId) {
+        suppressTabClickId = null;
+      }
+
+      suppressTabClickTimeout = null;
+    }, 0);
+  }
+
+  function updateTabDragIndicator(clientX: number): void {
+    const drag = tabDragState;
+    if (!drag) {
+      return;
+    }
+
+    const draggedTabId = drag.tabId;
+    const otherTabs = tabs.filter((tab) => tab.id !== draggedTabId);
+    const containerRect = titlebarTabsElement?.getBoundingClientRect();
+
+    if (!containerRect) {
+      tabDragState = {
+        ...drag,
+        dropIndex: otherTabs.length,
+        indicatorLeft: 0,
+        clientX,
+        clientY: drag.clientY,
+      };
+      return;
+    }
+
+    let dropIndex = otherTabs.length;
+    let indicatorLeft = containerRect.width;
+
+    for (let index = 0; index < otherTabs.length; index += 1) {
+      const tab = otherTabs[index];
+      const element = tabGroupElements[tab.id];
+      const rect = element?.getBoundingClientRect();
+
+      if (!rect) {
+        continue;
+      }
+
+      const midpoint = rect.left + rect.width / 2;
+      if (clientX < midpoint) {
+        dropIndex = index;
+        indicatorLeft = rect.left - containerRect.left - 2;
+        break;
+      }
+    }
+
+    if (dropIndex === otherTabs.length) {
+      const quickConnectRect = quickConnectContainer?.getBoundingClientRect() ?? null;
+      const lastTab = otherTabs[otherTabs.length - 1];
+      const rect = lastTab ? tabGroupElements[lastTab.id]?.getBoundingClientRect() ?? null : null;
+      indicatorLeft = quickConnectRect
+        ? quickConnectRect.left - containerRect.left - 3
+        : rect
+          ? rect.right - containerRect.left + 3
+          : containerRect.width;
+    }
+
+    tabDragState = {
+      ...drag,
+      dropIndex,
+      indicatorLeft: Math.max(0, indicatorLeft),
+      clientX,
+      clientY: drag.clientY,
+    };
+  }
+
+  function beginTabDrag(event: PointerEvent, tab: AppTab): void {
+    if (tabDragState !== null || event.button !== 0 || !event.isPrimary || suppressTabClickId === tab.id) {
+      return;
+    }
+
+    if (!(event.currentTarget instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    closeWorldContextMenu();
+    menuOpen = false;
+    quickConnectOpen = false;
+
+    tabDragState = {
+      tabId: tab.id,
+      pointerId: event.pointerId,
+      pointerTarget: event.currentTarget,
+      startX: event.clientX,
+      startY: event.clientY,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      isDragging: false,
+      dropIndex: Math.max(0, tabs.filter((item) => item.id !== tab.id).length),
+      indicatorLeft: 0,
+    };
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveTabDrag(event: PointerEvent): void {
+    const drag = tabDragState;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const distanceX = Math.abs(event.clientX - drag.startX);
+    const distanceY = Math.abs(event.clientY - drag.startY);
+
+    if (!drag.isDragging) {
+      if (distanceX < TAB_DRAG_THRESHOLD && distanceY < TAB_DRAG_THRESHOLD) {
+        return;
+      }
+
+      tabDragState = {
+        ...drag,
+        isDragging: true,
+      };
+    }
+
+    event.preventDefault();
+    updateTabDragIndicator(event.clientX);
+  }
+
+  function finishTabDrag(event: PointerEvent, commit = true): void {
+    const drag = tabDragState;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const shouldCommit = commit && drag.isDragging;
+    const targetIndex = drag.dropIndex;
+    const tabId = drag.tabId;
+
+    closeTabDrag();
+
+    if (shouldCommit) {
+      onReorderTab(tabId, targetIndex);
+      scheduleSuppressedTabClick(tabId);
+    }
+  }
+
+  function cancelTabDrag(event: PointerEvent): void {
+    finishTabDrag(event, false);
+  }
+
+  function handleTabClick(event: MouseEvent, tab: AppTab): void {
+    if (suppressTabClickId === tab.id) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    closeWorldContextMenu();
+    onSelectTab(tab.id);
   }
 
   function updateCloseConfirmPosition(): void {
@@ -247,6 +446,11 @@
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (tabDragState?.isDragging) {
+          event.preventDefault();
+          closeTabDrag();
+        }
+
         menuOpen = false;
         quickConnectOpen = false;
         closeWorldContextMenu();
@@ -267,6 +471,10 @@
       if (isCloseConfirmDropdownOpen()) {
         updateCloseConfirmPosition();
       }
+
+      if (tabDragState?.isDragging) {
+        updateTabDragIndicator(tabDragState.clientX);
+      }
     };
 
     document.addEventListener('click', handleDocumentClick);
@@ -281,6 +489,8 @@
       titlebarElement?.removeEventListener('mousedown', startTitlebarDrag);
       window.removeEventListener('keydown', handleEscape);
       window.removeEventListener('resize', handleResize);
+      clearSuppressedTabClick();
+      closeTabDrag();
     };
   });
 
@@ -336,14 +546,16 @@
     <span class="titlebar-app-name">MUDShow</span>
   </div>
 
-  <div id="titlebar-tabs">
-    <div class="world-tabs" aria-label="app tabs">
-      {#each tabs as tab}
+  <div id="titlebar-tabs" bind:this={titlebarTabsElement}>
+    <div class="world-tabs" aria-label="app tabs" bind:this={worldTabsElement} class:dragging={tabDragState?.isDragging}>
+      {#each tabs as tab (tab.id)}
         {@const worldSession = tab.kind === 'world' ? worldSessions[tab.id] ?? null : null}
         <div
+          bind:this={tabGroupElements[tab.id]}
           class="world-tab-group"
           class:active={tab.id === activeTabId}
           class:confirming={closeConfirmMode === 'dropdown' && closeConfirmTabId === tab.id}
+          class:drag-source={tabDragState?.tabId === tab.id && tabDragState.isDragging}
           role="group"
           aria-label={`${tab.title} tab`}
           on:contextmenu={(event) => handleTabContextMenu(event, tab)}
@@ -353,10 +565,12 @@
             class="world-tab"
             title={tab.title}
             aria-label={tab.title}
-            on:click={() => {
-              closeWorldContextMenu();
-              onSelectTab(tab.id);
-            }}
+            aria-grabbed={tabDragState?.tabId === tab.id && tabDragState.isDragging}
+            on:pointerdown={(event) => beginTabDrag(event, tab)}
+            on:pointermove={moveTabDrag}
+            on:pointerup={(event) => finishTabDrag(event)}
+            on:pointercancel={cancelTabDrag}
+            on:click={(event) => handleTabClick(event, tab)}
           >
             {tab.title}
           </button>
@@ -389,6 +603,14 @@
         </div>
       {/each}
     </div>
+
+    {#if tabDragState?.isDragging}
+      <div
+        class="world-tab-drop-indicator"
+        aria-hidden="true"
+        style={`left: ${tabDragState.indicatorLeft}px;`}
+      ></div>
+    {/if}
 
     {#if isCloseConfirmDropdownOpen() && closeConfirmTab}
       <div

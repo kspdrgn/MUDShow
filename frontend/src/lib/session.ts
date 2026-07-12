@@ -287,6 +287,27 @@ function createSession() {
     });
   }
 
+  function reorderTab(tabId: string, targetIndex: number): void {
+    const current = getState();
+    const currentIndex = current.tabs.findIndex((tab) => tab.id === tabId);
+
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const nextTabs = [...current.tabs];
+    const [tab] = nextTabs.splice(currentIndex, 1);
+    const nextIndex = Math.max(0, Math.min(targetIndex, nextTabs.length));
+
+    nextTabs.splice(nextIndex, 0, tab);
+
+    state.set({
+      ...current,
+      tabs: nextTabs,
+      activeTabId: current.activeTabId,
+    });
+  }
+
   function refreshWorldTabs(): void {
     state.update((current) => {
       const worldById = new Map(current.worlds.map((world) => [world.id, world]));
@@ -520,6 +541,7 @@ function createSession() {
       }
     },
     selectTab,
+    reorderTab,
     closeTab,
     cancelCloseConfirm,
     confirmCloseTab,

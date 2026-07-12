@@ -221,6 +221,7 @@ import type { WorldTabSessionState } from './lib/world-session';
     worlds={$session.worlds}
     characters={$session.characters}
     onSelectTab={(tabId) => session.selectTab(tabId)}
+    onReorderTab={(tabId, targetIndex) => session.reorderTab(tabId, targetIndex)}
     onCloseTab={(tabId, source) => session.closeTab(tabId, source)}
     onCancelCloseConfirm={() => session.cancelCloseConfirm()}
     onConfirmCloseTab={() => session.confirmCloseTab()}
