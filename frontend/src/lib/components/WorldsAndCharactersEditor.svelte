@@ -62,6 +62,17 @@
       onDeleteCharacter(target.index);
     }
   }
+
+  function handleDeleteOverlayKeyDown(event: KeyboardEvent): void {
+    if (event.currentTarget !== event.target) {
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      closeDeleteConfirm();
+    }
+  }
 </script>
 
 <div id="screen-list">
@@ -166,12 +177,7 @@
     tabindex="0"
     aria-label="close delete confirmation"
     on:click|self={closeDeleteConfirm}
-    on:keydown={(event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        closeDeleteConfirm();
-      }
-    }}
+    on:keydown={handleDeleteOverlayKeyDown}
   >
     <div id="modal">
       <h2>

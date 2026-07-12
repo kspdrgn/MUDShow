@@ -2,6 +2,7 @@
 
 ## Top TODO
 
+MVP Features:
 - [X] Tabs, multiple connections
 - [X] Character Settings
   - [X] make hierarchical
@@ -16,8 +17,16 @@
 - [X] Clickable HTTP* links
 - [X] Image link display, toggle with app setting
 - [ ] [WIP] (needs testing) Session Logging
-- [ ] Linux: Fix resize frame, can't resize bottom, right edge works but is tiny
-- [ ] Fix tab reordering
+- [ ] input: pageup/pagedown/end/home keys pass thru to output
+- [ ] tab menu: shortcut to edit world and/or character?
+- [ ] quick log: change name format to spaces not dashes
+- [ ] quick log: custom log name format incl folders
+
+Bugs:
+- [X] Fix character modal closing with space bar?
+- [X] Linux: Fix resize frame, can't see while mousing over
+- [X] Fix tab reordering
+- [ ] worlds menu: toggling tls makes a new world
 
 - [ ] Easier/better name highlighting config TBD
 - [ ] Fix app release pipeline? main branch makes 'release' but no artifacts?
@@ -33,6 +42,7 @@
   - [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
   - [X] Resize input height by lines
   - [ ] [WIP untested] TAB auto-complete of names/objects known or in MUD text
+  - [ ] CTRL+Enter to make new line without sending
   - [X] Spellcheck
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator
@@ -45,11 +55,13 @@
   - Contents
     - [X] Clickable links
     - [X] Auto-preview image links
+      - [ ] Hide image button
     - [X] Automatic clipboard copy when selecting text
     - [ ] Timestamps visible on mouse-over lines
     - [ ] Visible Timestamps customizable
     - [X] Output history - Buffer of previous session contents restored for context
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
+    - [ ] New activity indicator (separator line?)
   - Scrolling
     - [ ] Pause auto-scroll when selecting
     - [ ] END key in input area scrolls main output text to end
@@ -68,8 +80,8 @@
     - [ ] Automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff
     - [ ] Automatic name color even if they're not in your wf/database
   - Logging
-    - [ ] One-click session logging. Start logging and auto-name log file with date and maybe characters too.
-    - [ ] Visual indicator that logging is enabled
+    - [X] One-click session logging. Start logging and auto-name log file.
+    - [X] Visual indicator that logging is enabled
     - [ ] On-the-fly log renaming of active session log file
     - [ ] Auto-log everything to separate log file
 

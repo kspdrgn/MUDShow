@@ -4,6 +4,23 @@
 
   export let onCancel: () => void;
   export let onConfirm: () => void;
+
+  function handleOverlayKeyDown(event: KeyboardEvent): void {
+    if (event.currentTarget !== event.target) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onCancel();
+    }
+  }
 </script>
 
 {#if open}
@@ -14,18 +31,7 @@
     tabindex="0"
     aria-label="close tab confirmation"
     on:click|self={onCancel}
-    on:keydown={(event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-        return;
-      }
-
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        onCancel();
-      }
-    }}
+    on:keydown={handleOverlayKeyDown}
   >
     <div id="modal">
       <h2>close world tab?</h2>

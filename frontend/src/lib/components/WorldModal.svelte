@@ -45,6 +45,17 @@
     tls = input.checked;
     verifyCertificate = input.checked;
   }
+
+  function handleOverlayKeyDown(event: KeyboardEvent): void {
+    if (event.currentTarget !== event.target) {
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onCancel();
+    }
+  }
 </script>
 
 {#if open}
@@ -55,12 +66,7 @@
     tabindex="0"
     aria-label="close modal"
     on:click|self={onCancel}
-    on:keydown={(event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        onCancel();
-      }
-    }}
+    on:keydown={handleOverlayKeyDown}
   >
     <div id="modal">
       <h2>{title}</h2>

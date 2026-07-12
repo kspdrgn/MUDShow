@@ -5,6 +5,17 @@
   export let confirmLabel = 'ok';
 
   export let onClose: () => void;
+
+  function handleOverlayKeyDown(event: KeyboardEvent): void {
+    if (event.currentTarget !== event.target) {
+      return;
+    }
+
+    if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClose();
+    }
+  }
 </script>
 
 {#if open}
@@ -15,12 +26,7 @@
     tabindex="0"
     aria-label={title || 'notice modal'}
     on:click|self={onClose}
-    on:keydown={(event) => {
-      if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        onClose();
-      }
-    }}
+    on:keydown={handleOverlayKeyDown}
   >
     <div id="modal">
       <h2>{title}</h2>
