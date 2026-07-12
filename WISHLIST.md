@@ -19,16 +19,16 @@ MVP Features:
 - [ ] [WIP] (needs testing) Session Logging
 - [ ] input: pageup/pagedown/end/home keys pass thru to output
 - [ ] tab menu: shortcut to edit world and/or character?
-- [ ] quick log: change name format to spaces not dashes
+- [X] quick log: change name format to spaces not dashes
 - [ ] quick log: custom log name format incl folders
 
 Bugs:
 - [X] Fix character modal closing with space bar?
 - [X] Linux: Fix resize frame, can't see while mousing over
 - [X] Fix tab reordering
-- [ ] worlds menu: toggling tls makes a new world
+- [X] worlds menu: editing makes a new world
 
-- [ ] Easier/better name highlighting config TBD
+Release:
 - [ ] Fix app release pipeline? main branch makes 'release' but no artifacts?
 - [ ] Linux: Release build?
 - [ ] Auto-updater:

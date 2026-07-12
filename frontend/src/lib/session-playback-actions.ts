@@ -50,6 +50,11 @@ interface PlaybackActionContext {
   ensureWorldTab: (world: WorldRecord, character: CharacterRecord) => string;
 }
 
+interface CreateSessionLogResult {
+  path: string;
+  appended: boolean;
+}
+
 export function createPlaybackActions({
   getState,
   patch,
@@ -129,8 +134,8 @@ export function createPlaybackActions({
     await appendOutputToTab(tabId, rawText);
   }
 
-  function buildLogStartMessage(filename: string): string {
-    return `\x1b[90m[logging started] ${filename}\x1b[0m\n`;
+  function buildLogStartMessage(filename: string, appended: boolean): string {
+    return `\x1b[90m[logging started] ${filename}${appended ? ' [appending]' : ''}\x1b[0m\n`;
   }
 
   function buildLogStopMessage(): string {
@@ -157,7 +162,7 @@ export function createPlaybackActions({
     const initialText = stripTranscriptForLog(session.outputChunks.join(''));
 
     try {
-      const path = await invoke<string>('create_session_log', {
+      const result = await invoke<CreateSessionLogResult>('create_session_log', {
         folder: defaultLogFolder,
         fileName,
         initialText,
@@ -165,12 +170,12 @@ export function createPlaybackActions({
 
       updateWorldSession(tabId, {
         loggingActive: true,
-        logFilePath: path,
-        logFolderPath: path.replace(/[\\/][^\\/]*$/, ''),
+        logFilePath: result.path,
+        logFolderPath: result.path.replace(/[\\/][^\\/]*$/, ''),
         logError: null,
       });
 
-      await appendSystemMessageToTab(tabId, buildLogStartMessage(getLogFileName(path)));
+      await appendSystemMessageToTab(tabId, buildLogStartMessage(getLogFileName(result.path), result.appended));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       updateWorldSession(tabId, { logError: message });

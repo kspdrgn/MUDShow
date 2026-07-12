@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 
+use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
 const STORAGE_FILE_NAME: &str = "mudshow-data.json";
@@ -324,6 +325,13 @@ fn write_log_file(path: &Path, text: &str) -> Result<(), String> {
 
     file.write_all(text.as_bytes())
         .map_err(|error| format!("failed to write to log file {}: {error}", path.display()))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionLogCreateResult {
+    path: String,
+    appended: bool,
 }
 
 fn append_source_to_target(source: &Path, target: &Path) -> Result<(), String> {
@@ -998,9 +1006,10 @@ pub fn create_session_log<R: tauri::Runtime>(
     folder: Option<String>,
     file_name: String,
     initial_text: String,
-) -> Result<String, String> {
+) -> Result<SessionLogCreateResult, String> {
     let folder_path = resolve_log_folder(&app, folder);
     let destination = resolve_log_destination(&folder_path, &file_name);
+    let appended = destination.exists();
 
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent).map_err(|error| {
@@ -1009,7 +1018,10 @@ pub fn create_session_log<R: tauri::Runtime>(
     }
 
     write_log_file(&destination, &initial_text)?;
-    Ok(destination.display().to_string())
+    Ok(SessionLogCreateResult {
+        path: destination.display().to_string(),
+        appended,
+    })
 }
 
 #[tauri::command]

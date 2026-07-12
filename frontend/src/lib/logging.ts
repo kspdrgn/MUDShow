@@ -28,7 +28,7 @@ export function generateLogFilename(worldName: string, characterName: string, da
     sanitizeSegment(characterName),
   ].filter((part) => part.length > 0);
 
-  const name = parts.length > 0 ? parts.join('-') : 'session-log';
+  const name = parts.length > 0 ? parts.join(' ') : 'session-log';
   return sanitizeLogFilename(`${name}.txt`);
 }
 
