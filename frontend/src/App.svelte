@@ -19,6 +19,7 @@ import NoticeModal from './lib/components/NoticeModal.svelte';
 import PlayScreen from './lib/components/PlayScreen.svelte';
 import SettingsPage from './lib/components/SettingsPage.svelte';
 import TopBar from './lib/components/TopBar.svelte';
+import WindowResizeHandles from './lib/components/WindowResizeHandles.svelte';
 import WorldModal from './lib/components/WorldModal.svelte';
 import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
@@ -334,6 +335,8 @@ import type { WorldTabSessionState } from './lib/world-session';
     {/if}
   </main>
 </div>
+
+<WindowResizeHandles />
 
 <CharacterModal
   open={$session.modalOpen && $session.modalKind === 'character'}

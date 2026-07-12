@@ -4,6 +4,7 @@ mod storage;
 use std::process::Command;
 
 use tauri::{Manager, Window};
+use tauri_runtime::ResizeDirection;
 
 #[tauri::command]
 fn window_minimize(window: Window) {
@@ -40,6 +41,27 @@ fn window_close(window: Window) {
 #[tauri::command]
 fn window_start_dragging(window: Window) -> Result<(), String> {
     window.start_dragging().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn window_start_resize_dragging(window: Window, direction: String) -> Result<(), String> {
+    let direction = match direction.as_str() {
+        "east" => ResizeDirection::East,
+        "north" => ResizeDirection::North,
+        "northeast" => ResizeDirection::NorthEast,
+        "northwest" => ResizeDirection::NorthWest,
+        "south" => ResizeDirection::South,
+        "southeast" => ResizeDirection::SouthEast,
+        "southwest" => ResizeDirection::SouthWest,
+        "west" => ResizeDirection::West,
+        _ => {
+            return Err(format!("unsupported resize direction: {direction}"));
+        }
+    };
+
+    window
+        .start_resize_dragging(direction)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -105,6 +127,7 @@ fn main() {
             window_toggle_maximize,
             window_close,
             window_start_dragging,
+            window_start_resize_dragging,
             open_external_url,
             mud_backend::connect_mud,
             mud_backend::send_mud,

@@ -64,7 +64,7 @@
   type TabDragState = {
     tabId: string;
     pointerId: number;
-    pointerTarget: HTMLButtonElement | null;
+    pointerTarget: HTMLElement | null;
     startX: number;
     startY: number;
     clientX: number;
@@ -256,7 +256,7 @@
       return;
     }
 
-    if (!(event.currentTarget instanceof HTMLButtonElement)) {
+    if (!(event.currentTarget instanceof HTMLElement)) {
       return;
     }
 
@@ -550,6 +550,7 @@
     <div class="world-tabs" aria-label="app tabs" bind:this={worldTabsElement} class:dragging={tabDragState?.isDragging}>
       {#each tabs as tab (tab.id)}
         {@const worldSession = tab.kind === 'world' ? worldSessions[tab.id] ?? null : null}
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
         <div
           bind:this={tabGroupElements[tab.id]}
           class="world-tab-group"
@@ -558,6 +559,11 @@
           class:drag-source={tabDragState?.tabId === tab.id && tabDragState.isDragging}
           role="group"
           aria-label={`${tab.title} tab`}
+          on:pointerdown={(event) => beginTabDrag(event, tab)}
+          on:pointermove={moveTabDrag}
+          on:pointerup={(event) => finishTabDrag(event)}
+          on:pointercancel={cancelTabDrag}
+          on:click={(event) => handleTabClick(event, tab)}
           on:contextmenu={(event) => handleTabContextMenu(event, tab)}
         >
           <button
@@ -566,11 +572,6 @@
             title={tab.title}
             aria-label={tab.title}
             aria-grabbed={tabDragState?.tabId === tab.id && tabDragState.isDragging}
-            on:pointerdown={(event) => beginTabDrag(event, tab)}
-            on:pointermove={moveTabDrag}
-            on:pointerup={(event) => finishTabDrag(event)}
-            on:pointercancel={cancelTabDrag}
-            on:click={(event) => handleTabClick(event, tab)}
           >
             {tab.title}
           </button>
@@ -578,16 +579,17 @@
           {#if tab.closable}
             <button
               bind:this={tabCloseButtons[tab.id]}
-            type="button"
-            class="world-tab-close"
-            title={`close ${tab.title}`}
-            aria-label={`close ${tab.title}`}
-            on:click|stopPropagation={(event) => {
-              setCloseConfirmAnchor(event.currentTarget);
-              closeWorldContextMenu();
-              onCloseTab(tab.id, 'mouse');
-            }}
-          >
+              type="button"
+              class="world-tab-close"
+              title={`close ${tab.title}`}
+              aria-label={`close ${tab.title}`}
+              on:pointerdown|stopPropagation
+              on:click|stopPropagation={(event) => {
+                setCloseConfirmAnchor(event.currentTarget);
+                closeWorldContextMenu();
+                onCloseTab(tab.id, 'mouse');
+              }}
+            >
               X
             </button>
           {/if}
@@ -634,7 +636,8 @@
       </div>
     {/if}
 
-    <div class="titlebar-quick-connect" bind:this={quickConnectContainer}>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="titlebar-quick-connect" bind:this={quickConnectContainer} on:click={toggleQuickConnect}>
       <button
         type="button"
         class="world-tab world-tab-add"
@@ -642,7 +645,6 @@
         aria-label="open quick connect menu"
         aria-expanded={quickConnectOpen}
         bind:this={quickConnectButton}
-        on:click={toggleQuickConnect}
       >
         +
       </button>

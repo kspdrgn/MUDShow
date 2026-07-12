@@ -1781,6 +1781,7 @@ dependencies = [
  "serde",
  "tauri",
  "tauri-build",
+ "tauri-runtime",
  "tokio",
  "tokio-native-tls",
 ]

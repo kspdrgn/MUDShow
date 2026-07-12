@@ -6,6 +6,7 @@ If no tabs are open, the Home Panel is shown instead of a tab.
 ## Window and Title Bar
 
 The window is frameless. The window title bar is custom styled and does not show the standard OS controls. Empty areas are draggable to move the window.
+On Linux, the window edges expose a wider resize hit area with matching resize cursors so the frameless border is easier to grab.
 
 Anchored to the left:
 - Static app title as a guaranteed draggable area

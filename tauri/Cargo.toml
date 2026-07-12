@@ -14,6 +14,7 @@ tauri-build = { version = "2", features = [] }
 native-tls = "0.2"
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
+tauri-runtime = "2"
 tokio = { version = "1", features = ["io-util", "macros", "net", "sync"] }
 tokio-native-tls = "0.3"
 
