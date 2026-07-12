@@ -89,7 +89,7 @@ function createSession() {
       modalTitle: 'add character',
       closeConfirmTabId: null,
       closeConfirmMode: null,
-      worldEditingIndex: null,
+      worldEditingId: null,
       worldModalDraft: { ...createInitialState().worldModalDraft },
       editingIndex: null,
       modalDraft: { ...createInitialState().modalDraft },

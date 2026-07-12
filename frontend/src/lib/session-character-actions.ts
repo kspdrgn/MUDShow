@@ -13,14 +13,6 @@ interface CharacterActionContext {
   onCharacterDeleted?: (characterId: string) => void;
 }
 
-function buildWorldName(host: string, port: number): string {
-  return `${host}:${port}`;
-}
-
-function findWorldKey(world: Pick<WorldRecord, 'host' | 'port' | 'tls' | 'verifyCertificate'>): string {
-  return [world.host, world.port, world.tls ? '1' : '0', world.verifyCertificate ? '1' : '0'].join('|');
-}
-
 function createWorldRecordFromDraft(draft: WorldDraft): WorldRecord | null {
   const name = draft.name.trim();
   const host = draft.host.trim();
@@ -110,7 +102,7 @@ export function createCharacterActions({
       patch({
         modalKind: 'world',
         modalTitle: 'edit world',
-        worldEditingIndex: index,
+        worldEditingId: selected.id,
         worldModalDraft: createWorldDraftFromWorld(selected),
         modalOpen: true,
       });
@@ -118,7 +110,7 @@ export function createCharacterActions({
       patch({
         modalKind: 'world',
         modalTitle: 'add world',
-        worldEditingIndex: null,
+        worldEditingId: null,
         worldModalDraft: {
           name: '',
           host: '',
@@ -181,7 +173,7 @@ export function createCharacterActions({
     patch({
       modalOpen: false,
       modalKind: null,
-      worldEditingIndex: null,
+      worldEditingId: null,
       editingIndex: null,
       characterWorldId: null,
     });
@@ -195,21 +187,21 @@ export function createCharacterActions({
       return;
     }
 
-    const previousWorld = state.worldEditingIndex === null ? null : state.worlds[state.worldEditingIndex] ?? null;
-    const worldKey = findWorldKey(nextWorld);
-    const existingWorld = state.worlds.find((world) => findWorldKey(world) === worldKey);
-    const world: WorldRecord = existingWorld ?? {
+    const previousWorld =
+      state.worldEditingId === null ? null : state.worlds.find((world) => world.id === state.worldEditingId) ?? null;
+    const nextWorldId =
+      previousWorld?.id ??
+      `world-${state.worlds.length + 1}-${Date.now().toString(36)}`;
+    const world: WorldRecord = {
       ...nextWorld,
-      id: `world-${state.worlds.length + 1}-${Date.now().toString(36)}`,
+      id: nextWorldId,
     };
 
-    const nextWorlds = existingWorld
-      ? state.worlds.map((entry) => (entry.id === existingWorld.id ? { ...entry, ...nextWorld, id: existingWorld.id } : entry))
+    const nextWorlds = previousWorld
+      ? state.worlds.map((entry) => (entry.id === previousWorld.id ? { ...entry, ...world } : entry))
       : [...state.worlds, world];
 
-    const nextCharacters = existingWorld
-      ? state.characters
-      : [...state.characters];
+    const nextCharacters = [...state.characters];
 
     await saveConnectionData(nextWorlds, nextCharacters);
 
@@ -218,7 +210,7 @@ export function createCharacterActions({
       characters: nextCharacters,
       modalOpen: false,
       modalKind: null,
-      worldEditingIndex: null,
+      worldEditingId: null,
       editingIndex: null,
       characterWorldId: null,
     });
@@ -253,7 +245,7 @@ export function createCharacterActions({
       characters: nextCharacters,
       modalOpen: false,
       modalKind: null,
-      worldEditingIndex: null,
+      worldEditingId: null,
       editingIndex: null,
       characterWorldId: null,
     });
@@ -294,7 +286,7 @@ export function createCharacterActions({
       characters: next,
       modalOpen: false,
       modalKind: null,
-      worldEditingIndex: null,
+      worldEditingId: null,
       editingIndex: null,
       characterWorldId: null,
     });
