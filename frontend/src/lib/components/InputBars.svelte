@@ -15,6 +15,7 @@
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
   export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
+  export let loggingActive = false;
   export let onFocusBar: (bar: InputBarId) => void;
   export let onSubmit: (bar: InputBarId, value: string) => void;
   export let onComplete: (
@@ -532,6 +533,9 @@
         {#if bar.showStatusDot}
           <div class="status-dot-slot">
             <StatusDot status={connectionStatus} />
+            {#if loggingActive}
+              <StatusDot status="connected" variant="logging" />
+            {/if}
           </div>
         {/if}
 

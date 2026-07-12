@@ -11,6 +11,7 @@
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
   export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
+  export let loggingActive = false;
   export let highlights: HighlightRule[] = [];
   export let highlightsVisible = false;
   export let notes = '';
@@ -59,6 +60,7 @@
     {bars}
     {activeBar}
     {connectionStatus}
+    {loggingActive}
     {scope}
     onFocusBar={onInputFocusBar}
     onSubmit={onInputSubmit}

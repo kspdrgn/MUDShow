@@ -1,23 +1,40 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
-  import { moveAppStorageFile, revealAppStorageFile, setAppStoragePath } from './lib/storage';
-  import WorldsAndCharactersEditor from './lib/components/WorldsAndCharactersEditor.svelte';
-  import CharacterModal from './lib/components/CharacterModal.svelte';
-  import ConfirmCloseTabModal from './lib/components/ConfirmCloseTabModal.svelte';
-  import HomePanel from './lib/components/HomePanel.svelte';
-  import PlayScreen from './lib/components/PlayScreen.svelte';
-  import SettingsPage from './lib/components/SettingsPage.svelte';
-  import TopBar from './lib/components/TopBar.svelte';
-  import WorldModal from './lib/components/WorldModal.svelte';
-  import { session } from './lib/session';
-  import type { AppTab } from './lib/tabs';
-  import type { WorldTabSessionState } from './lib/world-session';
+import { onMount, tick } from 'svelte';
+import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
+import {
+  getDefaultLogFolder,
+  moveAppStorageFile,
+  moveDefaultLogFolder,
+  pickAppStorageFile,
+  revealAppStorageFile,
+  revealDefaultLogFolder,
+  setAppStoragePath,
+} from './lib/storage';
+import WorldsAndCharactersEditor from './lib/components/WorldsAndCharactersEditor.svelte';
+import CharacterModal from './lib/components/CharacterModal.svelte';
+import ConfirmCloseTabModal from './lib/components/ConfirmCloseTabModal.svelte';
+import HomePanel from './lib/components/HomePanel.svelte';
+import LoggingModal from './lib/components/LoggingModal.svelte';
+import NoticeModal from './lib/components/NoticeModal.svelte';
+import PlayScreen from './lib/components/PlayScreen.svelte';
+import SettingsPage from './lib/components/SettingsPage.svelte';
+import TopBar from './lib/components/TopBar.svelte';
+import WorldModal from './lib/components/WorldModal.svelte';
+import { session } from './lib/session';
+import { generateLogFilename, getLogFileName } from './lib/logging';
+import type { AppTab } from './lib/tabs';
+import type { WorldTabSessionState } from './lib/world-session';
 
   let appSettings = loadAppSettings();
   let storageFilePath: string | null = appSettings.storageFilePath;
+  let loggingModalTabId: string | null = null;
   let activeTab: AppTab | null = null;
   let activeWorldSession: WorldTabSessionState | null = null;
+  let loggingModalSession: WorldTabSessionState | null = null;
+  let loggingModalTab: AppTab | null = null;
+  let loggingModalInitialFileName = '';
+  let resolvedLogFolderPath: string | null = null;
+  let storageImportNoticeOpen = false;
 
   async function initializeStoragePath(): Promise<void> {
     try {
@@ -37,6 +54,26 @@
   function updateAppSettings(patch: Partial<AppSettings>): void {
     appSettings = { ...appSettings, ...patch };
     saveAppSettings(appSettings);
+  }
+
+  async function refreshResolvedLogFolder(): Promise<void> {
+    try {
+      console.debug('[logging] resolving default log folder');
+      resolvedLogFolderPath = appSettings.defaultLogFolder ?? (await getDefaultLogFolder());
+      console.debug('[logging] default log folder resolved', resolvedLogFolderPath);
+    } catch (error) {
+      console.error('[logging] default log folder lookup failed', error);
+      console.debug('[logging] falling back to saved log folder', appSettings.defaultLogFolder);
+      resolvedLogFolderPath = appSettings.defaultLogFolder ?? null;
+    }
+  }
+
+  function openLoggingModal(tabId: string): void {
+    loggingModalTabId = tabId;
+  }
+
+  function closeLoggingModal(): void {
+    loggingModalTabId = null;
   }
 
   async function handleRevealStorageLocation(): Promise<void> {
@@ -62,9 +99,69 @@
     }
   }
 
+  async function handlePickStorageLocation(): Promise<void> {
+    if ($session.tabs.some((tab) => tab.kind === 'world')) {
+      storageImportNoticeOpen = true;
+      return;
+    }
+
+    try {
+      const nextPath = await pickAppStorageFile();
+      if (!nextPath) {
+        return;
+      }
+
+      const resolvedPath = await setAppStoragePath(nextPath);
+      appSettings = { ...appSettings, storageFilePath: resolvedPath };
+      saveAppSettings(appSettings);
+      storageFilePath = resolvedPath;
+      await session.load();
+    } catch (error) {
+      console.error('failed to pick the storage location:', error);
+    }
+  }
+
+  function closeStorageImportNotice(): void {
+    storageImportNoticeOpen = false;
+  }
+
+  async function handleMoveLogFolder(): Promise<void> {
+    try {
+      const nextFolder = await moveDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? (await getDefaultLogFolder()));
+      if (!nextFolder) {
+        return;
+      }
+
+      appSettings = { ...appSettings, defaultLogFolder: nextFolder };
+      saveAppSettings(appSettings);
+      resolvedLogFolderPath = nextFolder;
+    } catch (error) {
+      console.error('failed to move the log folder:', error);
+    }
+  }
+
+  async function handleRevealLogFolder(): Promise<void> {
+    try {
+      const folder = resolvedLogFolderPath ?? (await getDefaultLogFolder());
+      console.debug('[logging] revealing default log folder', folder);
+      await revealDefaultLogFolder(folder);
+    } catch (error) {
+      console.error('[logging] failed to reveal the log folder', error);
+    }
+  }
+
   $: activeTab = $session.tabs.find((tab) => tab.id === $session.activeTabId) ?? null;
   $: activeWorldSession =
     activeTab?.kind === 'world' ? $session.worldSessions[activeTab.id] ?? null : null;
+  $: loggingModalTab = loggingModalTabId ? $session.tabs.find((tab) => tab.id === loggingModalTabId) ?? null : null;
+  $: loggingModalSession =
+    loggingModalTab?.kind === 'world' ? $session.worldSessions[loggingModalTab.id] ?? null : null;
+  $: loggingModalInitialFileName =
+    loggingModalSession?.loggingActive && loggingModalSession.logFilePath
+      ? getLogFileName(loggingModalSession.logFilePath)
+      : loggingModalSession?.currentWorld && loggingModalSession.currentCharacter
+        ? generateLogFilename(loggingModalSession.currentWorld.name, loggingModalSession.currentCharacter.name)
+        : '';
 
   $: pageTitle =
     activeTab?.kind === 'settings'
@@ -78,15 +175,24 @@
   onMount(() => {
     const handleVisibilityChange = () => session.handleVisibilityChange();
     const handleKeyDown = (event: KeyboardEvent) => session.handleGlobalKeyDown(event);
+    const startupOverlay = document.getElementById('startup-overlay');
     let disposed = false;
 
     void (async () => {
-      await initializeStoragePath();
-      if (disposed) {
-        return;
-      }
+      try {
+        await initializeStoragePath();
+        await refreshResolvedLogFolder();
+        if (disposed) {
+          return;
+        }
 
-      void session.load();
+        await session.load();
+        await tick();
+      } finally {
+        if (!disposed) {
+          startupOverlay?.remove();
+        }
+      }
     })();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -120,6 +226,9 @@
     onConfirmCloseTab={() => session.confirmCloseTab()}
     onReconnectTab={(tabId) => void session.reconnectWorldTab(tabId)}
     onDisconnectTab={(tabId) => void session.disconnectWorldTab(tabId)}
+    onQuickLogTab={(tabId) => void session.startLogging(tabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null)}
+    onOpenLoggingTab={(tabId) => openLoggingModal(tabId)}
+    onStopLoggingTab={(tabId) => void session.stopLogging(tabId)}
     onConnectWorld={(worldId) => {
       const defaultCharacterIndex = $session.characters.findIndex(
         (character) => character.worldId === worldId && character.isDefault,
@@ -173,6 +282,7 @@
         }}
         onDeleteCharacter={(index) => session.deleteCharacter(index)}
         onConnectCharacter={(index) => void session.connectToCharacter(index)}
+        onOpenSettings={() => session.selectTab('settings')}
       />
     {/if}
 
@@ -193,6 +303,7 @@
         userScrolled={worldSession.userScrolled}
         outputChunks={worldSession.outputChunks}
         playWidth={worldSession.currentCharacter?.width !== undefined ? `${worldSession.currentCharacter.width}ch` : 'none'}
+        loggingActive={worldSession.loggingActive}
         onHighlightAdd={(pattern, color) => session.addHighlight(pattern, color)}
         onHighlightDelete={(index) => session.deleteHighlight(index)}
         onInputFocusBar={(bar) => session.handleInputFocus(bar)}
@@ -212,7 +323,11 @@
         settings={appSettings}
         onChange={updateAppSettings}
         storageFilePath={storageFilePath}
+        resolvedLogFolderPath={resolvedLogFolderPath}
+        onRevealLogFolder={() => void handleRevealLogFolder()}
+        onMoveLogFolder={() => void handleMoveLogFolder()}
         onRevealStorageLocation={() => void handleRevealStorageLocation()}
+        onPickStorageLocation={() => void handlePickStorageLocation()}
         onMoveStorageLocation={() => void handleMoveStorageLocation()}
       />
     {/if}
@@ -252,4 +367,62 @@
   }
   onCancel={() => session.cancelCloseConfirm()}
   onConfirm={() => session.confirmCloseTab()}
+/>
+
+<NoticeModal
+  open={storageImportNoticeOpen}
+  title="import blocked"
+  message="Import settings file requires closing all world tabs and starting over, please close all tabs and try again."
+  confirmLabel="ok"
+  onClose={closeStorageImportNotice}
+/>
+
+<LoggingModal
+  open={loggingModalTab !== null && loggingModalSession !== null}
+  active={loggingModalSession?.loggingActive === true}
+  tabTitle={loggingModalTab?.title ?? ''}
+  currentPath={loggingModalSession?.logFilePath ?? ''}
+        defaultFolder={resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? ''}
+  initialFileName={loggingModalInitialFileName}
+  logError={loggingModalSession?.logError ?? ''}
+  onCancel={closeLoggingModal}
+  onQuickLog={() => {
+    if (!loggingModalTabId) {
+      return;
+    }
+
+    void session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null);
+    closeLoggingModal();
+  }}
+  onStartLogging={(fileName) => {
+    if (!loggingModalTabId) {
+      return;
+    }
+
+    void session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, fileName);
+    closeLoggingModal();
+  }}
+  onStopLogging={() => {
+    if (!loggingModalTabId) {
+      return;
+    }
+
+    void session.stopLogging(loggingModalTabId);
+    closeLoggingModal();
+  }}
+  onRenameLogging={(fileName) => {
+    if (!loggingModalTabId) {
+      return;
+    }
+
+    void session.renameLogging(loggingModalTabId, fileName);
+    closeLoggingModal();
+  }}
+  onRevealLog={() => {
+    if (!loggingModalTabId) {
+      return;
+    }
+
+    void session.revealLoggingFile(loggingModalTabId);
+  }}
 />

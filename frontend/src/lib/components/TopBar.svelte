@@ -24,6 +24,9 @@
   export let onConfirmCloseTab: () => void;
   export let onReconnectTab: (tabId: string) => void;
   export let onDisconnectTab: (tabId: string) => void;
+  export let onQuickLogTab: (tabId: string) => void;
+  export let onOpenLoggingTab: (tabId: string) => void;
+  export let onStopLoggingTab: (tabId: string) => void;
   export let onConnectWorld: (worldId: string) => void;
   export let onConnectCharacter: (index: number) => void;
   export let onOpenCharactersTab: () => void;
@@ -44,6 +47,8 @@
   let worldContextMenuSession: WorldTabSessionState | null = null;
   let worldContextMenuCanReconnect = false;
   let worldContextMenuCanDisconnect = false;
+  let worldContextMenuCanQuickLog = false;
+  let worldContextMenuCanStopLogging = false;
   let closeConfirmDropdown: HTMLDivElement | null = null;
   let closeConfirmPosition = { x: 0, y: 0 };
   let closeConfirmAnchorRect: DOMRect | null = null;
@@ -68,6 +73,14 @@
     worldContextMenuSession !== null &&
     (worldContextMenuSession.connectionStatus === 'connecting' ||
       worldContextMenuSession.connectionStatus === 'connected');
+  $: worldContextMenuCanQuickLog =
+    worldContextMenuTab?.kind === 'world' &&
+    worldContextMenuSession !== null &&
+    !worldContextMenuSession.loggingActive;
+  $: worldContextMenuCanStopLogging =
+    worldContextMenuTab?.kind === 'world' &&
+    worldContextMenuSession !== null &&
+    worldContextMenuSession.loggingActive;
   $: closeConfirmTab = closeConfirmTabId ? tabs.find((tab) => tab.id === closeConfirmTabId) ?? null : null;
   $: closeConfirmWorldName = closeConfirmTabId
     ? worldSessions[closeConfirmTabId]?.currentWorld?.name ??
@@ -368,6 +381,9 @@
           {#if tab.kind === 'world'}
             <div class="world-tab-status" aria-hidden="true">
               <StatusDot status={worldSession?.connectionStatus ?? 'idle'} />
+              {#if worldSession?.loggingActive}
+                <StatusDot status="connected" variant="logging" />
+              {/if}
             </div>
           {/if}
         </div>
@@ -462,6 +478,32 @@
           on:click={() => worldContextMenuCanDisconnect && handleWorldContextMenuAction(() => onDisconnectTab(worldContextMenuTab.id))}
         >
           disconnect
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          disabled={!worldContextMenuCanQuickLog}
+          on:click={() => worldContextMenuCanQuickLog && handleWorldContextMenuAction(() => onQuickLogTab(worldContextMenuTab.id))}
+        >
+          quick log
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          disabled={!worldContextMenuCanStopLogging}
+          on:click={() => worldContextMenuCanStopLogging && handleWorldContextMenuAction(() => onStopLoggingTab(worldContextMenuTab.id))}
+        >
+          stop logging
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          on:click={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuTab.id))}
+        >
+          logging...
         </button>
 
         <div class="titlebar-context-menu-separator" aria-hidden="true"></div>

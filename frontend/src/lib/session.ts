@@ -29,6 +29,7 @@ function createSession() {
   let nextWorldTabId = 1;
   let nextConnectionId = 1;
   const worldConnections = new Map<string, MudConnection>();
+  let clearLoggingQueue = (_tabId: string): void => {};
 
   const getState = () => get(state);
   const patch = (partial: Partial<SessionState>) => {
@@ -61,6 +62,42 @@ function createSession() {
 
   function getWorldSession(tabId: string): WorldTabSessionState {
     return getWorldSessions()[tabId] ?? createWorldTabSessionState();
+  }
+
+  function resetPersistentView(): void {
+    const current = getState();
+    const nextTabs = current.tabs.filter((tab) => tab.kind !== 'world');
+    const activeTabStillExists = current.activeTabId !== null && nextTabs.some((tab) => tab.id === current.activeTabId);
+
+    for (const tab of current.tabs) {
+      if (tab.kind === 'world') {
+        releaseWorldConnection(tab.id);
+        clearLoggingQueue(tab.id);
+      }
+    }
+
+    state.set({
+      ...current,
+      worlds: [],
+      characters: [],
+      highlights: [],
+      tabs: nextTabs,
+      activeTabId: activeTabStillExists ? current.activeTabId : nextTabs[0]?.id ?? null,
+      worldSessions: {},
+      modalOpen: false,
+      modalKind: null,
+      modalTitle: 'add character',
+      closeConfirmTabId: null,
+      closeConfirmMode: null,
+      worldEditingIndex: null,
+      worldModalDraft: { ...createInitialState().worldModalDraft },
+      editingIndex: null,
+      modalDraft: { ...createInitialState().modalDraft },
+      characterWorldId: null,
+    });
+    highlightRegexes = buildHighlightRegexes([]);
+    nextWorldTabId = 1;
+    nextConnectionId = 1;
   }
 
   function ensureWorldSession(tabId: string): WorldTabSessionState {
@@ -189,6 +226,8 @@ function createSession() {
     if (tab.kind === 'world') {
       releaseWorldConnection(tab.id);
     }
+
+    clearLoggingQueue(tab.id);
 
     const nextActiveTabId =
       current.activeTabId === tabId
@@ -371,6 +410,7 @@ function createSession() {
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
+    removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
     for (const [tabId, session] of Object.entries(current.worldSessions)) {
@@ -402,6 +442,7 @@ function createSession() {
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
+    removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
     for (const [tabId, session] of Object.entries(current.worldSessions)) {
@@ -429,6 +470,7 @@ function createSession() {
 
   const load = async () => {
     try {
+      resetPersistentView();
       const { worlds, characters, highlights } = await loadSessionData();
       patch({ worlds, characters, highlights });
       highlightRegexes = buildHighlightRegexes(highlights);
@@ -466,6 +508,8 @@ function createSession() {
     },
     ensureWorldTab,
   });
+
+  clearLoggingQueue = playbackActions.clearLoggingQueue;
 
   return {
     subscribe: state.subscribe,

@@ -12,6 +12,7 @@ import {
   saveTranscriptHistory,
 } from './storage';
 import { buildHighlightRegexes } from './formatting';
+import { generateLogFilename, getLogFileName, stripTranscriptForLog } from './logging';
 import {
   createInputBar,
   getNextInputBarId,
@@ -19,6 +20,7 @@ import {
   type InputBarId,
 } from './input-bars';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
+import { isTauriAvailable, invoke } from './tauri';
 import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { WorldTabSessionState } from './world-session';
@@ -74,6 +76,20 @@ export function createPlaybackActions({
     return tabId ? getWorldDomScope(tabId) : null;
   }
 
+  const logWriteQueues = new Map<string, Promise<void>>();
+
+  function clearLoggingQueue(tabId: string): void {
+    logWriteQueues.delete(tabId);
+  }
+
+  function enqueueLogWrite(tabId: string, work: () => Promise<void>): Promise<void> {
+    const previous = logWriteQueues.get(tabId) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(work);
+
+    logWriteQueues.set(tabId, next.catch(() => undefined));
+    return next;
+  }
+
   async function appendOutputToTab(tabId: string, rawText: string): Promise<void> {
     const session = getWorldSession(tabId);
     const next = session.transcript.append(rawText);
@@ -87,14 +103,161 @@ export function createPlaybackActions({
 
     setWorldOutput(tabId, next.chunks, next.endsWithBr);
 
+    const logText = stripTranscriptForLog(rawText);
+    if (isTauriAvailable() && session.loggingActive && session.logFilePath && logText.length > 0) {
+      void enqueueLogWrite(tabId, async () => {
+        await invoke('append_session_log', {
+          path: session.logFilePath,
+          text: logText,
+        });
+      }).catch((error) => {
+        console.error('failed to write session log:', error);
+      });
+    }
+
     await nextFrame();
     if (getActiveWorldTabId() === tabId && !session.userScrolled) {
       scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
     }
   }
 
+  async function appendSystemMessageToTab(tabId: string, text: string): Promise<void> {
+    await appendOutputToTab(tabId, text);
+  }
+
   async function appendConnectionStatusToTab(tabId: string, rawText: string): Promise<void> {
     await appendOutputToTab(tabId, rawText);
+  }
+
+  function buildLogStartMessage(filename: string): string {
+    return `\x1b[90m[logging started] ${filename}\x1b[0m\n`;
+  }
+
+  function buildLogStopMessage(): string {
+    return '\x1b[90m[logging stopped]\x1b[0m\n';
+  }
+
+  function buildLogRenameMessage(filename: string): string {
+    return `\x1b[90m[logging renamed] ${filename}\x1b[0m\n`;
+  }
+
+  async function startLogging(tabId: string, defaultLogFolder: string | null, requestedName: string | null = null): Promise<void> {
+    const session = getWorldSession(tabId);
+    if (!session.currentWorld || !session.currentCharacter || session.loggingActive) {
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    const fileName = requestedName && requestedName.trim()
+      ? requestedName.trim()
+      : generateLogFilename(session.currentWorld.name, session.currentCharacter.name);
+    const initialText = stripTranscriptForLog(session.outputChunks.join(''));
+
+    try {
+      const path = await invoke<string>('create_session_log', {
+        folder: defaultLogFolder,
+        fileName,
+        initialText,
+      });
+
+      updateWorldSession(tabId, {
+        loggingActive: true,
+        logFilePath: path,
+        logFolderPath: path.replace(/[\\/][^\\/]*$/, ''),
+        logError: null,
+      });
+
+      await appendSystemMessageToTab(tabId, buildLogStartMessage(getLogFileName(path)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[logging failed] ${message}\x1b[0m\n`);
+    }
+  }
+
+  async function stopLogging(tabId: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    if (!session.loggingActive) {
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      updateWorldSession(tabId, {
+        loggingActive: false,
+        logError: null,
+      });
+      return;
+    }
+
+    await appendSystemMessageToTab(tabId, buildLogStopMessage());
+    updateWorldSession(tabId, {
+      loggingActive: false,
+      logError: null,
+    });
+  }
+
+  async function renameLogging(tabId: string, nextName: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    const currentPath = session.logFilePath;
+    const trimmedName = nextName.trim();
+
+    if (!session.loggingActive || !currentPath) {
+      return;
+    }
+
+    if (!trimmedName) {
+      const message = 'a new log file name is required';
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[log rename failed] ${message}\x1b[0m\n`);
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    try {
+      await enqueueLogWrite(tabId, async () => {
+        const path = await invoke<string>('rename_session_log', {
+          path: currentPath,
+          nextPath: trimmedName,
+        });
+
+        updateWorldSession(tabId, {
+          logFilePath: path,
+          logFolderPath: path.replace(/[\\/][^\\/]*$/, ''),
+          logError: null,
+        });
+
+        await appendSystemMessageToTab(tabId, buildLogRenameMessage(getLogFileName(path)));
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[log rename failed] ${message}\x1b[0m\n`);
+    }
+  }
+
+  async function revealLoggingFile(tabId: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    if (!session.logFilePath) {
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    try {
+      await invoke('reveal_session_log_file', { path: session.logFilePath });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[failed to reveal log file] ${message}\x1b[0m\n`);
+    }
   }
 
   function handleVisibilityChange(): void {
@@ -551,6 +714,11 @@ export function createPlaybackActions({
     connectToCharacter,
     reconnectWorldTab,
     disconnectWorldTab,
+    startLogging,
+    stopLogging,
+    renameLogging,
+    revealLoggingFile,
+    clearLoggingQueue,
     handleOutputScroll,
     handleScrollToBottom,
     handleInputFocus,

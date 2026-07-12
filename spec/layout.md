@@ -59,6 +59,7 @@ Database
   - Show current user settings data location
   - Change/migrate user data files location
   - Open the current database folder and select the file
+  - Pick a different database file with a native file picker
   - Move the current database file to a new location with a native save dialog
 
 Activity Notification

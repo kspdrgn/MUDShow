@@ -1,0 +1,11 @@
+# Allows the frontend to read the default log folder.
+
+[[permission]]
+identifier = "allow-get-default-log-folder"
+description = "Enables the get_default_log_folder command without any pre-configured scope."
+commands.allow = ["get_default_log_folder"]
+
+[[permission]]
+identifier = "deny-get-default-log-folder"
+description = "Denies the get_default_log_folder command without any pre-configured scope."
+commands.deny = ["get_default_log_folder"]

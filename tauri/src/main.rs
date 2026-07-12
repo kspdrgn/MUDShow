@@ -114,7 +114,16 @@ fn main() {
             storage::load_app_storage,
             storage::save_app_storage,
             storage::reveal_app_storage_file,
+            storage::pick_app_storage_file,
             storage::move_app_storage_file,
+            storage::move_default_log_folder,
+            storage::reveal_default_log_folder,
+            storage::resolve_default_log_folder,
+            storage::get_default_log_folder,
+            storage::create_session_log,
+            storage::append_session_log,
+            storage::rename_session_log,
+            storage::reveal_session_log_file,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MUDShow")

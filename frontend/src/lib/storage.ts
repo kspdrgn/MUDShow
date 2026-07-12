@@ -240,6 +240,10 @@ export async function getAppStoragePath(): Promise<string> {
   return invoke<string>('get_app_storage_path');
 }
 
+export async function getDefaultLogFolder(): Promise<string> {
+  return invoke<string>('get_default_log_folder');
+}
+
 export async function setAppStoragePath(path: string | null): Promise<string> {
   return invoke<string>('set_app_storage_path', {
     path,
@@ -250,10 +254,32 @@ export async function revealAppStorageFile(): Promise<void> {
   await invoke<void>('reveal_app_storage_file');
 }
 
+export async function pickAppStorageFile(): Promise<string | null> {
+  return invoke<string | null>('pick_app_storage_file');
+}
+
 export async function moveAppStorageFile(): Promise<string | null> {
   return withStorageAccess(async () => {
     await waitForPendingFileWrites();
     return invoke<string | null>('move_app_storage_file');
+  });
+}
+
+export async function moveDefaultLogFolder(currentFolder: string | null): Promise<string | null> {
+  return invoke<string | null>('move_default_log_folder', {
+    currentFolder,
+  });
+}
+
+export async function revealDefaultLogFolder(currentFolder: string | null): Promise<void> {
+  await invoke<void>('reveal_default_log_folder', {
+    currentFolder,
+  });
+}
+
+export async function resolveDefaultLogFolder(currentFolder: string | null): Promise<string> {
+  return invoke<string>('resolve_default_log_folder', {
+    currentFolder,
   });
 }
 

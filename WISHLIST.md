@@ -15,7 +15,7 @@
 - [ ] [WIP] (untested, still at v1) Config versioning, migration with schema changes
 - [X] Clickable HTTP* links
 - [X] Image link display, toggle with app setting
-- [ ] Session Logging TBD
+- [ ] [WIP] (needs testing) Session Logging
 - [ ] Easier/better name highlighting config TBD
 
 ## Input Box

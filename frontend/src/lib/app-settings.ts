@@ -5,6 +5,7 @@ const SETTINGS_KEY = 'mudshow_app_settings';
 export interface AppSettings {
   storageMode: DesktopStorageMode;
   storageFilePath: string | null;
+  defaultLogFolder: string | null;
   titleAttention: boolean;
   linkImagePreviews: boolean;
   showCurrentOutputWhenScrollingUp: boolean;
@@ -20,6 +21,7 @@ export interface AppSettings {
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   storageMode: 'file',
   storageFilePath: null,
+  defaultLogFolder: null,
   titleAttention: true,
   linkImagePreviews: false,
   showCurrentOutputWhenScrollingUp: true,
@@ -61,6 +63,15 @@ function normalizeStorageFilePath(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeLogFolderPath(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export function loadAppSettings(): AppSettings {
   if (typeof window === 'undefined') {
     return { ...DEFAULT_APP_SETTINGS };
@@ -72,6 +83,7 @@ export function loadAppSettings(): AppSettings {
     ...raw,
     storageMode: 'file',
     storageFilePath: normalizeStorageFilePath(raw.storageFilePath),
+    defaultLogFolder: normalizeLogFolderPath(raw.defaultLogFolder),
     titleAttention: raw.titleAttention !== false,
     linkImagePreviews: raw.linkImagePreviews === true,
     showCurrentOutputWhenScrollingUp: raw.showCurrentOutputWhenScrollingUp !== false,
@@ -107,6 +119,7 @@ export function saveAppSettings(settings: AppSettings): void {
     ...settings,
     storageMode: 'file',
     storageFilePath: normalizeStorageFilePath(settings.storageFilePath),
+    defaultLogFolder: normalizeLogFolderPath(settings.defaultLogFolder),
     titleAttention: settings.titleAttention !== false,
     linkImagePreviews: settings.linkImagePreviews === true,
     showCurrentOutputWhenScrollingUp: settings.showCurrentOutputWhenScrollingUp !== false,

@@ -1,0 +1,11 @@
+# Allows the frontend to reveal an active session log file.
+
+[[permission]]
+identifier = "allow-reveal-session-log-file"
+description = "Enables the reveal_session_log_file command without any pre-configured scope."
+commands.allow = ["reveal_session_log_file"]
+
+[[permission]]
+identifier = "deny-reveal-session-log-file"
+description = "Denies the reveal_session_log_file command without any pre-configured scope."
+commands.deny = ["reveal_session_log_file"]

@@ -19,6 +19,10 @@ export interface WorldSessionProjection {
   disconnectReason: DisconnectReason;
   hasNewActivity: boolean;
   notes: string;
+  loggingActive: boolean;
+  logFilePath: string | null;
+  logFolderPath: string | null;
+  logError: string | null;
 }
 
 export interface WorldTabSessionState extends WorldSessionProjection {
@@ -42,6 +46,10 @@ export function createWorldTabSessionState(): WorldTabSessionState {
     disconnectReason: null,
     hasNewActivity: false,
     notes: '',
+    loggingActive: false,
+    logFilePath: null,
+    logFolderPath: null,
+    logError: null,
     transcript: new PlayTranscript(),
     transcriptHistory: [],
   };
@@ -63,6 +71,10 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     disconnectReason: session.disconnectReason,
     hasNewActivity: session.hasNewActivity,
     notes: session.notes,
+    loggingActive: session.loggingActive,
+    logFilePath: session.logFilePath,
+    logFolderPath: session.logFolderPath,
+    logError: session.logError,
   };
 }
 

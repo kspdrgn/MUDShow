@@ -1,0 +1,11 @@
+# Allows the frontend to open a file picker and switch the current storage file.
+
+[[permission]]
+identifier = "allow-pick-app-storage-file"
+description = "Enables the pick_app_storage_file command without any pre-configured scope."
+commands.allow = ["pick_app_storage_file"]
+
+[[permission]]
+identifier = "deny-pick-app-storage-file"
+description = "Denies the pick_app_storage_file command without any pre-configured scope."
+commands.deny = ["pick_app_storage_file"]

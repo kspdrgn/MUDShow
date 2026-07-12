@@ -1,0 +1,11 @@
+# Allows the frontend to resolve the default log folder.
+
+[[permission]]
+identifier = "allow-resolve-default-log-folder"
+description = "Enables the resolve_default_log_folder command without any pre-configured scope."
+commands.allow = ["resolve_default_log_folder"]
+
+[[permission]]
+identifier = "deny-resolve-default-log-folder"
+description = "Denies the resolve_default_log_folder command without any pre-configured scope."
+commands.deny = ["resolve_default_log_folder"]

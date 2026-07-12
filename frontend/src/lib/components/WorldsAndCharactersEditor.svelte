@@ -10,6 +10,7 @@
   export let onEditCharacter: (index: number) => void;
   export let onDeleteCharacter: (index: number) => void;
   export let onConnectCharacter: (index: number) => void;
+  export let onOpenSettings: () => void;
 
   type DeleteTarget =
     | { kind: 'world'; index: number; worldName: string }
@@ -151,6 +152,9 @@
 
   <div id="list-footer">
     <button class="btn primary" on:click={() => onOpenWorld(null)}>+ add world</button>
+    <button type="button" class="btn" on:click={onOpenSettings}>
+      ⚙ open app settings
+    </button>
   </div>
 </div>
 

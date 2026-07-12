@@ -13,10 +13,11 @@ The application database is stored in a JSON file to be easily readable and mana
 
 - Database file location
   - The app uses the default location when this setting is null or invalid.
-  - The setting is only populated after the database file has been moved.
-  - App settings include actions to reveal the current database folder and move the database file.
-  - A white folder button opens the current database folder in the OS file manager and selects the file.
-  - A red folder move button opens a native save dialog, copies the database file to the selected location, and removes the old file after a successful copy when it is safe to do so.
+  - The setting is populated after the database file has been moved or picked.
+  - App settings include actions to reveal the current database folder, pick a different database file, and move the database file.
+  - Reveal file - A white 'folder' button opens the current database folder in the OS file manager and selects the file.
+  - Pick different file - A yellow 'file open' button opens a native file picker dialog starting at the current database file location. The user can select a JSON database file, and the app will set this file as the current database file and load from it, ignoring the original file.
+  - Move file - A red 'file move' button opens a native save dialog, copies the database file to the selected location, and removes the old file after a successful copy when it is safe to do so.
 - Image link previews
   - A boolean app setting controls whether image URLs in transcript links may later render inline previews.
   - The default is off.
@@ -39,7 +40,7 @@ The application database is stored in a JSON file to be easily readable and mana
 
 # Settings stored per world + character
 
-Some settings can be stored anywhere in a tree heirarchy of worlds and their characters.
+Some settings can be stored anywhere in a tree hierarchy of worlds and their characters.
 
 Many settings can apply to a MU world as a whole or only to specific characters within the world. This interface appears as a tree with each known MU world, containing each owned character.
 

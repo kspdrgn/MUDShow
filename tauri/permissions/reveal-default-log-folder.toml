@@ -1,0 +1,11 @@
+# Allows the frontend to reveal the default log folder.
+
+[[permission]]
+identifier = "allow-reveal-default-log-folder"
+description = "Enables the reveal_default_log_folder command without any pre-configured scope."
+commands.allow = ["reveal_default_log_folder"]
+
+[[permission]]
+identifier = "deny-reveal-default-log-folder"
+description = "Denies the reveal_default_log_folder command without any pre-configured scope."
+commands.deny = ["reveal_default_log_folder"]

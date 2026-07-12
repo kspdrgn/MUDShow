@@ -15,6 +15,8 @@
   --text-bright: #e8e8e8;
   --accent: #4a9eff;
   --accent-dim: #1a3a5c;
+  --warning: #d4ac0d;
+  --warning-dim: #3b2f08;
   --danger: #c0392b;
   --danger-dim: #3a0a08;
   --input-bg: #050505;
@@ -301,10 +303,12 @@ body {
   flex: 0 0 auto;
   margin-left: auto;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   pointer-events: none;
-  min-width: 5px;
+  min-width: 6px;
 }
 
 #titlebar-actions {
@@ -886,9 +890,18 @@ body {
   color: var(--danger);
 }
 
+.icon-button.pick {
+  color: var(--warning);
+}
+
 .icon-button.danger:hover {
   border-color: var(--danger);
   background: var(--danger-dim);
+}
+
+.icon-button.pick:hover {
+  border-color: var(--warning);
+  background: var(--warning-dim);
 }
 
 .icon-button:disabled {
@@ -1546,6 +1559,11 @@ body {
   transform: translateY(-50%);
   z-index: 2;
   pointer-events: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .status-dot-slot .status-dot {
@@ -1575,6 +1593,10 @@ body {
 
 .status-dot.error {
   background: var(--danger);
+}
+
+.status-dot.logging {
+  background: #d69a2d;
 }
 
 .input-controls {

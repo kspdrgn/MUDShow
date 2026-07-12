@@ -27,7 +27,7 @@
 
     <div class="home-actions">
       <button type="button" class="btn" on:click={onOpenSettings}>
-        open app settings
+        ⚙ open app settings
       </button>
     </div>
   </div>

@@ -4,7 +4,11 @@
   export let settings: AppSettings;
   export let onChange: (patch: Partial<AppSettings>) => void;
   export let storageFilePath: string | null;
+  export let resolvedLogFolderPath: string | null;
+  export let onRevealLogFolder: () => void;
+  export let onMoveLogFolder: () => void;
   export let onRevealStorageLocation: () => void;
+  export let onPickStorageLocation: () => void;
   export let onMoveStorageLocation: () => void;
 </script>
 
@@ -44,14 +48,29 @@
             <button
               type="button"
               class="icon-button"
-              title="Open the database folder and select the file."
-              aria-label="Open the database folder and select the file."
+              title="Open the database folder."
+              aria-label="Open the database folder."
               disabled={storageFilePath === null}
               on:click={onRevealStorageLocation}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
                 <path d="M3.5 8.5V6.75a1 1 0 0 1 1-1H10l1.75 1.75H20a1 1 0 0 1 1 1V10" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icon-button pick"
+              title="Pick a different database file. Discards the current file!"
+              aria-label="Pick a different database file. Discards the current file!"
+              disabled={storageFilePath === null}
+              on:click={onPickStorageLocation}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7.5 4.5h7l4 4v11a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" />
+                <path d="M14.5 4.5V9h4.5" />
+                <path d="M8.5 13.5h7" />
+                <path d="m11 11 2.5 2.5-2.5 2.5" />
               </svg>
             </button>
             <button
@@ -72,7 +91,7 @@
         </div>
       </label>
       <p class="settings-note">
-        The current mode is saved locally and reused on startup.
+        database file location is saved in the app itself. if the app forgets the location, use the pick button to locate the correct file.
       </p>
     </section>
 
@@ -84,7 +103,7 @@
           checked={settings.titleAttention}
           on:change={(event) => onChange({ titleAttention: (event.currentTarget as HTMLInputElement).checked })}
         />
-        <span>mark the window title when new activity arrives</span>
+        <span>flash the window title when new activity arrives.</span>
       </label>
     </section>
 
@@ -97,11 +116,8 @@
           on:change={(event) =>
             onChange({ linkImagePreviews: (event.currentTarget as HTMLInputElement).checked })}
         />
-        <span>show image previews for links</span>
+        <span>show previews for image links.</span>
       </label>
-      <p class="settings-note">
-        When enabled, image URLs can later render inline previews instead of staying text-only links.
-      </p>
     </section>
 
     <section class="settings-card">
@@ -115,10 +131,53 @@
               showCurrentOutputWhenScrollingUp: (event.currentTarget as HTMLInputElement).checked,
             })}
         />
-        <span>show current output while scrolling up</span>
+        <span>keep current output in view while scrolling.</span>
+      </label>
+    </section>
+
+    <section class="settings-card">
+      <h2>logging</h2>
+      <label class="field storage-location-field">
+        <span>default log folder</span>
+        <div class="storage-location-row">
+          <input
+            type="text"
+            value={resolvedLogFolderPath ?? settings.defaultLogFolder ?? 'loading log folder...'}
+            spellcheck="false"
+            readonly
+            disabled
+          />
+          <div class="storage-location-actions">
+            <button
+              type="button"
+              class="icon-button"
+              title="Open the default log folder."
+              aria-label="Open the default log folder."
+              on:click={onRevealLogFolder}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
+                <path d="M3.5 8.5V6.75a1 1 0 0 1 1-1H10l1.75 1.75H20a1 1 0 0 1 1 1V10" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icon-button danger"
+              title="Move the default log folder to a new location."
+              aria-label="Move the default log folder to a new location."
+              on:click={onMoveLogFolder}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
+                <path d="M14 13.5h5" />
+                <path d="m16.5 11 2.5 2.5-2.5 2.5" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </label>
       <p class="settings-note">
-        When enabled, the transcript splits into a scrollable history area and a pinned live output area while you read older text.
+        new session logs start here.
       </p>
     </section>
 
@@ -162,7 +221,7 @@
             disabled
             on:change={(event) => onChange({ keepAlive: (event.currentTarget as HTMLInputElement).checked })}
           />
-          <span>send tcp keepalives</span>
+          <span>send tcp keep-alive signals.</span>
         </label>
       </div>
     </section>
@@ -210,7 +269,7 @@
             disabled
             on:change={(event) => onChange({ alwaysOnTop: (event.currentTarget as HTMLInputElement).checked })}
           />
-          <span>keep the app on top</span>
+          <span>keep the app window on-top of others.</span>
         </label>
 
         <label class="field disabled-field">

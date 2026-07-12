@@ -16,6 +16,7 @@
         "title": "MUDShow",
         "width": 1280,
         "height": 860,
+        "backgroundColor": "#000000",
         "decorations": false,
         "resizable": true,
         "fullscreen": false
