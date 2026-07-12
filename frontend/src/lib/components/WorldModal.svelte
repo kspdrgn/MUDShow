@@ -65,7 +65,7 @@
     role="button"
     tabindex="0"
     aria-label="close modal"
-    on:click|self={onCancel}
+    on:pointerdown|self={onCancel}
     on:keydown={handleOverlayKeyDown}
   >
     <div id="modal">

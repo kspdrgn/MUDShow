@@ -39,7 +39,7 @@
     role="button"
     tabindex="0"
     aria-label="close logging modal"
-    on:click|self={onCancel}
+    on:pointerdown|self={onCancel}
     on:keydown={(event) => {
       if (event.key === 'Escape') {
         event.preventDefault();

@@ -176,7 +176,7 @@
     role="button"
     tabindex="0"
     aria-label="close delete confirmation"
-    on:click|self={closeDeleteConfirm}
+    on:pointerdown|self={closeDeleteConfirm}
     on:keydown={handleDeleteOverlayKeyDown}
   >
     <div id="modal">

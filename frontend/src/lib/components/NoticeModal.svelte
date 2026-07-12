@@ -25,7 +25,7 @@
     role="button"
     tabindex="0"
     aria-label={title || 'notice modal'}
-    on:click|self={onClose}
+    on:pointerdown|self={onClose}
     on:keydown={handleOverlayKeyDown}
   >
     <div id="modal">
