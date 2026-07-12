@@ -17,10 +17,9 @@ MVP Features:
 - [X] Clickable HTTP* links
 - [X] Image link display, toggle with app setting
 - [ ] [WIP] (needs testing) Session Logging
-- [ ] input: pageup/pagedown/end/home keys pass thru to output
+- [X] input: pageup/pagedown/end/home keys pass thru to output
 - [ ] tab menu: shortcut to edit world and/or character?
 - [X] quick log: change name format to spaces not dashes
-- [ ] quick log: custom log name format incl folders
 
 Bugs:
 - [X] Fix character modal closing with space bar?
@@ -64,10 +63,10 @@ Release:
     - [ ] New activity indicator (separator line?)
   - Scrolling
     - [ ] Pause auto-scroll when selecting
-    - [ ] END key in input area scrolls main output text to end
-    - [ ] PAGE UP / PAGE DOWN keys in input area scrolls main output text
+    - [X] END key in input area scrolls main output text to end
+    - [X] PAGE UP / PAGE DOWN keys in input area scrolls main output text
     - [ ] Mouse wheel on input area scrolls main output text
-    - [ ] Keep bottom line in view when resizing
+    - [ ] Keep current bottom line in view when resizing
     - [X] Pause automatic scroll to bottom when scrolled up manually
     - [X] Shortcut button to scroll to bottom appears when scrolled up manually
     - [X] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
@@ -84,6 +83,9 @@ Release:
     - [X] Visual indicator that logging is enabled
     - [ ] On-the-fly log renaming of active session log file
     - [ ] Auto-log everything to separate log file
+    - [ ] Customize log name format, incl folders
+    - [ ] Show log name that will be used next to quick log button, user can edit the filename before starting, show indicator if file exists and will be appended to
+    - [ ] Global option to offset date by 5 hours to record as the previous day if logging at 3am
 
 ## Database MUD text backend
 

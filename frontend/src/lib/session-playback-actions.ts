@@ -21,7 +21,13 @@ import {
 } from './input-bars';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { isTauriAvailable, invoke } from './tauri';
-import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
+import {
+  focusElement,
+  nextFrame,
+  scrollElementBy,
+  scrollElementToBottom,
+  scrollElementToTop,
+} from './session-dom';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { WorldTabSessionState } from './world-session';
 import {
@@ -79,6 +85,11 @@ export function createPlaybackActions({
   function getActiveWorldScope(): string | null {
     const tabId = getActiveWorldTabId();
     return tabId ? getWorldDomScope(tabId) : null;
+  }
+
+  function updateOutputScrollState(tabId: string, outputEl: HTMLElement): void {
+    const distance = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight;
+    updateWorldSession(tabId, { userScrolled: distance > 50 });
   }
 
   const logWriteQueues = new Map<string, Promise<void>>();
@@ -496,13 +507,52 @@ export function createPlaybackActions({
       return;
     }
 
-    const distance = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight;
     const tabId = getActiveWorldTabId();
     if (!tabId) {
       return;
     }
 
-    updateWorldSession(tabId, { userScrolled: distance > 50 });
+    updateOutputScrollState(tabId, outputEl);
+  }
+
+  function handleOutputScrollKey(key: string): void {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const scope = getActiveWorldScope();
+    if (!scope) {
+      return;
+    }
+
+    const outputEl = document.getElementById(getWorldOutputAreaId(scope));
+    if (!(outputEl instanceof HTMLElement)) {
+      return;
+    }
+
+    if (key === 'Home') {
+      scrollElementToTop(getWorldOutputAreaId(scope));
+      updateOutputScrollState(tabId, outputEl);
+      return;
+    }
+
+    if (key === 'End') {
+      scrollElementToBottom(getWorldOutputAreaId(scope));
+      updateOutputScrollState(tabId, outputEl);
+      return;
+    }
+
+    if (key === 'PageUp') {
+      scrollElementBy(getWorldOutputAreaId(scope), -outputEl.clientHeight);
+      updateOutputScrollState(tabId, outputEl);
+      return;
+    }
+
+    if (key === 'PageDown') {
+      scrollElementBy(getWorldOutputAreaId(scope), outputEl.clientHeight);
+      updateOutputScrollState(tabId, outputEl);
+    }
   }
 
   function handleScrollToBottom(): void {
@@ -725,6 +775,7 @@ export function createPlaybackActions({
     revealLoggingFile,
     clearLoggingQueue,
     handleOutputScroll,
+    handleOutputScrollKey,
     handleScrollToBottom,
     handleInputFocus,
     handleInputSubmit,

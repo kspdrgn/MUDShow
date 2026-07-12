@@ -32,3 +32,21 @@ export function scrollElementToBottom(id: string): void {
 
   element.scrollTop = element.scrollHeight;
 }
+
+export function scrollElementToTop(id: string): void {
+  const element = document.getElementById(id);
+  if (!element) {
+    return;
+  }
+
+  element.scrollTop = 0;
+}
+
+export function scrollElementBy(id: string, delta: number): void {
+  const element = document.getElementById(id);
+  if (!element) {
+    return;
+  }
+
+  element.scrollTop += delta;
+}

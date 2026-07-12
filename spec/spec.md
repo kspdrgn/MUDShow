@@ -56,6 +56,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Use Ctrl+Up/Ctrl+Down to move backward/forward through the queue, including unsent drafts and edited history entries.
 - Keep a scrollable transcript of session output.
 - Auto-scroll when the user has not manually scrolled away.
+- Let the focused input area forward Page Up, Page Down, Home, and End to the transcript scroll view.
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
 - Allow reconnecting after disconnect.

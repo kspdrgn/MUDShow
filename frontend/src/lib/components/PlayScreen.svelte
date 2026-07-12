@@ -35,6 +35,7 @@
   export let onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
   export let onNotesInput: (notes: string) => void;
   export let onOutputScroll: () => void;
+  export let onOutputScrollKey: (key: string) => void;
   export let onScrollToBottom: () => void;
 </script>
 
@@ -68,5 +69,6 @@
     onAddBar={onInputAddBar}
     onRemoveBar={onInputRemoveBar}
     onResizeBar={onInputResizeBar}
+    onOutputScrollKey={onOutputScrollKey}
   />
 </div>

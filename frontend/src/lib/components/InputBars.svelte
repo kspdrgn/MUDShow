@@ -26,6 +26,7 @@
   export let onAddBar: (bar: InputBarId) => void;
   export let onRemoveBar: (bar: InputBarId) => void;
   export let onResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
+  export let onOutputScrollKey: (key: string) => void;
   export let scope = 'world';
 
   const HISTORY_LIMIT = 50;
@@ -376,6 +377,14 @@
       event.preventDefault();
       moveHistory(bar, 1);
       return;
+    }
+
+    if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      if (event.key === 'PageUp' || event.key === 'PageDown' || event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        onOutputScrollKey(event.key);
+        return;
+      }
     }
 
     if (event.key === 'Tab') {

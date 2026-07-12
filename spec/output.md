@@ -14,6 +14,8 @@ If the user manually scrolls away from the bottom, automatic scrolling pauses an
 
 Clicking the scroll-to-bottom button scrolls the output panel to the bottom and restores automatic scrolling for new transcript content.
 
+While the command input area is focused, Page Up and Page Down scroll the transcript output without moving focus away from the input. Home scrolls to the top of the main transcript view, and End scrolls to the bottom and restores automatic scrolling.
+
 ## Split Output when Scrolling
 
 If the app setting "show current output when scrolling up" is enabled, scrolling away from the bottom splits the transcript into two stacked displays:
