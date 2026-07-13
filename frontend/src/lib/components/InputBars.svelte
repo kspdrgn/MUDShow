@@ -359,6 +359,22 @@
     const input = getInput(bar);
     const currentValue = getValue(bar);
     const selectionStart = input?.selectionStart ?? currentValue.length;
+    const selectionEnd = input?.selectionEnd ?? selectionStart;
+
+    if (event.ctrlKey && event.key === 'Enter') {
+      event.preventDefault();
+
+      const nextValue = `${currentValue.slice(0, selectionStart)}\n${currentValue.slice(selectionEnd)}`;
+      const nextCursor = selectionStart + 1;
+
+      setValue(bar, nextValue);
+
+      requestAnimationFrame(() => {
+        input?.setSelectionRange(nextCursor, nextCursor);
+      });
+
+      return;
+    }
 
     if (event.key === 'Enter') {
       event.preventDefault();

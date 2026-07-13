@@ -40,8 +40,8 @@ Release:
   - [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text or clicking one-shot UI stuff
   - [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
   - [X] Resize input height by lines
-  - [ ] [WIP untested] TAB auto-complete of names/objects known or in MUD text
-  - [ ] CTRL+Enter to make new line without sending
+  - [ ] [not working?] TAB auto-complete of names/objects known or in MUD text
+  - [X] CTRL+Enter to make new line without sending
   - [X] Spellcheck
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator
