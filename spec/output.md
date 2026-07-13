@@ -32,7 +32,9 @@ When image link previews are enabled in app settings:
 
 - The original link text remains visible in the transcript.
 - If a link points to an image, the image preview is shown below the line that contains the link.
+- Image links also show a small image badge right after the link text so it is clear the URL was detected as an image, and clicking that badge restores a hidden preview.
 - Clicking the image preview behaves the same as clicking the link text.
+- When the preview is hovered, a small button appears in its upper-right corner that removes that preview from the transcript display.
 - Image previews should stay within the transcript width and respect a reasonable maximum height so they do not dominate the output area.
 
 ## Status Messages

@@ -127,11 +127,22 @@ function isImageUrl(url: string): boolean {
   }
 }
 
-function renderImagePreview(url: string, href: string): string {
+function renderImagePreview(href: string): string {
   return (
+    `<div class="output-link-preview-item" data-preview-url="${escapeHtmlAttribute(href)}">` +
     `<a class="output-link output-link-preview" href="${escapeHtmlAttribute(href)}" data-preview-url="${escapeHtmlAttribute(href)}" tabindex="-1" rel="noopener noreferrer">` +
     `<img class="output-link-preview-image" src="${escapeHtmlAttribute(href)}" data-preview-url="${escapeHtmlAttribute(href)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` +
-    `</a>`
+    `</a>` +
+    `<button type="button" class="output-link-preview-dismiss" data-preview-dismiss data-preview-url="${escapeHtmlAttribute(href)}" aria-label="Dismiss image preview">x</button>` +
+    `</div>`
+  );
+}
+
+function renderImageToggle(href: string, previewVisible: boolean): string {
+  const label = previewVisible ? 'Hide image preview' : 'Show image preview';
+
+  return (
+    `<button type="button" class="output-link-preview-toggle${previewVisible ? '' : ' output-link-preview-toggle--hidden'}" data-preview-toggle data-preview-url="${escapeHtmlAttribute(href)}" aria-label="${escapeHtmlAttribute(label)}" aria-pressed="${previewVisible ? 'true' : 'false'}" title="${escapeHtmlAttribute(label)}">🖼</button>`
   );
 }
 
@@ -143,7 +154,11 @@ function renderPreviewRow(previews: string[]): string {
   return `<div class="output-link-preview-row">${previews.join('')}</div>`;
 }
 
-function renderLinkedText(text: string, linkImagePreviews: boolean): { html: string; previews: string[] } {
+function renderLinkedText(
+  text: string,
+  linkImagePreviews: boolean,
+  hiddenPreviewUrls: ReadonlySet<string>,
+): { html: string; previews: string[] } {
   let result = '';
   let lastIndex = 0;
   const previews: string[] = [];
@@ -172,14 +187,18 @@ function renderLinkedText(text: string, linkImagePreviews: boolean): { html: str
       const href = normalizedUrl;
       result += `<a class="output-link" href="${escapeHtmlAttribute(href)}" tabindex="-1" rel="noopener noreferrer">${escapeAndPreserveLayout(url)}</a>`;
 
-      if (linkImagePreviews && previewEligible) {
+      if (previewEligible) {
+        result += renderImageToggle(href, !hiddenPreviewUrls.has(href));
+      }
+
+      if (linkImagePreviews && previewEligible && !hiddenPreviewUrls.has(href)) {
         if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
           console.info('[MUDShow] image preview queued', {
             url: href,
             sourceText: url,
           });
         }
-        previews.push(renderImagePreview(url, href));
+        previews.push(renderImagePreview(href));
       } else if (linkImagePreviews) {
         if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
           console.info('[MUDShow] image preview skipped', {
@@ -397,6 +416,7 @@ function flushStyledChunk(
   currentStyle: AnsiStyle,
   openStyle: string | null,
   linkImagePreviews: boolean,
+  hiddenPreviewUrls: ReadonlySet<string>,
   previews: string[],
 ): { openStyle: string | null } {
   if (!chunk) {
@@ -416,7 +436,7 @@ function flushStyledChunk(
     }
   }
 
-  const rendered = renderLinkedText(chunk, linkImagePreviews);
+  const rendered = renderLinkedText(chunk, linkImagePreviews, hiddenPreviewUrls);
   result.push(rendered.html);
   previews.push(...rendered.previews);
   return { openStyle };
@@ -440,7 +460,11 @@ function flushLineBreak(
   return openStyle;
 }
 
-export function renderTranscriptHtml(text: string, linkImagePreviews = false): string {
+export function renderTranscriptHtml(
+  text: string,
+  linkImagePreviews = false,
+  hiddenPreviewUrls: ReadonlySet<string> = new Set<string>(),
+): string {
   let result: string[] = [];
   let openStyle: string | null = null;
   let currentStyle: AnsiStyle = {};
@@ -448,7 +472,15 @@ export function renderTranscriptHtml(text: string, linkImagePreviews = false): s
   const linePreviews: string[] = [];
 
   const flushText = (chunk: string) => {
-    ({ openStyle } = flushStyledChunk(result, chunk, currentStyle, openStyle, linkImagePreviews, linePreviews));
+    ({ openStyle } = flushStyledChunk(
+      result,
+      chunk,
+      currentStyle,
+      openStyle,
+      linkImagePreviews,
+      hiddenPreviewUrls,
+      linePreviews,
+    ));
   };
 
   const flushTextWithNewlines = (chunk: string) => {
@@ -491,8 +523,12 @@ export function renderTranscriptHtml(text: string, linkImagePreviews = false): s
   return result.join('');
 }
 
-export function ansiToHtmlWithPreviews(text: string, linkImagePreviews = false): string {
-  return renderTranscriptHtml(text, linkImagePreviews);
+export function ansiToHtmlWithPreviews(
+  text: string,
+  linkImagePreviews = false,
+  hiddenPreviewUrls: ReadonlySet<string> = new Set<string>(),
+): string {
+  return renderTranscriptHtml(text, linkImagePreviews, hiddenPreviewUrls);
 }
 
 export function buildHighlightRegexes(rules: HighlightRule[]): HighlightRegex[] {

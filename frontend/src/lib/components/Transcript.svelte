@@ -22,10 +22,11 @@
   let renderedChunks: string[] = [];
   let liveRenderedChunks: string[] = [];
   let splitView = false;
+  let hiddenPreviewUrls = new Set<string>();
 
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: renderedChunks = chunks.map((chunk) =>
-    applyHighlights(renderTranscriptHtml(chunk, linkImagePreviews), highlightRegexes),
+    applyHighlights(renderTranscriptHtml(chunk, linkImagePreviews, hiddenPreviewUrls), highlightRegexes),
   );
   $: liveRenderedChunks = chunks.map((chunk) =>
     applyHighlights(renderTranscriptHtml(chunk, false), highlightRegexes),
@@ -51,6 +52,36 @@
   async function handleClick(event: MouseEvent): Promise<void> {
     const target = event.target;
     if (!(target instanceof Element)) {
+      return;
+    }
+
+    const dismissButton = target.closest('button[data-preview-dismiss]');
+    if (dismissButton instanceof HTMLButtonElement) {
+      const previewUrl = dismissButton.getAttribute('data-preview-url');
+      if (previewUrl) {
+        hiddenPreviewUrls = new Set(hiddenPreviewUrls).add(previewUrl);
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      focusElement(getScopedInputBarInputId(scope, activeBar));
+      return;
+    }
+
+    const toggleButton = target.closest('button[data-preview-toggle]');
+    if (toggleButton instanceof HTMLButtonElement) {
+      const previewUrl = toggleButton.getAttribute('data-preview-url');
+      if (previewUrl) {
+        const nextHiddenPreviewUrls = new Set(hiddenPreviewUrls);
+        if (nextHiddenPreviewUrls.has(previewUrl)) {
+          nextHiddenPreviewUrls.delete(previewUrl);
+        } else {
+          nextHiddenPreviewUrls.add(previewUrl);
+        }
+        hiddenPreviewUrls = nextHiddenPreviewUrls;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      focusElement(getScopedInputBarInputId(scope, activeBar));
       return;
     }
 
