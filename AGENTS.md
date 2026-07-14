@@ -17,6 +17,8 @@ Specification (spec) documents are in `spec/`. See the `spec/spec.md` file for t
 
 The spec documents are intended to be concise, human readable descriptions of all core functionality. The spec is generally agnostic to particular tech and implementation.
 
+For every feature or behavior added to the app, we need to ensure the entire functionality is described in the appropriate spec document. The files `WISHLIST.md` and these agent instructions are not meant to be a source of truth for app functionality.
+
 ## Local Setup Notes
 
 - The Tauri app lives in `tauri/` in this checkout. Use that path for Cargo, Tauri, and release bundle commands instead of `src-tauri/`.

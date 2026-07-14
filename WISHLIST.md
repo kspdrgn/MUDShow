@@ -3,6 +3,9 @@
 ## Top TODO
 
 MVP Features:
+- [ ] Session logging. WIP. needs testing. needs better ui.
+- [ ] Style - fonts/colors customization. not app-wide ui theming. see `PLAN_FONTS.md`.
+- [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
 - [X] Tabs, multiple connections
 - [X] Character Settings
   - [X] make hierarchical
@@ -13,15 +16,15 @@ MVP Features:
   - [X] improve characters edit page
   - [X] add initial connect string (for login).
 - [X] App Settings, database location control
-- [ ] [WIP] (untested, still at v1) Config versioning, migration with schema changes
 - [X] Clickable HTTP* links
 - [X] Image link display, toggle with app setting
-- [ ] [WIP] (needs testing) Session Logging
-- [X] input: pageup/pagedown/end/home keys pass thru to output
+- [X] input: pageup/pagedown/ctrl+end/ctrl+home keys pass thru to output
 - [X] tab menu: shortcut to edit world and/or character?
-- [X] quick log: change name format to spaces not dashes
 
 Bugs:
+- [X] Fix unmodified home/end keys not working in input window, the passthru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
+- [ ] Fix image previews not triggering scroll-to-bottom consistently?
+- [ ] Fix extra blank line after "Somewhere on the muck, * has connected."
 - [X] Fix character modal closing with space bar?
 - [X] Linux: Fix resize frame, can't see while mousing over
 - [X] Fix tab reordering
@@ -53,8 +56,7 @@ Release:
     - [ ] Background image
   - Contents
     - [X] Clickable links
-    - [X] Auto-preview image links
-      - [ ] Hide image button
+    - [X] Auto-preview image links with hide button
     - [X] Automatic clipboard copy when selecting text
     - [ ] Timestamps visible on mouse-over lines
     - [ ] Visible Timestamps customizable
@@ -64,7 +66,7 @@ Release:
   - Scrolling
     - [ ] Pause auto-scroll when selecting
     - [X] END key in input area scrolls main output text to end
-    - [X] PAGE UP / PAGE DOWN keys in input area scrolls main output text
+    - [X] PAGE UP / PAGE DOWN / CTRL+HOME / CTRL+END keys in input area scroll main output text
     - [ ] Mouse wheel on input area scrolls main output text
     - [ ] Keep current bottom line in view when resizing
     - [X] Pause automatic scroll to bottom when scrolled up manually
@@ -105,8 +107,8 @@ This would support:
   - [ ] UI tabs for active viewing worlds and allowing switching between them
     - [X] show connection status
     - [ ] show activity status
-    - [ ] show logging status
-  - [ ] CTRL+TAB switch worlds
+    - [X] show logging status
+  - [X] CTRL+TAB switch worlds
   - [X] CTRL+F4 to close active tab
   - [X] Reconnect without closing world tab
   - [X] Disconnect without closing world tab
