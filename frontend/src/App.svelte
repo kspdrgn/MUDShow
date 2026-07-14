@@ -339,7 +339,7 @@ import type { WorldTabSessionState } from './lib/world-session';
         onInputResizeBar={(bar, delta) => session.resizeInputBar(bar, delta)}
         onNotesInput={(notes) => session.saveNotes(notes)}
         onOutputScroll={() => session.handleOutputScroll()}
-        onOutputScrollKey={(key) => session.handleOutputScrollKey(key)}
+        onOutputScrollKey={(action) => session.handleOutputScrollKey(action)}
         onScrollToBottom={() => session.handleScrollToBottom()}
       />
     {/each}

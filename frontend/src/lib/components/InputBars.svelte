@@ -395,10 +395,10 @@
       return;
     }
 
-    if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
-      if (event.key === 'PageUp' || event.key === 'PageDown' || event.key === 'Home' || event.key === 'End') {
+    if (!event.altKey && !event.metaKey && !event.shiftKey && event.ctrlKey) {
+      if (event.key === 'Home' || event.key === 'End') {
         event.preventDefault();
-        onOutputScrollKey(event.key);
+        onOutputScrollKey(event.key === 'Home' ? 'top' : 'bottom');
         return;
       }
     }
