@@ -5,8 +5,11 @@ export class CompletionManager {
   private tabPrefix = '';
 
   harvest(text: string): void {
-    const clean = text.replace(/\x1b\[[0-9;]*m/g, '');
-    const words = clean.match(/[a-zA-Z']{3,}/g);
+    const stripAnsiRegex = /\x1b\[[0-9;]*m/g;
+    const clean = text.replace(stripAnsiRegex, '');
+    // muck names. max len 20 for safety. allowed name characters: [`_-].
+    const harvestRegex = /\b[a-zA-Z`_\-]{3,20}\b/g;
+    const words = clean.match(harvestRegex);
 
     if (!words) {
       return;
