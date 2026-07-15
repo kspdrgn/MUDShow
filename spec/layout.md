@@ -40,6 +40,7 @@ The '+' button on the tab bar shows the quick connect menu as a dropdown menu. T
 
 - Characters - opens or creates the Characters Tab
 - App Settings - opens or creates the App Settings Tab
+- Dev Tools - opens the native web inspector for the main webview in desktop development builds
 
 # Tabs
 

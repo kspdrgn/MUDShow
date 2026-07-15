@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-window-open-devtools"
+description = "Enables the window_open_devtools command without any pre-configured scope."
+commands.allow = ["window_open_devtools"]
+
+[[permission]]
+identifier = "deny-window-open-devtools"
+description = "Denies the window_open_devtools command without any pre-configured scope."
+commands.deny = ["window_open_devtools"]

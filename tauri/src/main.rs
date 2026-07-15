@@ -107,6 +107,25 @@ fn open_external_url(url: String) -> Result<(), String> {
     }
 }
 
+#[cfg(any(debug_assertions, feature = "devtools"))]
+#[tauri::command]
+fn window_open_devtools(app: tauri::AppHandle) -> Result<(), String> {
+    let webview_window = app
+        .get_webview_window("main")
+        .ok_or_else(|| String::from("main webview window not found"))?;
+
+    webview_window.open_devtools();
+    Ok(())
+}
+
+#[cfg(not(any(debug_assertions, feature = "devtools")))]
+#[tauri::command]
+fn window_open_devtools() -> Result<(), String> {
+    Err(String::from(
+        "the web inspector is only available in debug builds or when the devtools feature is enabled",
+    ))
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(mud_backend::ConnectionManager::default())
@@ -128,6 +147,7 @@ fn main() {
             window_close,
             window_start_dragging,
             window_start_resize_dragging,
+            window_open_devtools,
             open_external_url,
             mud_backend::connect_mud,
             mud_backend::send_mud,

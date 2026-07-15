@@ -34,6 +34,7 @@
   export let onEditWorldTab: (tabId: string) => void;
   export let onEditCharacterTab: (tabId: string) => void;
 
+  const canOpenInspector = import.meta.env.DEV && isTauriAvailable();
   let menuOpen = false;
   let quickConnectOpen = false;
   let worldContextMenuOpen = false;
@@ -531,6 +532,18 @@
     await invoke('window_close');
   }
 
+  async function openInspector(): Promise<void> {
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    try {
+      await invoke('window_open_devtools');
+    } catch (error) {
+      console.error('failed to open the web inspector', error);
+    }
+  }
+
   function shouldStartTitlebarDrag(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) {
       return false;
@@ -815,6 +828,18 @@
             }}
           >
             app settings
+          </button>
+          <button
+            type="button"
+            class="titlebar-menu-item"
+            role="menuitem"
+            disabled={!canOpenInspector}
+            on:click={() => {
+              closeMenu();
+              void openInspector();
+            }}
+          >
+            dev tools
           </button>
         </div>
       {/if}
