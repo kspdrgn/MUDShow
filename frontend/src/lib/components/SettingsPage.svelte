@@ -17,6 +17,7 @@
     <div>
       <h1>app settings</h1>
       <p>global preferences for storage, notifications, and desktop behavior.</p>
+      <p>crossed out settings don't work yet.</p>
     </div>
   </div>
 
@@ -60,7 +61,21 @@
             </button>
             <button
               type="button"
-              class="icon-button pick"
+              class="icon-button warning"
+              title="Move the database file to a new location."
+              aria-label="Move the database file to a new location."
+              disabled={storageFilePath === null}
+              on:click={onMoveStorageLocation}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
+                <path d="M14 13.5h5" />
+                <path d="m16.5 11 2.5 2.5-2.5 2.5" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icon-button danger"
               title="Pick a different database file. Discards the current file!"
               aria-label="Pick a different database file. Discards the current file!"
               disabled={storageFilePath === null}
@@ -73,20 +88,6 @@
                 <path d="m11 11 2.5 2.5-2.5 2.5" />
               </svg>
             </button>
-            <button
-              type="button"
-              class="icon-button danger"
-              title="Move the database file to a new location."
-              aria-label="Move the database file to a new location."
-              disabled={storageFilePath === null}
-              on:click={onMoveStorageLocation}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
-                <path d="M14 13.5h5" />
-                <path d="m16.5 11 2.5 2.5-2.5 2.5" />
-              </svg>
-            </button>
           </div>
         </div>
       </label>
@@ -96,7 +97,7 @@
     </section>
 
     <section class="settings-card">
-      <h2>activity notification</h2>
+      <h2>window</h2>
       <label class="settings-toggle">
         <input
           type="checkbox"
@@ -105,19 +106,31 @@
         />
         <span>flash the window title when new activity arrives.</span>
       </label>
-    </section>
+      <div class="settings-stack">
+        <label class="settings-toggle disabled-field">
+          <input
+            type="checkbox"
+            checked={settings.alwaysOnTop}
+            disabled
+            on:change={(event) => onChange({ alwaysOnTop: (event.currentTarget as HTMLInputElement).checked })}
+          />
+          <span>keep the app window on-top of others.</span>
+        </label>
 
-    <section class="settings-card">
-      <h2>links</h2>
-      <label class="settings-toggle">
-        <input
-          type="checkbox"
-          checked={settings.linkImagePreviews}
-          on:change={(event) =>
-            onChange({ linkImagePreviews: (event.currentTarget as HTMLInputElement).checked })}
-        />
-        <span>show previews for image links.</span>
-      </label>
+        <label class="field disabled-field">
+          <span>transparency</span>
+          <input
+            type="range"
+            min="60"
+            max="100"
+            step="1"
+            value={settings.transparency}
+            disabled
+            on:input={(event) =>
+              onChange({ transparency: Number((event.currentTarget as HTMLInputElement).value) })}
+          />
+        </label>
+      </div>
     </section>
 
     <section class="settings-card">
@@ -132,6 +145,15 @@
             })}
         />
         <span>keep current output in view while scrolling.</span>
+      </label>
+      <label class="settings-toggle">
+        <input
+          type="checkbox"
+          checked={settings.linkImagePreviews}
+          on:change={(event) =>
+            onChange({ linkImagePreviews: (event.currentTarget as HTMLInputElement).checked })}
+        />
+        <span>show previews for image links.</span>
       </label>
     </section>
 
@@ -162,9 +184,9 @@
             </button>
             <button
               type="button"
-              class="icon-button danger"
-              title="Move the default log folder to a new location."
-              aria-label="Move the default log folder to a new location."
+              class="icon-button warning"
+              title="Move the default log folder to a new location. Will not move logs."
+              aria-label="Move the default log folder to a new location. Will not move logs."
               on:click={onMoveLogFolder}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -257,35 +279,6 @@
           <option value="amber">amber</option>
         </select>
       </label>
-    </section>
-
-    <section class="settings-card">
-      <h2>window</h2>
-      <div class="settings-stack">
-        <label class="settings-toggle disabled-field">
-          <input
-            type="checkbox"
-            checked={settings.alwaysOnTop}
-            disabled
-            on:change={(event) => onChange({ alwaysOnTop: (event.currentTarget as HTMLInputElement).checked })}
-          />
-          <span>keep the app window on-top of others.</span>
-        </label>
-
-        <label class="field disabled-field">
-          <span>transparency</span>
-          <input
-            type="range"
-            min="60"
-            max="100"
-            step="1"
-            value={settings.transparency}
-            disabled
-            on:input={(event) =>
-              onChange({ transparency: Number((event.currentTarget as HTMLInputElement).value) })}
-          />
-        </label>
-      </div>
     </section>
   </div>
 </section>

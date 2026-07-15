@@ -14,7 +14,7 @@
   <div class="home-panel">
     <div class="home-copy">
       <h1>mudshow</h1>
-      <p>Select a character to connect.</p>
+      <p>select a character to connect.</p>
     </div>
 
     <QuickConnectPanel

@@ -128,6 +128,8 @@ This would support:
 ## Taps Integrations
   - Plugin System
     - [ ] Specific MU integrations should be managed as modular plugins
+    - [ ] plugins may come from different sources and should auto-update separately from the app
+    - [ ] plugins may include world definitions, avoid clobbering user definitions by server name
   - Editors
     - [ ] Description editor
     - [ ] Morph editor

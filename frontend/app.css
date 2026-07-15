@@ -944,7 +944,7 @@ body {
   color: var(--danger);
 }
 
-.icon-button.pick {
+.icon-button.warning {
   color: var(--warning);
 }
 
@@ -953,7 +953,7 @@ body {
   background: var(--danger-dim);
 }
 
-.icon-button.pick:hover {
+.icon-button.warning:hover {
   border-color: var(--warning);
   background: var(--warning-dim);
 }
