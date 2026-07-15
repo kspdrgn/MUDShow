@@ -996,7 +996,6 @@ pub fn resolve_default_log_folder<R: tauri::Runtime>(
 #[tauri::command]
 pub fn get_default_log_folder<R: tauri::Runtime>(app: AppHandle<R>) -> Result<String, String> {
     let folder = ensure_default_log_folder(&app)?;
-    eprintln!("resolved default log folder: {}", folder.display());
     Ok(folder.display().to_string())
 }
 

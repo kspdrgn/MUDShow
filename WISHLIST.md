@@ -31,10 +31,11 @@ Bugs:
 - [X] worlds menu: editing makes a new world
 
 Release:
-- [ ] Fix app release pipeline? main branch makes 'release' but no artifacts?
-- [ ] Linux: Release build?
+- [ ] main branch makes 'release' with no artifacts?
+- [ ] rename bundle zip from 'desktop-bundle' to something else
+- [ ] Linux: CI + Release build?
 - [ ] Auto-updater:
-  - [ ] Tauri updater package
+  - [ ] Tauri updater package for auto-update
   - [ ] Windows partial update packages, signed and onto github
   - [ ] Linux idk, needs release build too
 
