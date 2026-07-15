@@ -23,6 +23,7 @@ If the app setting "show current output when scrolling up" is enabled, scrolling
 - The top display takes most of the space, stays scrollable, and contains the scroll-to-bottom button.
 - The bottom display stays pinned to the live output at the bottom of the panel and does not allow manual scrolling.
 - The bottom display does not show image previews, even when transcript image previews are enabled, so it can stay compact.
+- Mouse wheel movement over the bottom display is forwarded to the top display so scrolling still works on the main transcript pane.
 
 When the user scrolls the top display back to the bottom, or presses the scroll-to-bottom button, the split collapses back into the normal single transcript view.
 

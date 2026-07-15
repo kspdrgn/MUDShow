@@ -57,6 +57,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Keep a scrollable transcript of session output.
 - Auto-scroll when the user has not manually scrolled away.
 - Let the focused input area forward Page Up, Page Down, `Ctrl+Home`, and `Ctrl+End` to the transcript scroll view.
+- Forward mouse wheel input from the split live transcript pane to the main transcript pane.
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
 - Allow reconnecting after disconnect.

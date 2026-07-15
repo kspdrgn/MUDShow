@@ -1,6 +1,12 @@
 <script lang="ts">
   import { applyHighlights, buildHighlightRegexes, renderTranscriptHtml } from '../formatting';
-  import { copyTextToClipboard, focusElement, nextFrame, scrollElementToBottom } from '../session-dom';
+  import {
+    copyTextToClipboard,
+    focusElement,
+    nextFrame,
+    scrollElementBy,
+    scrollElementToBottom,
+  } from '../session-dom';
   import { openExternalUrl } from '../tauri';
   import { getScopedInputBarInputId, type InputBarId } from '../input-bars';
   import type { HighlightRule } from '../types';
@@ -153,6 +159,28 @@
   function handleScrollToBottomClick(): void {
     onScrollToBottom();
   }
+
+  function handleLiveWheel(event: WheelEvent): void {
+    const mainOutputId = `${scope}-output-area`;
+    const mainOutput = document.getElementById(mainOutputId);
+
+    if (!mainOutput) {
+      return;
+    }
+
+    const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? event.deltaY * 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? event.deltaY * mainOutput.clientHeight
+        : event.deltaY;
+
+    if (delta === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    scrollElementBy(mainOutputId, delta);
+  }
 </script>
 
 <div
@@ -201,6 +229,7 @@
       aria-label="Current output"
       on:mouseup={handleMouseUp}
       on:click={handleClick}
+      on:wheel={handleLiveWheel}
     >
       <div class="output-area-content output-area-content--live">
         {#each liveRenderedChunks as renderedChunk}

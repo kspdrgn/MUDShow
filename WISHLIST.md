@@ -30,10 +30,6 @@ Bugs:
 - [X] Fix tab reordering
 - [X] worlds menu: editing makes a new world\
 
-Unsorted:
-pass thru mousewheel from lower split transcript
-fix pageup/down not doing
-
 Release:
 - [ ] main branch makes 'release' with no artifacts?
 - [ ] rename bundle zip from 'desktop-bundle' to something else
