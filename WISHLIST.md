@@ -28,7 +28,11 @@ Bugs:
 - [X] Fix character modal closing with space bar?
 - [X] Linux: Fix resize frame, can't see while mousing over
 - [X] Fix tab reordering
-- [X] worlds menu: editing makes a new world
+- [X] worlds menu: editing makes a new world\
+
+Unsorted:
+pass thru mousewheel from lower split transcript
+fix pageup/down not doing
 
 Release:
 - [ ] main branch makes 'release' with no artifacts?
@@ -120,6 +124,10 @@ This would support:
 ## Window
   - [ ] On-top option
   - [ ] Window transparency
+
+## Settings
+  - [ ] two-pane world/character settings, no modals, route-able to each place
+  - [ ] tabbed/two-pane app settings, instead of everything in one page, route-able to each place
 
 ## Taps Integrations
   - Plugin System

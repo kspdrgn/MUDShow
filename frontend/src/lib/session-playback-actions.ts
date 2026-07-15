@@ -24,6 +24,7 @@ import { isTauriAvailable, invoke } from './tauri';
 import {
   focusElement,
   nextFrame,
+  scrollElementBy,
   scrollElementToBottom,
   scrollElementToTop,
 } from './session-dom';
@@ -514,7 +515,7 @@ export function createPlaybackActions({
     updateOutputScrollState(tabId, outputEl);
   }
 
-  function handleOutputScrollKey(action: 'top' | 'bottom'): void {
+  function handleOutputScrollKey(action: 'top' | 'bottom' | 'page-up' | 'page-down'): void {
     const tabId = getActiveWorldTabId();
     if (!tabId) {
       return;
@@ -538,6 +539,18 @@ export function createPlaybackActions({
 
     if (action === 'bottom') {
       scrollElementToBottom(getWorldOutputAreaId(scope));
+      updateOutputScrollState(tabId, outputEl);
+      return;
+    }
+
+    if (action === 'page-up') {
+      scrollElementBy(getWorldOutputAreaId(scope), -outputEl.clientHeight);
+      updateOutputScrollState(tabId, outputEl);
+      return;
+    }
+
+    if (action === 'page-down') {
+      scrollElementBy(getWorldOutputAreaId(scope), outputEl.clientHeight);
       updateOutputScrollState(tabId, outputEl);
     }
   }

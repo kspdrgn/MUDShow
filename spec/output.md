@@ -14,7 +14,7 @@ If the user manually scrolls away from the bottom, automatic scrolling pauses an
 
 Clicking the scroll-to-bottom button scrolls the output panel to the bottom and restores automatic scrolling for new transcript content.
 
-While the command input area is focused, `Ctrl+Home` scrolls the transcript output to the top of the document, and `Ctrl+End` scrolls to the bottom and restores automatic scrolling. Plain `Home` and `End` stay in the input text. Page Up and Page Down scroll the transcript output without moving focus away from the input.
+While the command input area is focused, Page Up and Page Down scroll the transcript output by a page without moving focus away from the input. `Ctrl+Home` scrolls the transcript output to the top of the document, and `Ctrl+End` scrolls to the bottom and restores automatic scrolling. Plain `Home` and `End` stay in the input text.
 
 ## Split Output when Scrolling
 

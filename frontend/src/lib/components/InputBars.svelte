@@ -395,10 +395,16 @@
       return;
     }
 
-    if (!event.altKey && !event.metaKey && !event.shiftKey && event.ctrlKey) {
-      if (event.key === 'Home' || event.key === 'End') {
+    if (!event.altKey && !event.metaKey) {
+      if (!event.shiftKey && event.ctrlKey && (event.key === 'Home' || event.key === 'End')) {
         event.preventDefault();
         onOutputScrollKey(event.key === 'Home' ? 'top' : 'bottom');
+        return;
+      }
+
+      if (!event.ctrlKey && !event.shiftKey && (event.key === 'PageUp' || event.key === 'PageDown')) {
+        event.preventDefault();
+        onOutputScrollKey(event.key === 'PageUp' ? 'page-up' : 'page-down');
         return;
       }
     }

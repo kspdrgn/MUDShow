@@ -35,7 +35,7 @@
   export let onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
   export let onNotesInput: (notes: string) => void;
   export let onOutputScroll: () => void;
-  export let onOutputScrollKey: (action: 'top' | 'bottom') => void;
+  export let onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
   export let onScrollToBottom: () => void;
 </script>
 
