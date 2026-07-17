@@ -1,76 +1,68 @@
-<script context="module" lang="ts">
-  export type StyleScope =
-    | { kind: 'app' }
-    | { kind: 'world'; worldId: string }
-    | { kind: 'character'; worldId: string; characterId: string };
-</script>
-
 <script lang="ts">
-  export let scope: StyleScope;
+  import StyleColorsSection from './StyleColorsSection.svelte';
+  import StyleFontsSection from './StyleFontsSection.svelte';
+  import {
+    getStyleScopeLabel,
+    getStyleScopePath,
+    getStyleScopeSummary,
+    type StyleScope,
+  } from './style-settings';
 
-  function getScopeTitle(value: StyleScope): string {
-    switch (value.kind) {
-      case 'app':
-        return 'app default style';
-      case 'world':
-        return `world style: ${value.worldId}`;
-      case 'character':
-        return `character style: ${value.worldId} / ${value.characterId}`;
-    }
-  }
-
-  function getScopeSummary(value: StyleScope): string {
-    switch (value.kind) {
-      case 'app':
-        return 'controls the shared defaults used by every world and character.';
-      case 'world':
-        return 'controls the style shared by a single world and its characters.';
-      case 'character':
-        return 'controls the style override for one character in one world.';
-    }
-  }
+  export let storageScope: StyleScope;
 </script>
 
-<section class="style-settings" aria-label={getScopeTitle(scope)}>
-  <header class="style-settings-header">
-    <div>
-      <h2>{getScopeTitle(scope)}</h2>
-      <p>{getScopeSummary(scope)}</p>
+<section class="style-settings" aria-label={getStyleScopeLabel(storageScope)}>
+  <div class="style-layout">
+    <div class="style-column style-column-main">
+      <section class="style-panel style-context-panel">
+        <div class="style-panel-header">
+          <div>
+            <p class="style-eyebrow">style settings</p>
+            <h3>{getStyleScopeLabel(storageScope)}</h3>
+            <p class="style-summary">{getStyleScopeSummary(storageScope)}</p>
+          </div>
+          <span class="style-panel-chip">{getStyleScopePath(storageScope)}</span>
+        </div>
+        <StyleFontsSection sectionScope="output" />
+        <StyleColorsSection sectionScope="output" />
+      </section>
+
+
+      <StyleFontsSection sectionScope="input" />
+      <StyleColorsSection sectionScope="input" />
     </div>
-    <div class="style-scope-pill">{scope.kind}</div>
-  </header>
 
-  <div class="style-settings-grid">
-    <section class="style-card">
-      <h3>output</h3>
-      <p class="style-card-note">shared output style controls will be added here.</p>
-      <div class="style-skeleton-lines" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-    </section>
+    <aside class="style-column style-column-aside">
+      <section class="style-preview-panel">
+        <div class="style-panel-header">
+          <div>
+            <h3>preview</h3>
+            <p>this area will show the currently active style chain for the selected scope.</p>
+          </div>
+          <span class="style-panel-chip">live preview</span>
+        </div>
 
-    <section class="style-card">
-      <h3>input</h3>
-      <p class="style-card-note">shared input style controls will be added here.</p>
-      <div class="style-skeleton-lines" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-    </section>
+        <div class="style-preview-scroll">
+          <div class="style-preview-scroll-header">
+            <h4>preview</h4>
+          </div>
+          <div class="style-preview-stage">
+            <div class="style-preview-output">
+              <div class="style-preview-label">output sample</div>
+              <div class="style-preview-text">The quick brown fox jumps over the lazy dog.</div>
+              <div class="style-preview-text muted">
+                Another line demonstrates the current output styling.
+              </div>
+            </div>
 
-    <section class="style-card style-preview-card">
-      <h3>preview</h3>
-      <p class="style-card-note">
-        this area will preview the currently active style chain for the selected scope.
-      </p>
-      <div class="style-preview">
-        <div class="style-preview-output">example output</div>
-        <div class="style-preview-input">example input</div>
-      </div>
-    </section>
+            <div class="style-preview-input">
+              <div class="style-preview-label">input sample</div>
+              <div class="style-preview-text">&gt; look north</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </aside>
   </div>
 </section>
 
@@ -80,118 +72,163 @@
     flex-direction: column;
     gap: 1rem;
     min-width: 0;
+    color: var(--text-bright);
   }
 
-  .style-settings-header {
+  .style-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .style-context-panel h3 {
+    margin-top: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  .style-summary {
+    margin-top: 0.45rem;
+    max-width: 42rem;
+    color: var(--text-bright);
+    line-height: 1.45;
+  }
+
+  .style-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 0.9rem;
+    min-width: 0;
+  }
+
+  .style-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+
+  .style-panel,
+  .style-preview-panel {
+    border: 1px solid var(--border);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+      rgba(8, 8, 8, 0.9);
+    padding: 1rem;
+  }
+
+  .style-panel-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
   }
 
-  .style-settings-header h2 {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 400;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--text-bright);
-  }
-
-  .style-settings-header p {
-    margin-top: 0.35rem;
-    max-width: 42rem;
-    color: var(--text-bright);
-  }
-
-  .style-scope-pill {
-    flex: 0 0 auto;
-    padding: 0.35rem 0.6rem;
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.03);
-    color: var(--text-dim);
-    font-family: var(--font-ui);
-    font-size: 0.68rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  .style-settings-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.85rem;
-  }
-
-  .style-card {
-    border: 1px solid var(--border);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
-      rgba(10, 10, 10, 0.88);
-    padding: 1rem;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 11rem;
-  }
-
-  .style-preview-card {
-    justify-content: space-between;
-  }
-
-  .style-card h3 {
+  .style-panel-header h3 {
     font-family: var(--font-ui);
     font-size: 0.72rem;
     font-weight: 400;
     letter-spacing: 0.22em;
     text-transform: uppercase;
+    color: var(--text-bright);
   }
 
-  .style-card-note {
+  .style-panel-header p {
+    margin-top: 0.35rem;
     color: var(--text-dim);
-    font-size: 0.84rem;
-    line-height: 1.35;
+    line-height: 1.45;
   }
 
-  .style-skeleton-lines {
+  .style-panel-chip {
+    flex: 0 0 auto;
+    padding: 0.32rem 0.55rem;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-dim);
+    font-family: var(--font-ui);
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .style-preview-panel {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    margin-top: auto;
+    gap: 0.95rem;
+    min-height: 100%;
   }
 
-  .style-skeleton-lines span {
-    height: 0.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.04);
+  .style-preview-scroll {
+    position: sticky;
+    top: 1rem;
+    z-index: 1;
+    align-self: start;
   }
 
-  .style-preview {
+  .style-preview-scroll-header {
+    margin-bottom: 0.6rem;
+    padding: 0 0.15rem;
+  }
+
+  .style-preview-scroll-header h4 {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-bright);
+  }
+
+  .style-preview-stage {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
-    margin-top: auto;
+    gap: 0.85rem;
   }
 
   .style-preview-output,
   .style-preview-input {
-    min-height: 2.35rem;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .style-preview-label {
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .style-preview-text {
+    font-size: 0.9rem;
+    line-height: 1.45;
     color: var(--text-bright);
-    font-size: 0.82rem;
-    line-height: 1.3;
+  }
+
+  .style-preview-text.muted {
+    color: var(--text-dim);
+  }
+
+  @media (max-width: 960px) {
+    .style-layout {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 640px) {
-    .style-settings-header {
+    .style-panel-header {
       flex-direction: column;
-    }
-
-    .style-settings-grid {
-      grid-template-columns: 1fr;
+      align-items: flex-start;
     }
   }
 </style>

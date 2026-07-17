@@ -319,7 +319,7 @@
           </label>
         </section>
       {:else if activeTab === 'style'}
-        <StyleSettingsPane scope={appStyleScope} />
+        <StyleSettingsPane storageScope={appStyleScope} />
       {:else if activeTab === 'ui'}
         <section class="settings-card">
           <h2>ui</h2>
