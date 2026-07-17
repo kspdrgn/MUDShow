@@ -2,6 +2,8 @@
 
 Style settings can be stored at three levels: app, world, character.
 
+The style UI is built as a reusable shared shell that tracks whether it is controlling app style, a world style, or a character style.
+
 Storage of style settings in database file:
 - App - "style" object at top level
 - World - "style" object within a world

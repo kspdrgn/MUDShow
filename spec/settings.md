@@ -21,6 +21,8 @@ Setting tabs:
 - Default Style
 - UI
 
+The app settings screen shows these sections as a left-side tab rail, with the first tab selected by default and the active pane rendered to the right.
+
 ## Database - customize storage of app settings
 - Selection of storage mode, locked to 'external json file' mode for now
 - Displays current database file location
@@ -56,7 +58,7 @@ Setting tabs:
 - Dictionary to use for input spellchecker
 
 ## Default Style
-- Shows the standard style settings panel, but with no override controls for each option since this is the bottom level app-wide style settings shared by any worlds or characters
+- Shared style settings shell for the app-wide defaults, with no override controls since this is the bottom level used by any worlds or characters
 - App default style is stored top level in the settings file as "style"
 - See `spec/style.md` for details on how styles can be customized and the UI for it
 

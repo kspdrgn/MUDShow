@@ -776,12 +776,25 @@ body {
   color: #fff;
 }
 
+.settings-shell {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  gap: 0.9rem;
+  min-height: 100%;
+}
+
+.settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
 .settings-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
 }
 
 .settings-header h1 {
@@ -795,25 +808,93 @@ body {
 
 .settings-header p {
   margin-top: 0.35rem;
-  max-width: 52rem;
+  max-width: 24rem;
 }
 
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+.settings-tab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
-.settings-card {
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.01)),
+    rgba(5, 5, 5, 0.84);
+  color: var(--text-dim);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    border-color 0.12s,
+    background 0.12s,
+    transform 0.12s;
+}
+
+.settings-tab:hover {
+  color: var(--text-bright);
+  border-color: var(--text-dim);
+  transform: translateX(1px);
+}
+
+.settings-tab.active {
+  color: var(--text-bright);
+  border-color: var(--border-active);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(12, 12, 12, 0.98);
+}
+
+.settings-tab span {
+  font-family: var(--font-ui);
+  font-size: 0.77rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.settings-tab-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.settings-pane {
   border: 1px solid var(--border);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
     rgba(5, 5, 5, 0.88);
   padding: 1.1rem;
+  min-width: 0;
+  display: flex;
+}
+
+.settings-pane > .settings-card {
+  flex: 1 1 auto;
+  min-height: 100%;
+}
+
+.settings-card {
   display: flex;
   flex-direction: column;
   gap: 0.95rem;
   min-height: 160px;
+}
+
+.settings-placeholder {
+  justify-content: center;
 }
 
 .settings-card h2 {
@@ -1819,11 +1900,15 @@ body {
     margin: 0 0.75rem;
   }
 
-  .settings-grid {
+  .settings-header {
+    flex-direction: column;
+  }
+
+  .settings-shell {
     grid-template-columns: 1fr;
   }
 
-  .settings-header {
-    flex-direction: column;
+  .settings-pane {
+    padding: 0.95rem;
   }
 }
