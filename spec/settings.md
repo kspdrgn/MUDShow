@@ -11,21 +11,57 @@ The application database is stored in a JSON file to be easily readable and mana
 
 # App Settings
 
-- Database file location
-  - The app uses the default location when this setting is null or invalid.
-  - The setting is populated after the database file has been moved or picked.
-  - App settings include actions to reveal the current database folder, pick a different database file, and move the database file.
+Setting tabs:
+- Database
+- Window
+- Transcript
+- Logging
+- Connections
+- Spellcheck
+- Default Style
+- UI
+
+## Database - customize storage of app settings
+- Selection of storage mode, locked to 'external json file' mode for now
+- Displays current database file location
   - Reveal file - A white 'folder' button opens the current database folder in the OS file manager and selects the file.
-  - Pick different file - A yellow 'file open' button opens a native file picker dialog starting at the current database file location. The user can select a JSON database file, and the app will set this file as the current database file and load from it, ignoring the original file.
-  - Move file - A red 'file move' button opens a native save dialog, copies the database file to the selected location, and removes the old file after a successful copy when it is safe to do so.
-- Image link previews
-  - A boolean app setting controls whether image URLs in transcript links may later render inline previews.
-  - The default is off.
-  - The setting is stored locally with the rest of the app settings.
-- Show current output when scrolling up
-- Default log folder location
-  - The app uses a safe default location when this setting is null or invalid.
-  - Session logs are created in this folder unless the user explicitly chooses a different destination.
+  - Move file - A yellow 'file move' button opens a native save dialog, copies the database file to the selected location, and removes the old file after a successful copy when it is safe to do so.
+  - Pick different file - A red 'file open' button opens a native file picker dialog starting at the current database file location. The user can select a JSON database file, and the app will set this file as the current database file and load from it, ignoring the original file.
+- The app uses the default location when this setting is null or invalid.
+- The location of the database file is stored within the app's webview storage, so custom locations can be remembered.
+- All settings (besides the location of the settings file) are saved immediately to the database file
+
+## Window - behavior of the entire app window
+- Flash window title when new activity arrives (this might be moved into world or character options)
+- Keep window on-top
+- Window transparency
+
+## Transcript - behavior of output area
+- Keep current output in view when scrolling - enables split output when scrolling up.
+- Show image link previews - A boolean app setting controls whether image URLs in transcript links may later render inline previews. The default is off.
+
+## Logging
+- Displays default log folder location, not directly editable
+  - Button to open the folder in OS native explorer
+  - Button to open a native folder picker to select a different folder, no logs will be moved
+- The app uses a safe default location when this setting is null or invalid.
+- Session logs are created in this folder unless the user explicitly chooses a different destination.
+
+## Connections
+- Connection timeout time
+- Connection retry count
+- Send TCP keep-alive signals
+
+## Spellcheck
+- Dictionary to use for input spellchecker
+
+## Default Style
+- Shows the standard style settings panel, but with no override controls for each option since this is the bottom level app-wide style settings shared by any worlds or characters
+- App default style is stored top level in the settings file as "style"
+- See `spec/style.md` for details on how styles can be customized and the UI for it
+
+## UI
+- App color and font scheme - locked to 'midnight' for now, which is a dark mode
 
 # World Settings
 - Connection info:
@@ -48,11 +84,11 @@ A 'Default' character exists for every world, which cannot be renamed. The defau
 
 Named characters can store input and output history, and can override style settings provided by the default character.
 
-## Fonts and Colors Settings
+## World / Character Style Settings
 
 Uses hierarchical settings.
 
-Font and color settings are the same between worlds and characters. Characters can have override settings that are different from the world settings.
+Font and color settings options are the same between worlds and characters. World styles can override app styles. Character styles can override world styles and app styles.
 
 ## Trigger / Highlight Settings
 

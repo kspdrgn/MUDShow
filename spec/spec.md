@@ -6,6 +6,7 @@
 - spec/output.md - Primary display window and features
 - spec/logging.md - Session logging behavior and file handling
 - spec/settings.md - App and world settings
+- spec/style.md - Style settings for fonts and colors used by input and output area, can be stored at three levels: app, world, character
 
 ## Purpose
 Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with just enough features to support roleplay and day-to-day play.

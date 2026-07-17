@@ -22,16 +22,13 @@ MVP Features:
 - [X] tab menu: shortcut to edit world and/or character?
 
 Bugs:
-- [X] Fix unmodified home/end keys not working in input window, the passthru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
 - [ ] Fix image previews not triggering scroll-to-bottom consistently?
 - [ ] Fix extra blank line after "Somewhere on the muck, * has connected."
-- [X] Fix character modal closing with space bar?
+- [X] Fix unmodified home/end keys not working in input window, the passthru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
 - [X] Linux: Fix resize frame, can't see while mousing over
-- [X] Fix tab reordering
-- [X] worlds menu: editing makes a new world\
 
 Release:
-- [ ] main branch makes 'release' with no artifacts?
+- [ ] how to include plain exe in 'release' artifacts?
 - [ ] rename bundle zip from 'desktop-bundle' to something else
 - [ ] Linux: CI + Release build?
 - [ ] Auto-updater:
