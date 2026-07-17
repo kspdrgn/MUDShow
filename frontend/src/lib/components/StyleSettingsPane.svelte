@@ -18,29 +18,31 @@
         <div class="style-panel-header">
           <div>
             <p class="style-eyebrow">style settings</p>
-            <h3>{getStyleScopeLabel(storageScope)}</h3>
+            <h3>Scope: {getStyleScopeLabel(storageScope)}</h3>
             <p class="style-summary">{getStyleScopeSummary(storageScope)}</p>
           </div>
-          <span class="style-panel-chip">{getStyleScopePath(storageScope)}</span>
+        </div>
+      </section>
+
+      <section class="style-panel style-context-panel">
+        <div class="style-panel-header">
+          <p class="style-eyebrow">output</p>
         </div>
         <StyleFontsSection sectionScope="output" />
         <StyleColorsSection sectionScope="output" />
       </section>
 
-
-      <StyleFontsSection sectionScope="input" />
-      <StyleColorsSection sectionScope="input" />
+      <section class="style-panel style-context-panel">
+        <div class="style-panel-header">
+          <p class="style-eyebrow">input</p>
+        </div>
+        <StyleFontsSection sectionScope="input" />
+        <StyleColorsSection sectionScope="input" />
+      </section>
     </div>
 
     <aside class="style-column style-column-aside">
       <section class="style-preview-panel">
-        <div class="style-panel-header">
-          <div>
-            <h3>preview</h3>
-            <p>this area will show the currently active style chain for the selected scope.</p>
-          </div>
-          <span class="style-panel-chip">live preview</span>
-        </div>
 
         <div class="style-preview-scroll">
           <div class="style-preview-scroll-header">

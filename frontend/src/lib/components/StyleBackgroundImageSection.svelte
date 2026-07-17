@@ -7,7 +7,6 @@
 <section class="style-background-card">
   <div class="style-tool-card-header">
     <h4>background image</h4>
-    <span>{sectionScope}</span>
   </div>
 
   <div class="style-image-grid">

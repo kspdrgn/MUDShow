@@ -7,8 +7,7 @@
 
 <section class="style-color-card">
   <div class="style-tool-card-header">
-    <h4>{STYLE_COLOR_CHANNEL_LABELS[channel]}</h4>
-    <span>{sectionScope}</span>
+    <h4>{STYLE_COLOR_CHANNEL_LABELS[channel]} color</h4>
   </div>
 
   <div class="style-color-row">

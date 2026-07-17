@@ -6,12 +6,8 @@
   export let sectionScope: StyleSectionScope;
 </script>
 
-<section class="style-panel">
+<div>
   <div class="style-panel-header">
-    <div>
-      <h3>{STYLE_SECTION_CONTENT[sectionScope].title} colors</h3>
-      <p>{STYLE_SECTION_CONTENT[sectionScope].description}</p>
-    </div>
   </div>
 
   <div class="style-color-grid">
@@ -21,7 +17,7 @@
       <StyleBackgroundImageSection sectionScope={sectionScope} />
     </div>
   </div>
-</section>
+</div>
 
 <style>
   .style-panel {

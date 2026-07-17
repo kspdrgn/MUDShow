@@ -4,19 +4,14 @@
   export let sectionScope: StyleSectionScope;
 </script>
 
-<section class="style-panel">
+<div>
   <div class="style-panel-header">
-    <div>
-      <h3>{STYLE_SECTION_CONTENT[sectionScope].title}</h3>
-      <p>{STYLE_SECTION_CONTENT[sectionScope].description}</p>
-    </div>
   </div>
 
   <div class="style-tool-grid">
     <section class="style-tool-card">
       <div class="style-tool-card-header">
-        <h4>font picker</h4>
-        <span>{sectionScope}</span>
+        <h4>font selection</h4>
       </div>
       <div class="style-picker-surface">
         <div class="style-picker-line short"></div>
@@ -28,7 +23,6 @@
     <section class="style-tool-card">
       <div class="style-tool-card-header">
         <h4>font size</h4>
-        <span>{sectionScope}</span>
       </div>
       <div class="style-size-surface">
         <div class="style-size-stepper">
@@ -39,7 +33,7 @@
       </div>
     </section>
   </div>
-</section>
+</div>
 
 <style>
   .style-panel {
