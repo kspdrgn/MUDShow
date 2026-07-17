@@ -146,19 +146,6 @@
     line-height: 1.45;
   }
 
-  .style-panel-chip {
-    flex: 0 0 auto;
-    padding: 0.32rem 0.55rem;
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.03);
-    color: var(--text-dim);
-    font-family: var(--font-ui);
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
   .style-preview-panel {
     display: flex;
     flex-direction: column;

@@ -33,7 +33,9 @@ Settings areas, for both output and input:
 - Foreground - Colors UI
 - Background - Colors UI
 
-Each of these areas will have a toggle control to control whether or not they will be "active" and override inherited styles. The app-level style settings will not have the toggle control.
+Each style area has an override toggle that controls whether the draft value is considered active. If the draft value matches the inherited or default value, the toggle automatically turns off. When a toggle is off, the current draft value stays in the UI but is treated as inactive and is not persisted.
+
+The app-level style settings use the same UI for layout testing, but app defaults are still the baseline values that output/input inherit from when nothing is overridden.
 
 ## Fonts UI
 
@@ -47,3 +49,16 @@ Each of these areas will have a toggle control to control whether or not they wi
 - Foreground Color picker
 - Background Color, color picker
 - Background Image - Placeholder, to be implemented later. Will have file picker and options for how the image will fit in the window, and transparency percent or gradient options.
+
+# Override Behavior
+
+Styles have four levels:
+- Default app styles - These are hardcoded sensible default values that the app starts with.
+- App styles - User overrides of the default styles used by every world and character.
+- World styles - World-level overrides used by each of the world's characters.
+- Character styles - Character-level overrides used only by one character.
+
+Toggling and persistence:
+- Each draft style value has a local UI state so users can toggle it off and back on without losing the last entered value.
+- Turning a toggle off removes that setting from the persisted style data when persistence is enabled.
+- Opening the style UI with no saved style data starts from the app style values.

@@ -1,19 +1,68 @@
 <script lang="ts">
-  import { STYLE_SECTION_CONTENT, type StyleSectionScope } from './style-settings';
+  import { type StyleSectionScope } from './style-settings';
+  import StyleSlideToggle from './StyleSlideToggle.svelte';
 
   export let sectionScope: StyleSectionScope;
+
+  const DEFAULT_FONT_FAMILY = 'inherit';
+  const DEFAULT_FONT_SIZE = 16;
+
+  let fontSelectionOverrideEnabled = false;
+  let fontSizeOverrideEnabled = false;
+  let fontFamily = DEFAULT_FONT_FAMILY;
+  let fontSize = DEFAULT_FONT_SIZE;
+
+  function normalizeFamily(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
+  function updateFontFamily(nextValue: string): void {
+    fontFamily = nextValue;
+    if (normalizeFamily(fontFamily) === normalizeFamily(DEFAULT_FONT_FAMILY)) {
+      fontSelectionOverrideEnabled = false;
+    }
+  }
+
+  function updateFontSize(nextValue: number): void {
+    fontSize = nextValue;
+    if (fontSize === DEFAULT_FONT_SIZE) {
+      fontSizeOverrideEnabled = false;
+    }
+  }
+
+  function stepFontSize(delta: number): void {
+    updateFontSize(Math.max(8, Math.min(32, fontSize + delta)));
+  }
 </script>
 
 <div>
   <div class="style-panel-header">
+    <div>
+      <p class="style-panel-kicker">{sectionScope} fonts</p>
+    </div>
   </div>
 
   <div class="style-tool-grid">
     <section class="style-tool-card">
       <div class="style-tool-card-header">
-        <h4>font selection</h4>
+        <div>
+          <h4>font selection</h4>
+          <span>{fontSelectionOverrideEnabled ? 'override on' : 'inherited'}</span>
+        </div>
+        <StyleSlideToggle bind:checked={fontSelectionOverrideEnabled} />
       </div>
       <div class="style-picker-surface">
+        <select
+          class="style-select"
+          value={fontFamily}
+          aria-label={`${sectionScope} font family`}
+          on:change={(event) => updateFontFamily((event.currentTarget as HTMLSelectElement).value)}
+        >
+          <option value="inherit">inherit</option>
+          <option value="JetBrains Mono">JetBrains Mono</option>
+          <option value="system-ui">System UI</option>
+          <option value="serif">Serif</option>
+        </select>
         <div class="style-picker-line short"></div>
         <div class="style-picker-line"></div>
         <div class="style-picker-line medium"></div>
@@ -22,13 +71,40 @@
 
     <section class="style-tool-card">
       <div class="style-tool-card-header">
-        <h4>font size</h4>
+        <div>
+          <h4>font size</h4>
+          <span>{fontSizeOverrideEnabled ? 'override on' : 'inherited'}</span>
+        </div>
+        <StyleSlideToggle bind:checked={fontSizeOverrideEnabled} />
       </div>
       <div class="style-size-surface">
         <div class="style-size-stepper">
-          <span class="style-stepper-button">-</span>
-          <span class="style-stepper-value">16</span>
-          <span class="style-stepper-button">+</span>
+          <button
+            type="button"
+            class="style-stepper-button"
+            aria-label="decrease font size"
+            on:click={() => stepFontSize(-1)}
+          >
+            -
+          </button>
+          <input
+            class="style-stepper-value"
+            type="number"
+            min="8"
+            max="32"
+            step="1"
+            value={fontSize}
+            aria-label={`${sectionScope} font size`}
+            on:input={(event) => updateFontSize(Number((event.currentTarget as HTMLInputElement).value))}
+          />
+          <button
+            type="button"
+            class="style-stepper-button"
+            aria-label="increase font size"
+            on:click={() => stepFontSize(1)}
+          >
+            +
+          </button>
         </div>
       </div>
     </section>
@@ -36,24 +112,23 @@
 </div>
 
 <style>
-  .style-panel {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-      rgba(8, 8, 8, 0.9);
-    padding: 1rem;
+  .style-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
   }
 
-  .style-panel-header h3 {
+  .style-panel-kicker {
     font-family: var(--font-ui);
     font-size: 0.72rem;
     font-weight: 400;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--text-bright);
   }
 
-  .style-panel-header p {
+  .style-panel-copy {
     margin-top: 0.35rem;
     color: var(--text-dim);
     line-height: 1.45;
@@ -103,6 +178,18 @@
     gap: 0.55rem;
   }
 
+  .style-select {
+    width: 100%;
+    min-height: 2.05rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+      rgba(255, 255, 255, 0.02);
+    color: var(--text-bright);
+    padding: 0 0.65rem;
+    outline: none;
+  }
+
   .style-picker-line {
     height: 2.05rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -148,10 +235,17 @@
   .style-stepper-button {
     color: var(--text-dim);
     background: rgba(255, 255, 255, 0.03);
+    border: 0;
+    cursor: pointer;
   }
 
   .style-stepper-value {
+    width: 100%;
+    border: 0;
+    background: transparent;
     color: var(--text-bright);
+    text-align: center;
+    outline: none;
   }
 
   @media (max-width: 640px) {

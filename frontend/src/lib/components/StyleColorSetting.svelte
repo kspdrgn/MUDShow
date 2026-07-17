@@ -3,17 +3,30 @@
 
   export let sectionScope: StyleSectionScope;
   export let channel: StyleColorChannel;
+  export let value = 'inherit';
+  export let defaultValue = 'inherit';
+  export let onChange: (nextValue: string) => void = () => {};
 </script>
 
 <section class="style-color-card">
   <div class="style-tool-card-header">
-    <h4>{STYLE_COLOR_CHANNEL_LABELS[channel]} color</h4>
+    <div>
+      <h4>{sectionScope} {STYLE_COLOR_CHANNEL_LABELS[channel]} color</h4>
+      <span>{value.trim().toLowerCase() === defaultValue.trim().toLowerCase() ? 'inherited' : 'override ready'}</span>
+    </div>
   </div>
 
   <div class="style-color-row">
-    <div class="style-color-swatch" aria-hidden="true"></div>
+    <div class="style-color-swatch" aria-hidden="true" style={`background:${value};`}></div>
     <div class="style-color-copy">
-      <div class="style-color-line short"></div>
+      <input
+        class="style-color-input"
+        type="text"
+        value={value}
+        spellcheck="false"
+        aria-label={`${STYLE_COLOR_CHANNEL_LABELS[channel]} color value`}
+        on:input={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
+      />
       <div class="style-color-line medium"></div>
     </div>
   </div>
@@ -73,16 +86,25 @@
     gap: 0.45rem;
   }
 
+  .style-color-input {
+    width: 100%;
+    background: var(--input-bg);
+    color: var(--text-bright);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 0.6rem;
+    outline: none;
+  }
+
+  .style-color-input:focus {
+    border-color: rgba(74, 158, 255, 0.42);
+  }
+
   .style-color-line {
     height: 0.85rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background:
       linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
       rgba(255, 255, 255, 0.02);
-  }
-
-  .style-color-line.short {
-    width: 58%;
   }
 
   .style-color-line.medium {

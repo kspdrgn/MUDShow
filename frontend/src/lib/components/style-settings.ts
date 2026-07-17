@@ -41,15 +41,13 @@ export function getStyleScopePath(scope: StyleScope): string {
 
 export const STYLE_SECTION_CONTENT: Record<
   StyleSectionScope,
-  { title: string; description: string }
+  { title: string }
 > = {
   output: {
     title: 'output',
-    description: 'the output side will control the visible transcript styling.',
   },
   input: {
     title: 'input',
-    description: 'the input side will control the prompt and text entry styling.',
   },
 };
 
