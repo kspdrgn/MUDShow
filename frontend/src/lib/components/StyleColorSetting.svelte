@@ -1,30 +1,34 @@
 <script lang="ts">
-  import { STYLE_COLOR_CHANNEL_LABELS, type StyleColorChannel, type StyleSectionScope } from './style-settings';
+  import {
+    STYLE_COLOR_CHANNEL_LABELS,
+    type StyleColorChannel,
+    type StyleSectionScope,
+  } from './style-settings';
 
   export let sectionScope: StyleSectionScope;
   export let channel: StyleColorChannel;
-  export let value = 'inherit';
-  export let defaultValue = 'inherit';
+  export let value = '';
+  export let defaultValue = '';
   export let onChange: (nextValue: string) => void = () => {};
 </script>
 
 <section class="style-color-card">
   <div class="style-tool-card-header">
     <div>
-      <h4>{sectionScope} {STYLE_COLOR_CHANNEL_LABELS[channel]} color</h4>
-      <span>{value.trim().toLowerCase() === defaultValue.trim().toLowerCase() ? 'inherited' : 'override ready'}</span>
+      <h4>{STYLE_COLOR_CHANNEL_LABELS[channel]} color</h4>
+      <span>{value.trim() === defaultValue.trim() ? 'default' : 'override'}</span>
     </div>
   </div>
 
   <div class="style-color-row">
-    <div class="style-color-swatch" aria-hidden="true" style={`background:${value};`}></div>
+    <div class="style-color-swatch" aria-hidden="true" style={`background:${value || defaultValue};`}></div>
     <div class="style-color-copy">
       <input
         class="style-color-input"
         type="text"
         value={value}
         spellcheck="false"
-        aria-label={`${STYLE_COLOR_CHANNEL_LABELS[channel]} color value`}
+        aria-label={`${sectionScope} ${STYLE_COLOR_CHANNEL_LABELS[channel]} color`}
         on:input={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
       />
       <div class="style-color-line medium"></div>

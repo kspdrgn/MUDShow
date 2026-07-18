@@ -1,45 +1,72 @@
 <script lang="ts">
-  import { type StyleSectionScope } from './style-settings';
   import StyleSlideToggle from './StyleSlideToggle.svelte';
+  import {
+    type StyleSectionEditor,
+    type StyleSectionScope,
+    type StyleSectionValue,
+    type StyleImageFit,
+  } from './style-settings';
 
   export let sectionScope: StyleSectionScope;
-
-  const DEFAULT_IMAGE_PATH = '';
-  const DEFAULT_IMAGE_FIT = 'cover';
-  const DEFAULT_IMAGE_OPACITY = 100;
-
-  let overrideEnabled = false;
-  let imagePath = DEFAULT_IMAGE_PATH;
-  let imageFit = DEFAULT_IMAGE_FIT;
-  let imageOpacity = DEFAULT_IMAGE_OPACITY;
+  export let section: StyleSectionEditor;
+  export let defaults: StyleSectionValue;
+  export let onChange: (nextSection: StyleSectionEditor) => void = () => {};
 
   function normalizePath(value: string): string {
     return value.trim();
   }
 
-  function syncOverrideState(): void {
-    if (
-      normalizePath(imagePath) === DEFAULT_IMAGE_PATH &&
-      imageFit === DEFAULT_IMAGE_FIT &&
-      imageOpacity === DEFAULT_IMAGE_OPACITY
-    ) {
-      overrideEnabled = false;
-    }
+  function matchesDefaultBackgroundImage(nextSection: StyleSectionEditor): boolean {
+    return (
+      normalizePath(nextSection.backgroundImagePath) === normalizePath(defaults.backgroundImage.path) &&
+      nextSection.backgroundImageFit === defaults.backgroundImage.fit &&
+      nextSection.backgroundImageOpacity === defaults.backgroundImage.opacity
+    );
   }
 
-  function updateImagePath(nextValue: string): void {
-    imagePath = nextValue;
-    syncOverrideState();
+  function updateBackgroundImagePath(nextValue: string): void {
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      backgroundImagePath: nextValue,
+      backgroundImageEnabled:
+        section.backgroundImageEnabled &&
+        !matchesDefaultBackgroundImage({ ...section, backgroundImagePath: nextValue }),
+    };
+
+    onChange(nextSection);
   }
 
-  function updateImageFit(nextValue: string): void {
-    imageFit = nextValue;
-    syncOverrideState();
+  function updateBackgroundImageFit(nextValue: StyleImageFit): void {
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      backgroundImageFit: nextValue,
+      backgroundImageEnabled:
+        section.backgroundImageEnabled &&
+        !matchesDefaultBackgroundImage({ ...section, backgroundImageFit: nextValue }),
+    };
+
+    onChange(nextSection);
   }
 
-  function updateImageOpacity(nextValue: number): void {
-    imageOpacity = nextValue;
-    syncOverrideState();
+  function updateBackgroundImageOpacity(nextValue: number): void {
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      backgroundImageOpacity: nextValue,
+      backgroundImageEnabled:
+        section.backgroundImageEnabled &&
+        !matchesDefaultBackgroundImage({ ...section, backgroundImageOpacity: nextValue }),
+    };
+
+    onChange(nextSection);
+  }
+
+  function updateBackgroundImageEnabled(nextEnabled: boolean): void {
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      backgroundImageEnabled: nextEnabled && !matchesDefaultBackgroundImage(section),
+    };
+
+    onChange(nextSection);
   }
 </script>
 
@@ -47,9 +74,13 @@
   <div class="style-tool-card-header">
     <div>
       <h4>{sectionScope} background image</h4>
-      <span>{overrideEnabled ? 'override on' : 'inherited'}</span>
+      <span>{section.backgroundImageEnabled ? 'override on' : 'inherited'}</span>
     </div>
-    <StyleSlideToggle bind:checked={overrideEnabled} />
+    <StyleSlideToggle
+      checked={section.backgroundImageEnabled}
+      label="override"
+      on:change={(event) => updateBackgroundImageEnabled(event.detail)}
+    />
   </div>
 
   <div class="style-image-grid">
@@ -58,33 +89,35 @@
       <input
         class="style-image-path"
         type="text"
-        value={imagePath}
+        value={section.backgroundImagePath}
         spellcheck="false"
-        aria-label="background image path display"
-        on:input={(event) => updateImagePath((event.currentTarget as HTMLInputElement).value)}
+        aria-label={`${sectionScope} background image path`}
+        on:input={(event) => updateBackgroundImagePath((event.currentTarget as HTMLInputElement).value)}
       />
     </div>
     <div class="style-image-row">
       <select
         class="style-image-select"
-        value={imageFit}
-        aria-label="background image fit"
-        on:change={(event) => updateImageFit((event.currentTarget as HTMLSelectElement).value)}
+        value={section.backgroundImageFit}
+        aria-label={`${sectionScope} background image fit`}
+        on:change={(event) =>
+          updateBackgroundImageFit((event.currentTarget as HTMLSelectElement).value as StyleImageFit)}
       >
         <option value="cover">cover</option>
         <option value="contain">contain</option>
         <option value="repeat">repeat</option>
       </select>
       <label class="style-image-select short">
-        <span class="style-image-opacity-label">{imageOpacity}%</span>
+        <span class="style-image-opacity-label">{section.backgroundImageOpacity}%</span>
         <input
           type="range"
           min="0"
           max="100"
           step="1"
-          value={imageOpacity}
-          aria-label="background image opacity"
-          on:input={(event) => updateImageOpacity(Number((event.currentTarget as HTMLInputElement).value))}
+          value={section.backgroundImageOpacity}
+          aria-label={`${sectionScope} background image opacity`}
+          on:input={(event) =>
+            updateBackgroundImageOpacity(Number((event.currentTarget as HTMLInputElement).value))}
         />
       </label>
     </div>

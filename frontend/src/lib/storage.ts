@@ -1,4 +1,8 @@
 import type { CharacterRecord, HighlightRule, WorldRecord } from './types';
+import {
+  normalizeAppStyleOverrides,
+  type AppStyleOverrides,
+} from './components/style-settings';
 import { trimTranscriptHistory, type TranscriptHistoryEntry } from './playback';
 import { invoke, isTauriAvailable } from './tauri';
 
@@ -7,7 +11,8 @@ const CHARACTER_KEY = 'mudshow_chars';
 const HIGHLIGHT_KEY = 'mudshow_highlights';
 const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
-const STORAGE_SCHEMA_VERSION = 1;
+const STYLE_KEY = 'mudshow_style';
+const STORAGE_SCHEMA_VERSION = 2;
 
 export type DesktopStorageMode = 'file';
 
@@ -18,6 +23,7 @@ interface PersistentData {
   highlights: HighlightRule[];
   history: Record<string, TranscriptHistoryEntry[]>;
   notes: Record<string, string>;
+  style: AppStyleOverrides;
 }
 
 let fileWriteQueue: Promise<void> = Promise.resolve();
@@ -48,6 +54,7 @@ function createEmptyData(): PersistentData {
     highlights: [],
     history: {},
     notes: {},
+    style: {},
   };
 }
 
@@ -190,6 +197,7 @@ function normalizePersistentData(
     highlights: Array.isArray(raw.highlights) ? raw.highlights : [],
     history: isRecord(raw.history) ? (raw.history as Record<string, TranscriptHistoryEntry[]>) : {},
     notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
+    style: normalizeAppStyleOverrides(raw.style),
   };
 }
 
@@ -198,6 +206,7 @@ function readWebviewData(): PersistentData {
   const characters = safeParse<unknown>(localStorage.getItem(CHARACTER_KEY), []);
   const highlights = safeParse<HighlightRule[]>(localStorage.getItem(HIGHLIGHT_KEY), []);
   const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
+  const style = safeParse<unknown>(localStorage.getItem(STYLE_KEY), {});
   const notes = Object.keys(localStorage)
     .filter((key) => key.startsWith(NOTES_PREFIX))
     .reduce<Record<string, string>>((accumulator, key) => {
@@ -212,6 +221,7 @@ function readWebviewData(): PersistentData {
     highlights,
     history,
     notes,
+    style,
   });
 }
 
@@ -220,6 +230,7 @@ function writeWebviewData(data: PersistentData): void {
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data.characters));
   localStorage.setItem(HIGHLIGHT_KEY, JSON.stringify(data.highlights));
   localStorage.setItem(HISTORY_KEY, JSON.stringify(data.history));
+  localStorage.setItem(STYLE_KEY, JSON.stringify(data.style));
 
   Object.keys(localStorage)
     .filter((key) => key.startsWith(NOTES_PREFIX))
@@ -639,6 +650,36 @@ export async function saveHighlights(rules: HighlightRule[]): Promise<void> {
   }));
 }
 
+export async function loadAppStyleOverrides(): Promise<AppStyleOverrides> {
+  if (!isTauriAvailable()) {
+    return readWebviewData().style;
+  }
+
+  return withStorageAccess(async () => {
+    await waitForPendingFileWrites();
+    const data = await readFileData();
+    return data.style;
+  });
+}
+
+export async function saveAppStyleOverrides(style: AppStyleOverrides): Promise<void> {
+  const nextStyle = normalizeAppStyleOverrides(style);
+
+  if (!isTauriAvailable()) {
+    const current = readWebviewData();
+    writeWebviewData({
+      ...current,
+      style: nextStyle,
+    });
+    return;
+  }
+
+  await queueFileMutation((data) => ({
+    ...data,
+    style: nextStyle,
+  }));
+}
+
 export async function saveConnectionData(worlds: WorldRecord[], characters: CharacterRecord[]): Promise<void> {
   const normalizedWorlds = dedupeWorlds(
     worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null),
@@ -656,6 +697,7 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
     highlights: [],
     history: {},
     notes: {},
+    style: {},
   };
 
   if (!isTauriAvailable()) {

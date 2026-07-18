@@ -1,13 +1,14 @@
 # Style - Settings for fonts and colors used by input and output area
 
-Style settings can be stored at three levels: app, world, character.
+Style settings are designed to work at three levels: app, world, character.
+Only the app level is wired up right now.
 
 The style UI is built as a reusable shared shell that tracks whether it is controlling app style, a world style, or a character style.
 
-Storage of style settings in database file:
-- App - "style" object at top level
-- World - "style" object within a world
-- Character - "style" object within a world character
+Storage of style settings:
+- App - persisted in the app storage file as the top-level `style` object
+- World - planned for later
+- Character - planned for later
 
 Each "style" object has the same schema. 
 
@@ -18,7 +19,7 @@ Style settings have three main areas in the UI:
 
 # Preview
 
-Shows example output using the currently applicable styles, which may use inherited app or world options
+Shows example output using the currently applicable app styles and live app-wide overrides.
 
 Preview area shows two parts to simulate how the app's output and input area will look:
 - Output area displays several lines of example text.
@@ -35,7 +36,7 @@ Settings areas, for both output and input:
 
 Each style area has an override toggle that controls whether the draft value is considered active. If the draft value matches the inherited or default value, the toggle automatically turns off. When a toggle is off, the current draft value stays in the UI but is treated as inactive and is not persisted.
 
-The app-level style settings use the same UI for layout testing, but app defaults are still the baseline values that output/input inherit from when nothing is overridden.
+The app-level style settings are live and persist to the app storage file. App defaults are the baseline values that output/input inherit from when nothing is overridden.
 
 ## Fonts UI
 

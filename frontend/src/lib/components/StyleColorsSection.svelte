@@ -1,36 +1,63 @@
 <script lang="ts">
-  import { STYLE_SECTION_CONTENT, type StyleSectionScope } from './style-settings';
   import StyleBackgroundImageSection from './StyleBackgroundImageSection.svelte';
   import StyleColorSetting from './StyleColorSetting.svelte';
   import StyleSlideToggle from './StyleSlideToggle.svelte';
+  import {
+    STYLE_SECTION_CONTENT,
+    type StyleSectionEditor,
+    type StyleSectionScope,
+    type StyleSectionValue,
+  } from './style-settings';
 
   export let sectionScope: StyleSectionScope;
+  export let section: StyleSectionEditor;
+  export let defaults: StyleSectionValue;
+  export let onChange: (nextSection: StyleSectionEditor) => void = () => {};
 
-  const DEFAULT_FOREGROUND_COLOR = 'inherit';
-  const DEFAULT_BACKGROUND_COLOR = 'inherit';
-
-  let overrideEnabled = false;
-  let foregroundColor = DEFAULT_FOREGROUND_COLOR;
-  let backgroundColor = DEFAULT_BACKGROUND_COLOR;
-
-  function normalizeColor(value: string): string {
+  function normalize(value: string): string {
     return value.trim().toLowerCase();
   }
 
+  function matchesDefaultColors(nextSection: StyleSectionEditor): boolean {
+    return (
+      normalize(nextSection.foregroundColor) === normalize(defaults.foregroundColor) &&
+      normalize(nextSection.backgroundColor) === normalize(defaults.backgroundColor)
+    );
+  }
+
+  function updateSection(nextSection: StyleSectionEditor): void {
+    onChange(nextSection);
+  }
+
   function updateForegroundColor(nextValue: string): void {
-    foregroundColor = nextValue;
-    if (normalizeColor(foregroundColor) === normalizeColor(DEFAULT_FOREGROUND_COLOR)
-      && normalizeColor(backgroundColor) === normalizeColor(DEFAULT_BACKGROUND_COLOR)) {
-      overrideEnabled = false;
-    }
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      foregroundColor: nextValue,
+      colorsEnabled:
+        section.colorsEnabled && !matchesDefaultColors({ ...section, foregroundColor: nextValue }),
+    };
+
+    updateSection(nextSection);
   }
 
   function updateBackgroundColor(nextValue: string): void {
-    backgroundColor = nextValue;
-    if (normalizeColor(foregroundColor) === normalizeColor(DEFAULT_FOREGROUND_COLOR)
-      && normalizeColor(backgroundColor) === normalizeColor(DEFAULT_BACKGROUND_COLOR)) {
-      overrideEnabled = false;
-    }
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      backgroundColor: nextValue,
+      colorsEnabled:
+        section.colorsEnabled && !matchesDefaultColors({ ...section, backgroundColor: nextValue }),
+    };
+
+    updateSection(nextSection);
+  }
+
+  function updateColorsEnabled(nextEnabled: boolean): void {
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      colorsEnabled: nextEnabled && !matchesDefaultColors(section),
+    };
+
+    updateSection(nextSection);
   }
 </script>
 
@@ -39,26 +66,35 @@
     <div>
       <p class="style-panel-kicker">{STYLE_SECTION_CONTENT[sectionScope].title} colors</p>
     </div>
-    <StyleSlideToggle bind:checked={overrideEnabled} />
+    <StyleSlideToggle
+      checked={section.colorsEnabled}
+      label="override"
+      on:change={(event) => updateColorsEnabled(event.detail)}
+    />
   </div>
 
   <div class="style-color-grid">
     <StyleColorSetting
       sectionScope={sectionScope}
       channel="foreground"
-      value={foregroundColor}
-      defaultValue={DEFAULT_FOREGROUND_COLOR}
+      value={section.foregroundColor}
+      defaultValue={defaults.foregroundColor}
       onChange={updateForegroundColor}
     />
     <StyleColorSetting
       sectionScope={sectionScope}
       channel="background"
-      value={backgroundColor}
-      defaultValue={DEFAULT_BACKGROUND_COLOR}
+      value={section.backgroundColor}
+      defaultValue={defaults.backgroundColor}
       onChange={updateBackgroundColor}
     />
     <div class="style-background-span">
-      <StyleBackgroundImageSection sectionScope={sectionScope} />
+      <StyleBackgroundImageSection
+        sectionScope={sectionScope}
+        section={section}
+        defaults={defaults}
+        onChange={updateSection}
+      />
     </div>
   </div>
 </div>

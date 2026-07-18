@@ -1,67 +1,98 @@
 <script lang="ts">
-  import { type StyleSectionScope } from './style-settings';
   import StyleSlideToggle from './StyleSlideToggle.svelte';
+  import {
+    type StyleSectionEditor,
+    type StyleSectionScope,
+    type StyleSectionValue,
+  } from './style-settings';
 
   export let sectionScope: StyleSectionScope;
+  export let section: StyleSectionEditor;
+  export let defaults: StyleSectionValue;
+  export let onChange: (nextSection: StyleSectionEditor) => void = () => {};
 
-  const DEFAULT_FONT_FAMILY = 'inherit';
-  const DEFAULT_FONT_SIZE = 16;
+  const FONT_CHOICES: Array<{ value: string; label: string }> = [
+    { value: 'var(--font-mono)', label: 'JetBrains Mono' },
+    { value: 'system-ui', label: 'System UI' },
+    { value: 'serif', label: 'Serif' },
+  ];
 
-  let fontSelectionOverrideEnabled = false;
-  let fontSizeOverrideEnabled = false;
-  let fontFamily = DEFAULT_FONT_FAMILY;
-  let fontSize = DEFAULT_FONT_SIZE;
-
-  function normalizeFamily(value: string): string {
+  function normalize(value: string): string {
     return value.trim().toLowerCase();
   }
 
+  function updateSection(nextSection: StyleSectionEditor): void {
+    onChange(nextSection);
+  }
+
   function updateFontFamily(nextValue: string): void {
-    fontFamily = nextValue;
-    if (normalizeFamily(fontFamily) === normalizeFamily(DEFAULT_FONT_FAMILY)) {
-      fontSelectionOverrideEnabled = false;
-    }
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      fontFamily: nextValue,
+      fontFamilyEnabled:
+        section.fontFamilyEnabled && normalize(nextValue) !== normalize(defaults.fontFamily),
+    };
+
+    updateSection(nextSection);
+  }
+
+  function updateFontFamilyEnabled(nextEnabled: boolean): void {
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      fontFamilyEnabled: nextEnabled && normalize(section.fontFamily) !== normalize(defaults.fontFamily),
+    };
+
+    updateSection(nextSection);
   }
 
   function updateFontSize(nextValue: number): void {
-    fontSize = nextValue;
-    if (fontSize === DEFAULT_FONT_SIZE) {
-      fontSizeOverrideEnabled = false;
-    }
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      fontSize: nextValue,
+      fontSizeEnabled: section.fontSizeEnabled && nextValue !== defaults.fontSize,
+    };
+
+    updateSection(nextSection);
+  }
+
+  function updateFontSizeEnabled(nextEnabled: boolean): void {
+    const nextSection: StyleSectionEditor = {
+      ...section,
+      fontSizeEnabled: nextEnabled && section.fontSize !== defaults.fontSize,
+    };
+
+    updateSection(nextSection);
   }
 
   function stepFontSize(delta: number): void {
-    updateFontSize(Math.max(8, Math.min(32, fontSize + delta)));
+    updateFontSize(Math.max(8, Math.min(32, section.fontSize + delta)));
   }
 </script>
 
 <div>
-  <div class="style-panel-header">
-    <div>
-      <p class="style-panel-kicker">{sectionScope} fonts</p>
-    </div>
-  </div>
-
   <div class="style-tool-grid">
     <section class="style-tool-card">
       <div class="style-tool-card-header">
         <div>
           <h4>font selection</h4>
-          <span>{fontSelectionOverrideEnabled ? 'override on' : 'inherited'}</span>
+          <span>{section.fontFamilyEnabled ? 'override on' : 'inherited'}</span>
         </div>
-        <StyleSlideToggle bind:checked={fontSelectionOverrideEnabled} />
+        <StyleSlideToggle
+          checked={section.fontFamilyEnabled}
+          label="override"
+          on:change={(event) => updateFontFamilyEnabled(event.detail)}
+        />
       </div>
       <div class="style-picker-surface">
         <select
           class="style-select"
-          value={fontFamily}
+          value={section.fontFamily}
           aria-label={`${sectionScope} font family`}
           on:change={(event) => updateFontFamily((event.currentTarget as HTMLSelectElement).value)}
         >
-          <option value="inherit">inherit</option>
-          <option value="JetBrains Mono">JetBrains Mono</option>
-          <option value="system-ui">System UI</option>
-          <option value="serif">Serif</option>
+          {#each FONT_CHOICES as choice}
+            <option value={choice.value}>{choice.label}</option>
+          {/each}
         </select>
         <div class="style-picker-line short"></div>
         <div class="style-picker-line"></div>
@@ -73,9 +104,13 @@
       <div class="style-tool-card-header">
         <div>
           <h4>font size</h4>
-          <span>{fontSizeOverrideEnabled ? 'override on' : 'inherited'}</span>
+          <span>{section.fontSizeEnabled ? 'override on' : 'inherited'}</span>
         </div>
-        <StyleSlideToggle bind:checked={fontSizeOverrideEnabled} />
+        <StyleSlideToggle
+          checked={section.fontSizeEnabled}
+          label="override"
+          on:change={(event) => updateFontSizeEnabled(event.detail)}
+        />
       </div>
       <div class="style-size-surface">
         <div class="style-size-stepper">
@@ -93,7 +128,7 @@
             min="8"
             max="32"
             step="1"
-            value={fontSize}
+            value={section.fontSize}
             aria-label={`${sectionScope} font size`}
             on:input={(event) => updateFontSize(Number((event.currentTarget as HTMLInputElement).value))}
           />

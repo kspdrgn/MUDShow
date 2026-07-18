@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AppSettings } from '../app-settings';
+  import type { AppStyleEditor } from './style-settings';
   import StyleSettingsPane from './StyleSettingsPane.svelte';
 
   type SettingsTabId =
@@ -14,6 +15,8 @@
 
   export let settings: AppSettings;
   export let onChange: (patch: Partial<AppSettings>) => void;
+  export let style: AppStyleEditor;
+  export let onStyleChange: (next: AppStyleEditor) => void;
   export let storageFilePath: string | null;
   export let resolvedLogFolderPath: string | null;
   export let onRevealLogFolder: () => void;
@@ -319,7 +322,7 @@
           </label>
         </section>
       {:else if activeTab === 'style'}
-        <StyleSettingsPane storageScope={appStyleScope} />
+        <StyleSettingsPane storageScope={appStyleScope} style={style} onChange={onStyleChange} />
       {:else if activeTab === 'ui'}
         <section class="settings-card">
           <h2>ui</h2>

@@ -5,10 +5,59 @@
     getStyleScopeLabel,
     getStyleScopePath,
     getStyleScopeSummary,
+    resolveAppStyleEditor,
+    type AppStyleEditor,
+    type StyleSectionEditor,
+    type StyleSectionScope,
+    type StyleSectionValue,
     type StyleScope,
+    DEFAULT_APP_STYLE_VALUES,
   } from './style-settings';
 
   export let storageScope: StyleScope;
+  export let style: AppStyleEditor;
+  export let onChange: (nextStyle: AppStyleEditor) => void = () => {};
+
+  $: previewStyle = resolveAppStyleEditor(style);
+
+  function updateSection(sectionScope: StyleSectionScope, nextSection: StyleSectionEditor): void {
+    onChange({
+      ...style,
+      [sectionScope]: nextSection,
+    });
+  }
+
+  function getPreviewBlockStyle(section: StyleSectionValue): string {
+    const parts = [
+      `font-family:${section.fontFamily}`,
+      `font-size:${section.fontSize}px`,
+      `color:${section.foregroundColor}`,
+      `background:${section.backgroundColor}`,
+    ];
+
+    if (section.backgroundImage.path.trim()) {
+      parts.push(`background-image:url("${section.backgroundImage.path.replaceAll('"', '\\"')}")`);
+      parts.push(`background-repeat:${section.backgroundImage.fit === 'repeat' ? 'repeat' : 'no-repeat'}`);
+      parts.push(`background-size:${section.backgroundImage.fit === 'repeat' ? 'auto' : section.backgroundImage.fit}`);
+    }
+
+    return parts.join(';');
+  }
+
+  function describePreview(section: StyleSectionValue): string {
+    const pieces = [
+      section.fontFamily,
+      `${section.fontSize}px`,
+      section.foregroundColor,
+      section.backgroundColor,
+    ];
+
+    if (section.backgroundImage.path.trim()) {
+      pieces.push(`image ${section.backgroundImage.fit} ${section.backgroundImage.opacity}%`);
+    }
+
+    return pieces.join(' · ');
+  }
 </script>
 
 <section class="style-settings" aria-label={getStyleScopeLabel(storageScope)}>
@@ -28,38 +77,59 @@
         <div class="style-panel-header">
           <p class="style-eyebrow">output</p>
         </div>
-        <StyleFontsSection sectionScope="output" />
-        <StyleColorsSection sectionScope="output" />
+        <StyleFontsSection
+          sectionScope="output"
+          section={style.output}
+          defaults={DEFAULT_APP_STYLE_VALUES.output}
+          onChange={(nextSection) => updateSection('output', nextSection)}
+        />
+        <StyleColorsSection
+          sectionScope="output"
+          section={style.output}
+          defaults={DEFAULT_APP_STYLE_VALUES.output}
+          onChange={(nextSection) => updateSection('output', nextSection)}
+        />
       </section>
 
       <section class="style-panel style-context-panel">
         <div class="style-panel-header">
           <p class="style-eyebrow">input</p>
         </div>
-        <StyleFontsSection sectionScope="input" />
-        <StyleColorsSection sectionScope="input" />
+        <StyleFontsSection
+          sectionScope="input"
+          section={style.input}
+          defaults={DEFAULT_APP_STYLE_VALUES.input}
+          onChange={(nextSection) => updateSection('input', nextSection)}
+        />
+        <StyleColorsSection
+          sectionScope="input"
+          section={style.input}
+          defaults={DEFAULT_APP_STYLE_VALUES.input}
+          onChange={(nextSection) => updateSection('input', nextSection)}
+        />
       </section>
     </div>
 
     <aside class="style-column style-column-aside">
       <section class="style-preview-panel">
-
         <div class="style-preview-scroll">
           <div class="style-preview-scroll-header">
             <h4>preview</h4>
           </div>
           <div class="style-preview-stage">
-            <div class="style-preview-output">
+            <div class="style-preview-output" style={getPreviewBlockStyle(previewStyle.output)}>
               <div class="style-preview-label">output sample</div>
               <div class="style-preview-text">The quick brown fox jumps over the lazy dog.</div>
               <div class="style-preview-text muted">
                 Another line demonstrates the current output styling.
               </div>
+              <div class="style-preview-meta">{describePreview(previewStyle.output)}</div>
             </div>
 
-            <div class="style-preview-input">
+            <div class="style-preview-input" style={getPreviewBlockStyle(previewStyle.input)}>
               <div class="style-preview-label">input sample</div>
               <div class="style-preview-text">&gt; look north</div>
+              <div class="style-preview-meta">{describePreview(previewStyle.input)}</div>
             </div>
           </div>
         </div>
@@ -131,19 +201,17 @@
     gap: 1rem;
   }
 
-  .style-panel-header h3 {
-    font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 400;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--text-bright);
-  }
-
-  .style-panel-header p {
-    margin-top: 0.35rem;
+  .style-panel-chip {
+    flex: 0 0 auto;
+    padding: 0.32rem 0.55rem;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
     color: var(--text-dim);
-    line-height: 1.45;
+    font-family: var(--font-ui);
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .style-preview-panel {
@@ -188,6 +256,7 @@
     padding: 0.85rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.025);
+    background-clip: padding-box;
   }
 
   .style-preview-label {
@@ -206,6 +275,15 @@
 
   .style-preview-text.muted {
     color: var(--text-dim);
+  }
+
+  .style-preview-meta {
+    font-family: var(--font-ui);
+    font-size: 0.64rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    line-height: 1.4;
   }
 
   @media (max-width: 960px) {

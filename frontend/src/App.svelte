@@ -9,6 +9,8 @@ import {
   revealAppStorageFile,
   revealDefaultLogFolder,
   setAppStoragePath,
+  loadAppStyleOverrides,
+  saveAppStyleOverrides,
 } from './lib/storage';
 import WorldsAndCharactersEditor from './lib/components/WorldsAndCharactersEditor.svelte';
 import CharacterModal from './lib/components/CharacterModal.svelte';
@@ -25,8 +27,15 @@ import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
+import {
+  createAppStyleEditor,
+  createDefaultAppStyleEditor,
+  serializeAppStyleEditor,
+  type AppStyleEditor,
+} from './lib/components/style-settings';
 
   let appSettings = loadAppSettings();
+  let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
   let storageFilePath: string | null = appSettings.storageFilePath;
   let loggingModalTabId: string | null = null;
   let activeTab: AppTab | null = null;
@@ -52,9 +61,23 @@ import type { WorldTabSessionState } from './lib/world-session';
     }
   }
 
+  async function initializeStyleSettings(): Promise<void> {
+    try {
+      appStyle = createAppStyleEditor(await loadAppStyleOverrides());
+    } catch (error) {
+      console.error('failed to load app style overrides:', error);
+      appStyle = createDefaultAppStyleEditor();
+    }
+  }
+
   function updateAppSettings(patch: Partial<AppSettings>): void {
     appSettings = { ...appSettings, ...patch };
     saveAppSettings(appSettings);
+  }
+
+  function updateAppStyle(nextStyle: AppStyleEditor): void {
+    appStyle = nextStyle;
+    void saveAppStyleOverrides(serializeAppStyleEditor(appStyle));
   }
 
   async function refreshResolvedLogFolder(): Promise<void> {
@@ -203,6 +226,7 @@ import type { WorldTabSessionState } from './lib/world-session';
     void (async () => {
       try {
         await initializeStoragePath();
+        await initializeStyleSettings();
         await refreshResolvedLogFolder();
         if (disposed) {
           return;
@@ -348,6 +372,8 @@ import type { WorldTabSessionState } from './lib/world-session';
       <SettingsPage
         settings={appSettings}
         onChange={updateAppSettings}
+        style={appStyle}
+        onStyleChange={updateAppStyle}
         storageFilePath={storageFilePath}
         resolvedLogFolderPath={resolvedLogFolderPath}
         onRevealLogFolder={() => void handleRevealLogFolder()}
