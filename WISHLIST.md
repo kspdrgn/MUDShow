@@ -4,7 +4,7 @@
 
 MVP Features:
 - [ ] Session logging. WIP. needs testing. needs better ui.
-- [ ] Style - fonts/colors customization. not app-wide ui theming. see `PLAN_FONTS.md`.
+- [ ] Style. WIP. See "MUD Text > Appearance"
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
 - [X] Tabs, multiple connections
 - [X] Character Settings
@@ -28,8 +28,8 @@ Bugs:
 - [X] Linux: Fix resize frame, can't see while mousing over
 
 Release:
-- [ ] how to include plain exe in 'release' artifacts?
-- [ ] rename bundle zip from 'desktop-bundle' to something else
+- [X] include plain exe in 'release' artifacts?
+- [X] rename bundle zip from 'desktop-bundle' to app name and version
 - [ ] Linux: CI + Release build?
 - [ ] Auto-updater:
   - [ ] Tauri updater package for auto-update
@@ -39,28 +39,40 @@ Release:
 ## Input Box
   - [X] Input Command History
   - [X] Re-focus - Automatically bring keyboard focus back to input box after selecting world text or clicking one-shot UI stuff
-  - [X] Multiple Input Boxes - Buttons to spawn or remove more inputs
+  - [X] Multiple Input Boxes
+    - [X] UI buttons to spawn or remove more inputs
+    - [X] F1 F2 shortcut for first two
+    - [ ] key shortcuts for expand/shrink/new/close?
   - [X] Resize input height by lines
-  - [ ] [not working?] TAB auto-complete of names/objects known or in MUD text
+  - [X] TAB auto-complete of names/objects seen in MUD text
   - [X] CTRL+Enter to make new line without sending
-  - [X] Spellcheck
+  - [X] Spellcheck, native from browser
+    - [ ] Better spellcheck?
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator
 
 ## MUD Text
-  - Appearance
-    - [ ] Customize font
-    - [ ] Customize base colors, ANSI overrides
-    - [ ] Background image
+  - Appearance - Fonts/colors customization, not app UI theming.
+    - [X] Switch built-in fonts
+    - [X] Pick font colors
+    - [ ] Customize ANSI colors
+    - [X] Pick font sizes
+      - [ ] Keyboard/mousewheel shortcut to change font size on the fly?
+    - [X] App default styles
+    - [X] App override styles
+    - [ ] System fonts picking, see `PLAN_FONTS.md`
+    - [ ] Background images
+  
   - Contents
     - [X] Clickable links
     - [X] Auto-preview image links with hide button
     - [X] Automatic clipboard copy when selecting text
     - [ ] Timestamps visible on mouse-over lines
-    - [ ] Visible Timestamps customizable
+    - [ ] Visible timestamps customizable
     - [X] Output history - Buffer of previous session contents restored for context
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
     - [ ] New activity indicator (separator line?)
+
   - Scrolling
     - [ ] Pause auto-scroll when selecting
     - [X] END key in input area scrolls main output text to end
@@ -70,6 +82,7 @@ Release:
     - [X] Pause automatic scroll to bottom when scrolled up manually
     - [X] Shortcut button to scroll to bottom appears when scrolled up manually
     - [X] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
+
   - Highlighting
     - [ ] Separate name highlights from complex (regex?) highlights, simplify name handling
     - [ ] Click highlight color to change it
@@ -78,6 +91,7 @@ Release:
     - [ ] Reg-ex highlights
     - [ ] Automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff
     - [ ] Automatic name color even if they're not in your wf/database
+
   - Logging
     - [X] One-click session logging. Start logging and auto-name log file.
     - [X] Visual indicator that logging is enabled
@@ -120,7 +134,8 @@ This would support:
 
 ## Settings
   - [ ] two-pane world/character settings, no modals, route-able to each place
-  - [ ] tabbed/two-pane app settings, instead of everything in one page, route-able to each place
+  - [X] tabbed/two-pane app settings, instead of everything in one page
+    - [ ] route-able to each sub-tab
 
 ## Taps Integrations
   - Plugin System
