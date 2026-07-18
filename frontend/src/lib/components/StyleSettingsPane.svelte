@@ -268,7 +268,6 @@
   }
 
   .style-preview-text {
-    font-size: 0.9rem;
     line-height: 1.45;
     color: var(--text-bright);
   }

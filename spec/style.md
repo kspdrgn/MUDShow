@@ -34,15 +34,19 @@ Settings areas, for both output and input:
 - Foreground - Colors UI
 - Background - Colors UI
 
-Each style area has an override toggle that controls whether the draft value is considered active. If the draft value matches the inherited or default value, the toggle automatically turns off. When a toggle is off, the current draft value stays in the UI but is treated as inactive and is not persisted.
+Each style area has an override toggle that controls whether the draft value is considered active. The toggle changes only when the user changes it explicitly.
+
+When a toggle is off, the visible controls show the inherited value for that scope. If the user changes a control away from that inherited value, the override turns on immediately and the new value is saved into the override. Turning the toggle back on later restores the stored override value immediately.
 
 The app-level style settings are live and persist to the app storage file. App defaults are the baseline values that output/input inherit from when nothing is overridden.
 
 ## Fonts UI
 
-- Font Source - Toggle between selecting built-in fonts and system fonts. Each option has its own selections of family and style and the other set will be disabled:
-  - Font Family
-  - Font Style, if available
+- Font Source - Toggle between selecting built-in fonts and system fonts. The built-in picker currently exposes these internal options:
+  - Internal: JetBrains Mono
+  - Internal: System UI
+  - Internal: Serif
+  - Future system-font support will add a separate set of choices.
 - Font Size, number picker
 
 ## Colors UI

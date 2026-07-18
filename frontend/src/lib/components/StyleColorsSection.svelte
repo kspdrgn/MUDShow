@@ -14,17 +14,6 @@
   export let defaults: StyleSectionValue;
   export let onChange: (nextSection: StyleSectionEditor) => void = () => {};
 
-  function normalize(value: string): string {
-    return value.trim().toLowerCase();
-  }
-
-  function matchesDefaultColors(nextSection: StyleSectionEditor): boolean {
-    return (
-      normalize(nextSection.foregroundColor) === normalize(defaults.foregroundColor) &&
-      normalize(nextSection.backgroundColor) === normalize(defaults.backgroundColor)
-    );
-  }
-
   function updateSection(nextSection: StyleSectionEditor): void {
     onChange(nextSection);
   }
@@ -33,8 +22,7 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       foregroundColor: nextValue,
-      colorsEnabled:
-        section.colorsEnabled && !matchesDefaultColors({ ...section, foregroundColor: nextValue }),
+      colorsEnabled: true,
     };
 
     updateSection(nextSection);
@@ -44,8 +32,7 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       backgroundColor: nextValue,
-      colorsEnabled:
-        section.colorsEnabled && !matchesDefaultColors({ ...section, backgroundColor: nextValue }),
+      colorsEnabled: true,
     };
 
     updateSection(nextSection);
@@ -54,11 +41,17 @@
   function updateColorsEnabled(nextEnabled: boolean): void {
     const nextSection: StyleSectionEditor = {
       ...section,
-      colorsEnabled: nextEnabled && !matchesDefaultColors(section),
+      colorsEnabled: nextEnabled,
     };
 
     updateSection(nextSection);
   }
+
+  let displayForegroundColor: string;
+  let displayBackgroundColor: string;
+
+  $: displayForegroundColor = section.colorsEnabled ? section.foregroundColor : defaults.foregroundColor;
+  $: displayBackgroundColor = section.colorsEnabled ? section.backgroundColor : defaults.backgroundColor;
 </script>
 
 <div>
@@ -77,14 +70,14 @@
     <StyleColorSetting
       sectionScope={sectionScope}
       channel="foreground"
-      value={section.foregroundColor}
+      value={displayForegroundColor}
       defaultValue={defaults.foregroundColor}
       onChange={updateForegroundColor}
     />
     <StyleColorSetting
       sectionScope={sectionScope}
       channel="background"
-      value={section.backgroundColor}
+      value={displayBackgroundColor}
       defaultValue={defaults.backgroundColor}
       onChange={updateBackgroundColor}
     />

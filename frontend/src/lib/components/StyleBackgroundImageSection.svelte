@@ -12,25 +12,11 @@
   export let defaults: StyleSectionValue;
   export let onChange: (nextSection: StyleSectionEditor) => void = () => {};
 
-  function normalizePath(value: string): string {
-    return value.trim();
-  }
-
-  function matchesDefaultBackgroundImage(nextSection: StyleSectionEditor): boolean {
-    return (
-      normalizePath(nextSection.backgroundImagePath) === normalizePath(defaults.backgroundImage.path) &&
-      nextSection.backgroundImageFit === defaults.backgroundImage.fit &&
-      nextSection.backgroundImageOpacity === defaults.backgroundImage.opacity
-    );
-  }
-
   function updateBackgroundImagePath(nextValue: string): void {
     const nextSection: StyleSectionEditor = {
       ...section,
       backgroundImagePath: nextValue,
-      backgroundImageEnabled:
-        section.backgroundImageEnabled &&
-        !matchesDefaultBackgroundImage({ ...section, backgroundImagePath: nextValue }),
+      backgroundImageEnabled: true,
     };
 
     onChange(nextSection);
@@ -40,9 +26,7 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       backgroundImageFit: nextValue,
-      backgroundImageEnabled:
-        section.backgroundImageEnabled &&
-        !matchesDefaultBackgroundImage({ ...section, backgroundImageFit: nextValue }),
+      backgroundImageEnabled: true,
     };
 
     onChange(nextSection);
@@ -52,9 +36,7 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       backgroundImageOpacity: nextValue,
-      backgroundImageEnabled:
-        section.backgroundImageEnabled &&
-        !matchesDefaultBackgroundImage({ ...section, backgroundImageOpacity: nextValue }),
+      backgroundImageEnabled: true,
     };
 
     onChange(nextSection);
@@ -63,11 +45,25 @@
   function updateBackgroundImageEnabled(nextEnabled: boolean): void {
     const nextSection: StyleSectionEditor = {
       ...section,
-      backgroundImageEnabled: nextEnabled && !matchesDefaultBackgroundImage(section),
+      backgroundImageEnabled: nextEnabled,
     };
 
     onChange(nextSection);
   }
+
+  let displayBackgroundImagePath: string;
+  let displayBackgroundImageFit: StyleImageFit;
+  let displayBackgroundImageOpacity: number;
+
+  $: displayBackgroundImagePath = !section.backgroundImageEnabled
+    ? defaults.backgroundImage.path
+    : section.backgroundImagePath;
+  $: displayBackgroundImageFit = !section.backgroundImageEnabled
+    ? defaults.backgroundImage.fit
+    : section.backgroundImageFit;
+  $: displayBackgroundImageOpacity = !section.backgroundImageEnabled
+    ? defaults.backgroundImage.opacity
+    : section.backgroundImageOpacity;
 </script>
 
 <section class="style-background-card">
@@ -85,11 +81,16 @@
 
   <div class="style-image-grid">
     <div class="style-image-row">
-      <button type="button" class="style-image-button">choose file</button>
+      <button
+        type="button"
+        class="style-image-button"
+      >
+        choose file
+      </button>
       <input
         class="style-image-path"
         type="text"
-        value={section.backgroundImagePath}
+        value={displayBackgroundImagePath}
         spellcheck="false"
         aria-label={`${sectionScope} background image path`}
         on:input={(event) => updateBackgroundImagePath((event.currentTarget as HTMLInputElement).value)}
@@ -98,7 +99,7 @@
     <div class="style-image-row">
       <select
         class="style-image-select"
-        value={section.backgroundImageFit}
+        value={displayBackgroundImageFit}
         aria-label={`${sectionScope} background image fit`}
         on:change={(event) =>
           updateBackgroundImageFit((event.currentTarget as HTMLSelectElement).value as StyleImageFit)}
@@ -108,13 +109,13 @@
         <option value="repeat">repeat</option>
       </select>
       <label class="style-image-select short">
-        <span class="style-image-opacity-label">{section.backgroundImageOpacity}%</span>
+        <span class="style-image-opacity-label">{displayBackgroundImageOpacity}%</span>
         <input
           type="range"
           min="0"
           max="100"
           step="1"
-          value={section.backgroundImageOpacity}
+          value={displayBackgroundImageOpacity}
           aria-label={`${sectionScope} background image opacity`}
           on:input={(event) =>
             updateBackgroundImageOpacity(Number((event.currentTarget as HTMLInputElement).value))}

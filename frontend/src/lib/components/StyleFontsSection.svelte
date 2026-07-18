@@ -12,14 +12,10 @@
   export let onChange: (nextSection: StyleSectionEditor) => void = () => {};
 
   const FONT_CHOICES: Array<{ value: string; label: string }> = [
-    { value: 'var(--font-mono)', label: 'JetBrains Mono' },
-    { value: 'system-ui', label: 'System UI' },
-    { value: 'serif', label: 'Serif' },
+    { value: 'var(--font-mono)', label: 'Internal: JetBrains Mono' },
+    { value: 'system-ui', label: 'Internal: System UI' },
+    { value: 'serif', label: 'Internal: Serif' },
   ];
-
-  function normalize(value: string): string {
-    return value.trim().toLowerCase();
-  }
 
   function updateSection(nextSection: StyleSectionEditor): void {
     onChange(nextSection);
@@ -29,8 +25,7 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       fontFamily: nextValue,
-      fontFamilyEnabled:
-        section.fontFamilyEnabled && normalize(nextValue) !== normalize(defaults.fontFamily),
+      fontFamilyEnabled: true,
     };
 
     updateSection(nextSection);
@@ -39,7 +34,7 @@
   function updateFontFamilyEnabled(nextEnabled: boolean): void {
     const nextSection: StyleSectionEditor = {
       ...section,
-      fontFamilyEnabled: nextEnabled && normalize(section.fontFamily) !== normalize(defaults.fontFamily),
+      fontFamilyEnabled: nextEnabled,
     };
 
     updateSection(nextSection);
@@ -49,7 +44,7 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       fontSize: nextValue,
-      fontSizeEnabled: section.fontSizeEnabled && nextValue !== defaults.fontSize,
+      fontSizeEnabled: true,
     };
 
     updateSection(nextSection);
@@ -58,7 +53,7 @@
   function updateFontSizeEnabled(nextEnabled: boolean): void {
     const nextSection: StyleSectionEditor = {
       ...section,
-      fontSizeEnabled: nextEnabled && section.fontSize !== defaults.fontSize,
+      fontSizeEnabled: nextEnabled,
     };
 
     updateSection(nextSection);
@@ -67,6 +62,12 @@
   function stepFontSize(delta: number): void {
     updateFontSize(Math.max(8, Math.min(32, section.fontSize + delta)));
   }
+
+  let displayFontFamily: string;
+  let displayFontSize: number;
+
+  $: displayFontFamily = section.fontFamilyEnabled ? section.fontFamily : defaults.fontFamily;
+  $: displayFontSize = section.fontSizeEnabled ? section.fontSize : defaults.fontSize;
 </script>
 
 <div>
@@ -86,7 +87,7 @@
       <div class="style-picker-surface">
         <select
           class="style-select"
-          value={section.fontFamily}
+          value={displayFontFamily}
           aria-label={`${sectionScope} font family`}
           on:change={(event) => updateFontFamily((event.currentTarget as HTMLSelectElement).value)}
         >
@@ -128,7 +129,7 @@
             min="8"
             max="32"
             step="1"
-            value={section.fontSize}
+            value={displayFontSize}
             aria-label={`${sectionScope} font size`}
             on:input={(event) => updateFontSize(Number((event.currentTarget as HTMLInputElement).value))}
           />
@@ -217,12 +218,21 @@
     width: 100%;
     min-height: 2.05rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-      rgba(255, 255, 255, 0.02);
+    background-color: var(--surface);
+    background-image:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
     color: var(--text-bright);
     padding: 0 0.65rem;
+    appearance: none;
+    -webkit-appearance: none;
+    color-scheme: dark;
     outline: none;
+  }
+
+  .style-select option {
+    background: var(--surface);
+    color: var(--text-bright);
   }
 
   .style-picker-line {

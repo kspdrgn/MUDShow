@@ -9,6 +9,7 @@
   export let channel: StyleColorChannel;
   export let value = '';
   export let defaultValue = '';
+  export let disabled = false;
   export let onChange: (nextValue: string) => void = () => {};
 </script>
 
@@ -16,7 +17,7 @@
   <div class="style-tool-card-header">
     <div>
       <h4>{STYLE_COLOR_CHANNEL_LABELS[channel]} color</h4>
-      <span>{value.trim() === defaultValue.trim() ? 'default' : 'override'}</span>
+      <span>{disabled ? 'inherited' : value.trim() === defaultValue.trim() ? 'default' : 'override'}</span>
     </div>
   </div>
 
@@ -27,6 +28,7 @@
         class="style-color-input"
         type="text"
         value={value}
+        disabled={disabled}
         spellcheck="false"
         aria-label={`${sectionScope} ${STYLE_COLOR_CHANNEL_LABELS[channel]} color`}
         on:input={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
