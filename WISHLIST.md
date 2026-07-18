@@ -72,6 +72,7 @@ Release:
     - [X] Output history - Buffer of previous session contents restored for context
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
     - [ ] New activity indicator (separator line?)
+    - [ ] Max width is off, try calculate glyph width from a mono font, maybe support pixel max width for non-mono fonts
 
   - Scrolling
     - [ ] Pause auto-scroll when selecting
@@ -101,7 +102,7 @@ Release:
     - [X] On-the-fly log renaming of active session log file
     - [ ] Auto-log everything to separate log file
     - [ ] Customize log name format, incl folders
-    - [ ] Show log name that will be used next to quick log button, user can edit the filename before starting, show indicator if file exists and will be appended to
+    - [X] Show log name that will be used next to quick log button, user can edit the filename before starting, show indicator if file exists and will be appended to
     - [ ] Global option to offset date by 5 hours to record as the previous day if logging at 3am
 
 ## Database MUD text backend

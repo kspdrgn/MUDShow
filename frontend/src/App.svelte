@@ -46,6 +46,7 @@ import {
   let loggingModalSession: WorldTabSessionState | null = null;
   let loggingModalTab: AppTab | null = null;
   let loggingModalInitialFileName = '';
+  let loggingModalRefreshNonce = 0;
   let resolvedLogFolderPath: string | null = null;
   let storageImportNoticeOpen = false;
 
@@ -104,6 +105,10 @@ import {
 
   function closeLoggingModal(): void {
     loggingModalTabId = null;
+  }
+
+  function refreshLoggingModalStatus(): void {
+    loggingModalRefreshNonce += 1;
   }
 
   async function handleRevealStorageLocation(): Promise<void> {
@@ -478,29 +483,23 @@ import {
   onClose={closeStorageImportNotice}
 />
 
-<LoggingModal
+  <LoggingModal
   open={loggingModalTab !== null && loggingModalSession !== null}
   active={loggingModalSession?.loggingActive === true}
   tabTitle={loggingModalTab?.title ?? ''}
   currentPath={loggingModalSession?.logFilePath ?? ''}
-        defaultFolder={resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? ''}
+  defaultFolder={resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? ''}
   initialFileName={loggingModalInitialFileName}
   logError={loggingModalSession?.logError ?? ''}
+  refreshNonce={loggingModalRefreshNonce}
   onCancel={closeLoggingModal}
-  onQuickLog={() => {
+  onStartLogging={async (fileName) => {
     if (!loggingModalTabId) {
       return;
     }
 
-    void session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null);
-    closeLoggingModal();
-  }}
-  onStartLogging={(fileName) => {
-    if (!loggingModalTabId) {
-      return;
-    }
-
-    void session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, fileName);
+    await session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, fileName);
+    refreshLoggingModalStatus();
     closeLoggingModal();
   }}
   onStopLogging={() => {
@@ -511,12 +510,13 @@ import {
     void session.stopLogging(loggingModalTabId);
     closeLoggingModal();
   }}
-  onRenameLogging={(fileName) => {
+  onRenameLogging={async (fileName) => {
     if (!loggingModalTabId) {
       return;
     }
 
-    void session.renameLogging(loggingModalTabId, fileName);
+    await session.renameLogging(loggingModalTabId, fileName);
+    refreshLoggingModalStatus();
     closeLoggingModal();
   }}
   onRevealLog={() => {
@@ -524,6 +524,17 @@ import {
       return;
     }
 
-    void session.revealLoggingFile(loggingModalTabId);
+    const loggingSession = loggingModalSession;
+    if (loggingSession?.logFilePath) {
+      void session.revealLoggingFile(loggingModalTabId);
+      return;
+    }
+
+    void revealDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null);
+  }}
+  onOpenLoggingSettings={() => {
+    closeLoggingModal();
+    session.selectTab('settings');
+    session.setSettingsActiveTab('logging');
   }}
 />

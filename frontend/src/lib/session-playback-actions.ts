@@ -188,6 +188,12 @@ export function createPlaybackActions({
         logError: null,
       });
 
+      console.debug('[logging] started', {
+        tabId,
+        path: result.path,
+        appended: result.appended,
+      });
+
       await appendSystemMessageToTab(tabId, buildLogStartMessage(getLogFileName(result.path), result.appended));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -248,6 +254,13 @@ export function createPlaybackActions({
           logFilePath: path,
           logFolderPath: path.replace(/[\\/][^\\/]*$/, ''),
           logError: null,
+        });
+
+        console.debug('[logging] renamed', {
+          tabId,
+          path,
+          fromPath: currentPath,
+          nextName: trimmedName,
         });
 
         await appendSystemMessageToTab(tabId, buildLogRenameMessage(getLogFileName(path)));

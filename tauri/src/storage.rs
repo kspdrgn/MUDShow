@@ -1024,6 +1024,16 @@ pub fn create_session_log<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub fn path_exists(path: String) -> Result<bool, String> {
+    let path = PathBuf::from(path.trim());
+    if path.as_os_str().is_empty() {
+        return Err(String::from("a path is required"));
+    }
+
+    Ok(path.exists())
+}
+
+#[tauri::command]
 pub fn append_session_log(path: String, text: String) -> Result<(), String> {
     let destination = PathBuf::from(path.trim());
     if destination.as_os_str().is_empty() {

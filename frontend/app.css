@@ -1219,6 +1219,7 @@ body {
 }
 
 #modal {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border-active);
   padding: 1.7rem;
@@ -1227,6 +1228,46 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
+}
+
+.logging-modal-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  min-width: 1.9rem;
+  padding: 3px 8px;
+  line-height: 1;
+}
+
+.logging-modal-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.logging-modal h2,
+.logging-modal .logging-modal-settings-button {
+  color: #fff;
+}
+
+.logging-modal .logging-modal-settings-button:hover {
+  color: #fff;
+}
+
+.logging-modal .btn:disabled {
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+  background: transparent;
+  text-decoration-line: line-through;
+  text-decoration-thickness: from-font;
+  text-decoration-color: rgba(255, 255, 255, 0.45);
+  opacity: 0.9;
+}
+
+.logging-modal .btn:disabled:hover {
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+  background: transparent;
 }
 
 #modal.character-modal {
@@ -1316,6 +1357,7 @@ body {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .screen-play {

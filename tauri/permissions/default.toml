@@ -18,6 +18,7 @@ permissions = [
   "allow-reveal-default-log-folder",
   "allow-resolve-default-log-folder",
   "allow-create-session-log",
+  "allow-path-exists",
   "allow-append-session-log",
   "allow-rename-session-log",
   "allow-reveal-session-log-file",

@@ -164,6 +164,7 @@ fn main() {
             storage::resolve_default_log_folder,
             storage::get_default_log_folder,
             storage::create_session_log,
+            storage::path_exists,
             storage::append_session_log,
             storage::rename_session_log,
             storage::reveal_session_log_file,
