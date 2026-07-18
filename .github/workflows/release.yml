@@ -22,7 +22,7 @@ jobs:
       - name: Download desktop release artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: desktop-*
+          pattern: mudshow-*
           merge-multiple: true
           path: ${{ runner.temp }}/desktop-release
           run-id: ${{ github.event.workflow_run.id }}

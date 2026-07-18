@@ -97,7 +97,7 @@ jobs:
       - name: Upload raw exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-exe
+          name: mudshow-exe-${{ steps.version.outputs.semVer }}
           path: artifacts/desktop-release/exe/mudshow-*.exe
           if-no-files-found: error
 
@@ -105,7 +105,7 @@ jobs:
         if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-msi
+          name: mudshow-msi-${{ steps.version.outputs.semVer }}
           path: artifacts/desktop-release/msi/*.msi
           if-no-files-found: error
 
@@ -113,13 +113,13 @@ jobs:
         if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-nsis
+          name: mudshow-nsis-${{ steps.version.outputs.semVer }}
           path: artifacts/desktop-release/nsis/*.exe
           if-no-files-found: error
 
       - name: Upload version artifact
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-version
+          name: mudshow-version-${{ steps.version.outputs.semVer }}
           path: artifacts/desktop-release/meta/version.txt
           if-no-files-found: error
