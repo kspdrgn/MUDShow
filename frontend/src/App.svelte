@@ -30,12 +30,15 @@ import type { WorldTabSessionState } from './lib/world-session';
 import {
   createAppStyleEditor,
   createDefaultAppStyleEditor,
+  resolveAppStyleEditor,
   serializeAppStyleEditor,
   type AppStyleEditor,
+  type AppStyleValues,
 } from './lib/components/style-settings';
 
   let appSettings = loadAppSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
+  let resolvedAppStyle: AppStyleValues = resolveAppStyleEditor(appStyle);
   let storageFilePath: string | null = appSettings.storageFilePath;
   let loggingModalTabId: string | null = null;
   let activeTab: AppTab | null = null;
@@ -64,9 +67,11 @@ import {
   async function initializeStyleSettings(): Promise<void> {
     try {
       appStyle = createAppStyleEditor(await loadAppStyleOverrides());
+      resolvedAppStyle = resolveAppStyleEditor(appStyle);
     } catch (error) {
       console.error('failed to load app style overrides:', error);
       appStyle = createDefaultAppStyleEditor();
+      resolvedAppStyle = resolveAppStyleEditor(appStyle);
     }
   }
 
@@ -77,6 +82,7 @@ import {
 
   function updateAppStyle(nextStyle: AppStyleEditor): void {
     appStyle = nextStyle;
+    resolvedAppStyle = resolveAppStyleEditor(appStyle);
     void saveAppStyleOverrides(serializeAppStyleEditor(appStyle));
   }
 
@@ -340,6 +346,7 @@ import {
       <PlayScreen
         scope={tab.id}
         visible={tab.id === $session.activeTabId}
+        styleValues={resolvedAppStyle}
         activeBar={worldSession.activeBar}
         connectionStatus={worldSession.connectionStatus}
         bars={worldSession.inputBars}

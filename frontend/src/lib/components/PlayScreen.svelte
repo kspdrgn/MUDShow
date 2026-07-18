@@ -5,9 +5,11 @@
   import InputBars from './InputBars.svelte';
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
+  import type { AppStyleValues } from './style-settings';
 
   export let scope = 'world';
   export let visible = true;
+  export let styleValues: AppStyleValues;
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
   export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
@@ -39,7 +41,19 @@
   export let onScrollToBottom: () => void;
 </script>
 
-<div class:active={visible} class="screen-play" style={`--play-width: ${playWidth};`}>
+<div
+  class:active={visible}
+  class="screen-play"
+  style={`--play-width: ${playWidth};`}
+  style:--world-output-font-family={styleValues.output.fontFamily}
+  style:--world-output-font-size={`${styleValues.output.fontSize}px`}
+  style:--world-output-foreground={styleValues.output.foregroundColor}
+  style:--world-output-background={styleValues.output.backgroundColor}
+  style:--world-input-font-family={styleValues.input.fontFamily}
+  style:--world-input-font-size={`${styleValues.input.fontSize}px`}
+  style:--world-input-foreground={styleValues.input.foregroundColor}
+  style:--world-input-background={styleValues.input.backgroundColor}
+>
   <HighlightsPanel open={highlightsVisible} {highlights} {scope} onAdd={onHighlightAdd} onDelete={onHighlightDelete} />
 
   <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} />

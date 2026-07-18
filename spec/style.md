@@ -1,7 +1,7 @@
 # Style - Settings for fonts and colors used by input and output area
 
 Style settings are designed to work at three levels: app, world, character.
-Only the app level is wired up right now.
+Only the app level is wired up right now, and its values are applied to the live connected world shell.
 
 The style UI is built as a reusable shared shell that tracks whether it is controlling app style, a world style, or a character style.
 
@@ -24,6 +24,7 @@ Shows example output using the currently applicable app styles and live app-wide
 Preview area shows two parts to simulate how the app's output and input area will look:
 - Output area displays several lines of example text.
 - Input area displays one line of example text.
+The connected world view uses the same resolved app-level values for its live output and input surfaces.
 
 # Output / Input Styles UI
 
