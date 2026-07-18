@@ -137,37 +137,34 @@
       type="button"
       class="titlebar-menu-item titlebar-context-menu-item"
       role="menuitem"
-      disabled={!canReconnect}
-      on:click={() => canReconnect && onReconnect()}
+      disabled={!canReconnect && !canDisconnect}
+      on:click={() => {
+        if (canDisconnect) {
+          onDisconnect();
+        } else if (canReconnect) {
+          onReconnect();
+        }
+      }}
     >
-      reconnect
+      {canDisconnect ? 'disconnect' : 'reconnect'}
     </button>
+
+    <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
+
     <button
       type="button"
       class="titlebar-menu-item titlebar-context-menu-item"
       role="menuitem"
-      disabled={!canDisconnect}
-      on:click={() => canDisconnect && onDisconnect()}
+      disabled={!canQuickLog && !canStopLogging}
+      on:click={() => {
+        if (canStopLogging) {
+          onStopLogging();
+        } else if (canQuickLog) {
+          onQuickLog();
+        }
+      }}
     >
-      disconnect
-    </button>
-    <button
-      type="button"
-      class="titlebar-menu-item titlebar-context-menu-item"
-      role="menuitem"
-      disabled={!canQuickLog}
-      on:click={() => canQuickLog && onQuickLog()}
-    >
-      quick log
-    </button>
-    <button
-      type="button"
-      class="titlebar-menu-item titlebar-context-menu-item"
-      role="menuitem"
-      disabled={!canStopLogging}
-      on:click={() => canStopLogging && onStopLogging()}
-    >
-      stop logging
+      {canStopLogging ? 'stop logging' : 'start logging'}
     </button>
     <button
       type="button"
@@ -177,6 +174,9 @@
     >
       logging...
     </button>
+
+    <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
+
     <button
       type="button"
       class="titlebar-menu-item titlebar-context-menu-item"

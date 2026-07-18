@@ -21,7 +21,6 @@ interface PersistentData {
   worlds: WorldRecord[];
   characters: CharacterRecord[];
   highlights: HighlightRule[];
-  history: Record<string, TranscriptHistoryEntry[]>;
   notes: Record<string, string>;
   style: AppStyleOverrides;
 }
@@ -52,7 +51,6 @@ function createEmptyData(): PersistentData {
     worlds: [],
     characters: [],
     highlights: [],
-    history: {},
     notes: {},
     style: {},
   };
@@ -179,7 +177,6 @@ function buildSessionCharacters(worlds: WorldRecord[], characters: CharacterReco
     worlds,
     characters,
     highlights: [],
-    history: {},
     notes: {},
     style: {},
   }).characters;
@@ -220,17 +217,23 @@ function normalizePersistentData(
     highlights: Array.isArray(raw.highlights)
       ? raw.highlights.map((entry) => normalizeHighlightRule(entry)).filter((entry): entry is HighlightRule => entry !== null)
       : [],
-    history: isRecord(raw.history) ? (raw.history as Record<string, TranscriptHistoryEntry[]>) : {},
     notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
     style: normalizeAppStyleOverrides(raw.style),
   };
+}
+
+function readWebviewHistory(): Record<string, TranscriptHistoryEntry[]> {
+  return safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
+}
+
+function writeWebviewHistory(history: Record<string, TranscriptHistoryEntry[]>): void {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
 }
 
 function readWebviewData(): PersistentData {
   const worlds = safeParse<unknown>(localStorage.getItem(WORLD_KEY), []);
   const characters = safeParse<unknown>(localStorage.getItem(CHARACTER_KEY), []);
   const highlights = safeParse<HighlightRule[]>(localStorage.getItem(HIGHLIGHT_KEY), []);
-  const history = safeParse<Record<string, TranscriptHistoryEntry[]>>(localStorage.getItem(HISTORY_KEY), {}) ?? {};
   const style = safeParse<unknown>(localStorage.getItem(STYLE_KEY), {});
   const notes = Object.keys(localStorage)
     .filter((key) => key.startsWith(NOTES_PREFIX))
@@ -244,7 +247,6 @@ function readWebviewData(): PersistentData {
     worlds,
     characters,
     highlights,
-    history,
     notes,
     style,
   });
@@ -254,7 +256,6 @@ function writeWebviewData(data: PersistentData): void {
   localStorage.setItem(WORLD_KEY, JSON.stringify(data.worlds));
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data.characters));
   localStorage.setItem(HIGHLIGHT_KEY, JSON.stringify(data.highlights));
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(data.history));
   localStorage.setItem(STYLE_KEY, JSON.stringify(data.style));
 
   Object.keys(localStorage)
@@ -390,26 +391,6 @@ function updateNotes(data: PersistentData, characterName: string, notes: string 
   };
 }
 
-function updateHistory(
-  data: PersistentData,
-  characterName: string,
-  entries: TranscriptHistoryEntry[] | null,
-): PersistentData {
-  const key = resolveCharacterNoteKey(characterName);
-  const nextHistory = { ...data.history };
-
-  if (entries === null) {
-    delete nextHistory[key];
-  } else {
-    nextHistory[key] = entries;
-  }
-
-  return {
-    ...data,
-    history: nextHistory,
-  };
-}
-
 export function setDesktopStorageMode(mode: DesktopStorageMode): void {
   void mode;
 }
@@ -494,14 +475,8 @@ export async function loadTranscriptHistory(
   maxLines = Number.POSITIVE_INFINITY,
   waitForWrites = true,
 ): Promise<TranscriptHistoryEntry[]> {
-  if (!isTauriAvailable()) {
-    const history = readWebviewData().history;
-    return trimTranscriptHistory(history[resolveCharacterNoteKey(characterName)] ?? [], maxLines);
-  }
-
-  return readPersistentData(waitForWrites).then((data) =>
-    trimTranscriptHistory(data.history[resolveCharacterNoteKey(characterName)] ?? [], maxLines),
-  );
+  void waitForWrites;
+  return trimTranscriptHistory(readWebviewHistory()[resolveCharacterNoteKey(characterName)] ?? [], maxLines);
 }
 
 export async function saveTranscriptHistory(
@@ -510,69 +485,39 @@ export async function saveTranscriptHistory(
   maxLines = Number.POSITIVE_INFINITY,
 ): Promise<void> {
   const nextEntries = trimTranscriptHistory(entries, maxLines);
+  const nextHistory = readWebviewHistory();
+  const key = resolveCharacterNoteKey(characterName);
 
-  if (!isTauriAvailable()) {
-    const current = readWebviewData();
-    writeWebviewData(updateHistory(current, characterName, nextEntries.length > 0 ? nextEntries : null));
-    return;
+  if (nextEntries.length > 0) {
+    nextHistory[key] = nextEntries;
+  } else {
+    delete nextHistory[key];
   }
 
-  await queueFileMutation((data) => updateHistory(data, characterName, nextEntries.length > 0 ? nextEntries : null));
+  writeWebviewHistory(nextHistory);
 }
 
 export async function moveTranscriptHistory(fromCharacterName: string, toCharacterName: string): Promise<void> {
-  if (!isTauriAvailable()) {
-    const current = readWebviewData();
-    const nextHistory = { ...current.history };
-    const entries = nextHistory[resolveCharacterNoteKey(fromCharacterName)];
+  const nextHistory = readWebviewHistory();
+  const fromKey = resolveCharacterNoteKey(fromCharacterName);
+  const toKey = resolveCharacterNoteKey(toCharacterName);
+  const entries = nextHistory[fromKey];
 
-    delete nextHistory[resolveCharacterNoteKey(fromCharacterName)];
+  delete nextHistory[fromKey];
 
-    if (entries !== undefined) {
-      nextHistory[resolveCharacterNoteKey(toCharacterName)] = entries;
-    } else {
-      delete nextHistory[resolveCharacterNoteKey(toCharacterName)];
-    }
-
-    writeWebviewData({
-      ...current,
-      history: nextHistory,
-    });
-    return;
+  if (entries !== undefined) {
+    nextHistory[toKey] = entries;
+  } else {
+    delete nextHistory[toKey];
   }
 
-  await queueFileMutation((data) => {
-    const nextHistory = { ...data.history };
-    const entries = nextHistory[resolveCharacterNoteKey(fromCharacterName)];
-
-    delete nextHistory[resolveCharacterNoteKey(fromCharacterName)];
-
-    if (entries !== undefined) {
-      nextHistory[resolveCharacterNoteKey(toCharacterName)] = entries;
-    } else {
-      delete nextHistory[resolveCharacterNoteKey(toCharacterName)];
-    }
-
-    return {
-      ...data,
-      history: nextHistory,
-    };
-  });
+  writeWebviewHistory(nextHistory);
 }
 
 export async function deleteTranscriptHistory(characterName: string): Promise<void> {
-  if (!isTauriAvailable()) {
-    const current = readWebviewData();
-    const nextHistory = { ...current.history };
-    delete nextHistory[resolveCharacterNoteKey(characterName)];
-    writeWebviewData({
-      ...current,
-      history: nextHistory,
-    });
-    return;
-  }
-
-  await queueFileMutation((data) => updateHistory(data, characterName, null));
+  const nextHistory = readWebviewHistory();
+  delete nextHistory[resolveCharacterNoteKey(characterName)];
+  writeWebviewHistory(nextHistory);
 }
 
 export async function loadNotes(characterName: string, waitForWrites = true): Promise<string> {
@@ -722,7 +667,6 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
     worlds: normalizedWorlds,
     characters: normalizedCharacters,
     highlights: [],
-    history: {},
     notes: {},
     style: {},
   };

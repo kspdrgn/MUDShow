@@ -385,13 +385,13 @@
 
     if (event.ctrlKey && event.key === 'ArrowUp') {
       event.preventDefault();
-      moveHistory(bar, -1);
+      void handleResizeBar(bar, 1);
       return;
     }
 
     if (event.ctrlKey && event.key === 'ArrowDown') {
       event.preventDefault();
-      moveHistory(bar, 1);
+      void handleResizeBar(bar, -1);
       return;
     }
 

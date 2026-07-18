@@ -9,6 +9,8 @@
 
 The application database is stored in a JSON file to be easily readable and manageable by the user. The file stores a version of the schema used, which is used to automatically upgrade the database file to newer versions. Any breaking change to the storage schema should increment the storage version used.
 
+The main JSON database stores worlds, characters, highlights, notes, and style settings. Rolling per-character transcript history is stored separately in webview storage so it does not bloat the main database file and can be treated as disposable.
+
 # App Settings
 
 Setting tabs:

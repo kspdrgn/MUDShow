@@ -1904,6 +1904,10 @@ body {
   background: var(--world-input-background, var(--input-bg));
 }
 
+.input-bar + .input-bar {
+  border-top: 1px solid var(--border);
+}
+
 .input-bar.focused {
   background: var(--world-input-background, var(--input-active));
   filter: brightness(1.06);
