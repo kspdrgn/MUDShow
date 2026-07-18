@@ -11,6 +11,7 @@
   export let section: StyleSectionEditor;
   export let defaults: StyleSectionValue;
   export let onChange: (nextSection: StyleSectionEditor) => void = () => {};
+  const backgroundImageImplemented = false;
 
   function updateBackgroundImagePath(nextValue: string): void {
     const nextSection: StyleSectionEditor = {
@@ -67,22 +68,26 @@
 </script>
 
 <section class="style-background-card">
+
   <div class="style-tool-card-header">
     <div>
-      <h4>{sectionScope} background image</h4>
+      <h4 class:style-tool-card-header--planned={!backgroundImageImplemented}>{sectionScope} background image</h4>
+      <p class="style-background-note">not implemented yet</p>
       <span>{section.backgroundImageEnabled ? 'override on' : 'inherited'}</span>
     </div>
     <StyleSlideToggle
       checked={section.backgroundImageEnabled}
+      disabled={!backgroundImageImplemented}
       on:change={(event) => updateBackgroundImageEnabled(event.detail)}
     />
   </div>
 
-  <div class="style-image-grid">
+  <div class="style-image-grid" aria-disabled={!backgroundImageImplemented}>
     <div class="style-image-row">
       <button
         type="button"
         class="style-image-button"
+        disabled={!backgroundImageImplemented}
       >
         choose file
       </button>
@@ -90,6 +95,7 @@
         class="style-image-path"
         type="text"
         value={displayBackgroundImagePath}
+        disabled={!backgroundImageImplemented}
         spellcheck="false"
         aria-label={`${sectionScope} background image path`}
         on:input={(event) => updateBackgroundImagePath((event.currentTarget as HTMLInputElement).value)}
@@ -99,6 +105,7 @@
       <select
         class="style-image-select"
         value={displayBackgroundImageFit}
+        disabled={!backgroundImageImplemented}
         aria-label={`${sectionScope} background image fit`}
         on:change={(event) =>
           updateBackgroundImageFit((event.currentTarget as HTMLSelectElement).value as StyleImageFit)}
@@ -115,6 +122,7 @@
           max="100"
           step="1"
           value={displayBackgroundImageOpacity}
+          disabled={!backgroundImageImplemented}
           aria-label={`${sectionScope} background image opacity`}
           on:input={(event) =>
             updateBackgroundImageOpacity(Number((event.currentTarget as HTMLInputElement).value))}
@@ -134,6 +142,14 @@
     gap: 0.75rem;
   }
 
+  .style-background-note {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
   .style-tool-card-header {
     display: flex;
     align-items: baseline;
@@ -149,6 +165,12 @@
     text-transform: uppercase;
   }
 
+  .style-tool-card-header--planned {
+    text-decoration: line-through;
+    text-decoration-thickness: from-font;
+    text-decoration-color: rgba(255, 255, 255, 0.45);
+  }
+
   .style-tool-card-header span {
     color: var(--text-dim);
     font-size: 0.72rem;
@@ -160,6 +182,10 @@
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
+  }
+
+  .style-image-grid[aria-disabled='true'] {
+    opacity: 0.62;
   }
 
   .style-image-row {

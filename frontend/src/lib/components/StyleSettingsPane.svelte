@@ -264,16 +264,17 @@
     font-size: 0.66rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--text-dim);
+    color: inherit;
+    opacity: 0.7;
   }
 
   .style-preview-text {
     line-height: 1.45;
-    color: var(--text-bright);
+    color: inherit;
   }
 
   .style-preview-text.muted {
-    color: var(--text-dim);
+    opacity: 0.72;
   }
 
   .style-preview-meta {
@@ -281,7 +282,8 @@
     font-size: 0.64rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--text-dim);
+    color: inherit;
+    opacity: 0.7;
     line-height: 1.4;
   }
 

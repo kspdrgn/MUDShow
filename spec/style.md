@@ -34,9 +34,9 @@ Settings areas, for both output and input:
 - Foreground - Colors UI
 - Background - Colors UI
 
-Each style area has an override toggle that controls whether the draft value is considered active. The toggle changes only when the user changes it explicitly.
+Each color control has its own override toggle that controls whether that draft value is considered active. The toggle changes only when the user changes it explicitly.
 
-When a toggle is off, the visible controls show the inherited value for that scope. If the user changes a control away from that inherited value, the override turns on immediately and the new value is saved into the override. Turning the toggle back on later restores the stored override value immediately.
+When a color toggle is off, that control shows the inherited value for that scope. If the user changes a control away from that inherited value, the override turns on immediately and the new value is saved into that override. Turning the toggle back on later restores the stored override value immediately.
 
 The app-level style settings are live and persist to the app storage file. App defaults are the baseline values that output/input inherit from when nothing is overridden.
 
@@ -51,9 +51,10 @@ The app-level style settings are live and persist to the app storage file. App d
 
 ## Colors UI
 
-- Foreground Color picker
-- Background Color, color picker
-- Background Image - Placeholder, to be implemented later. Will have file picker and options for how the image will fit in the window, and transparency percent or gradient options.
+- Foreground Color picker with native browser color control and text entry for exact CSS values, plus its own override toggle
+- Background Color picker with native browser color control and text entry for exact CSS values, plus its own override toggle
+- The hex color text field includes a copy button and normalizes pasted hex values to a consistent lower-case `#rrggbb` format when possible.
+- Background Image - Placeholder section is shown in the UI with disabled controls and a struck-through header until it is implemented later. It will eventually have a file picker and options for how the image will fit in the window, plus transparency percent or gradient options.
 
 # Override Behavior
 

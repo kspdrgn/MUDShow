@@ -3,6 +3,8 @@
 
   export let checked = false;
   export let disabled = false;
+  export let title = '';
+  export let ariaLabel = '';
 
   const dispatch = createEventDispatcher<{ change: boolean }>();
 </script>
@@ -11,11 +13,14 @@
   class="style-slide-toggle"
   class:style-slide-toggle--checked={checked}
   class:style-slide-toggle--disabled={disabled}
+  title={title}
 >
   <input
     type="checkbox"
     bind:checked
     disabled={disabled}
+    aria-label={ariaLabel}
+    title={title}
     on:change={() => dispatch('change', checked)}
   />
   <span class="style-slide-toggle-track" aria-hidden="true">

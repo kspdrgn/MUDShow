@@ -15,6 +15,7 @@ import {
   createWorldTab,
   type AppTab,
   type WorldTab,
+  type SettingsSubTabId,
 } from './tabs';
 import {
   applyWorldProjection,
@@ -169,6 +170,10 @@ function createSession() {
     return tab;
   }
 
+  function setSettingsActiveTab(tab: SettingsSubTabId): void {
+    patch({ settingsActiveTab: tab });
+  }
+
   function getWorldConnection(tabId: string): MudConnection | null {
     const tab = getTab(tabId);
     if (!tab || tab.kind !== 'world') {
@@ -225,6 +230,10 @@ function createSession() {
 
     if (tab.kind === 'world') {
       releaseWorldConnection(tab.id);
+    }
+
+    if (tab.kind === 'settings') {
+      patch({ settingsActiveTab: 'database' });
     }
 
     clearLoggingQueue(tab.id);
@@ -615,6 +624,7 @@ function createSession() {
       }
     },
     selectTab,
+    setSettingsActiveTab,
     selectNextTab,
     selectPreviousTab,
     reorderTab,

@@ -3,7 +3,7 @@
   import type { AppStyleEditor } from './style-settings';
   import StyleSettingsPane from './StyleSettingsPane.svelte';
 
-  type SettingsTabId =
+  export type SettingsTabId =
     | 'database'
     | 'window'
     | 'transcript'
@@ -24,9 +24,9 @@
   export let onRevealStorageLocation: () => void;
   export let onPickStorageLocation: () => void;
   export let onMoveStorageLocation: () => void;
+  export let activeTab: SettingsTabId = 'database';
+  export let onTabChange: (tab: SettingsTabId) => void = () => {};
   const appStyleScope = { kind: 'app' as const };
-
-  let activeTab: SettingsTabId = 'database';
 
   const tabIcons: Record<SettingsTabId, string> = {
     database: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7.5c0 1.66 4.03 3 9 3s9-1.34 9-3-4.03-3-9-3-9 1.34-9 3Z"/><path d="M4.5 7.5v9c0 1.66 4.03 3 9 3s9-1.34 9-3v-9"/><path d="M4.5 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>`,
@@ -66,7 +66,7 @@
             type="button"
             class:active={activeTab === tab.id}
             class="settings-tab"
-            on:click={() => (activeTab = tab.id)}
+            on:click={() => onTabChange(tab.id)}
           >
             {@html tabIcons[tab.id]}
             <span>{tab.label}</span>

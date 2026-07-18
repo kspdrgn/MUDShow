@@ -51,8 +51,9 @@ export interface StyleSectionEditor {
   fontSize: number;
   fontSizeEnabled: boolean;
   foregroundColor: string;
+  foregroundColorEnabled: boolean;
   backgroundColor: string;
-  colorsEnabled: boolean;
+  backgroundColorEnabled: boolean;
   backgroundImagePath: string;
   backgroundImageFit: StyleImageFit;
   backgroundImageOpacity: number;
@@ -66,10 +67,10 @@ export interface AppStyleEditor {
 
 const DEFAULT_FONT_FAMILY = 'var(--font-mono)';
 const DEFAULT_FONT_SIZE = 13;
-const DEFAULT_FOREGROUND_COLOR = 'var(--text)';
-const DEFAULT_INPUT_FOREGROUND_COLOR = 'var(--text-bright)';
-const DEFAULT_BACKGROUND_COLOR = 'transparent';
-const DEFAULT_INPUT_BACKGROUND_COLOR = 'transparent';
+const DEFAULT_FOREGROUND_COLOR = '#c8c8c8';
+const DEFAULT_INPUT_FOREGROUND_COLOR = '#e8e8e8';
+const DEFAULT_BACKGROUND_COLOR = '#000000';
+const DEFAULT_INPUT_BACKGROUND_COLOR = '#050505';
 const DEFAULT_BACKGROUND_IMAGE_PATH = '';
 const DEFAULT_BACKGROUND_IMAGE_FIT: StyleImageFit = 'cover';
 const DEFAULT_BACKGROUND_IMAGE_OPACITY = 100;
@@ -128,8 +129,9 @@ function createSectionEditorFromValue(value: StyleSectionValue): StyleSectionEdi
     fontSize: value.fontSize,
     fontSizeEnabled: false,
     foregroundColor: value.foregroundColor,
+    foregroundColorEnabled: false,
     backgroundColor: value.backgroundColor,
-    colorsEnabled: false,
+    backgroundColorEnabled: false,
     backgroundImagePath: value.backgroundImage.path,
     backgroundImageFit: value.backgroundImage.fit,
     backgroundImageOpacity: value.backgroundImage.opacity,
@@ -250,16 +252,12 @@ function normalizeSectionEditor(
 
   if (typeof overrides.foregroundColor === 'string') {
     editor.foregroundColor = overrides.foregroundColor;
+    editor.foregroundColorEnabled = normalizeText(overrides.foregroundColor) !== normalizeText(defaults.foregroundColor);
   }
 
   if (typeof overrides.backgroundColor === 'string') {
     editor.backgroundColor = overrides.backgroundColor;
-  }
-
-  if (overrides.foregroundColor !== undefined || overrides.backgroundColor !== undefined) {
-    editor.colorsEnabled =
-      normalizeText(editor.foregroundColor) !== normalizeText(defaults.foregroundColor) ||
-      normalizeText(editor.backgroundColor) !== normalizeText(defaults.backgroundColor);
+    editor.backgroundColorEnabled = normalizeText(overrides.backgroundColor) !== normalizeText(defaults.backgroundColor);
   }
 
   if (overrides.backgroundImage) {
@@ -301,14 +299,12 @@ function serializeSectionEditor(
     next.fontSize = Math.max(1, Math.round(editor.fontSize));
   }
 
-  if (editor.colorsEnabled) {
-    if (normalizeText(editor.foregroundColor) !== normalizeText(defaults.foregroundColor)) {
-      next.foregroundColor = editor.foregroundColor.trim();
-    }
+  if (editor.foregroundColorEnabled && normalizeText(editor.foregroundColor) !== normalizeText(defaults.foregroundColor)) {
+    next.foregroundColor = editor.foregroundColor.trim();
+  }
 
-    if (normalizeText(editor.backgroundColor) !== normalizeText(defaults.backgroundColor)) {
-      next.backgroundColor = editor.backgroundColor.trim();
-    }
+  if (editor.backgroundColorEnabled && normalizeText(editor.backgroundColor) !== normalizeText(defaults.backgroundColor)) {
+    next.backgroundColor = editor.backgroundColor.trim();
   }
 
   if (editor.backgroundImageEnabled) {

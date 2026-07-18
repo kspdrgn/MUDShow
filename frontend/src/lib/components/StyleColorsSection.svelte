@@ -1,7 +1,6 @@
 <script lang="ts">
   import StyleBackgroundImageSection from './StyleBackgroundImageSection.svelte';
   import StyleColorSetting from './StyleColorSetting.svelte';
-  import StyleSlideToggle from './StyleSlideToggle.svelte';
   import {
     STYLE_SECTION_CONTENT,
     type StyleSectionEditor,
@@ -22,7 +21,7 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       foregroundColor: nextValue,
-      colorsEnabled: true,
+      foregroundColorEnabled: true,
     };
 
     updateSection(nextSection);
@@ -32,26 +31,31 @@
     const nextSection: StyleSectionEditor = {
       ...section,
       backgroundColor: nextValue,
-      colorsEnabled: true,
+      backgroundColorEnabled: true,
     };
 
     updateSection(nextSection);
   }
 
-  function updateColorsEnabled(nextEnabled: boolean): void {
-    const nextSection: StyleSectionEditor = {
+  function updateForegroundColorEnabled(nextEnabled: boolean): void {
+    updateSection({
       ...section,
-      colorsEnabled: nextEnabled,
-    };
+      foregroundColorEnabled: nextEnabled,
+    });
+  }
 
-    updateSection(nextSection);
+  function updateBackgroundColorEnabled(nextEnabled: boolean): void {
+    updateSection({
+      ...section,
+      backgroundColorEnabled: nextEnabled,
+    });
   }
 
   let displayForegroundColor: string;
   let displayBackgroundColor: string;
 
-  $: displayForegroundColor = section.colorsEnabled ? section.foregroundColor : defaults.foregroundColor;
-  $: displayBackgroundColor = section.colorsEnabled ? section.backgroundColor : defaults.backgroundColor;
+  $: displayForegroundColor = section.foregroundColorEnabled ? section.foregroundColor : defaults.foregroundColor;
+  $: displayBackgroundColor = section.backgroundColorEnabled ? section.backgroundColor : defaults.backgroundColor;
 </script>
 
 <div>
@@ -59,10 +63,6 @@
     <div>
       <p class="style-panel-kicker">{STYLE_SECTION_CONTENT[sectionScope].title} colors</p>
     </div>
-    <StyleSlideToggle
-      checked={section.colorsEnabled}
-      on:change={(event) => updateColorsEnabled(event.detail)}
-    />
   </div>
 
   <div class="style-color-grid">
@@ -71,14 +71,18 @@
       channel="foreground"
       value={displayForegroundColor}
       defaultValue={defaults.foregroundColor}
+      enabled={section.foregroundColorEnabled}
       onChange={updateForegroundColor}
+      onEnabledChange={updateForegroundColorEnabled}
     />
     <StyleColorSetting
       sectionScope={sectionScope}
       channel="background"
       value={displayBackgroundColor}
       defaultValue={defaults.backgroundColor}
+      enabled={section.backgroundColorEnabled}
       onChange={updateBackgroundColor}
+      onEnabledChange={updateBackgroundColorEnabled}
     />
     <div class="style-background-span">
       <StyleBackgroundImageSection

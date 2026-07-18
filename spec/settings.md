@@ -22,6 +22,7 @@ Setting tabs:
 - UI
 
 The app settings screen shows these sections as a left-side tab rail, with the first tab selected by default and the active pane rendered to the right.
+While the app settings tab stays open, it remembers the last selected sub-tab. If the app settings tab is closed and later reopened, it starts back on the first sub-tab by default.
 
 ## Database - customize storage of app settings
 - Selection of storage mode, locked to 'external json file' mode for now

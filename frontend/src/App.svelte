@@ -374,6 +374,8 @@ import {
         onChange={updateAppSettings}
         style={appStyle}
         onStyleChange={updateAppStyle}
+        activeTab={$session.settingsActiveTab}
+        onTabChange={(tab) => session.setSettingsActiveTab(tab)}
         storageFilePath={storageFilePath}
         resolvedLogFolderPath={resolvedLogFolderPath}
         onRevealLogFolder={() => void handleRevealLogFolder()}

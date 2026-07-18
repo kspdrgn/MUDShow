@@ -1,5 +1,5 @@
 import type { CharacterDraft, CharacterRecord, HighlightRule, WorldDraft, WorldRecord } from './types';
-import type { AppTab } from './tabs';
+import type { AppTab, SettingsSubTabId } from './tabs';
 import type { WorldTabSessionState } from './world-session';
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected';
@@ -23,6 +23,7 @@ export interface SessionState {
   editingIndex: number | null;
   modalDraft: CharacterDraft;
   characterWorldId: string | null;
+  settingsActiveTab: SettingsSubTabId;
 }
 
 export const INITIAL_WORLD_DRAFT: WorldDraft = {
@@ -59,5 +60,6 @@ export function createInitialState(): SessionState {
     editingIndex: null,
     modalDraft: { ...INITIAL_DRAFT },
     characterWorldId: null,
+    settingsActiveTab: 'database',
   };
 }

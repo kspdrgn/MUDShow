@@ -1,4 +1,13 @@
 export type AppTabKind = 'characters' | 'settings' | 'world';
+export type SettingsSubTabId =
+  | 'database'
+  | 'window'
+  | 'transcript'
+  | 'logging'
+  | 'connections'
+  | 'spellcheck'
+  | 'style'
+  | 'ui';
 
 export const CHARACTERS_TAB_ID = 'characters';
 export const SETTINGS_TAB_ID = 'settings';
