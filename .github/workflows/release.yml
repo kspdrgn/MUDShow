@@ -19,10 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - name: Download desktop release artifact
+      - name: Download desktop release artifacts
         uses: actions/download-artifact@v4
         with:
-          name: desktop-release
+          pattern: desktop-*
+          merge-multiple: true
           path: ${{ runner.temp }}/desktop-release
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -43,8 +44,8 @@ jobs:
           name: MUDShow ${{ steps.meta.outputs.version }}
           files: |
             mudshow-${{ steps.meta.outputs.version }}.exe
-            bundle/msi/*.msi
-            bundle/nsis/*.exe
+            *.msi
+            *.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
