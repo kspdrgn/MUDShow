@@ -29,7 +29,7 @@ VS Code: See file `vscode.launch.json.example` for working launch options. You c
 
 ## Usage
 
-- The app starts with one input bar, and you can add or remove more from the bar controls in the bottom right. Switch between the first two with F1 or F2 when both are present.
+- The app starts with one input bar, and you can add or remove more from the bar controls in the bottom right. Switch between the first two with F1 or F2 when a world tab is active. If there is only one input bar, F2 will open a second one.
 - Press F3 to open and close the notes panel. Each character has their own notes. If you value them, back them up regularly.
 - Press F4 to open and close the highlights panel. If you put in a word or phrase, you can make it show up with a different colour. No, there is no regex support.
 - There are options for an optional max line width, a new activity sound, and output history lines in the character editor.

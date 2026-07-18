@@ -324,25 +324,32 @@ export function createPlaybackActions({
       return;
     }
 
-    if (getActiveWorldTabId() === null) {
+    const activeWorldTabId = getActiveWorldTabId();
+    if (activeWorldTabId === null) {
       return;
     }
 
-    const session = getActiveWorldSession();
-    if (!session) {
-      return;
-    }
+    const session = getWorldSession(activeWorldTabId);
 
-    const hotkeyBar = session.inputBars.find((bar) => bar.label === event.key);
-
-    if (hotkeyBar) {
+    if (event.key === 'F1' || event.key === 'F2') {
       event.preventDefault();
-      updateWorldSession(getActiveWorldTabId()!, { activeBar: hotkeyBar.id });
-      const scope = getActiveWorldScope();
-      if (scope) {
+      const hotkeyBar = session.inputBars.find((bar) => bar.label === event.key);
+
+      if (hotkeyBar) {
+        updateWorldSession(activeWorldTabId, { activeBar: hotkeyBar.id });
+        const scope = getWorldDomScope(activeWorldTabId);
         focusElement(getWorldInputBarInputId(scope, hotkeyBar.id));
+        return;
       }
-    } else if (event.key === 'F3') {
+
+      if (event.key === 'F2' && session.inputBars.length === 1) {
+        void addInputBarAfter(session.inputBars[0].id);
+      }
+
+      return;
+    }
+
+    if (event.key === 'F3') {
       event.preventDefault();
       void togglePanel('notes');
     } else if (event.key === 'F4') {

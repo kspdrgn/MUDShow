@@ -24,6 +24,7 @@ Keyboard focus should be automatically restored to the last selected input box:
 - The user can spawn additional input boxes if they want to enter text without disturbing the current input box.
 - The user can close input boxes, their contents if any will be preserved in the input history.
 - The user can resize the input boxes larger or smaller vertically by 1 line increments.
+- When a world tab is active, F1 focuses the first input box and F2 focuses the second. If only one input box exists, F2 creates a second input box and focuses it.
 
 ## [ ] Input Spellcheck
 

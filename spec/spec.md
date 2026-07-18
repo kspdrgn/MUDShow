@@ -69,7 +69,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Add and remove highlight rules.
 - Apply highlight colors to matching text in session output.
 - Support simple word completion from recently seen session text.
-- Support quick switching between the first two input bars with F1 and F2 when both are present.
+- Support quick switching between the first two input bars with F1 and F2 when a world tab is active. If only one input bar exists, F2 opens a second one.
 - Support quick toggling of notes panel with F3.
 - Support quick toggling of highlighting panel with F4.
 - Play an optional activity alert when the app is unfocused and new output arrives.
