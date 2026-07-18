@@ -163,6 +163,7 @@ function buildSessionCharacters(worlds: WorldRecord[], characters: CharacterReco
     highlights: [],
     history: {},
     notes: {},
+    style: {},
   }).characters;
 }
 
@@ -180,7 +181,11 @@ function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
 }
 
 function normalizePersistentData(
-  raw: Partial<Omit<PersistentData, 'characters' | 'worlds'>> & { characters?: unknown; worlds?: unknown },
+  raw: Partial<Omit<PersistentData, 'characters' | 'worlds' | 'style'>> & {
+    characters?: unknown;
+    worlds?: unknown;
+    style?: unknown;
+  },
 ): PersistentData {
   const worldRecords = Array.isArray(raw.worlds)
     ? raw.worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null)
