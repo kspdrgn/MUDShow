@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`"
         },
         {
           "description": "Enables the append_session_log command without any pre-configured scope.",
@@ -241,6 +241,12 @@
           "type": "string",
           "const": "allow-open-external-url",
           "markdownDescription": "Enables the open_external_url command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the path_exists command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-path-exists",
+          "markdownDescription": "Enables the path_exists command without any pre-configured scope."
         },
         {
           "description": "Enables the pick_app_storage_file command without any pre-configured scope.",
@@ -307,6 +313,12 @@
           "type": "string",
           "const": "allow-window-minimize",
           "markdownDescription": "Enables the window_minimize command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the window_open_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-open-devtools",
+          "markdownDescription": "Enables the window_open_devtools command without any pre-configured scope."
         },
         {
           "description": "Enables the window_start_dragging command without any pre-configured scope.",
@@ -387,6 +399,12 @@
           "markdownDescription": "Denies the open_external_url command without any pre-configured scope."
         },
         {
+          "description": "Denies the path_exists command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-path-exists",
+          "markdownDescription": "Denies the path_exists command without any pre-configured scope."
+        },
+        {
           "description": "Denies the pick_app_storage_file command without any pre-configured scope.",
           "type": "string",
           "const": "deny-pick-app-storage-file",
@@ -451,6 +469,12 @@
           "type": "string",
           "const": "deny-window-minimize",
           "markdownDescription": "Denies the window_minimize command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_open_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-open-devtools",
+          "markdownDescription": "Denies the window_open_devtools command without any pre-configured scope."
         },
         {
           "description": "Denies the window_start_dragging command without any pre-configured scope.",
