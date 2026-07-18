@@ -3,7 +3,7 @@
 ## Top TODO
 
 MVP Features:
-- [ ] Session logging. WIP. needs testing. needs better ui.
+- [ ] Session logging. WIP. needs testing. needs better ui!
 - [ ] Style. WIP. See "MUD Text > Appearance"
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
 - [X] Tabs, multiple connections
@@ -84,10 +84,13 @@ Release:
     - [X] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
 
   - Highlighting
+    - [ ] User specified word color highlights
     - [ ] Separate name highlights from complex (regex?) highlights, simplify name handling
-    - [ ] Click highlight color to change it
-    - [ ] Inputting a name to highlight should trim whitespace
-    - [ ] User specified word color highlights, with word boundary, with case sensitivity
+    - [X] Click highlight color to change it
+    - [X] Toggle matching case sensitivity
+    - [X] Toggle matching on word boundaries
+    - [ ] Toggle matching on beginning of line only
+    - [X] Inputting a name to highlight should trim whitespace
     - [ ] Reg-ex highlights
     - [ ] Automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff
     - [ ] Automatic name color even if they're not in your wf/database
@@ -95,7 +98,7 @@ Release:
   - Logging
     - [X] One-click session logging. Start logging and auto-name log file.
     - [X] Visual indicator that logging is enabled
-    - [ ] On-the-fly log renaming of active session log file
+    - [X] On-the-fly log renaming of active session log file
     - [ ] Auto-log everything to separate log file
     - [ ] Customize log name format, incl folders
     - [ ] Show log name that will be used next to quick log button, user can edit the filename before starting, show indicator if file exists and will be appended to

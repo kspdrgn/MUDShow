@@ -1700,19 +1700,69 @@ body {
   background: var(--surface);
 }
 
-.highlight-swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
+.highlight-swatch-input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
   flex-shrink: 0;
   border: 1px solid var(--border-active);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.highlight-swatch-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.highlight-swatch-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 2px;
+}
+
+.highlight-swatch-input::-moz-color-swatch {
+  border: 0;
+  border-radius: 2px;
+}
+
+.highlight-toggle {
+  flex-shrink: 0;
+  padding: 2px 5px;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  text-transform: none;
+  min-width: 2rem;
+}
+
+.highlight-toggle.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .highlight-pattern {
   flex: 1;
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--text);
+}
+
+.highlight-pattern-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--world-output-background, var(--input-bg));
+  border: 1px solid var(--border);
+  color: var(--world-output-foreground, var(--text-bright));
+  padding: 3px 6px;
+  outline: none;
+}
+
+.highlight-pattern-input:focus {
+  border-color: var(--border-active);
 }
 
 .highlights-add {

@@ -24,6 +24,10 @@
   export let outputChunks: string[] = [];
   export let playWidth = 'none';
   export let onHighlightAdd: (pattern: string, color: string) => void;
+  export let onHighlightUpdatePattern: (index: number, pattern: string) => void;
+  export let onHighlightUpdateColor: (index: number, color: string) => void;
+  export let onHighlightToggleCaseSensitive: (index: number) => void;
+  export let onHighlightToggleWordBoundary: (index: number) => void;
   export let onHighlightDelete: (index: number) => void;
   export let onInputFocusBar: (bar: InputBarId) => void;
   export let onInputSubmit: (bar: InputBarId, value: string) => void;
@@ -54,7 +58,17 @@
   style:--world-input-foreground={styleValues.input.foregroundColor}
   style:--world-input-background={styleValues.input.backgroundColor}
 >
-  <HighlightsPanel open={highlightsVisible} {highlights} {scope} onAdd={onHighlightAdd} onDelete={onHighlightDelete} />
+  <HighlightsPanel
+    open={highlightsVisible}
+    {highlights}
+    {scope}
+    onAdd={onHighlightAdd}
+    onUpdatePattern={onHighlightUpdatePattern}
+    onUpdateColor={onHighlightUpdateColor}
+    onToggleCaseSensitive={onHighlightToggleCaseSensitive}
+    onToggleWordBoundary={onHighlightToggleWordBoundary}
+    onDelete={onHighlightDelete}
+  />
 
   <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} />
 

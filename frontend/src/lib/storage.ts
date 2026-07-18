@@ -130,6 +130,24 @@ function normalizeCharacterRecord(value: unknown): CharacterRecord | null {
   };
 }
 
+function normalizeHighlightRule(value: unknown): HighlightRule | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const pattern = toStringValue(value.pattern).trim();
+  if (!pattern) {
+    return null;
+  }
+
+  return {
+    pattern,
+    color: toStringValue(value.color).trim() || '#f1c40f',
+    caseSensitive: toBooleanValue(value.caseSensitive, false),
+    wordBoundary: toBooleanValue(value.wordBoundary, true),
+  };
+}
+
 function createDefaultCharacter(worldId: string): CharacterRecord {
   return {
     id: createId('character'),
@@ -199,7 +217,9 @@ function normalizePersistentData(
     schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : STORAGE_SCHEMA_VERSION,
     worlds: dedupeWorlds(worldRecords),
     characters: characterRecords,
-    highlights: Array.isArray(raw.highlights) ? raw.highlights : [],
+    highlights: Array.isArray(raw.highlights)
+      ? raw.highlights.map((entry) => normalizeHighlightRule(entry)).filter((entry): entry is HighlightRule => entry !== null)
+      : [],
     history: isRecord(raw.history) ? (raw.history as Record<string, TranscriptHistoryEntry[]>) : {},
     notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
     style: normalizeAppStyleOverrides(raw.style),
@@ -640,18 +660,20 @@ export async function loadHighlights(): Promise<HighlightRule[]> {
 }
 
 export async function saveHighlights(rules: HighlightRule[]): Promise<void> {
+  const nextRules = rules.map((rule) => normalizeHighlightRule(rule)).filter((rule): rule is HighlightRule => rule !== null);
+
   if (!isTauriAvailable()) {
     const current = readWebviewData();
     writeWebviewData({
       ...current,
-      highlights: rules,
+      highlights: nextRules,
     });
     return;
   }
 
   await queueFileMutation((data) => ({
     ...data,
-    highlights: rules,
+    highlights: nextRules,
   }));
 }
 

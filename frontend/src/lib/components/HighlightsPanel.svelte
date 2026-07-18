@@ -6,13 +6,18 @@
   export let highlights: HighlightRule[] = [];
   export let scope = 'world';
   export let onAdd: (pattern: string, color: string) => void;
+  export let onUpdatePattern: (index: number, pattern: string) => void;
+  export let onUpdateColor: (index: number, color: string) => void;
+  export let onToggleCaseSensitive: (index: number) => void;
+  export let onToggleWordBoundary: (index: number) => void;
   export let onDelete: (index: number) => void;
 
   let pattern = '';
   let color = '#f1c40f';
 
   function handleAdd(): void {
-    onAdd(pattern, color);
+    const trimmed = pattern.trim();
+    onAdd(trimmed, color);
     pattern = '';
   }
 </script>
@@ -25,9 +30,48 @@
     {:else}
       {#each highlights as rule, index}
         <div class="highlight-row">
-          <div class="highlight-swatch" style={`background:${rule.color}`}></div>
-          <span class="highlight-pattern">{rule.pattern}</span>
-          <button class="btn danger" on:click={() => onDelete(index)}>del</button>
+          <input
+            class="highlight-swatch-input"
+            type="color"
+            value={rule.color}
+            aria-label={`Highlight color ${index + 1}`}
+            title="Highlight color: click to open the color picker and change the rule color."
+            on:change={(event) => onUpdateColor(index, (event.currentTarget as HTMLInputElement).value)}
+          />
+          <button
+            type="button"
+            class={`btn highlight-toggle${rule.caseSensitive ? ' active' : ''}`}
+            title="Case sensitive: match uppercase and lowercase exactly as typed."
+            aria-pressed={rule.caseSensitive}
+            on:click={() => onToggleCaseSensitive(index)}
+          >
+            case
+          </button>
+          <button
+            type="button"
+            class={`btn highlight-toggle${rule.wordBoundary ? ' active' : ''}`}
+            title="Word boundary: only match the text as a standalone word."
+            aria-pressed={rule.wordBoundary}
+            on:click={() => onToggleWordBoundary(index)}
+          >
+            word
+          </button>
+          <input
+            class="highlight-pattern-input"
+            type="text"
+            value={rule.pattern}
+            autocomplete="off"
+            spellcheck="false"
+            aria-label={`Highlight text ${index + 1}`}
+            on:keydown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                (event.currentTarget as HTMLInputElement).blur();
+              }
+            }}
+            on:blur={(event) => onUpdatePattern(index, (event.currentTarget as HTMLInputElement).value)}
+          />
+          <button type="button" class="btn danger" on:click={() => onDelete(index)}>del</button>
         </div>
       {/each}
     {/if}
@@ -37,9 +81,12 @@
       id={getWorldHighlightInputId(scope)}
       type="text"
       bind:value={pattern}
-      placeholder="text to highlight..."
+      placeholder="enter text to highlight..."
       autocomplete="off"
       spellcheck="false"
+      on:blur={() => {
+        pattern = pattern.trim();
+      }}
     />
     <input type="color" bind:value={color} />
     <button class="btn primary" type="submit">add</button>

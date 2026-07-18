@@ -361,6 +361,10 @@ import {
         playWidth={worldSession.currentCharacter?.width !== undefined ? `${worldSession.currentCharacter.width}ch` : 'none'}
         loggingActive={worldSession.loggingActive}
         onHighlightAdd={(pattern, color) => session.addHighlight(pattern, color)}
+        onHighlightUpdatePattern={(index, pattern) => session.updateHighlightPattern(index, pattern)}
+        onHighlightUpdateColor={(index, color) => session.updateHighlightColor(index, color)}
+        onHighlightToggleCaseSensitive={(index) => session.toggleHighlightCaseSensitive(index)}
+        onHighlightToggleWordBoundary={(index) => session.toggleHighlightWordBoundary(index)}
         onHighlightDelete={(index) => session.deleteHighlight(index)}
         onInputFocusBar={(bar) => session.handleInputFocus(bar)}
         onInputSubmit={(bar, value) => session.handleInputSubmit(bar, value)}

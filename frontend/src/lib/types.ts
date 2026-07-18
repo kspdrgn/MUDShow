@@ -37,4 +37,6 @@ export interface CharacterDraft {
 export interface HighlightRule {
   pattern: string;
   color: string;
+  caseSensitive: boolean;
+  wordBoundary: boolean;
 }

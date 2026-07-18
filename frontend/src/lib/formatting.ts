@@ -533,7 +533,10 @@ export function ansiToHtmlWithPreviews(
 
 export function buildHighlightRegexes(rules: HighlightRule[]): HighlightRegex[] {
   return rules.map((rule) => ({
-    re: new RegExp(rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+    re: new RegExp(
+      `${rule.wordBoundary ? '\\b' : ''}${rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${rule.wordBoundary ? '\\b' : ''}`,
+      rule.caseSensitive ? 'g' : 'gi',
+    ),
     color: rule.color,
   }));
 }

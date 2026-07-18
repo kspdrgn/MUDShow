@@ -14,7 +14,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 ## Core Model
 - 'Worlds' are the MU servers, and 'Characters' are named users on the server. All connections are done through the world + character context.
 - Per-character notes: locally stored private freeform text associated with a local character.
-- Global highlight rules: exact-text matches mapped to colors.
+- Global highlight rules: exact-text matches mapped to colors, with case-sensitive, whole-word, and editable text options.
 - Session state: active connection, output stream, input focus, read position, etc.
 
 ## User Stories
@@ -67,7 +67,11 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Open and close a notes panel for the active character.
 - Open and close a highlights panel for global rules.
 - Add and remove highlight rules.
+- Edit the text for an existing highlight rule.
+- Edit the color for an existing highlight rule.
 - Apply highlight colors to matching text in session output.
+- Let each highlight rule toggle case-sensitive matching.
+- Let each highlight rule toggle standalone-word matching.
 - Support simple word completion from recently seen session text.
 - Support quick switching between the first two input bars with F1 and F2 when a world tab is active. If only one input bar exists, F2 opens a second one.
 - Support quick toggling of notes panel with F3.

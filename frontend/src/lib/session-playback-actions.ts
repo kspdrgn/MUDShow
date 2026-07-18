@@ -28,7 +28,7 @@ import {
   scrollElementToBottom,
   scrollElementToTop,
 } from './session-dom';
-import type { CharacterRecord, WorldRecord } from './types';
+import type { CharacterRecord, HighlightRule, WorldRecord } from './types';
 import type { WorldTabSessionState } from './world-session';
 import {
   getWorldDomScope,
@@ -93,6 +93,7 @@ export function createPlaybackActions({
   }
 
   const logWriteQueues = new Map<string, Promise<void>>();
+  let suppressTranscriptScrollState = false;
 
   function clearLoggingQueue(tabId: string): void {
     logWriteQueues.delete(tabId);
@@ -503,6 +504,10 @@ export function createPlaybackActions({
   }
 
   function handleOutputScroll(): void {
+    if (suppressTranscriptScrollState) {
+      return;
+    }
+
     const scope = getActiveWorldScope();
     if (!scope) {
       return;
@@ -623,6 +628,7 @@ export function createPlaybackActions({
 
     const session = getWorldSession(tabId);
     const shouldOpen = panel === 'notes' ? !session.notesVisible : !session.highlightsVisible;
+    const shouldPreserveBottom = !session.userScrolled;
 
     if (panel === 'notes') {
       updateWorldSession(tabId, {
@@ -636,15 +642,29 @@ export function createPlaybackActions({
       });
     }
 
-    await nextFrame();
+    suppressTranscriptScrollState = true;
+    try {
+      await nextFrame();
 
-    if (shouldOpen) {
-      const scope = getActiveWorldScope();
-      if (scope) {
-        focusElement(panel === 'notes' ? getWorldNotesEditorId(scope) : getWorldHighlightInputId(scope));
+      if (shouldPreserveBottom) {
+        const scope = getActiveWorldScope();
+        if (scope) {
+          scrollElementToBottom(getWorldOutputAreaId(scope));
+        }
       }
-    } else {
-      focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar));
+
+      await nextFrame();
+
+      if (shouldOpen) {
+        const scope = getActiveWorldScope();
+        if (scope) {
+          focusElement(panel === 'notes' ? getWorldNotesEditorId(scope) : getWorldHighlightInputId(scope), true);
+        }
+      } else {
+        focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar));
+      }
+    } finally {
+      suppressTranscriptScrollState = false;
     }
   }
 
@@ -740,10 +760,69 @@ export function createPlaybackActions({
     }
 
     const state = getState();
-    const next = [...state.highlights, { pattern: trimmed, color }];
+    const next = [
+      ...state.highlights,
+      {
+        pattern: trimmed,
+        color,
+        caseSensitive: false,
+        wordBoundary: true,
+      },
+    ];
     void saveHighlights(next);
     setHighlightRegexes(buildHighlightRegexes(next));
     patch({ highlights: next });
+  }
+
+  function updateHighlight(index: number, updater: (rule: HighlightRule) => HighlightRule): void {
+    const state = getState();
+    const current = state.highlights[index];
+    if (!current) {
+      return;
+    }
+
+    const next = [...state.highlights];
+    next[index] = updater(current);
+    void saveHighlights(next);
+    setHighlightRegexes(buildHighlightRegexes(next));
+    patch({ highlights: next });
+  }
+
+  function updateHighlightPattern(index: number, pattern: string): void {
+    const trimmed = pattern.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    updateHighlight(index, (rule) => ({
+      ...rule,
+      pattern: trimmed,
+    }));
+  }
+
+  function updateHighlightColor(index: number, color: string): void {
+    if (!color.trim()) {
+      return;
+    }
+
+    updateHighlight(index, (rule) => ({
+      ...rule,
+      color,
+    }));
+  }
+
+  function toggleHighlightCaseSensitive(index: number): void {
+    updateHighlight(index, (rule) => ({
+      ...rule,
+      caseSensitive: !rule.caseSensitive,
+    }));
+  }
+
+  function toggleHighlightWordBoundary(index: number): void {
+    updateHighlight(index, (rule) => ({
+      ...rule,
+      wordBoundary: !rule.wordBoundary,
+    }));
   }
 
   function deleteHighlight(index: number): void {
@@ -793,6 +872,10 @@ export function createPlaybackActions({
     removeInputBar,
     resizeInputBar,
     addHighlight,
+    updateHighlightPattern,
+    updateHighlightColor,
+    toggleHighlightCaseSensitive,
+    toggleHighlightWordBoundary,
     deleteHighlight,
     saveNotes,
   };

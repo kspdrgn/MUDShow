@@ -2,8 +2,8 @@ export function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-export function focusElement(id: string): void {
-  document.getElementById(id)?.focus();
+export function focusElement(id: string, preventScroll = false): void {
+  document.getElementById(id)?.focus({ preventScroll });
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {
