@@ -136,7 +136,8 @@ This would support:
   - [ ] Window transparency
 
 ## Settings
-  - [ ] two-pane world/character settings, no modals, route-able to each place
+  - [ ] two-pane world/character settings, no modals
+    - [ ] route-able to each place when selecting edit world/character from menus
   - [X] tabbed/two-pane app settings, instead of everything in one page
     - [ ] route-able to each sub-tab
 

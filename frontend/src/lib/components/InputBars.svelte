@@ -361,7 +361,7 @@
     const selectionStart = input?.selectionStart ?? currentValue.length;
     const selectionEnd = input?.selectionEnd ?? selectionStart;
 
-    if (event.ctrlKey && event.key === 'Enter') {
+    if (event.key === 'Enter' && (event.ctrlKey || event.shiftKey)) {
       event.preventDefault();
 
       const nextValue = `${currentValue.slice(0, selectionStart)}\n${currentValue.slice(selectionEnd)}`;

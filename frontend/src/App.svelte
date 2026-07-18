@@ -214,6 +214,16 @@ import {
   onMount(() => {
     const handleVisibilityChange = () => session.handleVisibilityChange();
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isReloadKey =
+        event.key === 'F5' ||
+        ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'r');
+
+      if (isReloadKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       if (event.ctrlKey && event.key === 'Tab' && !isModalOpen()) {
         event.preventDefault();
         if (event.shiftKey) {
@@ -248,12 +258,12 @@ import {
     })();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
 
     return () => {
       disposed = true;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
       session.dispose();
     };
   });
@@ -298,6 +308,14 @@ import {
     onOpenCharactersTab={() => session.selectTab('characters')}
     onEditWorldTab={(tabId) => void session.openWorldEditorFromWorldTab(tabId)}
     onEditCharacterTab={(tabId) => void session.openCharacterEditorFromWorldTab(tabId)}
+    onOpenNotesTab={(tabId) => {
+      session.activateWorldTab(tabId);
+      void session.togglePanel('notes');
+    }}
+    onOpenHighlightsTab={(tabId) => {
+      session.activateWorldTab(tabId);
+      void session.togglePanel('highlights');
+    }}
   />
 
   <main id="app-main">
@@ -366,6 +384,21 @@ import {
         onHighlightToggleCaseSensitive={(index) => session.toggleHighlightCaseSensitive(index)}
         onHighlightToggleWordBoundary={(index) => session.toggleHighlightWordBoundary(index)}
         onHighlightDelete={(index) => session.deleteHighlight(index)}
+        onHighlightClose={() => void session.togglePanel('highlights')}
+        canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentCharacter !== null}
+        canDisconnect={worldSession.connectionStatus === 'connecting' || worldSession.connectionStatus === 'connected'}
+        canQuickLog={!worldSession.loggingActive}
+        canStopLogging={worldSession.loggingActive}
+        canEditWorld={worldSession.currentWorld !== null}
+        canEditCharacter={worldSession.currentCharacter !== null && !worldSession.currentCharacter.isDefault}
+        onReconnectTab={() => void session.reconnectWorldTab(tab.id)}
+        onDisconnectTab={() => void session.disconnectWorldTab(tab.id)}
+        onQuickLogTab={() => void session.startLogging(tab.id, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null)}
+        onOpenLoggingTab={() => openLoggingModal(tab.id)}
+        onStopLoggingTab={() => void session.stopLogging(tab.id)}
+        onEditWorldTab={() => void session.openWorldEditorFromWorldTab(tab.id)}
+        onEditCharacterTab={() => void session.openCharacterEditorFromWorldTab(tab.id)}
+        onCloseTab={() => session.closeTab(tab.id, 'shortcut')}
         onInputFocusBar={(bar) => session.handleInputFocus(bar)}
         onInputSubmit={(bar, value) => session.handleInputSubmit(bar, value)}
         onInputComplete={(bar, value, selectionStart) => session.completeInput(value, selectionStart)}
@@ -373,6 +406,7 @@ import {
         onInputRemoveBar={(bar) => void session.removeInputBar(bar)}
         onInputResizeBar={(bar, delta) => session.resizeInputBar(bar, delta)}
         onNotesInput={(notes) => session.saveNotes(notes)}
+        onNotesClose={() => void session.togglePanel('notes')}
         onOutputScroll={() => session.handleOutputScroll()}
         onOutputScrollKey={(action) => session.handleOutputScrollKey(action)}
         onScrollToBottom={() => session.handleScrollToBottom()}

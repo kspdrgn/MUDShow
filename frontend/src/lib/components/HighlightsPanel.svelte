@@ -11,6 +11,7 @@
   export let onToggleCaseSensitive: (index: number) => void;
   export let onToggleWordBoundary: (index: number) => void;
   export let onDelete: (index: number) => void;
+  export let onClose: () => void;
 
   let pattern = '';
   let color = '#f1c40f';
@@ -23,7 +24,18 @@
 </script>
 
 <div class="highlights-panel" id={getWorldHighlightsPanelId(scope)} class:open={open}>
-  <div class="highlights-label">highlights</div>
+  <div class="panel-header">
+    <div class="highlights-label">highlights</div>
+    <button
+      type="button"
+      class="btn panel-close"
+      aria-label="Close highlights panel"
+      title="Close highlights panel"
+      on:click={onClose}
+    >
+      X
+    </button>
+  </div>
   <div class="highlights-list">
     {#if highlights.length === 0}
       <div style="padding:0.5rem 0.8rem;color:var(--text-dim);font-size:0.8rem;">no highlights yet</div>

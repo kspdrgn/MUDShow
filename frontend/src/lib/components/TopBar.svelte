@@ -8,6 +8,7 @@
   } from '../tabs';
   import type { CharacterRecord, WorldRecord } from '../types';
   import StatusDot from './StatusDot.svelte';
+  import WorldContextMenu from './WorldContextMenu.svelte';
   import type { WorldTabSessionState } from '../world-session';
   import QuickConnectPanel from './QuickConnectPanel.svelte';
 
@@ -33,6 +34,8 @@
   export let onOpenCharactersTab: () => void;
   export let onEditWorldTab: (tabId: string) => void;
   export let onEditCharacterTab: (tabId: string) => void;
+  export let onOpenNotesTab: (tabId: string) => void;
+  export let onOpenHighlightsTab: (tabId: string) => void;
 
   const canOpenInspector = import.meta.env.DEV && isTauriAvailable();
   let menuOpen = false;
@@ -408,6 +411,7 @@
   async function openWorldContextMenu(event: MouseEvent, tab: AppTab): Promise<void> {
     event.preventDefault();
     event.stopPropagation();
+    window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'titlebar' } }));
     menuOpen = false;
     quickConnectOpen = false;
     worldContextMenuTabId = tab.id;
@@ -428,6 +432,12 @@
   function handleWorldContextMenuAction(action: () => void): void {
     closeWorldContextMenu();
     action();
+  }
+
+  function beginWorldTabClose(anchorRect: DOMRect, tab: AppTab): void {
+    closeConfirmAnchorRect = anchorRect;
+    closeWorldContextMenu();
+    onCloseTab(tab.id, 'mouse');
   }
 
   onMount(() => {
@@ -610,11 +620,9 @@
               title={`close ${tab.title}`}
               aria-label={`close ${tab.title}`}
               on:pointerdown|stopPropagation
-              on:click|stopPropagation={(event) => {
-                setCloseConfirmAnchor(event.currentTarget);
-                closeWorldContextMenu();
-                onCloseTab(tab.id, 'mouse');
-              }}
+              on:click|stopPropagation={(event) =>
+                beginWorldTabClose((event.currentTarget as HTMLElement).getBoundingClientRect(), tab)
+              }
             >
               X
             </button>
@@ -704,91 +712,33 @@
   </div>
 
   {#if worldContextMenuOpen && worldContextMenuTab}
-    <div
-      bind:this={worldContextMenuDropdown}
-      class="titlebar-dropdown titlebar-context-menu"
-      role="menu"
-      aria-label={`tab menu for ${worldContextMenuTab.title}`}
-      style={`left: ${worldContextMenuPosition.x}px; top: ${worldContextMenuPosition.y}px;`}
-    >
-      {#if worldContextMenuTab.kind === 'world'}
-        <button
-          type="button"
-          class="titlebar-menu-item titlebar-context-menu-item"
-          role="menuitem"
-          disabled={!worldContextMenuCanReconnect}
-          on:click={() => worldContextMenuCanReconnect && handleWorldContextMenuAction(() => onReconnectTab(worldContextMenuTab.id))}
-        >
-          reconnect
-        </button>
-        <button
-          type="button"
-          class="titlebar-menu-item titlebar-context-menu-item"
-          role="menuitem"
-          disabled={!worldContextMenuCanDisconnect}
-          on:click={() => worldContextMenuCanDisconnect && handleWorldContextMenuAction(() => onDisconnectTab(worldContextMenuTab.id))}
-        >
-          disconnect
-        </button>
-        <button
-          type="button"
-          class="titlebar-menu-item titlebar-context-menu-item"
-          role="menuitem"
-          disabled={!worldContextMenuCanQuickLog}
-          on:click={() => worldContextMenuCanQuickLog && handleWorldContextMenuAction(() => onQuickLogTab(worldContextMenuTab.id))}
-        >
-          quick log
-        </button>
-        <button
-          type="button"
-          class="titlebar-menu-item titlebar-context-menu-item"
-          role="menuitem"
-          disabled={!worldContextMenuCanStopLogging}
-          on:click={() => worldContextMenuCanStopLogging && handleWorldContextMenuAction(() => onStopLoggingTab(worldContextMenuTab.id))}
-        >
-          stop logging
-        </button>
-        <button
-          type="button"
-          class="titlebar-menu-item titlebar-context-menu-item"
-          role="menuitem"
-          on:click={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuTab.id))}
-        >
-          logging...
-        </button>
-        <button
-          type="button"
-          class="titlebar-menu-item titlebar-context-menu-item"
-          role="menuitem"
-          disabled={!worldContextMenuCanEditWorld}
-          on:click={() => worldContextMenuCanEditWorld && handleWorldContextMenuAction(() => onEditWorldTab(worldContextMenuTab.id))}
-        >
-          edit world
-        </button>
-        <button
-          type="button"
-          class="titlebar-menu-item titlebar-context-menu-item"
-          role="menuitem"
-          disabled={!worldContextMenuCanEditCharacter}
-          on:click={() =>
-            worldContextMenuCanEditCharacter &&
-            handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuTab.id))
-          }
-        >
-          edit character
-        </button>
-
-        <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
-      {/if}
-
-      <button
-        type="button"
-        class="titlebar-menu-item titlebar-context-menu-item"
-        role="menuitem"
-        on:click={() => handleWorldContextMenuAction(() => onCloseTab(worldContextMenuTab.id, 'mouse'))}
-      >
-        close
-      </button>
+    <div bind:this={worldContextMenuDropdown}>
+      <WorldContextMenu
+        open={worldContextMenuOpen}
+        position={worldContextMenuPosition}
+        ariaLabel={`tab menu for ${worldContextMenuTab.title}`}
+        source="titlebar"
+        canReconnect={worldContextMenuCanReconnect}
+        canDisconnect={worldContextMenuCanDisconnect}
+        canQuickLog={worldContextMenuCanQuickLog}
+        canStopLogging={worldContextMenuCanStopLogging}
+        canEditWorld={worldContextMenuCanEditWorld}
+        canEditCharacter={worldContextMenuCanEditCharacter}
+        onReconnect={() => worldContextMenuCanReconnect && handleWorldContextMenuAction(() => onReconnectTab(worldContextMenuTab.id))}
+        onDisconnect={() => worldContextMenuCanDisconnect && handleWorldContextMenuAction(() => onDisconnectTab(worldContextMenuTab.id))}
+        onQuickLog={() => worldContextMenuCanQuickLog && handleWorldContextMenuAction(() => onQuickLogTab(worldContextMenuTab.id))}
+        onStopLogging={() => worldContextMenuCanStopLogging && handleWorldContextMenuAction(() => onStopLoggingTab(worldContextMenuTab.id))}
+        onOpenLogging={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuTab.id))}
+        onEditWorld={() => worldContextMenuCanEditWorld && handleWorldContextMenuAction(() => onEditWorldTab(worldContextMenuTab.id))}
+        onEditCharacter={() =>
+          worldContextMenuCanEditCharacter &&
+          handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuTab.id))
+        }
+        onOpenNotes={() => handleWorldContextMenuAction(() => onOpenNotesTab(worldContextMenuTab.id))}
+        onOpenHighlights={() => handleWorldContextMenuAction(() => onOpenHighlightsTab(worldContextMenuTab.id))}
+        onDismiss={closeWorldContextMenu}
+        onCloseRequest={(rect) => beginWorldTabClose(rect, worldContextMenuTab)}
+      />
     </div>
   {/if}
 

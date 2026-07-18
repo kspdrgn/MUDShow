@@ -29,6 +29,21 @@
   export let onHighlightToggleCaseSensitive: (index: number) => void;
   export let onHighlightToggleWordBoundary: (index: number) => void;
   export let onHighlightDelete: (index: number) => void;
+  export let onHighlightClose: () => void;
+  export let onReconnectTab: () => void;
+  export let onDisconnectTab: () => void;
+  export let onQuickLogTab: () => void;
+  export let onOpenLoggingTab: () => void;
+  export let onStopLoggingTab: () => void;
+  export let onEditWorldTab: () => void;
+  export let onEditCharacterTab: () => void;
+  export let onCloseTab: (anchorRect: DOMRect) => void;
+  export let canReconnect = false;
+  export let canDisconnect = false;
+  export let canQuickLog = false;
+  export let canStopLogging = false;
+  export let canEditWorld = false;
+  export let canEditCharacter = false;
   export let onInputFocusBar: (bar: InputBarId) => void;
   export let onInputSubmit: (bar: InputBarId, value: string) => void;
   export let onInputComplete: (
@@ -40,6 +55,7 @@
   export let onInputRemoveBar: (bar: InputBarId) => void;
   export let onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
   export let onNotesInput: (notes: string) => void;
+  export let onNotesClose: () => void;
   export let onOutputScroll: () => void;
   export let onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
   export let onScrollToBottom: () => void;
@@ -68,9 +84,10 @@
     onToggleCaseSensitive={onHighlightToggleCaseSensitive}
     onToggleWordBoundary={onHighlightToggleWordBoundary}
     onDelete={onHighlightDelete}
+    onClose={onHighlightClose}
   />
 
-  <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} />
+  <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} onClose={onNotesClose} />
 
   <Transcript
     {activeBar}
@@ -81,6 +98,22 @@
     {linkImagePreviews}
     {showCurrentOutputWhenScrollingUp}
     {userScrolled}
+    {canReconnect}
+    {canDisconnect}
+    {canQuickLog}
+    {canStopLogging}
+    {canEditWorld}
+    {canEditCharacter}
+    onReconnect={onReconnectTab}
+    onDisconnect={onDisconnectTab}
+    onQuickLog={onQuickLogTab}
+    onStopLogging={onStopLoggingTab}
+    onOpenLogging={onOpenLoggingTab}
+    onEditWorld={onEditWorldTab}
+    onEditCharacter={onEditCharacterTab}
+    onOpenNotes={onNotesClose}
+    onOpenHighlights={onHighlightClose}
+    onCloseRequest={onCloseTab}
     onScroll={onOutputScroll}
     onScrollToBottom={onScrollToBottom}
   />

@@ -33,6 +33,7 @@ import type { WorldTabSessionState } from './world-session';
 import {
   getWorldDomScope,
   getWorldHighlightInputId,
+  getWorldInputBarContainerId,
   getWorldInputBarInputId,
   getWorldNotesEditorId,
   getWorldOutputAreaId,
@@ -331,6 +332,21 @@ export function createPlaybackActions({
     }
 
     const session = getWorldSession(activeWorldTabId);
+
+    if (event.ctrlKey && event.key === 'F2') {
+      event.preventDefault();
+
+      const secondBar = session.inputBars[1];
+      if (!secondBar) {
+        return;
+      }
+
+      const scope = getWorldDomScope(activeWorldTabId);
+      const container = document.getElementById(getWorldInputBarContainerId(scope, secondBar.id));
+      const closeButton = container?.querySelector<HTMLButtonElement>('[aria-label="close input bar"]');
+      closeButton?.click();
+      return;
+    }
 
     if (event.key === 'F1' || event.key === 'F2') {
       event.preventDefault();

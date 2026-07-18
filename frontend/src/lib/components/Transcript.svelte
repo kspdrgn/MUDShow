@@ -10,6 +10,7 @@
   import { openExternalUrl } from '../tauri';
   import { getScopedInputBarInputId, type InputBarId } from '../input-bars';
   import type { HighlightRule } from '../types';
+  import WorldContextMenu from './WorldContextMenu.svelte';
 
   const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
 
@@ -21,6 +22,22 @@
   export let linkImagePreviews = false;
   export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
+  export let canReconnect = false;
+  export let canDisconnect = false;
+  export let canQuickLog = false;
+  export let canStopLogging = false;
+  export let canEditWorld = false;
+  export let canEditCharacter = false;
+  export let onReconnect: () => void;
+  export let onDisconnect: () => void;
+  export let onQuickLog: () => void;
+  export let onStopLogging: () => void;
+  export let onOpenLogging: () => void;
+  export let onEditWorld: () => void;
+  export let onEditCharacter: () => void;
+  export let onOpenNotes: () => void;
+  export let onOpenHighlights: () => void;
+  export let onCloseRequest: (anchorRect: DOMRect) => void;
   export let onScroll: () => void;
   export let onScrollToBottom: () => void;
 
@@ -29,6 +46,13 @@
   let liveRenderedChunks: string[] = [];
   let splitView = false;
   let hiddenPreviewUrls = new Set<string>();
+  let transcriptShellElement: HTMLDivElement | null = null;
+  let contextMenuOpen = false;
+  let contextMenuPosition = { x: 0, y: 0 };
+
+  function closeContextMenu(): void {
+    contextMenuOpen = false;
+  }
 
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: renderedChunks = chunks.map((chunk) =>
@@ -56,6 +80,8 @@
   }
 
   async function handleClick(event: MouseEvent): Promise<void> {
+    closeContextMenu();
+
     const target = event.target;
     if (!(target instanceof Element)) {
       return;
@@ -160,6 +186,40 @@
     onScrollToBottom();
   }
 
+  function handleContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'transcript' } }));
+
+    const shellRect = transcriptShellElement?.getBoundingClientRect();
+    contextMenuPosition = shellRect
+      ? {
+          x: Math.max(8, Math.min(event.clientX - shellRect.left, shellRect.width - 8)),
+          y: Math.max(8, Math.min(event.clientY - shellRect.top, shellRect.height - 8)),
+        }
+      : {
+          x: event.clientX,
+          y: event.clientY,
+        };
+    contextMenuOpen = true;
+  }
+
+  function openNotesFromMenu(): void {
+    closeContextMenu();
+    onOpenNotes();
+  }
+
+  function openHighlightsFromMenu(): void {
+    closeContextMenu();
+    onOpenHighlights();
+  }
+
+  function closeTabFromMenu(anchorRect: DOMRect): void {
+    closeContextMenu();
+    onCloseRequest(anchorRect);
+  }
+
   function handleLiveWheel(event: WheelEvent): void {
     const mainOutputId = `${scope}-output-area`;
     const mainOutput = document.getElementById(mainOutputId);
@@ -184,6 +244,7 @@
 </script>
 
 <div
+  bind:this={transcriptShellElement}
   class={`output-transcript-shell${splitView ? ' output-transcript-shell--split' : ''}`}
   style={`--play-width: ${width};`}
 >
@@ -197,6 +258,7 @@
       aria-label={splitView ? 'Transcript history' : 'Transcript output'}
       on:mouseup={handleMouseUp}
       on:click={handleClick}
+      on:contextmenu={handleContextMenu}
       on:scroll={onScroll}
       on:load|capture={handlePreviewLoad}
       on:error|capture={handlePreviewError}
@@ -229,6 +291,7 @@
       aria-label="Current output"
       on:mouseup={handleMouseUp}
       on:click={handleClick}
+      on:contextmenu={handleContextMenu}
       on:wheel={handleLiveWheel}
     >
       <div class="output-area-content output-area-content--live">
@@ -238,4 +301,49 @@
       </div>
     </div>
   {/if}
+
+  <WorldContextMenu
+    open={contextMenuOpen}
+    position={contextMenuPosition}
+    ariaLabel="transcript context menu"
+    source="transcript"
+    {canReconnect}
+    {canDisconnect}
+    {canQuickLog}
+    {canStopLogging}
+    {canEditWorld}
+    {canEditCharacter}
+    onReconnect={() => {
+      closeContextMenu();
+      onReconnect();
+    }}
+    onDisconnect={() => {
+      closeContextMenu();
+      onDisconnect();
+    }}
+    onQuickLog={() => {
+      closeContextMenu();
+      onQuickLog();
+    }}
+    onStopLogging={() => {
+      closeContextMenu();
+      onStopLogging();
+    }}
+    onOpenLogging={() => {
+      closeContextMenu();
+      onOpenLogging();
+    }}
+    onEditWorld={() => {
+      closeContextMenu();
+      onEditWorld();
+    }}
+    onEditCharacter={() => {
+      closeContextMenu();
+      onEditCharacter();
+    }}
+    onOpenNotes={openNotesFromMenu}
+    onOpenHighlights={openHighlightsFromMenu}
+    onDismiss={closeContextMenu}
+    onCloseRequest={closeTabFromMenu}
+  />
 </div>
