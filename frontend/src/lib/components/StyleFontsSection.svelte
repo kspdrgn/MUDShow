@@ -80,7 +80,6 @@
         </div>
         <StyleSlideToggle
           checked={section.fontFamilyEnabled}
-          label="override"
           on:change={(event) => updateFontFamilyEnabled(event.detail)}
         />
       </div>
@@ -95,9 +94,6 @@
             <option value={choice.value}>{choice.label}</option>
           {/each}
         </select>
-        <div class="style-picker-line short"></div>
-        <div class="style-picker-line"></div>
-        <div class="style-picker-line medium"></div>
       </div>
     </section>
 
@@ -109,7 +105,6 @@
         </div>
         <StyleSlideToggle
           checked={section.fontSizeEnabled}
-          label="override"
           on:change={(event) => updateFontSizeEnabled(event.detail)}
         />
       </div>
@@ -233,22 +228,6 @@
   .style-select option {
     background: var(--surface);
     color: var(--text-bright);
-  }
-
-  .style-picker-line {
-    height: 2.05rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-      rgba(255, 255, 255, 0.02);
-  }
-
-  .style-picker-line.short {
-    width: 55%;
-  }
-
-  .style-picker-line.medium {
-    width: 78%;
   }
 
   .style-size-surface {

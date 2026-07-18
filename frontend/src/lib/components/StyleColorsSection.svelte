@@ -61,7 +61,6 @@
     </div>
     <StyleSlideToggle
       checked={section.colorsEnabled}
-      label="override"
       on:change={(event) => updateColorsEnabled(event.detail)}
     />
   </div>

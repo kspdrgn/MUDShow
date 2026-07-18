@@ -74,7 +74,6 @@
     </div>
     <StyleSlideToggle
       checked={section.backgroundImageEnabled}
-      label="override"
       on:change={(event) => updateBackgroundImageEnabled(event.detail)}
     />
   </div>

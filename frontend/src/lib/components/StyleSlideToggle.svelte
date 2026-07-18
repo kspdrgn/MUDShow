@@ -3,7 +3,6 @@
 
   export let checked = false;
   export let disabled = false;
-  export let label = '';
 
   const dispatch = createEventDispatcher<{ change: boolean }>();
 </script>
@@ -22,7 +21,6 @@
   <span class="style-slide-toggle-track" aria-hidden="true">
     <span class="style-slide-toggle-thumb"></span>
   </span>
-  <span class="style-slide-toggle-label">{label}</span>
 </label>
 
 <style>
@@ -93,13 +91,5 @@
   .style-slide-toggle--disabled {
     cursor: default;
     opacity: 0.55;
-  }
-
-  .style-slide-toggle-label {
-    font-family: var(--font-ui);
-    font-size: 0.64rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    white-space: nowrap;
   }
 </style>
