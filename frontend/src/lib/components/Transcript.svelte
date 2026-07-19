@@ -71,16 +71,16 @@
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: ruleRegexes = buildRuleRegexes(rules);
   $: renderedChunks = chunks.map((chunk) =>
-    applyRules(
-      applyHighlights(
+    applyHighlights(
+      applyRules(
         renderTranscriptHtml(chunk, linkImagePreviews, hiddenPreviewUrls, imagePreviewCacheVersion),
-        highlightRegexes,
+        ruleRegexes,
       ),
-      ruleRegexes,
+      highlightRegexes,
     ),
   );
   $: liveRenderedChunks = chunks.map((chunk) =>
-    applyRules(applyHighlights(renderTranscriptHtml(chunk, false), highlightRegexes), ruleRegexes),
+    applyHighlights(applyRules(renderTranscriptHtml(chunk, false), ruleRegexes), highlightRegexes),
   );
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
 
