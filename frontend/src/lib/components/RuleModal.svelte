@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import StyleSlideToggle from './StyleSlideToggle.svelte';
   import type { RuleDraft } from '../types';
 
   const DEFAULT_SAMPLE_TEXT = 'sample text to test the rule\ntry adding anchors like ^ and $';
@@ -7,8 +8,15 @@
   export let open = false;
   export let title = 'rule editor';
   export let draft: RuleDraft = {
+    label: '',
     pattern: '',
-    color: '#f1c40f',
+    foregroundColor: '#f1c40f',
+    foregroundColorEnabled: true,
+    backgroundColor: '#000000',
+    backgroundColorEnabled: true,
+    opacity: 1,
+    opacityEnabled: true,
+    wholeLine: false,
     caseSensitive: false,
     sampleText: DEFAULT_SAMPLE_TEXT,
   };
@@ -17,15 +25,24 @@
   export let onSave: (draft: RuleDraft) => void;
 
   let pattern = '';
-  let color = '#f1c40f';
+  let foregroundColor = '#f1c40f';
+  let foregroundColorEnabled = true;
+  let backgroundColor = '#000000';
+  let backgroundColorEnabled = true;
+  let opacity = 1;
+  let opacityEnabled = true;
+  let wholeLine = false;
   let caseSensitive = false;
   let sampleText = DEFAULT_SAMPLE_TEXT;
+  let label = '';
   let lastSnapshot = '';
   let lastOpen = false;
   let validationError = '';
-  let previewHtml = '';
-  let previewMatchCount = 0;
+  let sampleMirrorHtml = '';
   let saveDisabled = true;
+  let sampleTextArea: HTMLTextAreaElement | null = null;
+  let sampleMirrorElement: HTMLDivElement | null = null;
+  let sampleMirrorSyncToken = 0;
 
   function escapeHtml(text: string): string {
     return text
@@ -50,10 +67,9 @@
     }
   }
 
-  function buildPreview(regex: RegExp): void {
+  function buildSampleMirror(regex: RegExp): void {
     let result = '';
     let lastIndex = 0;
-    let matchCount = 0;
 
     for (const match of sampleText.matchAll(regex)) {
       const index = match.index ?? lastIndex;
@@ -71,41 +87,72 @@
       }
 
       result += `<span class="rule-preview-hit">${escapeHtml(matched)}</span>`;
-      matchCount += 1;
       lastIndex = index + matched.length;
     }
 
     result += escapeHtml(sampleText.slice(lastIndex));
-    previewHtml = result.replace(/\n/g, '<br>');
-    previewMatchCount = matchCount;
+    sampleMirrorHtml = result.replace(/\n/g, '<br>');
   }
 
-  function refreshPreview(): void {
+  function refreshSampleMirror(): void {
     validationError = '';
-    previewHtml = '';
-    previewMatchCount = 0;
+    sampleMirrorHtml = '';
 
     const regex = compilePattern();
     saveDisabled = regex === null;
     if (!regex) {
+      sampleMirrorHtml = escapeHtml(sampleText).replace(/\n/g, '<br>');
       return;
     }
 
-    buildPreview(regex);
+    buildSampleMirror(regex);
     saveDisabled = false;
+  }
+
+  function syncSampleMirrorScroll(): void {
+    if (!sampleTextArea || !sampleMirrorElement) {
+      return;
+    }
+
+    sampleMirrorElement.scrollTop = sampleTextArea.scrollTop;
+    sampleMirrorElement.scrollLeft = sampleTextArea.scrollLeft;
+  }
+
+  function scheduleSampleMirrorScrollSync(): void {
+    const token = ++sampleMirrorSyncToken;
+
+    void tick().then(() => {
+      if (!open || token !== sampleMirrorSyncToken) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        if (!open || token !== sampleMirrorSyncToken) {
+          return;
+        }
+
+        syncSampleMirrorScroll();
+      });
+    });
   }
 
   $: {
     const snapshot = JSON.stringify(draft);
     if (open && (!lastOpen || snapshot !== lastSnapshot)) {
       pattern = draft.pattern;
-      color = draft.color;
+      foregroundColor = draft.foregroundColor;
+      foregroundColorEnabled = draft.foregroundColorEnabled;
+      backgroundColor = draft.backgroundColor;
+      backgroundColorEnabled = draft.backgroundColorEnabled;
+      opacity = draft.opacity;
+      opacityEnabled = draft.opacityEnabled;
+      wholeLine = draft.wholeLine;
       caseSensitive = draft.caseSensitive;
       sampleText = draft.sampleText || DEFAULT_SAMPLE_TEXT;
+      label = draft.label ?? '';
       lastSnapshot = snapshot;
-      void tick().then(() => {
-        refreshPreview();
-      });
+      refreshSampleMirror();
+      scheduleSampleMirrorScrollSync();
     }
 
     lastOpen = open;
@@ -118,11 +165,30 @@
     }
 
     onSave({
+      label: label.trim(),
       pattern: trimmedPattern,
-      color: color.trim() || '#f1c40f',
+      foregroundColor,
+      foregroundColorEnabled,
+      backgroundColor,
+      backgroundColorEnabled,
+      opacity,
+      opacityEnabled,
+      wholeLine,
       caseSensitive,
       sampleText,
     });
+  }
+
+  function activateForegroundColor(): void {
+    foregroundColorEnabled = true;
+  }
+
+  function activateBackgroundColor(): void {
+    backgroundColorEnabled = true;
+  }
+
+  function activateOpacity(): void {
+    opacityEnabled = true;
   }
 
   function handleOverlayKeyDown(event: KeyboardEvent): void {
@@ -169,6 +235,17 @@
 
       <form on:submit|preventDefault={handleSave}>
         <div class="field">
+          <label for="rule-label">label</label>
+          <input
+            id="rule-label"
+            bind:value={label}
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="organization label"
+          />
+        </div>
+
+        <div class="field">
           <label for="rule-pattern">regexp pattern</label>
           <textarea
             id="rule-pattern"
@@ -178,55 +255,157 @@
             spellcheck="false"
             placeholder="^page:"
             autofocus
-            on:input={refreshPreview}
+            on:input={refreshSampleMirror}
           ></textarea>
-        </div>
-
-        <div class="field">
-          <label for="rule-color">color</label>
-          <input id="rule-color" type="color" bind:value={color} on:input={refreshPreview} />
-        </div>
-
-        <div class="field field-check">
-          <label for="rule-case-sensitive">
-            <input
-              id="rule-case-sensitive"
-              type="checkbox"
-              bind:checked={caseSensitive}
-              on:change={refreshPreview}
-            />
-            case sensitive
-          </label>
         </div>
 
         <div class="field">
           <label for="rule-sample-text">test text</label>
-          <textarea
-            id="rule-sample-text"
-            rows="5"
-            bind:value={sampleText}
-            spellcheck="false"
-            placeholder="paste some transcript text here"
-            on:input={refreshPreview}
-          ></textarea>
-        </div>
-
-        <div class="field">
-          <label>preview</label>
-          <div class="rule-preview" aria-live="polite">
-            {#if validationError}
-              <div class="rule-preview-error">{validationError}</div>
-            {:else}
-              <div class="rule-preview-summary">
-                {previewMatchCount === 1 ? '1 match' : `${previewMatchCount} matches`}
-              </div>
-              <div class="rule-preview-body">{@html previewHtml}</div>
-            {/if}
+          <div class="rule-sample-surface">
+            <div class="rule-sample-mirror" bind:this={sampleMirrorElement} aria-hidden="true">
+              {@html sampleMirrorHtml}
+            </div>
+            <textarea
+              id="rule-sample-text"
+              class="rule-sample-input"
+              rows="5"
+              bind:this={sampleTextArea}
+              bind:value={sampleText}
+              spellcheck="false"
+              placeholder="paste some transcript text here"
+              on:input={() => {
+                refreshSampleMirror();
+                scheduleSampleMirrorScrollSync();
+              }}
+              on:scroll={syncSampleMirrorScroll}
+            ></textarea>
           </div>
+          {#if validationError}
+            <div class="rule-preview-error">{validationError}</div>
+          {/if}
         </div>
 
-        <div class="field">
-          <label>regexp cheatsheet</label>
+        <div class="rule-section-grid">
+          <fieldset class="rule-group">
+            <legend>actions</legend>
+
+            <section class="rule-action-card" aria-disabled={!foregroundColorEnabled}>
+              <div class="rule-action-header">
+                <label for="rule-foreground-color">foreground color</label>
+                <StyleSlideToggle
+                  checked={foregroundColorEnabled}
+                  ariaLabel="Toggle foreground color"
+                  title={foregroundColorEnabled ? 'Disable foreground color' : 'Enable foreground color'}
+                  on:change={(event) => {
+                    foregroundColorEnabled = event.detail;
+                  }}
+                />
+              </div>
+              <div class="rule-action-body">
+                <input
+                  id="rule-foreground-color"
+                  type="color"
+                  bind:value={foregroundColor}
+                  on:pointerdown={activateForegroundColor}
+                  on:focus={activateForegroundColor}
+                  on:input={() => {
+                    activateForegroundColor();
+                    refreshSampleMirror();
+                  }}
+                />
+              </div>
+            </section>
+
+            <section class="rule-action-card" aria-disabled={!backgroundColorEnabled}>
+              <div class="rule-action-header">
+                <label for="rule-background-color">background color</label>
+                <StyleSlideToggle
+                  checked={backgroundColorEnabled}
+                  ariaLabel="Toggle background color"
+                  title={backgroundColorEnabled ? 'Disable background color' : 'Enable background color'}
+                  on:change={(event) => {
+                    backgroundColorEnabled = event.detail;
+                  }}
+                />
+              </div>
+              <div class="rule-action-body">
+                <input
+                  id="rule-background-color"
+                  type="color"
+                  bind:value={backgroundColor}
+                  on:pointerdown={activateBackgroundColor}
+                  on:focus={activateBackgroundColor}
+                  on:input={() => {
+                    activateBackgroundColor();
+                    refreshSampleMirror();
+                  }}
+                />
+              </div>
+            </section>
+
+            <section class="rule-action-card" aria-disabled={!opacityEnabled}>
+              <div class="rule-action-header">
+                <label for="rule-opacity">opacity</label>
+                <StyleSlideToggle
+                  checked={opacityEnabled}
+                  ariaLabel="Toggle opacity"
+                  title={opacityEnabled ? 'Disable opacity' : 'Enable opacity'}
+                  on:change={(event) => {
+                    opacityEnabled = event.detail;
+                  }}
+                />
+              </div>
+              <div class="rule-action-body">
+                <input
+                  id="rule-opacity"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  bind:value={opacity}
+                  readonly={!opacityEnabled}
+                  on:pointerdown={activateOpacity}
+                  on:focus={activateOpacity}
+                  on:input={() => {
+                    activateOpacity();
+                    refreshSampleMirror();
+                  }}
+                />
+              </div>
+            </section>
+          </fieldset>
+
+          <fieldset class="rule-group">
+            <legend>match behavior</legend>
+
+            <div class="field field-check">
+              <label for="rule-whole-line">
+                <input
+                  id="rule-whole-line"
+                  type="checkbox"
+                  bind:checked={wholeLine}
+                  on:change={refreshSampleMirror}
+                />
+                whole line
+              </label>
+            </div>
+
+            <div class="field field-check">
+              <label for="rule-case-sensitive">
+                <input
+                  id="rule-case-sensitive"
+                  type="checkbox"
+                  bind:checked={caseSensitive}
+                  on:change={refreshSampleMirror}
+                />
+                case sensitive
+              </label>
+            </div>
+          </fieldset>
+        </div>
+
+        <fieldset class="rule-group">
+          <legend>regexp cheatsheet</legend>
           <div class="rule-cheatsheet">
             <div><code>^</code> start of line</div>
             <div><code>$</code> end of line</div>
@@ -235,7 +414,7 @@
             <div><code>(a|b)</code> one of two choices</div>
             <div><code>\bword\b</code> whole word match</div>
           </div>
-        </div>
+        </fieldset>
 
         <div class="modal-actions">
           <button class="btn" type="button" on:click={onCancel}>cancel</button>
@@ -245,3 +424,79 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .rule-section-grid {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .rule-group {
+    margin: 0;
+    padding: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.015);
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .rule-group legend {
+    padding: 0 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .rule-action-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.72rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .rule-action-card[aria-disabled='true'] {
+    opacity: 0.55;
+  }
+
+  .rule-action-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .rule-action-header label {
+    font-size: 0.88rem;
+    text-transform: lowercase;
+  }
+
+  .rule-action-body {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .rule-action-body input[type='color'] {
+    width: 3rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .rule-action-body input[type='number'] {
+    width: 7rem;
+  }
+
+  .rule-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+</style>

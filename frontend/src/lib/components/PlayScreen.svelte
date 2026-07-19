@@ -24,8 +24,15 @@
   export let ruleModalOpen = false;
   export let ruleModalEditingIndex: number | null = null;
   export let ruleModalDraft: RuleDraft = {
+    label: '',
     pattern: '',
-    color: '#f1c40f',
+    foregroundColor: '#f1c40f',
+    foregroundColorEnabled: true,
+    backgroundColor: '#000000',
+    backgroundColorEnabled: true,
+    opacity: 1,
+    opacityEnabled: true,
+    wholeLine: false,
     caseSensitive: false,
     sampleText: 'sample text to test the rule',
   };

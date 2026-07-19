@@ -50,17 +50,32 @@
       <div class="rules-empty">no rules yet. create one with the button above.</div>
     {:else}
       {#each rules as rule, index}
-        <div class="rule-row">
+        <div
+          class="rule-row"
+          role="button"
+          tabindex="0"
+          aria-label={`Edit rule ${index + 1}: ${rule.label || rule.pattern}`}
+          on:click={() => onOpenModal(index)}
+          on:keydown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onOpenModal(index);
+            }
+          }}
+        >
+          <div class="rule-row-label">{rule.label || 'untitled'}</div>
           <div class="rule-row-main">
             <div class="rule-pattern">{rule.pattern}</div>
             <div class="rule-meta">
-              <span class="rule-color" style={`background:${rule.color};`}></span>
+              <span
+                class="rule-color"
+                style={`background:${rule.foregroundColor ?? 'transparent'};`}
+              ></span>
               <span>{rule.caseSensitive ? 'case sensitive' : 'case insensitive'}</span>
             </div>
           </div>
           <div class="rule-row-actions">
-            <button type="button" class="btn" on:click={() => onOpenModal(index)}>edit</button>
-            <button type="button" class="btn danger" on:click={() => onDelete(index)}>del</button>
+            <button type="button" class="btn danger" on:click|stopPropagation={() => onDelete(index)}>del</button>
           </div>
         </div>
       {/each}

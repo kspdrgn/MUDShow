@@ -68,7 +68,7 @@ Release:
     - [X] App override styles
     - [ ] System fonts picking, see `PLAN_FONTS.md`
     - [ ] Background images
-  
+
   - Contents
     - [X] Clickable links
     - [X] Auto-preview image links with hide button
@@ -92,17 +92,18 @@ Release:
     - [X] Shortcut button to scroll to bottom appears when scrolled up manually
     - [X] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
 
-  - Highlighting
-    - [ ] User specified word color highlights
-    - [ ] Separate name highlights from regexp rules, simplify name handling
+  - Word Highlighting
+    - [X] User specified word color highlights, no regex
     - [X] Click highlight color to change it
     - [X] Toggle matching case sensitivity
     - [X] Toggle matching on word boundaries
-    - [ ] Toggle matching on beginning of line only
     - [X] Inputting a name to highlight should trim whitespace
-    - [ ] Reg-ex highlights
     - [ ] Automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff
     - [ ] Automatic name color even if they're not in your wf/database
+
+  - Trigger Rules
+    - [ ] Reg-ex highlights
+    - [ ] Toggle matching on beginning of line only
 
   - Logging
     - [X] One-click session logging. Start logging and auto-name log file.

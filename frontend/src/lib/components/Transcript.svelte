@@ -19,7 +19,7 @@
   import type { HighlightRule, Rule } from '../types';
   import WorldContextMenu from './WorldContextMenu.svelte';
 
-  const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = import.meta.env.DEV;
+  const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
 
   export let activeBar: InputBarId = 1;
   export let chunks: string[] = [];
@@ -378,7 +378,6 @@
       return;
     }
 
-    event.preventDefault();
     scrollElementBy(mainOutputId, delta);
   }
 
@@ -422,7 +421,7 @@
       on:click={handleClick}
       on:contextmenu={handleContextMenu}
       on:mousedown={handleMouseDown}
-      on:wheel={handleWheel}
+      on:wheel|passive={handleWheel}
       on:scroll={handleScroll}
       on:load|capture={handlePreviewLoad}
       on:error|capture={handlePreviewError}
@@ -456,7 +455,7 @@
       on:mouseup={handleMouseUp}
       on:click={handleClick}
       on:contextmenu={handleContextMenu}
-      on:wheel={handleLiveWheel}
+      on:wheel|passive={handleLiveWheel}
     >
       <div class="output-area-content output-area-content--live">
         {#each liveRenderedChunks as renderedChunk}

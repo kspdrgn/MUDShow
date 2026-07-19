@@ -902,7 +902,7 @@ export function createPlaybackActions({
     patch({ highlights: next });
   }
 
-  function addRule(pattern: string, color: string): void {
+  function addRule(pattern: string, foregroundColor: string): void {
     const trimmed = pattern.trim();
 
     if (!trimmed) {
@@ -913,9 +913,14 @@ export function createPlaybackActions({
     const next = [
       ...state.rules,
       {
+        label: '',
         pattern: trimmed,
-        color,
+        foregroundColor,
+        backgroundColor: '#000000',
+        opacity: 1,
+        wholeLine: false,
         caseSensitive: false,
+        sampleText: 'sample text to test the rule',
       },
     ];
     void saveRules(next);
@@ -924,10 +929,17 @@ export function createPlaybackActions({
 
   function createRuleDraft(rule: Rule | null = null): RuleDraft {
     return {
+      label: rule?.label ?? '',
       pattern: rule?.pattern ?? '',
-      color: rule?.color ?? '#f1c40f',
+      foregroundColor: rule?.foregroundColor ?? '#f1c40f',
+      foregroundColorEnabled: rule?.foregroundColor !== undefined || rule === null,
+      backgroundColor: rule?.backgroundColor ?? '#000000',
+      backgroundColorEnabled: rule?.backgroundColor !== undefined || rule === null,
+      opacity: rule?.opacity ?? 1,
+      opacityEnabled: rule?.opacity !== undefined || rule === null,
+      wholeLine: rule?.wholeLine ?? false,
       caseSensitive: rule?.caseSensitive ?? false,
-      sampleText: 'sample text to test the rule',
+      sampleText: rule?.sampleText ?? 'sample text to test the rule',
     };
   }
 
@@ -971,10 +983,24 @@ export function createPlaybackActions({
 
     const state = getState();
     const nextRule: Rule = {
+      label: draft.label.trim(),
       pattern: draft.pattern.trim(),
-      color: draft.color.trim() || '#f1c40f',
       caseSensitive: draft.caseSensitive,
+      sampleText: draft.sampleText,
+      wholeLine: draft.wholeLine,
     };
+
+    if (draft.foregroundColorEnabled) {
+      nextRule.foregroundColor = draft.foregroundColor.trim() || '#f1c40f';
+    }
+
+    if (draft.backgroundColorEnabled) {
+      nextRule.backgroundColor = draft.backgroundColor.trim() || '#000000';
+    }
+
+    if (draft.opacityEnabled) {
+      nextRule.opacity = Math.min(1, Math.max(0, draft.opacity));
+    }
 
     if (!nextRule.pattern) {
       return;
@@ -1023,14 +1049,14 @@ export function createPlaybackActions({
     }));
   }
 
-  function updateRuleColor(index: number, color: string): void {
-    if (!color.trim()) {
+  function updateRuleColor(index: number, foregroundColor: string): void {
+    if (!foregroundColor.trim()) {
       return;
     }
 
     updateRule(index, (rule) => ({
       ...rule,
-      color,
+      foregroundColor,
     }));
   }
 

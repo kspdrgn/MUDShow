@@ -42,11 +42,26 @@ export interface HighlightRule {
 }
 
 export interface Rule {
+  label: string;
   pattern: string;
-  color: string;
+  foregroundColor?: string;
+  backgroundColor?: string;
+  opacity?: number;
+  wholeLine: boolean;
   caseSensitive: boolean;
+  sampleText: string;
 }
 
-export interface RuleDraft extends Rule {
+export interface RuleDraft {
+  label: string;
+  pattern: string;
+  foregroundColor: string;
+  foregroundColorEnabled: boolean;
+  backgroundColor: string;
+  backgroundColorEnabled: boolean;
+  opacity: number;
+  opacityEnabled: boolean;
+  wholeLine: boolean;
+  caseSensitive: boolean;
   sampleText: string;
 }

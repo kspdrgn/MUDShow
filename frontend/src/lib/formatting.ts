@@ -2,7 +2,10 @@ import type { HighlightRule, Rule } from './types';
 
 export type HighlightRegex = {
   re: RegExp;
-  color: string;
+  color?: string;
+  backgroundColor?: string;
+  opacity?: number;
+  wholeLine?: boolean;
 };
 
 type AnsiStyle = {
@@ -17,7 +20,7 @@ type AnsiStyle = {
 const ANSI_SEQUENCE_RE = /\x1b\[[0-9;?]*[ -\/]*[@-~]/g;
 const URL_RE = /https?:\/\/[^\s<>"'`]+/gi;
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif', '.svg']);
-const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = import.meta.env.DEV;
+const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
 
 const ANSI_PALETTE = [
   '#000000',
@@ -47,6 +50,49 @@ function escapeHtml(text: string): string {
 
 function escapeHtmlAttribute(text: string): string {
   return escapeHtml(text).replace(/"/g, '&quot;');
+}
+
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]*>/g, '');
+}
+
+function buildRuleStyle(
+  color?: string,
+  backgroundColor?: string,
+  opacity?: number,
+): string | null {
+  const styles: string[] = [];
+
+  if (typeof color === 'string' && color.trim()) {
+    styles.push(`color:${color}`);
+  }
+
+  if (backgroundColor) {
+    styles.push(`background-color:${backgroundColor}`);
+  }
+
+  if (typeof opacity === 'number') {
+    styles.push(`opacity:${opacity}`);
+  }
+
+  return styles.length > 0 ? styles.join(';') : null;
+}
+
+function splitTrailingPreviewRows(segment: string): { body: string; previewRows: string } {
+  const previewRowStart = '<div class="output-link-preview-row">';
+  const previewIndex = segment.indexOf(previewRowStart);
+
+  if (previewIndex < 0) {
+    return {
+      body: segment,
+      previewRows: '',
+    };
+  }
+
+  return {
+    body: segment.slice(0, previewIndex),
+    previewRows: segment.slice(previewIndex),
+  };
 }
 
 function tryCreateRegex(pattern: string, flags: string): RegExp | null {
@@ -575,8 +621,21 @@ export function buildHighlightRegexes(rules: HighlightRule[]): HighlightRegex[] 
 export function buildRuleRegexes(rules: Rule[]): HighlightRegex[] {
   return rules.flatMap((rule) => {
     const regex = tryCreateRegex(rule.pattern, rule.caseSensitive ? 'gm' : 'gim');
+    const opacity = typeof rule.opacity === 'number' && Number.isFinite(rule.opacity)
+      ? Math.min(1, Math.max(0, rule.opacity))
+      : undefined;
 
-    return regex ? [{ re: regex, color: rule.color }] : [];
+    return regex
+      ? [
+          {
+            re: regex,
+            color: rule.foregroundColor,
+            backgroundColor: rule.backgroundColor,
+            opacity,
+            wholeLine: rule.wholeLine,
+          },
+        ]
+      : [];
   });
 }
 
@@ -585,19 +644,66 @@ export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): 
     return html;
   }
 
+  const inlineRegexes = regexes.filter((regex) => !regex.wholeLine);
+  const wholeLineRegexes = regexes.filter((regex) => regex.wholeLine);
+
+  const decorateInline = (text: string): string => {
+    if (inlineRegexes.length === 0) {
+      return text;
+    }
+
+    return text
+      .split(/(<[^>]+>)/)
+      .map((part) => {
+        if (part.startsWith('<')) {
+          return part;
+        }
+
+        for (const { re, color, backgroundColor, opacity } of inlineRegexes) {
+          re.lastIndex = 0;
+          part = part.replace(re, (match) => {
+            const style = buildRuleStyle(color, backgroundColor, opacity);
+            return style ? `<span style="${style}">${match}</span>` : match;
+          });
+        }
+
+        return part;
+      })
+      .join('');
+  };
+
+  const decorateWholeLine = (lineHtml: string): string => {
+    if (wholeLineRegexes.length === 0) {
+      return lineHtml;
+    }
+
+    const lineText = stripHtmlTags(lineHtml);
+    let nextLineHtml = lineHtml;
+
+    for (const { re, color, backgroundColor, opacity } of wholeLineRegexes) {
+      re.lastIndex = 0;
+      if (!re.test(lineText)) {
+        continue;
+      }
+
+      const style = buildRuleStyle(color, backgroundColor, opacity);
+      if (style) {
+        nextLineHtml = `<span style="${style}">${nextLineHtml}</span>`;
+      }
+    }
+
+    return nextLineHtml;
+  };
+
   return html
-    .split(/(<[^>]+>)/)
+    .split(/(<br>)/)
     .map((part) => {
-      if (part.startsWith('<')) {
+      if (part === '<br>') {
         return part;
       }
 
-      for (const { re, color } of regexes) {
-        re.lastIndex = 0;
-        part = part.replace(re, (match) => `<span style="color:${color}">${match}</span>`);
-      }
-
-      return part;
+      const { body, previewRows } = splitTrailingPreviewRows(part);
+      return `${decorateWholeLine(decorateInline(body))}${previewRows}`;
     })
     .join('');
 }

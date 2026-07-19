@@ -159,11 +159,36 @@ function normalizeRule(value: unknown): Rule | null {
     return null;
   }
 
-  return {
+  const normalized: Rule = {
+    label: toStringValue(value.label).trim(),
     pattern,
-    color: toStringValue(value.color).trim() || '#f1c40f',
     caseSensitive: toBooleanValue(value.caseSensitive, false),
+    sampleText: toStringValue(value.sampleText).trim() || 'sample text to test the rule',
+    wholeLine: toBooleanValue(value.wholeLine, false),
   };
+
+  if (Object.prototype.hasOwnProperty.call(value, 'foregroundColor')) {
+    const foregroundColor = toStringValue(value.foregroundColor).trim();
+    if (foregroundColor) {
+      normalized.foregroundColor = foregroundColor;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, 'backgroundColor')) {
+    const backgroundColor = toStringValue(value.backgroundColor).trim();
+    if (backgroundColor) {
+      normalized.backgroundColor = backgroundColor;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, 'opacity')) {
+    const opacity = toNumberValue(value.opacity, Number.NaN);
+    if (Number.isFinite(opacity)) {
+      normalized.opacity = Math.min(1, Math.max(0, opacity));
+    }
+  }
+
+  return normalized;
 }
 
 function createDefaultCharacter(worldId: string): CharacterRecord {
