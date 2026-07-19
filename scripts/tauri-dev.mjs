@@ -65,7 +65,7 @@ async function main() {
   const tauriCli = resolve(repoRoot, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
   const child = spawn(process.execPath, [tauriCli, ...childArgs], {
     stdio: 'inherit',
-    windowsHide: false,
+    windowsHide: true,
   });
 
   const cleanup = () => {

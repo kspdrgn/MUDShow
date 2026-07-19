@@ -25,7 +25,7 @@ MVP Features:
 Bugs:
 - [X] Creating new world does not create default character
 - [X] fix input box expanding hotkeys conflicting with command history keys
-- [ ] fix console window opening when running app despite no output there
+- [X] fix console window opening when running app
 - [ ] fix autoscroll to bottom not working if tab is not active? should scroll down when switching back? related to activity indicator line?
 - [ ] Switching away from new world modal clears inputs when you are trying to find address to paste
 - [ ] Fix image previews not triggering scroll-to-bottom consistently?
