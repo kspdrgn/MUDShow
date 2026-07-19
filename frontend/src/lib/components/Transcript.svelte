@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
   import { applyHighlights, buildHighlightRegexes, renderTranscriptHtml } from '../formatting';
   import {
     copyTextToClipboard,
@@ -12,7 +13,7 @@
   import type { HighlightRule } from '../types';
   import WorldContextMenu from './WorldContextMenu.svelte';
 
-  const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
+  const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = import.meta.env.DEV;
 
   export let activeBar: InputBarId = 1;
   export let chunks: string[] = [];
@@ -20,6 +21,7 @@
   export let scope = 'world';
   export let highlights: HighlightRule[] = [];
   export let linkImagePreviews = false;
+  export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
   export let canReconnect = false;
@@ -47,8 +49,11 @@
   let splitView = false;
   let hiddenPreviewUrls = new Set<string>();
   let transcriptShellElement: HTMLDivElement | null = null;
+  let transcriptContentElement: HTMLDivElement | null = null;
   let contextMenuOpen = false;
   let contextMenuPosition = { x: 0, y: 0 };
+  let contentResizeObserver: ResizeObserver | null = null;
+  let userScrollIntent = false;
 
   function closeContextMenu(): void {
     contextMenuOpen = false;
@@ -56,14 +61,46 @@
 
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: renderedChunks = chunks.map((chunk) =>
-    applyHighlights(renderTranscriptHtml(chunk, linkImagePreviews, hiddenPreviewUrls), highlightRegexes),
+    applyHighlights(
+      renderTranscriptHtml(chunk, linkImagePreviews, hiddenPreviewUrls, imagePreviewCacheVersion),
+      highlightRegexes,
+    ),
   );
   $: liveRenderedChunks = chunks.map((chunk) =>
     applyHighlights(renderTranscriptHtml(chunk, false), highlightRegexes),
   );
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
 
+  function scrollTranscriptToBottomIfFollowing(): void {
+    if (userScrolled) {
+      return;
+    }
+
+    scrollElementToBottom(`${scope}-output-area`);
+  }
+
+  function getScrollMetrics(): {
+    scrollTop: number;
+    scrollHeight: number;
+    clientHeight: number;
+    distanceFromBottom: number;
+  } | null {
+    const outputEl = document.getElementById(`${scope}-output-area`);
+    if (!(outputEl instanceof HTMLElement)) {
+      return null;
+    }
+
+    return {
+      scrollTop: outputEl.scrollTop,
+      scrollHeight: outputEl.scrollHeight,
+      clientHeight: outputEl.clientHeight,
+      distanceFromBottom: outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight,
+    };
+  }
+
   async function handleMouseUp(): Promise<void> {
+    userScrollIntent = false;
+
     const selection = window.getSelection();
     const text = selection?.toString() ?? '';
 
@@ -142,6 +179,16 @@
       return;
     }
 
+    const previewItem = target.closest<HTMLElement>('.output-link-preview-item');
+    const placeholder = previewItem?.querySelector<HTMLElement>('.output-link-preview-tombstone');
+    const placeholderHeight = placeholder?.getBoundingClientRect().height ?? null;
+    const imageHeightBeforeReveal = target.getBoundingClientRect().height;
+    const scrollBefore = IMAGE_PREVIEW_DIAGNOSTICS_ENABLED ? getScrollMetrics() : null;
+
+    if (previewItem) {
+      previewItem.dataset.previewLoaded = 'true';
+    }
+
     const previewUrl = target.getAttribute('data-preview-url') ?? target.currentSrc ?? target.src;
     if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
       console.info('[MUDShow] image preview loaded', {
@@ -153,14 +200,31 @@
       });
     }
 
+    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+      console.debug('[MUDShow] image preview load', {
+        url: previewUrl,
+        placeholderHeight,
+        imageHeightBeforeReveal,
+        scrollBefore,
+        userScrolled,
+      });
+    }
+
     if (userScrolled) {
       return;
     }
 
     void nextFrame().then(() => {
-      if (!userScrolled) {
-        scrollElementToBottom(`${scope}-output-area`);
+      if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+        console.debug('[MUDShow] image preview post-load', {
+          url: previewUrl,
+          imageHeightAfterReveal: target.getBoundingClientRect().height,
+          previewHeightAfterReveal: previewItem?.getBoundingClientRect().height ?? null,
+          scrollAfter: getScrollMetrics(),
+          userScrolled,
+        });
       }
+      scrollTranscriptToBottomIfFollowing();
     });
   }
 
@@ -168,6 +232,11 @@
     const target = event.target;
     if (!(target instanceof HTMLImageElement)) {
       return;
+    }
+
+    const previewItem = target.closest<HTMLElement>('.output-link-preview-item');
+    if (previewItem) {
+      previewItem.dataset.previewLoaded = 'true';
     }
 
     const previewUrl = target.getAttribute('data-preview-url') ?? target.currentSrc ?? target.src;
@@ -179,6 +248,59 @@
         naturalWidth: target.naturalWidth,
         naturalHeight: target.naturalHeight,
       });
+    }
+
+    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+      console.debug('[MUDShow] image preview error', {
+        url: previewUrl,
+        previewHeight: previewItem?.getBoundingClientRect().height ?? null,
+        scrollState: getScrollMetrics(),
+        userScrolled,
+      });
+    }
+  }
+
+  function handleScroll(): void {
+    if (!userScrolled && !userScrollIntent) {
+      return;
+    }
+
+    userScrollIntent = false;
+    onScroll();
+  }
+
+  function handleWheel(event: WheelEvent): void {
+    if (event.deltaY === 0) {
+      return;
+    }
+
+    const outputEl = event.currentTarget;
+    if (!(outputEl instanceof HTMLElement)) {
+      return;
+    }
+
+    const isScrollingUp = event.deltaY < 0;
+    const isAtTop = outputEl.scrollTop <= 0;
+    const isScrollingDown = event.deltaY > 0;
+    const isAtBottom = outputEl.scrollTop + outputEl.clientHeight >= outputEl.scrollHeight - 1;
+
+    if ((isScrollingUp && isAtTop) || (isScrollingDown && isAtBottom)) {
+      return;
+    }
+
+    userScrollIntent = true;
+  }
+
+  function handleMouseDown(event: MouseEvent): void {
+    const outputEl = event.currentTarget;
+    if (!(outputEl instanceof HTMLElement)) {
+      return;
+    }
+
+    const rect = outputEl.getBoundingClientRect();
+    const pointerNearScrollbar = rect.right - event.clientX <= 24;
+    if (pointerNearScrollbar) {
+      userScrollIntent = true;
     }
   }
 
@@ -241,6 +363,28 @@
     event.preventDefault();
     scrollElementBy(mainOutputId, delta);
   }
+
+  onMount(() => {
+    if (!transcriptContentElement) {
+      return;
+    }
+
+    contentResizeObserver = new ResizeObserver(() => {
+      if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+        console.debug('[MUDShow] transcript resized', {
+          scrollState: getScrollMetrics(),
+          userScrolled,
+        });
+      }
+      scrollTranscriptToBottomIfFollowing();
+    });
+    contentResizeObserver.observe(transcriptContentElement);
+  });
+
+  onDestroy(() => {
+    contentResizeObserver?.disconnect();
+    contentResizeObserver = null;
+  });
 </script>
 
 <div
@@ -259,11 +403,13 @@
       on:mouseup={handleMouseUp}
       on:click={handleClick}
       on:contextmenu={handleContextMenu}
-      on:scroll={onScroll}
+      on:mousedown={handleMouseDown}
+      on:wheel={handleWheel}
+      on:scroll={handleScroll}
       on:load|capture={handlePreviewLoad}
       on:error|capture={handlePreviewError}
     >
-      <div class="output-area-content">
+      <div class="output-area-content" bind:this={transcriptContentElement}>
         {#each renderedChunks as renderedChunk}
           <div class="output-chunk">{@html renderedChunk}</div>
         {/each}

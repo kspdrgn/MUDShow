@@ -45,7 +45,7 @@
     tls = input.checked;
     verifyCertificate = input.checked;
   }
-
+  
   function handleOverlayKeyDown(event: KeyboardEvent): void {
     if (event.currentTarget !== event.target) {
       return;

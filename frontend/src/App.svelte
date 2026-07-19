@@ -383,6 +383,7 @@ import {
         outputChunks={worldSession.outputChunks}
         playWidth={worldSession.currentCharacter?.width !== undefined ? `${worldSession.currentCharacter.width}ch` : 'none'}
         loggingActive={worldSession.loggingActive}
+        imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
         onHighlightAdd={(pattern, color) => session.addHighlight(pattern, color)}
         onHighlightUpdatePattern={(index, pattern) => session.updateHighlightPattern(index, pattern)}
         onHighlightUpdateColor={(index, color) => session.updateHighlightColor(index, color)}

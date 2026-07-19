@@ -1487,9 +1487,33 @@ body {
 
 .output-link-preview-item {
   position: relative;
-  display: block;
+  display: inline-block;
   width: fit-content;
   max-width: 100%;
+  min-height: 16rem;
+  vertical-align: top;
+}
+
+.output-link-preview-item[data-preview-loaded='true'] {
+  min-height: 0;
+}
+
+.output-link-preview-tombstone {
+  display: block;
+  width: clamp(12rem, 50vw, 24rem);
+  height: 16rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.35rem;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)) 0 0 /
+    200% 100%,
+    rgba(255, 255, 255, 0.035);
+  animation: preview-tombstone-shimmer 1.8s ease-in-out infinite;
+  box-sizing: border-box;
+}
+
+.output-link-preview-item[data-preview-loaded='true'] .output-link-preview-tombstone {
+  display: none;
 }
 
 .output-link-preview-row {
@@ -1508,6 +1532,12 @@ body {
   height: auto;
   object-fit: contain;
   border-radius: 0.35rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.output-link-preview-item[data-preview-loaded='true'] .output-link-preview-image {
+  opacity: 1;
 }
 
 .output-link-preview-toggle {
@@ -1591,6 +1621,15 @@ body {
   background: rgba(192, 57, 43, 0.55);
   color: #fff;
   outline: none;
+}
+
+@keyframes preview-tombstone-shimmer {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .output-area--history::-webkit-scrollbar,

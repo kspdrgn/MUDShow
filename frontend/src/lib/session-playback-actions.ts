@@ -90,7 +90,7 @@ export function createPlaybackActions({
 
   function updateOutputScrollState(tabId: string, outputEl: HTMLElement): void {
     const distance = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight;
-    updateWorldSession(tabId, { userScrolled: distance > 50 });
+    updateWorldSession(tabId, { userScrolled: distance > 2 });
   }
 
   const logWriteQueues = new Map<string, Promise<void>>();

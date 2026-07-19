@@ -10,6 +10,8 @@ HTTP and HTTPS URLs in transcript text are rendered as clickable links. Clicking
 
 When new transcript content arrives, the output panel scrolls down to keep the most recent content in view.
 
+When any transcript items (such as image previews) load or otherwise change height, the transcript keeps following the bottom as long as the user has not manually scrolled away.
+
 If the user manually scrolls away from the bottom, automatic scrolling pauses and a floating scroll-to-bottom button appears in the lower-right corner of the output panel.
 
 Clicking the scroll-to-bottom button scrolls the output panel to the bottom and restores automatic scrolling for new transcript content.
@@ -33,6 +35,7 @@ When image link previews are enabled in app settings:
 
 - The original link text remains visible in the transcript.
 - If a link points to an image, the image preview is shown below the line that contains the link.
+- Image previews reserve their maximum space immediately with a loading tombstone so delayed loads do not make the transcript jump.
 - Image links also show a small image badge right after the link text so it is clear the URL was detected as an image, and clicking that badge restores a hidden preview.
 - Clicking the image preview behaves the same as clicking the link text.
 - When the preview is hovered, a small button appears in its upper-right corner that removes that preview from the transcript display.

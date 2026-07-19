@@ -44,6 +44,7 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 ## Transcript - behavior of output area
 - Keep current output in view when scrolling - enables split output when scrolling up.
 - Show image link previews - A boolean app setting controls whether image URLs in transcript links may later render inline previews. The default is off.
+- Refresh image previews - A button in this section forces image previews to reload without changing the database file location or transcript history cache.
 
 ## Logging
 - Displays default log folder location, not directly editable

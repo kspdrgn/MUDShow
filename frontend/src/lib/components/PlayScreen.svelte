@@ -19,6 +19,7 @@
   export let notes = '';
   export let notesVisible = false;
   export let linkImagePreviews = false;
+  export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
   export let outputChunks: string[] = [];
@@ -96,6 +97,7 @@
     {scope}
     {highlights}
     {linkImagePreviews}
+    {imagePreviewCacheVersion}
     {showCurrentOutputWhenScrollingUp}
     {userScrolled}
     {canReconnect}

@@ -211,6 +211,19 @@
             />
             <span>show previews for image links.</span>
           </label>
+          <button
+            type="button"
+            class="btn"
+            on:click={() =>
+              onChange({
+                imagePreviewCacheVersion: settings.imagePreviewCacheVersion + 1,
+              })}
+          >
+            refresh image previews
+          </button>
+          <p class="settings-note">
+            Reloads preview images without changing the database file location or transcript history.
+          </p>
         </section>
       {:else if activeTab === 'logging'}
         <section class="settings-card">

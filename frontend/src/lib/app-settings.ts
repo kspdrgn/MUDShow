@@ -8,6 +8,7 @@ export interface AppSettings {
   defaultLogFolder: string | null;
   titleAttention: boolean;
   linkImagePreviews: boolean;
+  imagePreviewCacheVersion: number;
   showCurrentOutputWhenScrollingUp: boolean;
   connectionTimeoutSeconds: number;
   connectionRetries: number;
@@ -24,6 +25,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultLogFolder: null,
   titleAttention: true,
   linkImagePreviews: false,
+  imagePreviewCacheVersion: 0,
   showCurrentOutputWhenScrollingUp: true,
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
@@ -72,6 +74,14 @@ function normalizeLogFolderPath(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeNonNegativeInteger(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.round(value));
+}
+
 export function loadAppSettings(): AppSettings {
   if (typeof window === 'undefined') {
     return { ...DEFAULT_APP_SETTINGS };
@@ -86,6 +96,7 @@ export function loadAppSettings(): AppSettings {
     defaultLogFolder: normalizeLogFolderPath(raw.defaultLogFolder),
     titleAttention: raw.titleAttention !== false,
     linkImagePreviews: raw.linkImagePreviews === true,
+    imagePreviewCacheVersion: normalizeNonNegativeInteger(raw.imagePreviewCacheVersion, DEFAULT_APP_SETTINGS.imagePreviewCacheVersion),
     showCurrentOutputWhenScrollingUp: raw.showCurrentOutputWhenScrollingUp !== false,
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
@@ -122,6 +133,10 @@ export function saveAppSettings(settings: AppSettings): void {
     defaultLogFolder: normalizeLogFolderPath(settings.defaultLogFolder),
     titleAttention: settings.titleAttention !== false,
     linkImagePreviews: settings.linkImagePreviews === true,
+    imagePreviewCacheVersion: normalizeNonNegativeInteger(
+      settings.imagePreviewCacheVersion,
+      DEFAULT_APP_SETTINGS.imagePreviewCacheVersion,
+    ),
     showCurrentOutputWhenScrollingUp: settings.showCurrentOutputWhenScrollingUp !== false,
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),
