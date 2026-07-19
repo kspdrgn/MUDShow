@@ -87,6 +87,20 @@ function createCharacterDraftFromCharacter(character: CharacterRecord): Characte
   };
 }
 
+function createDefaultCharacterRecord(worldId: string): CharacterRecord {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  const id = uuid
+    ? `character-${uuid}`
+    : `character-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+  return {
+    id,
+    worldId,
+    name: 'Default',
+    isDefault: true,
+  };
+}
+
 export function createCharacterActions({
   getState,
   patch,
@@ -202,6 +216,14 @@ export function createCharacterActions({
       : [...state.worlds, world];
 
     const nextCharacters = [...state.characters];
+    const existingDefaultWorldIds = new Set(nextCharacters.filter((character) => character.isDefault).map((character) => character.worldId));
+
+    for (const nextWorldEntry of nextWorlds) {
+      if (!existingDefaultWorldIds.has(nextWorldEntry.id)) {
+        nextCharacters.push(createDefaultCharacterRecord(nextWorldEntry.id));
+        existingDefaultWorldIds.add(nextWorldEntry.id);
+      }
+    }
 
     await saveConnectionData(nextWorlds, nextCharacters);
 
