@@ -355,6 +355,22 @@
     onFocusBar(bar);
   }
 
+  function moveFocusBetweenBars(bar: InputBarId, direction: -1 | 1): boolean {
+    const index = bars.findIndex((entry) => entry.id === bar);
+    if (index < 0) {
+      return false;
+    }
+
+    const nextBar = bars[index + direction];
+    if (!nextBar) {
+      return false;
+    }
+
+    onFocusBar(nextBar.id);
+    focusBar(nextBar.id);
+    return true;
+  }
+
   function handleKeydown(event: KeyboardEvent, bar: InputBarId): void {
     const input = getInput(bar);
     const currentValue = getValue(bar);
@@ -383,16 +399,42 @@
       return;
     }
 
-    if (event.ctrlKey && event.key === 'ArrowUp') {
+    if (event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey && event.key === 'ArrowUp') {
+      event.preventDefault();
+      void moveHistory(bar, -1);
+      return;
+    }
+
+    if (event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey && event.key === 'ArrowDown') {
+      event.preventDefault();
+      void moveHistory(bar, 1);
+      return;
+    }
+
+    if (event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey && event.key === 'ArrowUp') {
       event.preventDefault();
       void handleResizeBar(bar, 1);
       return;
     }
 
-    if (event.ctrlKey && event.key === 'ArrowDown') {
+    if (event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey && event.key === 'ArrowDown') {
       event.preventDefault();
       void handleResizeBar(bar, -1);
       return;
+    }
+
+    if (!event.ctrlKey && event.altKey && event.shiftKey && !event.metaKey && event.key === 'ArrowUp') {
+      if (moveFocusBetweenBars(bar, -1)) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    if (!event.ctrlKey && event.altKey && event.shiftKey && !event.metaKey && event.key === 'ArrowDown') {
+      if (moveFocusBetweenBars(bar, 1)) {
+        event.preventDefault();
+        return;
+      }
     }
 
     if (!event.altKey && !event.metaKey) {

@@ -23,8 +23,8 @@ MVP Features:
 - [X] tab menu: shortcut to edit world and/or character?
 
 Bugs:
-- [X] Creating new world does not create default character so we can't connect?
-- [ ] fix input box expanding hotkeys conflicting with command history keys. CTRL+UP/DOWN are used for input history, CTRL+ALT+UP/DOWN should be used for shrink/expand input box. other modifier combos should be ignored like CTRL+ALT+SHIFT+UP/DOWN. SHIFT+UP/DOWN should switch keyboard focus up and down the input boxes if there are multiple.
+- [X] Creating new world does not create default character
+- [X] fix input box expanding hotkeys conflicting with command history keys
 - [ ] fix console window opening when running app despite no output there
 - [ ] fix autoscroll to bottom not working if tab is not active? should scroll down when switching back? related to activity indicator line?
 - [ ] Switching away from new world modal clears inputs when you are trying to find address to paste

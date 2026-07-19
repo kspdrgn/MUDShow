@@ -25,6 +25,10 @@ Keyboard focus should be automatically restored to the last selected input box:
 - The user can close input boxes, their contents if any will be preserved in the input history.
 - The user can resize the input boxes larger or smaller vertically by 1 line increments.
 - When a world tab is active, F1 focuses the first input box and F2 focuses the second. If only one input box exists, F2 creates a second input box and focuses it.
+- `Alt+Shift+Up` and `Alt+Shift+Down` move keyboard focus to the previous or next input box when more than one input box exists.
+- `Ctrl+Alt+Up` and `Ctrl+Alt+Down` resize the current input box larger or smaller by one row.
+- `Ctrl+Up` and `Ctrl+Down` browse the shared input history queue.
+- Mixed modifier combinations like `Ctrl+Alt+Shift+Up` and `Ctrl+Alt+Shift+Down` are ignored by the custom hotkey handling.
 
 ## [ ] Input Spellcheck
 
