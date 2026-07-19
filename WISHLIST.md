@@ -5,7 +5,7 @@
 MVP Features:
 - [ ] Session logging. WIP. needs testing. needs better ui!
 - [ ] Style. WIP. See "MUD Text > Appearance"
-- [ ] Complex highlights, want plaza dimming and page/whisper colors
+- [ ] Regexp rules, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
 - [X] Tabs, multiple connections
 - [X] Character Settings
