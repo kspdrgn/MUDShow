@@ -40,3 +40,13 @@ export interface HighlightRule {
   caseSensitive: boolean;
   wordBoundary: boolean;
 }
+
+export interface Rule {
+  pattern: string;
+  color: string;
+  caseSensitive: boolean;
+}
+
+export interface RuleDraft extends Rule {
+  sampleText: string;
+}

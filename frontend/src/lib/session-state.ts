@@ -1,4 +1,4 @@
-import type { CharacterDraft, CharacterRecord, HighlightRule, WorldDraft, WorldRecord } from './types';
+import type { CharacterDraft, CharacterRecord, HighlightRule, Rule, WorldDraft, WorldRecord } from './types';
 import type { AppTab, SettingsSubTabId } from './tabs';
 import type { WorldTabSessionState } from './world-session';
 
@@ -10,6 +10,7 @@ export interface SessionState {
   worlds: WorldRecord[];
   characters: CharacterRecord[];
   highlights: HighlightRule[];
+  rules: Rule[];
   tabs: AppTab[];
   activeTabId: string | null;
   worldSessions: Record<string, WorldTabSessionState>;
@@ -47,6 +48,7 @@ export function createInitialState(): SessionState {
     worlds: [],
     characters: [],
     highlights: [],
+    rules: [],
     tabs: [],
     activeTabId: null,
     worldSessions: {},

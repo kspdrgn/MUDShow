@@ -1,11 +1,14 @@
 <script lang="ts">
-  import type { HighlightRule } from '../types';
+  import type { HighlightRule, Rule } from '../types';
   import { type InputBarConfig, type InputBarId } from '../input-bars';
   import HighlightsPanel from './HighlightsPanel.svelte';
   import InputBars from './InputBars.svelte';
   import NotesPanel from './NotesPanel.svelte';
+  import RuleModal from './RuleModal.svelte';
+  import RulesPanel from './RulesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import type { AppStyleValues } from './style-settings';
+  import type { RuleDraft } from '../types';
 
   export let scope = 'world';
   export let visible = true;
@@ -16,6 +19,16 @@
   export let loggingActive = false;
   export let highlights: HighlightRule[] = [];
   export let highlightsVisible = false;
+  export let rules: Rule[] = [];
+  export let rulesVisible = false;
+  export let ruleModalOpen = false;
+  export let ruleModalEditingIndex: number | null = null;
+  export let ruleModalDraft: RuleDraft = {
+    pattern: '',
+    color: '#f1c40f',
+    caseSensitive: false,
+    sampleText: 'sample text to test the rule',
+  };
   export let notes = '';
   export let notesVisible = false;
   export let linkImagePreviews = false;
@@ -31,6 +44,11 @@
   export let onHighlightToggleWordBoundary: (index: number) => void;
   export let onHighlightDelete: (index: number) => void;
   export let onHighlightClose: () => void;
+  export let onRuleOpenModal: (index: number | null) => void;
+  export let onRuleSave: (draft: RuleDraft) => void;
+  export let onRuleCloseModal: () => void;
+  export let onRuleDelete: (index: number) => void;
+  export let onRuleClose: () => void;
   export let onReconnectTab: () => void;
   export let onDisconnectTab: () => void;
   export let onQuickLogTab: () => void;
@@ -85,7 +103,26 @@
     onToggleCaseSensitive={onHighlightToggleCaseSensitive}
     onToggleWordBoundary={onHighlightToggleWordBoundary}
     onDelete={onHighlightDelete}
+    onOpenRules={onRuleClose}
     onClose={onHighlightClose}
+  />
+
+  <RulesPanel
+    open={rulesVisible}
+    {rules}
+    {scope}
+    onOpenModal={onRuleOpenModal}
+    onDelete={onRuleDelete}
+    onOpenHighlights={onHighlightClose}
+    onClose={onRuleClose}
+  />
+
+  <RuleModal
+    open={ruleModalOpen}
+    title={ruleModalEditingIndex === null ? 'new rule' : 'edit rule'}
+    draft={ruleModalDraft}
+    onCancel={onRuleCloseModal}
+    onSave={onRuleSave}
   />
 
   <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} onClose={onNotesClose} />
@@ -96,6 +133,7 @@
     width={playWidth}
     {scope}
     {highlights}
+    {rules}
     {linkImagePreviews}
     {imagePreviewCacheVersion}
     {showCurrentOutputWhenScrollingUp}
@@ -115,6 +153,7 @@
     onEditCharacter={onEditCharacterTab}
     onOpenNotes={onNotesClose}
     onOpenHighlights={onHighlightClose}
+    onOpenRules={onRuleClose}
     onCloseRequest={onCloseTab}
     onScroll={onOutputScroll}
     onScrollToBottom={onScrollToBottom}

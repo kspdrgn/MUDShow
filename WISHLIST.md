@@ -94,7 +94,7 @@ Release:
 
   - Highlighting
     - [ ] User specified word color highlights
-    - [ ] Separate name highlights from complex (regex?) highlights, simplify name handling
+    - [ ] Separate name highlights from regexp rules, simplify name handling
     - [X] Click highlight color to change it
     - [X] Toggle matching case sensitivity
     - [X] Toggle matching on word boundaries

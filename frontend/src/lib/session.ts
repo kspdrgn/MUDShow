@@ -82,6 +82,7 @@ function createSession() {
       worlds: [],
       characters: [],
       highlights: [],
+      rules: [],
       tabs: nextTabs,
       activeTabId: activeTabStillExists ? current.activeTabId : nextTabs[0]?.id ?? null,
       worldSessions: {},
@@ -543,8 +544,8 @@ function createSession() {
   const load = async () => {
     try {
       resetPersistentView();
-      const { worlds, characters, highlights } = await loadSessionData();
-      patch({ worlds, characters, highlights });
+      const { worlds, characters, highlights, rules } = await loadSessionData();
+      patch({ worlds, characters, highlights, rules });
       highlightRegexes = buildHighlightRegexes(highlights);
       refreshWorldTabs();
     } catch (error) {

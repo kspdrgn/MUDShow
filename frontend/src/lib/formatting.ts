@@ -1,4 +1,4 @@
-import type { HighlightRule } from './types';
+import type { HighlightRule, Rule } from './types';
 
 export type HighlightRegex = {
   re: RegExp;
@@ -47,6 +47,14 @@ function escapeHtml(text: string): string {
 
 function escapeHtmlAttribute(text: string): string {
   return escapeHtml(text).replace(/"/g, '&quot;');
+}
+
+function tryCreateRegex(pattern: string, flags: string): RegExp | null {
+  try {
+    return new RegExp(pattern, flags);
+  } catch {
+    return null;
+  }
 }
 
 export function stripTelnet(text: string): string {
@@ -554,16 +562,25 @@ export function ansiToHtmlWithPreviews(
 }
 
 export function buildHighlightRegexes(rules: HighlightRule[]): HighlightRegex[] {
-  return rules.map((rule) => ({
-    re: new RegExp(
+  return rules.flatMap((rule) => {
+    const regex = tryCreateRegex(
       `${rule.wordBoundary ? '\\b' : ''}${rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${rule.wordBoundary ? '\\b' : ''}`,
       rule.caseSensitive ? 'g' : 'gi',
-    ),
-    color: rule.color,
-  }));
+    );
+
+    return regex ? [{ re: regex, color: rule.color }] : [];
+  });
 }
 
-export function applyHighlights(html: string, regexes: HighlightRegex[]): string {
+export function buildRuleRegexes(rules: Rule[]): HighlightRegex[] {
+  return rules.flatMap((rule) => {
+    const regex = tryCreateRegex(rule.pattern, rule.caseSensitive ? 'gm' : 'gim');
+
+    return regex ? [{ re: regex, color: rule.color }] : [];
+  });
+}
+
+export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): string {
   if (regexes.length === 0) {
     return html;
   }
@@ -583,4 +600,12 @@ export function applyHighlights(html: string, regexes: HighlightRegex[]): string
       return part;
     })
     .join('');
+}
+
+export function applyHighlights(html: string, regexes: HighlightRegex[]): string {
+  return applyRegexDecorations(html, regexes);
+}
+
+export function applyRules(html: string, regexes: HighlightRegex[]): string {
+  return applyRegexDecorations(html, regexes);
 }

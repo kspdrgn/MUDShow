@@ -4,12 +4,13 @@
 - World and character settings
 - Fonts and colors settings
 - Highlight settings
+- Regexp rule settings
 
 # Persistence / Storage
 
 The application database is stored in a JSON file to be easily readable and manageable by the user. The file stores a version of the schema used, which is used to automatically upgrade the database file to newer versions. Any breaking change to the storage schema should increment the storage version used.
 
-The main JSON database stores worlds, characters, highlights, notes, and style settings. Rolling per-character transcript history is stored separately in webview storage so it does not bloat the main database file and can be treated as disposable.
+The main JSON database stores worlds, characters, highlights, rules, notes, and style settings. Rolling per-character transcript history is stored separately in webview storage so it does not bloat the main database file and can be treated as disposable.
 
 # App Settings
 
@@ -68,6 +69,11 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 
 ## UI
 - App color and font scheme - locked to 'midnight' for now, which is a dark mode
+
+## Highlights and Rules
+- Simple highlights stay as the easy word-or-phrase color list.
+- Regexp rules are stored separately at the top level of the database file.
+- Regexp rules are intended for line-oriented matching and future routing or classification behaviors.
 
 # World Settings
 - Connection info:

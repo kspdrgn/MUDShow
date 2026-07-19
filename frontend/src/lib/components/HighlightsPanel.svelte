@@ -11,6 +11,7 @@
   export let onToggleCaseSensitive: (index: number) => void;
   export let onToggleWordBoundary: (index: number) => void;
   export let onDelete: (index: number) => void;
+  export let onOpenRules: () => void;
   export let onClose: () => void;
 
   let pattern = '';
@@ -25,7 +26,17 @@
 
 <div class="highlights-panel" id={getWorldHighlightsPanelId(scope)} class:open={open}>
   <div class="panel-header">
-    <div class="highlights-label">highlights</div>
+    <div class="panel-header-group">
+      <div class="highlights-label">highlights</div>
+      <button
+        type="button"
+        class="btn panel-tab"
+        title="Open rules panel"
+        on:click={onOpenRules}
+      >
+        rules
+      </button>
+    </div>
     <button
       type="button"
       class="btn panel-close"

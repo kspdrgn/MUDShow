@@ -22,6 +22,14 @@ export function getWorldHighlightInputId(scope: string): string {
   return `${scope}-highlight-input`;
 }
 
+export function getWorldRulesPanelId(scope: string): string {
+  return `${scope}-rules-panel`;
+}
+
+export function getWorldRuleInputId(scope: string): string {
+  return `${scope}-rule-input`;
+}
+
 export function getWorldInputBarContainerId(scope: string, barId: number): string {
   return `${scope}-bar-${barId}`;
 }

@@ -375,6 +375,11 @@ import {
         bars={worldSession.inputBars}
         highlights={$session.highlights}
         highlightsVisible={worldSession.highlightsVisible}
+        rules={$session.rules}
+        rulesVisible={worldSession.rulesVisible}
+        ruleModalOpen={worldSession.ruleModalOpen}
+        ruleModalEditingIndex={worldSession.ruleModalEditingIndex}
+        ruleModalDraft={worldSession.ruleModalDraft}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
@@ -391,6 +396,11 @@ import {
         onHighlightToggleWordBoundary={(index) => session.toggleHighlightWordBoundary(index)}
         onHighlightDelete={(index) => session.deleteHighlight(index)}
         onHighlightClose={() => void session.togglePanel('highlights')}
+        onRuleOpenModal={(index) => session.openRuleModal(index)}
+        onRuleSave={(draft) => session.saveRuleDraft(draft)}
+        onRuleCloseModal={() => session.closeRuleModal()}
+        onRuleDelete={(index) => session.deleteRule(index)}
+        onRuleClose={() => void session.togglePanel('rules')}
         canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentCharacter !== null}
         canDisconnect={worldSession.connectionStatus === 'connecting' || worldSession.connectionStatus === 'connected'}
         canQuickLog={!worldSession.loggingActive}

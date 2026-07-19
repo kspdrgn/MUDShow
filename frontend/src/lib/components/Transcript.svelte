@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { applyHighlights, buildHighlightRegexes, renderTranscriptHtml } from '../formatting';
+  import {
+    applyHighlights,
+    applyRules,
+    buildHighlightRegexes,
+    buildRuleRegexes,
+    renderTranscriptHtml,
+  } from '../formatting';
   import {
     copyTextToClipboard,
     focusElement,
@@ -10,7 +16,7 @@
   } from '../session-dom';
   import { openExternalUrl } from '../tauri';
   import { getScopedInputBarInputId, type InputBarId } from '../input-bars';
-  import type { HighlightRule } from '../types';
+  import type { HighlightRule, Rule } from '../types';
   import WorldContextMenu from './WorldContextMenu.svelte';
 
   const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = import.meta.env.DEV;
@@ -20,6 +26,7 @@
   export let width = 'none';
   export let scope = 'world';
   export let highlights: HighlightRule[] = [];
+  export let rules: Rule[] = [];
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
@@ -39,11 +46,13 @@
   export let onEditCharacter: () => void;
   export let onOpenNotes: () => void;
   export let onOpenHighlights: () => void;
+  export let onOpenRules: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   export let onScroll: () => void;
   export let onScrollToBottom: () => void;
 
   let highlightRegexes = buildHighlightRegexes(highlights);
+  let ruleRegexes = buildRuleRegexes(rules);
   let renderedChunks: string[] = [];
   let liveRenderedChunks: string[] = [];
   let splitView = false;
@@ -60,14 +69,18 @@
   }
 
   $: highlightRegexes = buildHighlightRegexes(highlights);
+  $: ruleRegexes = buildRuleRegexes(rules);
   $: renderedChunks = chunks.map((chunk) =>
-    applyHighlights(
-      renderTranscriptHtml(chunk, linkImagePreviews, hiddenPreviewUrls, imagePreviewCacheVersion),
-      highlightRegexes,
+    applyRules(
+      applyHighlights(
+        renderTranscriptHtml(chunk, linkImagePreviews, hiddenPreviewUrls, imagePreviewCacheVersion),
+        highlightRegexes,
+      ),
+      ruleRegexes,
     ),
   );
   $: liveRenderedChunks = chunks.map((chunk) =>
-    applyHighlights(renderTranscriptHtml(chunk, false), highlightRegexes),
+    applyRules(applyHighlights(renderTranscriptHtml(chunk, false), highlightRegexes), ruleRegexes),
   );
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
 
@@ -337,6 +350,11 @@
     onOpenHighlights();
   }
 
+  function openRulesFromMenu(): void {
+    closeContextMenu();
+    onOpenRules();
+  }
+
   function closeTabFromMenu(anchorRect: DOMRect): void {
     closeContextMenu();
     onCloseRequest(anchorRect);
@@ -489,6 +507,7 @@
     }}
     onOpenNotes={openNotesFromMenu}
     onOpenHighlights={openHighlightsFromMenu}
+    onOpenRules={openRulesFromMenu}
     onDismiss={closeContextMenu}
     onCloseRequest={closeTabFromMenu}
   />

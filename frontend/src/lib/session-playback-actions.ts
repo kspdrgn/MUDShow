@@ -8,6 +8,7 @@ import {
   loadNotes,
   loadTranscriptHistory,
   saveHighlights,
+  saveRules,
   saveNotes as persistNotes,
   saveTranscriptHistory,
 } from './storage';
@@ -28,11 +29,12 @@ import {
   scrollElementToBottom,
   scrollElementToTop,
 } from './session-dom';
-import type { CharacterRecord, HighlightRule, WorldRecord } from './types';
+import type { CharacterRecord, HighlightRule, Rule, RuleDraft, WorldRecord } from './types';
 import type { WorldTabSessionState } from './world-session';
 import {
   getWorldDomScope,
   getWorldHighlightInputId,
+  getWorldRuleInputId,
   getWorldInputBarContainerId,
   getWorldInputBarInputId,
   getWorldNotesEditorId,
@@ -346,6 +348,14 @@ export function createPlaybackActions({
 
     const session = getWorldSession(activeWorldTabId);
 
+    if (session.ruleModalOpen) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRuleModal();
+      }
+      return;
+    }
+
     if (event.ctrlKey && event.key === 'F2') {
       event.preventDefault();
 
@@ -385,6 +395,9 @@ export function createPlaybackActions({
     } else if (event.key === 'F4') {
       event.preventDefault();
       void togglePanel('highlights');
+    } else if (event.key === 'F5') {
+      event.preventDefault();
+      void togglePanel('rules');
     }
   }
 
@@ -649,25 +662,44 @@ export function createPlaybackActions({
     session?.transcript.resetCompletion();
   }
 
-  async function togglePanel(panel: 'notes' | 'highlights'): Promise<void> {
+  async function togglePanel(panel: 'notes' | 'highlights' | 'rules'): Promise<void> {
     const tabId = getActiveWorldTabId();
     if (!tabId) {
       return;
     }
 
     const session = getWorldSession(tabId);
-    const shouldOpen = panel === 'notes' ? !session.notesVisible : !session.highlightsVisible;
+    const shouldOpen =
+      panel === 'notes'
+        ? !session.notesVisible
+        : panel === 'highlights'
+          ? !session.highlightsVisible
+          : !session.rulesVisible;
     const shouldPreserveBottom = !session.userScrolled;
 
     if (panel === 'notes') {
       updateWorldSession(tabId, {
         notesVisible: shouldOpen,
         highlightsVisible: false,
+        rulesVisible: false,
+        ruleModalOpen: false,
+        ruleModalEditingIndex: null,
       });
-    } else {
+    } else if (panel === 'highlights') {
       updateWorldSession(tabId, {
         highlightsVisible: shouldOpen,
         notesVisible: false,
+        rulesVisible: false,
+        ruleModalOpen: false,
+        ruleModalEditingIndex: null,
+      });
+    } else {
+      updateWorldSession(tabId, {
+        rulesVisible: shouldOpen,
+        notesVisible: false,
+        highlightsVisible: false,
+        ruleModalOpen: false,
+        ruleModalEditingIndex: null,
       });
     }
 
@@ -687,7 +719,14 @@ export function createPlaybackActions({
       if (shouldOpen) {
         const scope = getActiveWorldScope();
         if (scope) {
-          focusElement(panel === 'notes' ? getWorldNotesEditorId(scope) : getWorldHighlightInputId(scope), true);
+          focusElement(
+            panel === 'notes'
+              ? getWorldNotesEditorId(scope)
+              : panel === 'highlights'
+                ? getWorldHighlightInputId(scope)
+                : getWorldRuleInputId(scope),
+            true,
+          );
         }
       } else {
         focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar));
@@ -863,6 +902,153 @@ export function createPlaybackActions({
     patch({ highlights: next });
   }
 
+  function addRule(pattern: string, color: string): void {
+    const trimmed = pattern.trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    const state = getState();
+    const next = [
+      ...state.rules,
+      {
+        pattern: trimmed,
+        color,
+        caseSensitive: false,
+      },
+    ];
+    void saveRules(next);
+    patch({ rules: next });
+  }
+
+  function createRuleDraft(rule: Rule | null = null): RuleDraft {
+    return {
+      pattern: rule?.pattern ?? '',
+      color: rule?.color ?? '#f1c40f',
+      caseSensitive: rule?.caseSensitive ?? false,
+      sampleText: 'sample text to test the rule',
+    };
+  }
+
+  function openRuleModal(index: number | null = null): void {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const state = getState();
+    const rule = index === null ? null : state.rules[index] ?? null;
+
+    updateWorldSession(tabId, {
+      rulesVisible: false,
+      notesVisible: false,
+      highlightsVisible: false,
+      ruleModalOpen: true,
+      ruleModalEditingIndex: index,
+      ruleModalDraft: createRuleDraft(rule),
+    });
+  }
+
+  function closeRuleModal(): void {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    updateWorldSession(tabId, {
+      ruleModalOpen: false,
+      ruleModalEditingIndex: null,
+      rulesVisible: true,
+    });
+  }
+
+  function saveRuleDraft(draft: RuleDraft): void {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const state = getState();
+    const nextRule: Rule = {
+      pattern: draft.pattern.trim(),
+      color: draft.color.trim() || '#f1c40f',
+      caseSensitive: draft.caseSensitive,
+    };
+
+    if (!nextRule.pattern) {
+      return;
+    }
+
+    const editingIndex = getWorldSession(tabId).ruleModalEditingIndex;
+    const next = [...state.rules];
+
+    if (editingIndex === null || editingIndex === undefined || editingIndex < 0 || editingIndex >= next.length) {
+      next.push(nextRule);
+    } else {
+      next[editingIndex] = nextRule;
+    }
+
+    void saveRules(next);
+    patch({ rules: next });
+    updateWorldSession(tabId, {
+      ruleModalOpen: false,
+      ruleModalEditingIndex: null,
+      rulesVisible: true,
+    });
+  }
+
+  function updateRule(index: number, updater: (rule: Rule) => Rule): void {
+    const state = getState();
+    const current = state.rules[index];
+    if (!current) {
+      return;
+    }
+
+    const next = [...state.rules];
+    next[index] = updater(current);
+    void saveRules(next);
+    patch({ rules: next });
+  }
+
+  function updateRulePattern(index: number, pattern: string): void {
+    const trimmed = pattern.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    updateRule(index, (rule) => ({
+      ...rule,
+      pattern: trimmed,
+    }));
+  }
+
+  function updateRuleColor(index: number, color: string): void {
+    if (!color.trim()) {
+      return;
+    }
+
+    updateRule(index, (rule) => ({
+      ...rule,
+      color,
+    }));
+  }
+
+  function toggleRuleCaseSensitive(index: number): void {
+    updateRule(index, (rule) => ({
+      ...rule,
+      caseSensitive: !rule.caseSensitive,
+    }));
+  }
+
+  function deleteRule(index: number): void {
+    const state = getState();
+    const next = [...state.rules];
+    next.splice(index, 1);
+    void saveRules(next);
+    patch({ rules: next });
+  }
+
   function saveNotes(notes: string): void {
     const tabId = getActiveWorldTabId();
     if (!tabId) {
@@ -906,6 +1092,14 @@ export function createPlaybackActions({
     toggleHighlightCaseSensitive,
     toggleHighlightWordBoundary,
     deleteHighlight,
+    addRule,
+    updateRulePattern,
+    updateRuleColor,
+    toggleRuleCaseSensitive,
+    deleteRule,
+    openRuleModal,
+    closeRuleModal,
+    saveRuleDraft,
     saveNotes,
   };
 }
