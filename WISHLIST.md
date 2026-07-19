@@ -5,6 +5,7 @@
 MVP Features:
 - [ ] Session logging. WIP. needs testing. needs better ui!
 - [ ] Style. WIP. See "MUD Text > Appearance"
+- [ ] Complex highlights, want plaza dimming and page/whisper colors
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
 - [X] Tabs, multiple connections
 - [X] Character Settings
@@ -22,8 +23,14 @@ MVP Features:
 - [X] tab menu: shortcut to edit world and/or character?
 
 Bugs:
+- [ ] Creating new world does not create default character so we can't connect?
+- [ ] fix input expand hotkeys conflicting with command history keys
+- [ ] fix console window opening when running app despite no output there
+- [ ] fix autoscroll to bottom not working if tab is not active? should scroll down when switching back? related to activity indicator line?
+- [ ] Switching away from new world modal clears inputs when you are trying to find address to paste
 - [ ] Fix image previews not triggering scroll-to-bottom consistently?
-- [ ] Fix extra blank line after "Somewhere on the muck, * has connected."
+- [ ] Fix extra blank line after Taps "Somewhere on the muck, * has connected." Maybe related to PD blank lines at end of +watch and other places.
+- [ ] Fix window not flashing on activity
 - [X] Fix unmodified home/end keys not working in input window, the passthru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
 - [X] Linux: Fix resize frame, can't see while mousing over
 
@@ -72,7 +79,7 @@ Release:
     - [X] Output history - Buffer of previous session contents restored for context
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
     - [ ] New activity indicator (separator line?)
-    - [ ] Max width is off, try calculate glyph width from a mono font, maybe support pixel max width for non-mono fonts
+    - [ ] Max width is off, too short, try calculate glyph width from a mono font, maybe support pixel max width for non-mono fonts
 
   - Scrolling
     - [ ] Pause auto-scroll when selecting
@@ -80,6 +87,8 @@ Release:
     - [X] PAGE UP / PAGE DOWN / CTRL+HOME / CTRL+END keys in input area scroll main output text
     - [ ] Mouse wheel on input area scrolls main output text
     - [ ] Keep current bottom line in view when resizing
+    - [ ] Option to NOT auto-scroll when not in focus
+    - [ ] Visible counter of lines remaining when scrolled up
     - [X] Pause automatic scroll to bottom when scrolled up manually
     - [X] Shortcut button to scroll to bottom appears when scrolled up manually
     - [X] Split scrolling, keep the current output in view at the bottom while the upper portion scrolls up
@@ -122,7 +131,7 @@ This would support:
 ## Multiple Connections
   - [ ] UI tabs for active viewing worlds and allowing switching between them
     - [X] show connection status
-    - [ ] show activity status
+    - [ ] show activity status, should always be visible and grey if no new activity, maybe flashing amber for unread activity?
     - [X] show logging status
   - [X] CTRL+TAB switch worlds
   - [X] CTRL+F4 to close active tab
