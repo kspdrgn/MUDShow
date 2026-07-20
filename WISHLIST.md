@@ -98,12 +98,23 @@ Release:
     - [X] Toggle matching case sensitivity
     - [X] Toggle matching on word boundaries
     - [X] Inputting a name to highlight should trim whitespace
+    - [X] Color foreground/background
     - [ ] Automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff
-    - [ ] Automatic name color even if they're not in your wf/database
+    - [ ] Copy/paste as JSON
 
   - Trigger Rules
-    - [ ] Reg-ex highlights
+    - [X] Reg-ex highlights
+    - [ ] Hierarchical rules/highlights
+    - [ ] Color foreground/background
+    - [ ] Opacity
     - [ ] Toggle matching on beginning of line only
+    - [ ] Send to tab
+    - [ ] Toggle logging this line
+    - [ ] Toggle activity notification
+    - [ ] Copy/paste as JSON
+
+  - Name awareness
+    - [ ] Automatic name color even if they're not in your wf/database
 
   - Logging
     - [X] One-click session logging. Start logging and auto-name log file.
