@@ -53,7 +53,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Allow configuring a per-character transcript history line limit, with 0 disabling history storage and restore. The default is 0.
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
-- Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width.
+- Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width. Preferred character width is rendered from the active output style: monospace fonts use the measured active glyph width, while proportional fonts use an estimated average glyph width.
 - Provide a modular set of command input bars, starting with one and allowing more to be added.
 - Send entered commands to the active session.
 - Keep a session-scoped command history queue with a finite limit of 50 entries.

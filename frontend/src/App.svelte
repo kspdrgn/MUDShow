@@ -381,7 +381,7 @@ import {
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         userScrolled={worldSession.userScrolled}
         outputChunks={worldSession.outputChunks}
-        playWidth={worldSession.currentCharacter?.width !== undefined ? `${worldSession.currentCharacter.width}ch` : 'none'}
+        characterWidth={worldSession.currentCharacter?.width}
         loggingActive={worldSession.loggingActive}
         imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
         canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentCharacter !== null}

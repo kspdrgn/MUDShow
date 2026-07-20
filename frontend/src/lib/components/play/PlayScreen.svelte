@@ -1,5 +1,6 @@
 <script lang="ts">
   import { type InputBarConfig, type InputBarId } from '../../input-bars';
+  import { onMount } from 'svelte';
   import type { HighlightRule, Rule } from '../../types';
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
@@ -22,7 +23,7 @@
   export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
   export let outputChunks: string[] = [];
-  export let playWidth = 'none';
+  export let characterWidth: number | undefined = undefined;
   export let onReconnectTab: () => void;
   export let onDisconnectTab: () => void;
   export let onQuickLogTab: () => void;
@@ -53,12 +54,97 @@
   export let onOutputScroll: () => void;
   export let onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
   export let onScrollToBottom: () => void;
+
+  let screenElement: HTMLDivElement | null = null;
+  let measuredPlayWidth = 'none';
+  let measurementToken = 0;
+
+  function normalizeCharacterWidth(value: number | undefined): number | null {
+    if (value === undefined || !Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+
+    return Math.max(1, Math.round(value));
+  }
+
+  function measureTextWidth(text: string): number {
+    if (!screenElement) {
+      return 0;
+    }
+
+    const probe = document.createElement('span');
+    probe.textContent = text;
+    probe.style.position = 'absolute';
+    probe.style.visibility = 'hidden';
+    probe.style.pointerEvents = 'none';
+    probe.style.whiteSpace = 'pre';
+    probe.style.fontFamily = 'var(--world-output-font-family, var(--font-mono))';
+    probe.style.fontSize = 'var(--world-output-font-size, 13px)';
+    probe.style.fontVariantLigatures = 'none';
+    probe.style.fontFeatureSettings = '"liga" 0, "clig" 0, "calt" 0';
+
+    screenElement.appendChild(probe);
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+
+    return width;
+  }
+
+  function measureCharacterWidth(widthInCharacters: number): string {
+    const sampleSize = 80;
+    const narrowWidth = measureTextWidth('i'.repeat(sampleSize));
+    const wideWidth = measureTextWidth('W'.repeat(sampleSize));
+    const monoTolerance = 0.02 * sampleSize;
+    const isMonospace = narrowWidth > 0 && wideWidth > 0 && Math.abs(narrowWidth - wideWidth) <= monoTolerance;
+    const measuredWidth = isMonospace
+      ? measureTextWidth('0'.repeat(widthInCharacters))
+      : (measureTextWidth('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '.repeat(2)) / 126) * widthInCharacters;
+
+    if (!Number.isFinite(measuredWidth) || measuredWidth <= 0) {
+      return `${widthInCharacters}ch`;
+    }
+
+    return `${measuredWidth}px`;
+  }
+
+  async function updateMeasuredPlayWidth(): Promise<void> {
+    const widthInCharacters = normalizeCharacterWidth(characterWidth);
+    if (widthInCharacters === null) {
+      measuredPlayWidth = 'none';
+      return;
+    }
+
+    if (!screenElement || !visible) {
+      return;
+    }
+
+    const token = ++measurementToken;
+    await document.fonts?.ready;
+
+    if (token !== measurementToken) {
+      return;
+    }
+
+    measuredPlayWidth = measureCharacterWidth(widthInCharacters);
+  }
+
+  $: {
+    void styleValues;
+    void characterWidth;
+    void visible;
+    void updateMeasuredPlayWidth();
+  }
+
+  onMount(() => {
+    void updateMeasuredPlayWidth();
+  });
 </script>
 
 <div
+  bind:this={screenElement}
   class:active={visible}
   class="screen-play"
-  style={`--play-width: ${playWidth};`}
+  style={`--play-width: ${measuredPlayWidth};`}
   style:--world-output-font-family={styleValues.output.fontFamily}
   style:--world-output-font-size={`${styleValues.output.fontSize}px`}
   style:--world-output-foreground={styleValues.output.foregroundColor}
@@ -73,7 +159,7 @@
   <Transcript
     {activeBar}
     chunks={outputChunks}
-    width={playWidth}
+    width={measuredPlayWidth}
     {scope}
     {highlights}
     {rules}
