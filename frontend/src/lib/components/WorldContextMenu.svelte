@@ -19,8 +19,7 @@
   export let onEditWorld: () => void;
   export let onEditCharacter: () => void;
   export let onOpenNotes: () => void;
-  export let onOpenHighlights: () => void;
-  export let onOpenRules: () => void;
+  export let onOpenTriggers: () => void;
   export let onDismiss: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   let menuElement: HTMLDivElement | null = null;
@@ -208,23 +207,8 @@
       <span class="titlebar-context-menu-item-label">notes</span>
       <span class="titlebar-context-menu-shortcut" aria-hidden="true">F3</span>
     </button>
-    <button
-      type="button"
-      class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-item-shortcut"
-      role="menuitem"
-      on:click={onOpenHighlights}
-    >
-      <span class="titlebar-context-menu-item-label">highlights</span>
-      <span class="titlebar-context-menu-shortcut" aria-hidden="true">F4</span>
-    </button>
-    <button
-      type="button"
-      class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-item-shortcut"
-      role="menuitem"
-      on:click={onOpenRules}
-    >
-      <span class="titlebar-context-menu-item-label">rules</span>
-      <span class="titlebar-context-menu-shortcut" aria-hidden="true">F5</span>
+    <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" on:click={onOpenTriggers}>
+      triggers...
     </button>
 
     <div class="titlebar-context-menu-separator" aria-hidden="true"></div>

@@ -35,7 +35,7 @@
   export let onEditWorldTab: (tabId: string) => void;
   export let onEditCharacterTab: (tabId: string) => void;
   export let onOpenNotesTab: (tabId: string) => void;
-  export let onOpenHighlightsTab: (tabId: string) => void;
+  export let onOpenTriggersTab: (worldId: string | null, characterId: string | null) => void;
 
   const canOpenInspector = import.meta.env.DEV && isTauriAvailable();
   let menuOpen = false;
@@ -735,7 +735,14 @@
           handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuTab.id))
         }
         onOpenNotes={() => handleWorldContextMenuAction(() => onOpenNotesTab(worldContextMenuTab.id))}
-        onOpenHighlights={() => handleWorldContextMenuAction(() => onOpenHighlightsTab(worldContextMenuTab.id))}
+        onOpenTriggers={() =>
+          handleWorldContextMenuAction(() =>
+            onOpenTriggersTab(
+              worldContextMenuSession?.currentWorld?.id ?? null,
+              worldContextMenuSession?.currentCharacter?.id ?? null,
+            ),
+          )
+        }
         onDismiss={closeWorldContextMenu}
         onCloseRequest={(rect) => beginWorldTabClose(rect, worldContextMenuTab)}
       />
@@ -778,6 +785,17 @@
             }}
           >
             app settings
+          </button>
+          <button
+            type="button"
+            class="titlebar-menu-item"
+            role="menuitem"
+            on:click={() => {
+              closeMenu();
+              onOpenTriggersTab(null, null);
+            }}
+          >
+            triggers...
           </button>
           <button
             type="button"

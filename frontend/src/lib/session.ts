@@ -10,8 +10,10 @@ import type { CharacterRecord, WorldRecord } from './types';
 import {
   CHARACTERS_TAB_ID,
   SETTINGS_TAB_ID,
+  TRIGGERS_TAB_ID,
   createCharactersTab,
   createSettingsTab,
+  createTriggersTab,
   createWorldTab,
   type AppTab,
   type WorldTab,
@@ -96,6 +98,11 @@ function createSession() {
       editingIndex: null,
       modalDraft: { ...createInitialState().modalDraft },
       characterWorldId: null,
+      triggersContextWorldId: null,
+      triggersContextCharacterId: null,
+      triggerRuleModalOpen: false,
+      triggerRuleModalEditingIndex: null,
+      triggerRuleModalDraft: { ...createInitialState().triggerRuleModalDraft },
     });
     highlightRegexes = buildHighlightRegexes([]);
     nextWorldTabId = 1;
@@ -153,15 +160,27 @@ function createSession() {
     });
   }
 
-  function ensureSpecialTab(kind: 'characters' | 'settings'): AppTab {
+  function ensureSpecialTab(kind: 'characters' | 'settings' | 'triggers'): AppTab {
     const current = getState();
-    const existing = current.tabs.find((tab) => tab.id === (kind === 'characters' ? CHARACTERS_TAB_ID : SETTINGS_TAB_ID));
+    const existing = current.tabs.find((tab) =>
+      tab.id ===
+      (kind === 'characters'
+        ? CHARACTERS_TAB_ID
+        : kind === 'settings'
+          ? SETTINGS_TAB_ID
+          : TRIGGERS_TAB_ID),
+    );
 
     if (existing) {
       return existing;
     }
 
-    const tab = kind === 'characters' ? createCharactersTab() : createSettingsTab();
+    const tab =
+      kind === 'characters'
+        ? createCharactersTab()
+        : kind === 'settings'
+          ? createSettingsTab()
+          : createTriggersTab();
 
     state.update((snapshot) => ({
       ...snapshot,
@@ -242,6 +261,7 @@ function createSession() {
     const nextActiveTabId =
       current.activeTabId === tabId
         ? nextTabs.find((item) => item.kind === 'world')?.id ??
+          nextTabs.find((item) => item.id === TRIGGERS_TAB_ID)?.id ??
           nextTabs.find((item) => item.id === SETTINGS_TAB_ID)?.id ??
           nextTabs.find((item) => item.id === CHARACTERS_TAB_ID)?.id ??
           nextTabs[0]?.id ??
@@ -277,8 +297,15 @@ function createSession() {
   function selectTab(tabId: string): void {
     const tab = getTab(tabId);
     if (!tab) {
-      if (tabId === CHARACTERS_TAB_ID || tabId === SETTINGS_TAB_ID) {
-        const specialTab = ensureSpecialTab(tabId === CHARACTERS_TAB_ID ? 'characters' : 'settings');
+      if (tabId === CHARACTERS_TAB_ID || tabId === SETTINGS_TAB_ID || tabId === TRIGGERS_TAB_ID) {
+        const specialTab =
+          ensureSpecialTab(
+            tabId === CHARACTERS_TAB_ID
+              ? 'characters'
+              : tabId === SETTINGS_TAB_ID
+                ? 'settings'
+                : 'triggers',
+          );
         patch({ activeTabId: specialTab.id, modalOpen: false, modalKind: null });
       }
       return;
@@ -294,6 +321,17 @@ function createSession() {
       activeTabId: tabId,
       modalOpen: false,
       modalKind: null,
+    });
+  }
+
+  function openTriggersTab(worldId: string | null = null, characterId: string | null = null): void {
+    const triggersTab = ensureSpecialTab('triggers');
+    patch({
+      activeTabId: triggersTab.id,
+      modalOpen: false,
+      modalKind: null,
+      triggersContextWorldId: worldId,
+      triggersContextCharacterId: characterId,
     });
   }
 
@@ -626,6 +664,7 @@ function createSession() {
     },
     selectTab,
     setSettingsActiveTab,
+    openTriggersTab,
     selectNextTab,
     selectPreviousTab,
     reorderTab,

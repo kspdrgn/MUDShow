@@ -329,6 +329,14 @@ export function createPlaybackActions({
       return;
     }
 
+    if (state.triggerRuleModalOpen) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRuleModal();
+      }
+      return;
+    }
+
     if (event.ctrlKey && event.key === 'F4') {
       event.preventDefault();
 
@@ -347,14 +355,6 @@ export function createPlaybackActions({
     }
 
     const session = getWorldSession(activeWorldTabId);
-
-    if (session.ruleModalOpen) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeRuleModal();
-      }
-      return;
-    }
 
     if (event.ctrlKey && event.key === 'F2') {
       event.preventDefault();
@@ -392,12 +392,6 @@ export function createPlaybackActions({
     if (event.key === 'F3') {
       event.preventDefault();
       void togglePanel('notes');
-    } else if (event.key === 'F4') {
-      event.preventDefault();
-      void togglePanel('highlights');
-    } else if (event.key === 'F5') {
-      event.preventDefault();
-      void togglePanel('rules');
     }
   }
 
@@ -944,43 +938,24 @@ export function createPlaybackActions({
   }
 
   function openRuleModal(index: number | null = null): void {
-    const tabId = getActiveWorldTabId();
-    if (!tabId) {
-      return;
-    }
-
     const state = getState();
     const rule = index === null ? null : state.rules[index] ?? null;
 
-    updateWorldSession(tabId, {
-      rulesVisible: false,
-      notesVisible: false,
-      highlightsVisible: false,
-      ruleModalOpen: true,
-      ruleModalEditingIndex: index,
-      ruleModalDraft: createRuleDraft(rule),
+    patch({
+      triggerRuleModalOpen: true,
+      triggerRuleModalEditingIndex: index,
+      triggerRuleModalDraft: createRuleDraft(rule),
     });
   }
 
   function closeRuleModal(): void {
-    const tabId = getActiveWorldTabId();
-    if (!tabId) {
-      return;
-    }
-
-    updateWorldSession(tabId, {
-      ruleModalOpen: false,
-      ruleModalEditingIndex: null,
-      rulesVisible: true,
+    patch({
+      triggerRuleModalOpen: false,
+      triggerRuleModalEditingIndex: null,
     });
   }
 
-  function saveRuleDraft(draft: RuleDraft): void {
-    const tabId = getActiveWorldTabId();
-    if (!tabId) {
-      return;
-    }
-
+  function saveRuleDraft(editingIndex: number | null, draft: RuleDraft): void {
     const state = getState();
     const nextRule: Rule = {
       label: draft.label.trim(),
@@ -1006,7 +981,6 @@ export function createPlaybackActions({
       return;
     }
 
-    const editingIndex = getWorldSession(tabId).ruleModalEditingIndex;
     const next = [...state.rules];
 
     if (editingIndex === null || editingIndex === undefined || editingIndex < 0 || editingIndex >= next.length) {
@@ -1017,11 +991,6 @@ export function createPlaybackActions({
 
     void saveRules(next);
     patch({ rules: next });
-    updateWorldSession(tabId, {
-      ruleModalOpen: false,
-      ruleModalEditingIndex: null,
-      rulesVisible: true,
-    });
   }
 
   function updateRule(index: number, updater: (rule: Rule) => Rule): void {

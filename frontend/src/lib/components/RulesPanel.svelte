@@ -5,9 +5,9 @@
   export let open = false;
   export let rules: Rule[] = [];
   export let scope = 'world';
+  export let embedded = false;
   export let onOpenModal: (index: number | null) => void;
   export let onDelete: (index: number) => void;
-  export let onOpenHighlights: () => void;
   export let onClose: () => void;
 </script>
 
@@ -18,29 +18,23 @@
       <button
         type="button"
         class="btn panel-tab"
-        title="Open highlights panel"
-        on:click={onOpenHighlights}
-      >
-        highlights
-      </button>
-      <button
-        type="button"
-        class="btn panel-tab"
         title="Create a new rule"
         on:click={() => onOpenModal(null)}
       >
         new rule
       </button>
     </div>
-    <button
-      type="button"
-      class="btn panel-close"
-      aria-label="Close rules panel"
-      title="Close rules panel"
-      on:click={onClose}
-    >
-      X
-    </button>
+    {#if !embedded}
+      <button
+        type="button"
+        class="btn panel-close"
+        aria-label="Close rules panel"
+        title="Close rules panel"
+        on:click={onClose}
+      >
+        X
+      </button>
+    {/if}
   </div>
   <div class="rules-note">
     Raw regexp rules are for advanced matching. Open a rule to edit the pattern, test it, and save it.

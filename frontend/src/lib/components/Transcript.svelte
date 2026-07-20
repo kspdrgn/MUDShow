@@ -45,8 +45,7 @@
   export let onEditWorld: () => void;
   export let onEditCharacter: () => void;
   export let onOpenNotes: () => void;
-  export let onOpenHighlights: () => void;
-  export let onOpenRules: () => void;
+  export let onOpenTriggers: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   export let onScroll: () => void;
   export let onScrollToBottom: () => void;
@@ -345,14 +344,9 @@
     onOpenNotes();
   }
 
-  function openHighlightsFromMenu(): void {
+  function openTriggersFromMenu(): void {
     closeContextMenu();
-    onOpenHighlights();
-  }
-
-  function openRulesFromMenu(): void {
-    closeContextMenu();
-    onOpenRules();
+    onOpenTriggers();
   }
 
   function closeTabFromMenu(anchorRect: DOMRect): void {
@@ -505,8 +499,7 @@
       onEditCharacter();
     }}
     onOpenNotes={openNotesFromMenu}
-    onOpenHighlights={openHighlightsFromMenu}
-    onOpenRules={openRulesFromMenu}
+    onOpenTriggers={openTriggersFromMenu}
     onDismiss={closeContextMenu}
     onCloseRequest={closeTabFromMenu}
   />

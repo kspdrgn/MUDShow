@@ -1,4 +1,12 @@
-import type { CharacterDraft, CharacterRecord, HighlightRule, Rule, WorldDraft, WorldRecord } from './types';
+import type {
+  CharacterDraft,
+  CharacterRecord,
+  HighlightRule,
+  Rule,
+  RuleDraft,
+  WorldDraft,
+  WorldRecord,
+} from './types';
 import type { AppTab, SettingsSubTabId } from './tabs';
 import type { WorldTabSessionState } from './world-session';
 
@@ -25,6 +33,11 @@ export interface SessionState {
   modalDraft: CharacterDraft;
   characterWorldId: string | null;
   settingsActiveTab: SettingsSubTabId;
+  triggersContextWorldId: string | null;
+  triggersContextCharacterId: string | null;
+  triggerRuleModalOpen: boolean;
+  triggerRuleModalEditingIndex: number | null;
+  triggerRuleModalDraft: RuleDraft;
 }
 
 export const INITIAL_WORLD_DRAFT: WorldDraft = {
@@ -63,5 +76,22 @@ export function createInitialState(): SessionState {
     modalDraft: { ...INITIAL_DRAFT },
     characterWorldId: null,
     settingsActiveTab: 'database',
+    triggersContextWorldId: null,
+    triggersContextCharacterId: null,
+    triggerRuleModalOpen: false,
+    triggerRuleModalEditingIndex: null,
+    triggerRuleModalDraft: {
+      label: '',
+      pattern: '',
+      foregroundColor: '#f1c40f',
+      foregroundColorEnabled: true,
+      backgroundColor: '#000000',
+      backgroundColorEnabled: true,
+      opacity: 1,
+      opacityEnabled: true,
+      wholeLine: false,
+      caseSensitive: false,
+      sampleText: 'sample text to test the rule',
+    },
   };
 }

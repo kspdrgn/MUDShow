@@ -1,4 +1,4 @@
-export type AppTabKind = 'characters' | 'settings' | 'world';
+export type AppTabKind = 'characters' | 'settings' | 'triggers' | 'world';
 export type SettingsSubTabId =
   | 'database'
   | 'window'
@@ -11,6 +11,7 @@ export type SettingsSubTabId =
 
 export const CHARACTERS_TAB_ID = 'characters';
 export const SETTINGS_TAB_ID = 'settings';
+export const TRIGGERS_TAB_ID = 'triggers';
 
 export interface AppTabBase {
   id: string;
@@ -27,6 +28,10 @@ export interface SettingsTab extends AppTabBase {
   kind: 'settings';
 }
 
+export interface TriggersTab extends AppTabBase {
+  kind: 'triggers';
+}
+
 export interface WorldTab extends AppTabBase {
   kind: 'world';
   worldId: string;
@@ -34,7 +39,7 @@ export interface WorldTab extends AppTabBase {
   connectionId: string;
 }
 
-export type AppTab = CharactersTab | SettingsTab | WorldTab;
+export type AppTab = CharactersTab | SettingsTab | TriggersTab | WorldTab;
 
 export function createCharactersTab(): CharactersTab {
   return {
@@ -50,6 +55,15 @@ export function createSettingsTab(): SettingsTab {
     id: SETTINGS_TAB_ID,
     kind: 'settings',
     title: 'app settings',
+    closable: true,
+  };
+}
+
+export function createTriggersTab(): TriggersTab {
+  return {
+    id: TRIGGERS_TAB_ID,
+    kind: 'triggers',
+    title: 'triggers',
     closable: true,
   };
 }

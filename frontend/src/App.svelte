@@ -20,6 +20,7 @@ import LoggingModal from './lib/components/LoggingModal.svelte';
 import NoticeModal from './lib/components/NoticeModal.svelte';
 import PlayScreen from './lib/components/PlayScreen.svelte';
 import SettingsPage from './lib/components/SettingsPage.svelte';
+import TriggersPane from './lib/components/TriggersPane.svelte';
 import TopBar from './lib/components/TopBar.svelte';
 import WindowResizeHandles from './lib/components/WindowResizeHandles.svelte';
 import WorldModal from './lib/components/WorldModal.svelte';
@@ -210,6 +211,8 @@ import {
   $: pageTitle =
     activeTab?.kind === 'settings'
       ? `App Settings · MUDShow`
+      : activeTab?.kind === 'triggers'
+        ? 'Triggers · MUDShow'
       : activeTab?.kind === 'world' && activeWorldSession?.currentCharacter
         ? appSettings.titleAttention && activeWorldSession.hasNewActivity
           ? `* ${activeWorldSession.currentWorld?.name ?? activeWorldSession.currentCharacter.name} · ${activeWorldSession.currentCharacter.name}`
@@ -317,10 +320,7 @@ import {
       session.activateWorldTab(tabId);
       void session.togglePanel('notes');
     }}
-    onOpenHighlightsTab={(tabId) => {
-      session.activateWorldTab(tabId);
-      void session.togglePanel('highlights');
-    }}
+    onOpenTriggersTab={(worldId, characterId) => session.openTriggersTab(worldId, characterId)}
   />
 
   <main id="app-main">
@@ -374,12 +374,7 @@ import {
         connectionStatus={worldSession.connectionStatus}
         bars={worldSession.inputBars}
         highlights={$session.highlights}
-        highlightsVisible={worldSession.highlightsVisible}
         rules={$session.rules}
-        rulesVisible={worldSession.rulesVisible}
-        ruleModalOpen={worldSession.ruleModalOpen}
-        ruleModalEditingIndex={worldSession.ruleModalEditingIndex}
-        ruleModalDraft={worldSession.ruleModalDraft}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
@@ -389,18 +384,6 @@ import {
         playWidth={worldSession.currentCharacter?.width !== undefined ? `${worldSession.currentCharacter.width}ch` : 'none'}
         loggingActive={worldSession.loggingActive}
         imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
-        onHighlightAdd={(pattern, color) => session.addHighlight(pattern, color)}
-        onHighlightUpdatePattern={(index, pattern) => session.updateHighlightPattern(index, pattern)}
-        onHighlightUpdateColor={(index, color) => session.updateHighlightColor(index, color)}
-        onHighlightToggleCaseSensitive={(index) => session.toggleHighlightCaseSensitive(index)}
-        onHighlightToggleWordBoundary={(index) => session.toggleHighlightWordBoundary(index)}
-        onHighlightDelete={(index) => session.deleteHighlight(index)}
-        onHighlightClose={() => void session.togglePanel('highlights')}
-        onRuleOpenModal={(index) => session.openRuleModal(index)}
-        onRuleSave={(draft) => session.saveRuleDraft(draft)}
-        onRuleCloseModal={() => session.closeRuleModal()}
-        onRuleDelete={(index) => session.deleteRule(index)}
-        onRuleClose={() => void session.togglePanel('rules')}
         canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentCharacter !== null}
         canDisconnect={worldSession.connectionStatus === 'connecting' || worldSession.connectionStatus === 'connected'}
         canQuickLog={!worldSession.loggingActive}
@@ -426,8 +409,27 @@ import {
         onOutputScroll={() => session.handleOutputScroll()}
         onOutputScrollKey={(action) => session.handleOutputScrollKey(action)}
         onScrollToBottom={() => session.handleScrollToBottom()}
+        onOpenTriggers={() => session.openTriggersTab(worldSession.currentWorld?.id ?? null, worldSession.currentCharacter?.id ?? null)}
       />
     {/each}
+
+    {#if activeTab?.kind === 'triggers'}
+      <TriggersPane
+        worlds={$session.worlds}
+        characters={$session.characters}
+        highlights={$session.highlights}
+        rules={$session.rules}
+        contextWorldId={$session.triggersContextWorldId}
+        contextCharacterId={$session.triggersContextCharacterId}
+        onHighlightUpdatePattern={(index, pattern) => session.updateHighlightPattern(index, pattern)}
+        onHighlightUpdateColor={(index, color) => session.updateHighlightColor(index, color)}
+        onHighlightToggleCaseSensitive={(index) => session.toggleHighlightCaseSensitive(index)}
+        onHighlightToggleWordBoundary={(index) => session.toggleHighlightWordBoundary(index)}
+        onHighlightDelete={(index) => session.deleteHighlight(index)}
+        onRuleSave={(index, draft) => session.saveRuleDraft(index, draft)}
+        onRuleDelete={(index) => session.deleteRule(index)}
+      />
+    {/if}
 
     {#if activeTab?.kind === 'settings'}
       <SettingsPage
@@ -494,7 +496,7 @@ import {
   onClose={closeStorageImportNotice}
 />
 
-  <LoggingModal
+<LoggingModal
   open={loggingModalTab !== null && loggingModalSession !== null}
   active={loggingModalSession?.loggingActive === true}
   tabTitle={loggingModalTab?.title ?? ''}
