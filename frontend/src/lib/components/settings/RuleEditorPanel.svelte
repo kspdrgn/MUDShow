@@ -1,6 +1,6 @@
 <script lang="ts">
-  import StyleSlideToggle from './StyleSlideToggle.svelte';
-  import type { RuleDraft } from '../types';
+  import StyleSlideToggle from '../styles/StyleSlideToggle.svelte';
+  import type { RuleDraft } from '../../types';
 
   const DEFAULT_SAMPLE_TEXT = 'sample text to test the rule\ntry adding anchors like ^ and $';
 

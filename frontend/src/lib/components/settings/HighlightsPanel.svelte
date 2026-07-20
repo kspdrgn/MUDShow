@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { HighlightDraft } from '../types';
-  import { getWorldHighlightsPanelId } from '../world-dom';
+  import type { HighlightDraft } from '../../types';
+  import { getWorldHighlightsPanelId } from '../../world-dom';
 
   export let open = false;
   export let title = 'highlight editor';

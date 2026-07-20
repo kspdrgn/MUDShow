@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { CharacterDraft } from '../types';
-  import { DEFAULT_OUTPUT_HISTORY_LINES } from '../session-state';
+  import type { CharacterDraft } from '../../types';
+  import { DEFAULT_OUTPUT_HISTORY_LINES } from '../../session-state';
 
   const emptyDraft: CharacterDraft = {
     name: '',

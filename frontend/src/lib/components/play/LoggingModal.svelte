@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invoke, isTauriAvailable } from '../tauri';
+  import { invoke, isTauriAvailable } from '../../tauri';
 
   export let open = false;
   export let active = false;

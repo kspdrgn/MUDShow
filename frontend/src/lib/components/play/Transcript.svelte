@@ -6,17 +6,17 @@
     buildHighlightRegexes,
     buildRuleRegexes,
     renderTranscriptHtml,
-  } from '../formatting';
+  } from '../../formatting';
   import {
     copyTextToClipboard,
     focusElement,
     nextFrame,
     scrollElementBy,
     scrollElementToBottom,
-  } from '../session-dom';
-  import { openExternalUrl } from '../tauri';
-  import { getScopedInputBarInputId, type InputBarId } from '../input-bars';
-  import type { HighlightRule, Rule } from '../types';
+  } from '../../session-dom';
+  import { openExternalUrl } from '../../tauri';
+  import { getScopedInputBarInputId, type InputBarId } from '../../input-bars';
+  import type { HighlightRule, Rule } from '../../types';
   import WorldContextMenu from './WorldContextMenu.svelte';
 
   const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;

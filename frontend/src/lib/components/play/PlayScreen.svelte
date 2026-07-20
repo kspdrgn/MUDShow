@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { type InputBarConfig, type InputBarId } from '../input-bars';
-  import type { HighlightRule, Rule } from '../types';
+  import { type InputBarConfig, type InputBarId } from '../../input-bars';
+  import type { HighlightRule, Rule } from '../../types';
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
-  import type { AppStyleValues } from './style-settings';
+  import type { AppStyleValues } from '../styles/style-settings';
 
   export let scope = 'world';
   export let visible = true;

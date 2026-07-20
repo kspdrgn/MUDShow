@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Rule } from '../types';
-  import { getWorldRulesPanelId } from '../world-dom';
+  import type { Rule } from '../../types';
+  import { getWorldRulesPanelId } from '../../world-dom';
 
   export let open = false;
   export let rules: Rule[] = [];

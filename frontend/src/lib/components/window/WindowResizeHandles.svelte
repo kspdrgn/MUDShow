@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { invoke, isTauriAvailable } from '../tauri';
-  import { isLinuxDesktop } from '../platform';
+  import { invoke, isTauriAvailable } from '../../tauri';
+  import { isLinuxDesktop } from '../../platform';
 
   type ResizeDirection =
     | 'east'

@@ -10,7 +10,7 @@
     MIN_INPUT_BAR_LINES,
     type InputBarConfig,
     type InputBarId,
-  } from '../input-bars';
+  } from '../../input-bars';
 
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { WorldDraft } from '../types';
+  import type { WorldDraft } from '../../types';
 
   const emptyDraft: WorldDraft = {
     name: '',

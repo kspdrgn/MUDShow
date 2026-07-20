@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { isTauriAvailable, invoke } from '../tauri';
+  import { isTauriAvailable, invoke } from '../../tauri';
   import {
     CHARACTERS_TAB_ID,
     SETTINGS_TAB_ID,
     type AppTab,
-  } from '../tabs';
-  import type { CharacterRecord, WorldRecord } from '../types';
-  import StatusDot from './StatusDot.svelte';
-  import WorldContextMenu from './WorldContextMenu.svelte';
-  import type { WorldTabSessionState } from '../world-session';
+  } from '../../tabs';
+  import type { CharacterRecord, WorldRecord } from '../../types';
+  import StatusDot from '../play/StatusDot.svelte';
+  import WorldContextMenu from '../play/WorldContextMenu.svelte';
+  import type { WorldTabSessionState } from '../../world-session';
   import QuickConnectPanel from './QuickConnectPanel.svelte';
 
   export let tabs: AppTab[] = [];

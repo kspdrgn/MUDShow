@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { AppSettings } from '../app-settings';
-  import type { AppStyleEditor } from './style-settings';
-  import StyleSettingsPane from './StyleSettingsPane.svelte';
+  import type { AppSettings } from '../../app-settings';
+  import type { AppStyleEditor } from '../styles/style-settings';
+  import StyleSettingsPane from '../styles/StyleSettingsPane.svelte';
 
   export type SettingsTabId =
     | 'database'

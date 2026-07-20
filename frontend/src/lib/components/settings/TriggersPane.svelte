@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, WorldRecord } from '../types';
+  import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, WorldRecord } from '../../types';
   import HighlightsPanel from './HighlightsPanel.svelte';
   import RuleEditorPanel from './RuleEditorPanel.svelte';
 
@@ -331,8 +331,16 @@
       <div class="triggers-empty-state">
         <div class="triggers-empty-title">nothing selected</div>
         <p>
-          Pick a highlight or rule from the tree to edit it here. This space will later hold
-          help and selection details.
+          Pick a highlight or rule from the tree to edit it here.
+        </p>
+        <p>
+          Highlights style individual rules and phrases with simple controls.
+        </p>
+        <p>
+          Rules offer full regular expression matching for advanced style and behavior.
+        </p>
+        <p>
+          In the future, rules and highlights will be supported within worlds and characters but they are top level for now.
         </p>
       </div>
     {/if}

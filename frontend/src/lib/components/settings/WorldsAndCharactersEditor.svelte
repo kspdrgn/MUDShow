@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CharacterRecord, WorldRecord } from '../types';
+  import type { CharacterRecord, WorldRecord } from '../../types';
 
   export let worlds: WorldRecord[] = [];
   export let characters: CharacterRecord[] = [];

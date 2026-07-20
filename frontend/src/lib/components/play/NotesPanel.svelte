@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getWorldNotesEditorId, getWorldNotesPanelId } from '../world-dom';
+  import { getWorldNotesEditorId, getWorldNotesPanelId } from '../../world-dom';
 
   export let open = false;
   export let notes = '';

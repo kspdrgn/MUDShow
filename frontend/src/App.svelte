@@ -12,18 +12,18 @@ import {
   loadAppStyleOverrides,
   saveAppStyleOverrides,
 } from './lib/storage';
-import WorldsAndCharactersEditor from './lib/components/WorldsAndCharactersEditor.svelte';
-import CharacterModal from './lib/components/CharacterModal.svelte';
-import ConfirmCloseTabModal from './lib/components/ConfirmCloseTabModal.svelte';
-import HomePanel from './lib/components/HomePanel.svelte';
-import LoggingModal from './lib/components/LoggingModal.svelte';
-import NoticeModal from './lib/components/NoticeModal.svelte';
-import PlayScreen from './lib/components/PlayScreen.svelte';
-import SettingsPage from './lib/components/SettingsPage.svelte';
-import TriggersPane from './lib/components/TriggersPane.svelte';
-import TopBar from './lib/components/TopBar.svelte';
-import WindowResizeHandles from './lib/components/WindowResizeHandles.svelte';
-import WorldModal from './lib/components/WorldModal.svelte';
+import WorldsAndCharactersEditor from './lib/components/settings/WorldsAndCharactersEditor.svelte';
+import CharacterModal from './lib/components/settings/CharacterModal.svelte';
+import ConfirmCloseTabModal from './lib/components/window/ConfirmCloseTabModal.svelte';
+import HomePanel from './lib/components/window/HomePanel.svelte';
+import LoggingModal from './lib/components/play/LoggingModal.svelte';
+import NoticeModal from './lib/components/window/NoticeModal.svelte';
+import PlayScreen from './lib/components/play/PlayScreen.svelte';
+import SettingsPage from './lib/components/settings/SettingsPage.svelte';
+import TriggersPane from './lib/components/settings/TriggersPane.svelte';
+import TopBar from './lib/components/window/TopBar.svelte';
+import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
+import WorldModal from './lib/components/settings/WorldModal.svelte';
 import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
@@ -35,7 +35,7 @@ import {
   serializeAppStyleEditor,
   type AppStyleEditor,
   type AppStyleValues,
-} from './lib/components/style-settings';
+} from './lib/components/styles/style-settings';
 
   let appSettings = loadAppSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();

@@ -2,7 +2,7 @@ import type { CharacterRecord, HighlightRule, Rule, WorldRecord } from './types'
 import {
   normalizeAppStyleOverrides,
   type AppStyleOverrides,
-} from './components/style-settings';
+} from './components/styles/style-settings';
 import { trimTranscriptHistory, type TranscriptHistoryEntry } from './playback';
 import { invoke, isTauriAvailable } from './tauri';
 
