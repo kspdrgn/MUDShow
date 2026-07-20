@@ -130,6 +130,7 @@ fn window_open_devtools() -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(mud_backend::ConnectionManager::default())
         .setup(|app| {
             let default_storage_path = match storage::default_storage_path(app.handle()) {

@@ -373,8 +373,7 @@ import {
         activeBar={worldSession.activeBar}
         connectionStatus={worldSession.connectionStatus}
         bars={worldSession.inputBars}
-        highlights={$session.highlights}
-        rules={$session.rules}
+        triggers={$session.triggers}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
@@ -417,8 +416,7 @@ import {
       <TriggersPane
         worlds={$session.worlds}
         characters={$session.characters}
-        highlights={$session.highlights}
-        rules={$session.rules}
+        triggers={$session.triggers}
         contextWorldId={$session.triggersContextWorldId}
         contextCharacterId={$session.triggersContextCharacterId}
         onHighlightSave={(index, draft) => session.saveHighlightDraft(index, draft)}

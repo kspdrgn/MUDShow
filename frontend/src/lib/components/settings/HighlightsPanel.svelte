@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StyleSlideToggle from '../styles/StyleSlideToggle.svelte';
   import type { HighlightDraft } from '../../types';
   import { getWorldHighlightsPanelId } from '../../world-dom';
 
@@ -6,8 +7,10 @@
   export let title = 'highlight editor';
   export let draft: HighlightDraft = {
     pattern: '',
-    foregroundColor: '#f1c40f',
+    foregroundColor: '#ffffff',
+    foregroundColorEnabled: true,
     backgroundColor: '#000000',
+    backgroundColorEnabled: true,
     caseSensitive: false,
     wordBoundary: true,
   };
@@ -17,8 +20,10 @@
   export let onDelete: (() => void) | null = null;
 
   let pattern = '';
-  let foregroundColor = '#f1c40f';
+  let foregroundColor = '#ffffff';
+  let foregroundColorEnabled = true;
   let backgroundColor = '#000000';
+  let backgroundColorEnabled = true;
   let caseSensitive = false;
   let wordBoundary = true;
   let lastSnapshot = '';
@@ -29,7 +34,9 @@
     if (snapshot !== lastSnapshot || !lastOpen) {
       pattern = draft.pattern;
       foregroundColor = draft.foregroundColor;
+      foregroundColorEnabled = draft.foregroundColorEnabled;
       backgroundColor = draft.backgroundColor;
+      backgroundColorEnabled = draft.backgroundColorEnabled;
       caseSensitive = draft.caseSensitive;
       wordBoundary = draft.wordBoundary;
       lastSnapshot = snapshot;
@@ -47,10 +54,20 @@
     onSave({
       pattern: trimmedPattern,
       foregroundColor,
+      foregroundColorEnabled,
       backgroundColor,
+      backgroundColorEnabled,
       caseSensitive,
       wordBoundary,
     });
+  }
+
+  function activateForegroundColor(): void {
+    foregroundColorEnabled = true;
+  }
+
+  function activateBackgroundColor(): void {
+    backgroundColorEnabled = true;
   }
 </script>
 
@@ -80,9 +97,17 @@
           <fieldset class="highlight-group highlight-actions-group">
             <legend>actions</legend>
 
-            <section class="highlight-action-card">
+            <section class="highlight-action-card" data-disabled={!foregroundColorEnabled}>
               <div class="highlight-action-header">
                 <label for="highlight-foreground-color">foreground color</label>
+                <StyleSlideToggle
+                  checked={foregroundColorEnabled}
+                  ariaLabel="Toggle foreground color"
+                  title={foregroundColorEnabled ? 'Disable foreground color' : 'Enable foreground color'}
+                  on:change={(event) => {
+                    foregroundColorEnabled = event.detail;
+                  }}
+                />
               </div>
               <div class="highlight-action-body">
                 <input
@@ -90,13 +115,24 @@
                   type="color"
                   bind:value={foregroundColor}
                   aria-label="Highlight foreground color"
+                  on:pointerdown={activateForegroundColor}
+                  on:focus={activateForegroundColor}
+                  on:input={activateForegroundColor}
                 />
               </div>
             </section>
 
-            <section class="highlight-action-card">
+            <section class="highlight-action-card" data-disabled={!backgroundColorEnabled}>
               <div class="highlight-action-header">
                 <label for="highlight-background-color">background color</label>
+                <StyleSlideToggle
+                  checked={backgroundColorEnabled}
+                  ariaLabel="Toggle background color"
+                  title={backgroundColorEnabled ? 'Disable background color' : 'Enable background color'}
+                  on:change={(event) => {
+                    backgroundColorEnabled = event.detail;
+                  }}
+                />
               </div>
               <div class="highlight-action-body">
                 <input
@@ -104,6 +140,9 @@
                   type="color"
                   bind:value={backgroundColor}
                   aria-label="Highlight background color"
+                  on:pointerdown={activateBackgroundColor}
+                  on:focus={activateBackgroundColor}
+                  on:input={activateBackgroundColor}
                 />
               </div>
             </section>
@@ -215,6 +254,10 @@
     padding: 0.55rem 0.6rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.02);
+  }
+
+  .highlight-action-card[data-disabled='true'] {
+    opacity: 0.55;
   }
 
   .highlight-action-header {

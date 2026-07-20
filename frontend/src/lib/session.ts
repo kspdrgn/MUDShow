@@ -6,7 +6,7 @@ import { createInitialState, type SessionState } from './session-state';
 import { createPlaybackActions } from './session-playback-actions';
 import { focusElement, nextFrame } from './session-dom';
 import { loadSessionData } from './storage';
-import type { CharacterRecord, WorldRecord } from './types';
+import type { CharacterRecord, HighlightRule, Trigger, WorldRecord } from './types';
 import {
   CHARACTERS_TAB_ID,
   SETTINGS_TAB_ID,
@@ -28,7 +28,9 @@ import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 
 function createSession() {
   const state = writable<SessionState>(createInitialState());
-  let highlightRegexes = buildHighlightRegexes(get(state).highlights);
+  const getHighlightTriggers = (triggers: Trigger[]): HighlightRule[] =>
+    triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
+  let highlightRegexes = buildHighlightRegexes(getHighlightTriggers(get(state).triggers));
   let nextWorldTabId = 1;
   let nextConnectionId = 1;
   const worldConnections = new Map<string, MudConnection>();
@@ -83,8 +85,7 @@ function createSession() {
       ...current,
       worlds: [],
       characters: [],
-      highlights: [],
-      rules: [],
+      triggers: [],
       tabs: nextTabs,
       activeTabId: activeTabStillExists ? current.activeTabId : nextTabs[0]?.id ?? null,
       worldSessions: {},
@@ -579,9 +580,9 @@ function createSession() {
   const load = async () => {
     try {
       resetPersistentView();
-      const { worlds, characters, highlights, rules } = await loadSessionData();
-      patch({ worlds, characters, highlights, rules });
-      highlightRegexes = buildHighlightRegexes(highlights);
+      const { worlds, characters, triggers } = await loadSessionData();
+      patch({ worlds, characters, triggers });
+      highlightRegexes = buildHighlightRegexes(getHighlightTriggers(triggers));
       refreshWorldTabs();
     } catch (error) {
       console.error('failed to load persisted session data:', error);

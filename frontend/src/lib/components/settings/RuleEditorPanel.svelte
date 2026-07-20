@@ -8,7 +8,7 @@
   export let draft: RuleDraft = {
     label: '',
     pattern: '',
-    foregroundColor: '#f1c40f',
+    foregroundColor: '#ffffff',
     foregroundColorEnabled: true,
     backgroundColor: '#000000',
     backgroundColorEnabled: true,
@@ -24,7 +24,7 @@
   export let onDelete: (() => void) | null = null;
 
   let pattern = '';
-  let foregroundColor = '#f1c40f';
+  let foregroundColor = '#ffffff';
   let foregroundColorEnabled = true;
   let backgroundColor = '#000000';
   let backgroundColorEnabled = true;
@@ -39,6 +39,11 @@
   let validationError = '';
   let sampleMirrorHtml = '';
   let saveDisabled = true;
+
+  type MatchIndices = Array<[number, number] | undefined>;
+  type MatchWithIndices = RegExpMatchArray & {
+    indices?: MatchIndices;
+  };
 
   function escapeHtml(text: string): string {
     return text
@@ -56,11 +61,77 @@
     }
 
     try {
-      return new RegExp(trimmed, caseSensitive ? 'gm' : 'gim');
+      return new RegExp(trimmed, caseSensitive ? 'gdm' : 'gdim');
     } catch (error) {
       validationError = error instanceof Error ? error.message : 'invalid regexp';
       return null;
     }
+  }
+
+  function getLineRange(index: number): { start: number; end: number } {
+    const lineStart = sampleText.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
+    const nextLineBreak = sampleText.indexOf('\n', index);
+    return {
+      start: lineStart,
+      end: nextLineBreak >= 0 ? nextLineBreak : sampleText.length,
+    };
+  }
+
+  function collectSampleRanges(regex: RegExp): Array<{ start: number; end: number; zeroWidth?: boolean }> {
+    const ranges: Array<{ start: number; end: number; zeroWidth?: boolean }> = [];
+
+    for (const match of sampleText.matchAll(regex) as Iterable<MatchWithIndices>) {
+      const index = match.index ?? 0;
+      const matched = match[0];
+      const matchEnd = index + matched.length;
+
+      if (wholeLine) {
+        ranges.push(getLineRange(index));
+        continue;
+      }
+
+      if (match.length > 1) {
+        for (let groupIndex = 1; groupIndex < match.length; groupIndex += 1) {
+          const group = match[groupIndex];
+          if (!group) {
+            continue;
+          }
+
+          const indexedGroup = match.indices?.[groupIndex];
+          if (indexedGroup && indexedGroup[1] > indexedGroup[0]) {
+            ranges.push({ start: indexedGroup[0], end: indexedGroup[1] });
+            continue;
+          }
+
+          const searchFrom = ranges.length > 0 ? ranges[ranges.length - 1].end : index;
+          const fallbackStart = sampleText.indexOf(group, searchFrom);
+          if (fallbackStart >= index && fallbackStart < matchEnd) {
+            ranges.push({ start: fallbackStart, end: fallbackStart + group.length });
+          }
+        }
+        continue;
+      }
+
+      if (matched.length === 0) {
+        ranges.push({ start: index, end: index, zeroWidth: true });
+        continue;
+      }
+
+      ranges.push({ start: index, end: matchEnd });
+    }
+
+    return ranges
+      .sort((left, right) => left.start - right.start || left.end - right.end)
+      .reduce<Array<{ start: number; end: number; zeroWidth?: boolean }>>((merged, range) => {
+        const previous = merged[merged.length - 1];
+        if (previous && !previous.zeroWidth && !range.zeroWidth && range.start <= previous.end) {
+          previous.end = Math.max(previous.end, range.end);
+          return merged;
+        }
+
+        merged.push({ ...range });
+        return merged;
+      }, []);
   }
 
   function buildSampleMirror(regex: RegExp): void {
@@ -68,24 +139,21 @@
     let lastIndex = 0;
     let matchCount = 0;
 
-    for (const match of sampleText.matchAll(regex)) {
-      const index = match.index ?? lastIndex;
-      const matched = match[0];
-
-      if (index < lastIndex) {
+    for (const range of collectSampleRanges(regex)) {
+      if (range.start < lastIndex) {
         continue;
       }
 
-      result += escapeHtml(sampleText.slice(lastIndex, index));
-      if (matched.length === 0) {
+      result += escapeHtml(sampleText.slice(lastIndex, range.start));
+      if (range.zeroWidth) {
         result += '<span class="rule-preview-zero-width">∅</span>';
-        lastIndex = Math.min(sampleText.length, index + 1);
+        lastIndex = range.start;
         matchCount += 1;
         continue;
       }
 
-      result += `<span class="rule-preview-hit">${escapeHtml(matched)}</span>`;
-      lastIndex = index + matched.length;
+      result += `<span class="rule-preview-hit">${escapeHtml(sampleText.slice(range.start, range.end))}</span>`;
+      lastIndex = range.end;
       matchCount += 1;
     }
 

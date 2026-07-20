@@ -1,8 +1,7 @@
 import type {
   CharacterDraft,
   CharacterRecord,
-  HighlightRule,
-  Rule,
+  Trigger,
   WorldDraft,
   WorldRecord,
 } from './types';
@@ -16,8 +15,7 @@ export const DEFAULT_OUTPUT_HISTORY_LINES = 0;
 export interface SessionState {
   worlds: WorldRecord[];
   characters: CharacterRecord[];
-  highlights: HighlightRule[];
-  rules: Rule[];
+  triggers: Trigger[];
   tabs: AppTab[];
   activeTabId: string | null;
   worldSessions: Record<string, WorldTabSessionState>;
@@ -56,8 +54,7 @@ export function createInitialState(): SessionState {
   return {
     worlds: [],
     characters: [],
-    highlights: [],
-    rules: [],
+    triggers: [],
     tabs: [],
     activeTabId: null,
     worldSessions: {},

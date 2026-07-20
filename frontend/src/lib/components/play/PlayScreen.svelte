@@ -1,7 +1,7 @@
 <script lang="ts">
   import { type InputBarConfig, type InputBarId } from '../../input-bars';
   import { onMount } from 'svelte';
-  import type { HighlightRule, Rule } from '../../types';
+  import type { Trigger } from '../../types';
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
@@ -14,8 +14,7 @@
   export let activeBar: InputBarId = 1;
   export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
   export let loggingActive = false;
-  export let highlights: HighlightRule[] = [];
-  export let rules: Rule[] = [];
+  export let triggers: Trigger[] = [];
   export let notes = '';
   export let notesVisible = false;
   export let linkImagePreviews = false;
@@ -161,8 +160,7 @@
     chunks={outputChunks}
     width={measuredPlayWidth}
     {scope}
-    {highlights}
-    {rules}
+    {triggers}
     {linkImagePreviews}
     {imagePreviewCacheVersion}
     {showCurrentOutputWhenScrollingUp}

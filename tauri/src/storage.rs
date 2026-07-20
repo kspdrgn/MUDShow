@@ -815,7 +815,7 @@ pub fn load_app_storage<R: tauri::Runtime>(
     match fs::read_to_string(&path) {
         Ok(contents) => Ok(contents),
         Err(error) if error.kind() == ErrorKind::NotFound => Ok(String::from(
-            r#"{"schemaVersion":3,"worlds":[],"characters":[],"highlights":[],"rules":[],"history":{},"notes":{}}"#,
+            r#"{"schemaVersion":4,"worlds":[],"characters":[],"triggers":[],"history":{},"notes":{}}"#,
         )),
         Err(error) => Err(format!(
             "failed to read storage file {}: {error}",

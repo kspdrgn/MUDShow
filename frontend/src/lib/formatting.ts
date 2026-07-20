@@ -6,6 +6,7 @@ export type HighlightRegex = {
   backgroundColor?: string;
   opacity?: number;
   wholeLine?: boolean;
+  matchGroupsOnly?: boolean;
 };
 
 type AnsiStyle = {
@@ -15,6 +16,11 @@ type AnsiStyle = {
   dim?: boolean;
   underline?: boolean;
   inverse?: boolean;
+};
+
+type MatchIndices = Array<[number, number] | undefined>;
+type MatchWithIndices = RegExpMatchArray & {
+  indices?: MatchIndices;
 };
 
 const ANSI_SEQUENCE_RE = /\x1b\[[0-9;?]*[ -\/]*[@-~]/g;
@@ -101,6 +107,78 @@ function tryCreateRegex(pattern: string, flags: string): RegExp | null {
   } catch {
     return null;
   }
+}
+
+function collectRegexDecorationRanges(
+  text: string,
+  re: RegExp,
+  matchGroupsOnly = false,
+): Array<{ start: number; end: number }> {
+  const ranges: Array<{ start: number; end: number }> = [];
+
+  re.lastIndex = 0;
+  for (const match of text.matchAll(re) as Iterable<MatchWithIndices>) {
+    const matchStart = match.index ?? 0;
+    const matchEnd = matchStart + match[0].length;
+    const hasGroups = matchGroupsOnly && match.length > 1;
+
+    if (!hasGroups) {
+      if (matchEnd > matchStart) {
+        ranges.push({ start: matchStart, end: matchEnd });
+      }
+      continue;
+    }
+
+    for (let groupIndex = 1; groupIndex < match.length; groupIndex += 1) {
+      const group = match[groupIndex];
+      if (!group) {
+        continue;
+      }
+
+      const indexedGroup = match.indices?.[groupIndex];
+      if (indexedGroup && indexedGroup[1] > indexedGroup[0]) {
+        ranges.push({ start: indexedGroup[0], end: indexedGroup[1] });
+        continue;
+      }
+
+      const searchFrom = ranges.length > 0 ? ranges[ranges.length - 1].end : matchStart;
+      const fallbackStart = text.indexOf(group, searchFrom);
+      if (fallbackStart >= matchStart && fallbackStart < matchEnd) {
+        ranges.push({ start: fallbackStart, end: fallbackStart + group.length });
+      }
+    }
+  }
+  re.lastIndex = 0;
+
+  return ranges
+    .sort((left, right) => left.start - right.start || left.end - right.end)
+    .reduce<Array<{ start: number; end: number }>>((merged, range) => {
+      const previous = merged[merged.length - 1];
+      if (previous && range.start <= previous.end) {
+        previous.end = Math.max(previous.end, range.end);
+        return merged;
+      }
+
+      merged.push({ ...range });
+      return merged;
+    }, []);
+}
+
+function decorateTextRanges(text: string, ranges: Array<{ start: number; end: number }>, style: string): string {
+  let result = '';
+  let lastIndex = 0;
+
+  for (const range of ranges) {
+    if (range.start < lastIndex || range.end <= range.start) {
+      continue;
+    }
+
+    result += text.slice(lastIndex, range.start);
+    result += `<span style="${style}">${text.slice(range.start, range.end)}</span>`;
+    lastIndex = range.end;
+  }
+
+  return `${result}${text.slice(lastIndex)}`;
 }
 
 export function stripTelnet(text: string): string {
@@ -628,7 +706,7 @@ export function buildHighlightRegexes(rules: HighlightRule[]): HighlightRegex[] 
 
 export function buildRuleRegexes(rules: Rule[]): HighlightRegex[] {
   return rules.flatMap((rule) => {
-    const regex = tryCreateRegex(rule.pattern, rule.caseSensitive ? 'gm' : 'gim');
+    const regex = tryCreateRegex(rule.pattern, rule.caseSensitive ? 'gdm' : 'gdim');
     const opacity = typeof rule.opacity === 'number' && Number.isFinite(rule.opacity)
       ? Math.min(1, Math.max(0, rule.opacity))
       : undefined;
@@ -641,6 +719,7 @@ export function buildRuleRegexes(rules: Rule[]): HighlightRegex[] {
             backgroundColor: rule.backgroundColor,
             opacity,
             wholeLine: rule.wholeLine,
+            matchGroupsOnly: true,
           },
         ]
       : [];
@@ -667,12 +746,16 @@ export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): 
           return part;
         }
 
-        for (const { re, color, backgroundColor, opacity } of inlineRegexes) {
-          re.lastIndex = 0;
-          part = part.replace(re, (match) => {
-            const style = buildRuleStyle(color, backgroundColor, opacity);
-            return style ? `<span style="${style}">${match}</span>` : match;
-          });
+        for (const { re, color, backgroundColor, opacity, matchGroupsOnly } of inlineRegexes) {
+          const style = buildRuleStyle(color, backgroundColor, opacity);
+          if (!style) {
+            continue;
+          }
+
+          const ranges = collectRegexDecorationRanges(part, re, matchGroupsOnly);
+          if (ranges.length > 0) {
+            part = decorateTextRanges(part, ranges, style);
+          }
         }
 
         return part;

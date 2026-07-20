@@ -1,3 +1,5 @@
+import { getTauriClipboardManager, isTauriAvailable } from './tauri';
+
 export function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
@@ -7,9 +9,19 @@ export function focusElement(id: string, preventScroll = false): void {
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
+  const clipboard = getTauriClipboardManager();
+  if (clipboard) {
+    await clipboard.writeText(text);
     return;
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Some desktop webviews expose the Clipboard API but reject writes.
+    }
   }
 
   const textarea = document.createElement('textarea');
@@ -20,8 +32,29 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   textarea.style.top = '0';
   document.body.appendChild(textarea);
   textarea.select();
-  document.execCommand('copy');
+  const copied = document.execCommand('copy');
   textarea.remove();
+
+  if (!copied) {
+    throw new Error('clipboard copy was not accepted');
+  }
+}
+
+export async function readTextFromClipboard(): Promise<string> {
+  const clipboard = getTauriClipboardManager();
+  if (clipboard) {
+    return clipboard.readText();
+  }
+
+  if (isTauriAvailable()) {
+    throw new Error('Tauri clipboard manager is not available');
+  }
+
+  if (navigator.clipboard?.readText) {
+    return navigator.clipboard.readText();
+  }
+
+  throw new Error('clipboard read is not available');
 }
 
 export function scrollElementToBottom(id: string): void {

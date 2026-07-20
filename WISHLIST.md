@@ -23,6 +23,7 @@ MVP Features:
 - [X] tab menu: shortcut to edit world and/or character?
 
 Bugs:
+- [X] fix !wholeLine rules styling whole line anyway
 - [X] Creating new world does not create default character
 - [X] fix input box expanding hotkeys conflicting with command history keys
 - [X] fix console window opening when running app
@@ -99,19 +100,23 @@ Release:
     - [X] Toggle matching on word boundaries
     - [X] Inputting a name to highlight should trim whitespace
     - [X] Color foreground/background
-    - [ ] Automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff
-    - [ ] Copy/paste as JSON
+    - [ ] Optional automatic highlights of name variations like [`'s`, `s'`] without making a bunch of regex stuff?
+    - [X] Copy/paste as JSON
+    - [X] Toggles to color actions
+    - [X] Collapse highlights into rules with different type
 
   - Trigger Rules
     - [X] Reg-ex highlights
+    - [ ] Show action shorthands in tree view, such as color swatches, maybe small indicators of big functionality
     - [ ] Hierarchical rules/highlights
-    - [ ] Color foreground/background
-    - [ ] Opacity
+    - [ ] Drag reorder/rearrange rules
+    - [X] Color foreground/background
+    - [X] Opacity
     - [ ] Toggle matching on beginning of line only
-    - [ ] Send to tab
+    - [ ] Send to tab...
     - [ ] Toggle logging this line
     - [ ] Toggle activity notification
-    - [ ] Copy/paste as JSON
+    - [X] Copy/paste as JSON
 
   - Name awareness
     - [ ] Automatic name color even if they're not in your wf/database

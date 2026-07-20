@@ -7,9 +7,8 @@ import {
 import {
   loadNotes,
   loadTranscriptHistory,
-  saveHighlights,
-  saveRules,
   saveNotes as persistNotes,
+  saveTriggers,
   saveTranscriptHistory,
 } from './storage';
 import { buildHighlightRegexes } from './formatting';
@@ -29,7 +28,7 @@ import {
   scrollElementToBottom,
   scrollElementToTop,
 } from './session-dom';
-import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, WorldRecord } from './types';
+import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, WorldRecord } from './types';
 import type { WorldTabSessionState } from './world-session';
 import {
   getWorldDomScope,
@@ -62,6 +61,23 @@ interface PlaybackActionContext {
 interface CreateSessionLogResult {
   path: string;
   appended: boolean;
+}
+
+function getHighlightTriggers(triggers: Trigger[]): HighlightRule[] {
+  return triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
+}
+
+function findTriggerIndexByTypeIndex(triggers: Trigger[], type: Trigger['type'], typeIndex: number): number {
+  let seen = -1;
+
+  return triggers.findIndex((trigger) => {
+    if (trigger.type !== type) {
+      return false;
+    }
+
+    seen += 1;
+    return seen === typeIndex;
+  });
 }
 
 export function createPlaybackActions({
@@ -412,7 +428,7 @@ export function createPlaybackActions({
 
     if (shouldInitializeSession) {
       const maxHistoryLines = character.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
-      const highlightRegexes = buildHighlightRegexes(state.highlights);
+      const highlightRegexes = buildHighlightRegexes(getHighlightTriggers(state.triggers));
       const [notes, history] = await Promise.all([
         loadNotes(character.id, false),
         loadTranscriptHistory(character.id, maxHistoryLines, false),
@@ -802,23 +818,23 @@ export function createPlaybackActions({
 
   function updateHighlight(index: number, updater: (rule: HighlightRule) => HighlightRule): void {
     const state = getState();
-    const current = state.highlights[index];
-    if (!current) {
+    const triggerIndex = findTriggerIndexByTypeIndex(state.triggers, 'highlight', index);
+    const current = triggerIndex >= 0 ? state.triggers[triggerIndex] : null;
+    if (!current || current.type !== 'highlight') {
       return;
     }
 
-    const next = [...state.highlights];
-    next[index] = updater(current);
-    void saveHighlights(next);
-    setHighlightRegexes(buildHighlightRegexes(next));
-    patch({ highlights: next });
+    const next = [...state.triggers];
+    next[triggerIndex] = updater(current);
+    void saveTriggers(next);
+    setHighlightRegexes(buildHighlightRegexes(getHighlightTriggers(next)));
+    patch({ triggers: next });
   }
 
   function saveHighlightDraft(index: number | null, draft: HighlightDraft): void {
     const nextHighlight: HighlightRule = {
+      type: 'highlight',
       pattern: draft.pattern.trim(),
-      foregroundColor: draft.foregroundColor.trim() || '#f1c40f',
-      backgroundColor: draft.backgroundColor.trim() || '#000000',
       caseSensitive: draft.caseSensitive,
       wordBoundary: draft.wordBoundary,
     };
@@ -827,32 +843,48 @@ export function createPlaybackActions({
       return;
     }
 
-    const state = getState();
-    const next = [...state.highlights];
-
-    if (index === null || index === undefined || index < 0 || index >= next.length) {
-      next.push(nextHighlight);
-    } else {
-      next[index] = nextHighlight;
+    if (draft.foregroundColorEnabled) {
+      nextHighlight.foregroundColor = draft.foregroundColor.trim() || '#ffffff';
     }
 
-    void saveHighlights(next);
-    setHighlightRegexes(buildHighlightRegexes(next));
-    patch({ highlights: next });
+    if (draft.backgroundColorEnabled) {
+      nextHighlight.backgroundColor = draft.backgroundColor.trim() || '#000000';
+    }
+
+    const state = getState();
+    const next = [...state.triggers];
+    const triggerIndex =
+      index === null || index === undefined ? -1 : findTriggerIndexByTypeIndex(next, 'highlight', index);
+
+    if (triggerIndex < 0) {
+      next.push(nextHighlight);
+    } else {
+      next[triggerIndex] = nextHighlight;
+    }
+
+    void saveTriggers(next);
+    setHighlightRegexes(buildHighlightRegexes(getHighlightTriggers(next)));
+    patch({ triggers: next });
   }
 
   function deleteHighlight(index: number): void {
     const state = getState();
-    const next = [...state.highlights];
-    next.splice(index, 1);
-    void saveHighlights(next);
-    setHighlightRegexes(buildHighlightRegexes(next));
-    patch({ highlights: next });
+    const triggerIndex = findTriggerIndexByTypeIndex(state.triggers, 'highlight', index);
+    if (triggerIndex < 0) {
+      return;
+    }
+
+    const next = [...state.triggers];
+    next.splice(triggerIndex, 1);
+    void saveTriggers(next);
+    setHighlightRegexes(buildHighlightRegexes(getHighlightTriggers(next)));
+    patch({ triggers: next });
   }
 
   function saveRuleDraft(editingIndex: number | null, draft: RuleDraft): void {
     const state = getState();
     const nextRule: Rule = {
+      type: 'rule',
       label: draft.label.trim(),
       pattern: draft.pattern.trim(),
       caseSensitive: draft.caseSensitive,
@@ -861,7 +893,7 @@ export function createPlaybackActions({
     };
 
     if (draft.foregroundColorEnabled) {
-      nextRule.foregroundColor = draft.foregroundColor.trim() || '#f1c40f';
+      nextRule.foregroundColor = draft.foregroundColor.trim() || '#ffffff';
     }
 
     if (draft.backgroundColorEnabled) {
@@ -876,24 +908,33 @@ export function createPlaybackActions({
       return;
     }
 
-    const next = [...state.rules];
+    const next = [...state.triggers];
+    const triggerIndex =
+      editingIndex === null || editingIndex === undefined
+        ? -1
+        : findTriggerIndexByTypeIndex(next, 'rule', editingIndex);
 
-    if (editingIndex === null || editingIndex === undefined || editingIndex < 0 || editingIndex >= next.length) {
+    if (triggerIndex < 0) {
       next.push(nextRule);
     } else {
-      next[editingIndex] = nextRule;
+      next[triggerIndex] = nextRule;
     }
 
-    void saveRules(next);
-    patch({ rules: next });
+    void saveTriggers(next);
+    patch({ triggers: next });
   }
 
   function deleteRule(index: number): void {
     const state = getState();
-    const next = [...state.rules];
-    next.splice(index, 1);
-    void saveRules(next);
-    patch({ rules: next });
+    const triggerIndex = findTriggerIndexByTypeIndex(state.triggers, 'rule', index);
+    if (triggerIndex < 0) {
+      return;
+    }
+
+    const next = [...state.triggers];
+    next.splice(triggerIndex, 1);
+    void saveTriggers(next);
+    patch({ triggers: next });
   }
 
   function saveNotes(notes: string): void {

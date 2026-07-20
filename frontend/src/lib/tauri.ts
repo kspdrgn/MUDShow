@@ -3,6 +3,10 @@ type TauriGlobal = Window & {
     invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
   };
   __TAURI__?: {
+    clipboardManager?: {
+      readText(): Promise<string>;
+      writeText(text: string): Promise<void>;
+    };
     event?: {
       listen<T>(
         event: string,
@@ -36,6 +40,19 @@ function getTauriGlobal() {
 
 export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return getTauriGlobal().invoke<T>(command, args);
+}
+
+export function getTauriClipboardManager():
+  | {
+      readText(): Promise<string>;
+      writeText(text: string): Promise<void>;
+    }
+  | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return (window as TauriGlobal).__TAURI__?.clipboardManager ?? null;
 }
 
 export async function openExternalUrl(url: string): Promise<void> {

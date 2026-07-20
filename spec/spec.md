@@ -15,8 +15,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 ## Core Model
 - 'Worlds' are the MU servers, and 'Characters' are named users on the server. All connections are done through the world + character context.
 - Per-character notes: locally stored private freeform text associated with a local character.
-- Global highlight rules: exact-text matches mapped to foreground/background styling, with case-sensitive, whole-word, and editable text options.
-- Global regexp rules: raw regular-expression matches mapped to colors, with case-sensitive matching and room for future line-level behaviors.
+- Global triggers: highlight type triggers provide exact-text matches mapped to foreground/background styling, and rule type triggers provide raw regular-expression matches mapped to style actions with room for future line-level behaviors.
 - Session state: active connection, output stream, input focus, read position, etc.
 
 ## User Stories
@@ -66,7 +65,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Allow session logging for an active world tab.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and highlights locally on the user’s device.
-- Store highlights and regexp rules locally on the user’s device.
+- Store highlight and regexp rule triggers locally on the user’s device.
 - Store rolling per-character transcript history locally and reload it when reconnecting.
 - Open and close a notes panel for the active character.
 - Open and close a highlights panel for simple text highlight rules.
@@ -75,12 +74,14 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Edit the text for an existing highlight rule.
 - Edit the foreground and background colors for an existing highlight rule.
 - Apply highlight foreground and background colors to matching text in session output.
+- Let each highlight foreground or background action be enabled or disabled without persisting disabled actions.
 - Let each highlight rule toggle case-sensitive matching.
 - Let each highlight rule toggle standalone-word matching.
 - Add and remove regexp rules.
 - Edit the pattern for an existing regexp rule.
 - Edit the color for an existing regexp rule.
 - Apply regexp rule colors to matching text in session output.
+- Apply regexp rule colors to capture groups when present, to the whole regexp match when no capture groups are present, or to the entire matching line when whole-line matching is active.
 - Let each regexp rule toggle case-sensitive matching.
 - Support simple word completion from recently seen session text.
 - Support quick switching between the first two input bars with F1 and F2 when a world tab is active. If only one input bar exists, F2 opens a second one.

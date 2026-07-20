@@ -16,7 +16,7 @@
   } from '../../session-dom';
   import { openExternalUrl } from '../../tauri';
   import { getScopedInputBarInputId, type InputBarId } from '../../input-bars';
-  import type { HighlightRule, Rule } from '../../types';
+  import type { HighlightRule, Rule, Trigger } from '../../types';
   import WorldContextMenu from './WorldContextMenu.svelte';
 
   const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
@@ -25,8 +25,7 @@
   export let chunks: string[] = [];
   export let width = 'none';
   export let scope = 'world';
-  export let highlights: HighlightRule[] = [];
-  export let rules: Rule[] = [];
+  export let triggers: Trigger[] = [];
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
@@ -50,6 +49,8 @@
   export let onScroll: () => void;
   export let onScrollToBottom: () => void;
 
+  let highlights: HighlightRule[] = [];
+  let rules: Rule[] = [];
   let highlightRegexes = buildHighlightRegexes(highlights);
   let ruleRegexes = buildRuleRegexes(rules);
   let renderedChunks: string[] = [];
@@ -67,6 +68,8 @@
     contextMenuOpen = false;
   }
 
+  $: highlights = triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
+  $: rules = triggers.filter((trigger): trigger is Rule => trigger.type === 'rule');
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: ruleRegexes = buildRuleRegexes(rules);
   $: renderedChunks = chunks.map((chunk) =>

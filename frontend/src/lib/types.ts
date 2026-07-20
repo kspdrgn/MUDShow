@@ -35,9 +35,10 @@ export interface CharacterDraft {
 }
 
 export interface HighlightRule {
+  type: 'highlight';
   pattern: string;
-  foregroundColor: string;
-  backgroundColor: string;
+  foregroundColor?: string;
+  backgroundColor?: string;
   caseSensitive: boolean;
   wordBoundary: boolean;
 }
@@ -45,12 +46,15 @@ export interface HighlightRule {
 export interface HighlightDraft {
   pattern: string;
   foregroundColor: string;
+  foregroundColorEnabled: boolean;
   backgroundColor: string;
+  backgroundColorEnabled: boolean;
   caseSensitive: boolean;
   wordBoundary: boolean;
 }
 
 export interface Rule {
+  type: 'rule';
   label: string;
   pattern: string;
   foregroundColor?: string;
@@ -60,6 +64,8 @@ export interface Rule {
   caseSensitive: boolean;
   sampleText: string;
 }
+
+export type Trigger = HighlightRule | Rule;
 
 export interface RuleDraft {
   label: string;

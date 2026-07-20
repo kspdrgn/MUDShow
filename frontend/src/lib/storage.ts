@@ -1,4 +1,4 @@
-import type { CharacterRecord, HighlightRule, Rule, WorldRecord } from './types';
+import type { CharacterRecord, HighlightRule, Rule, Trigger, WorldRecord } from './types';
 import {
   normalizeAppStyleOverrides,
   type AppStyleOverrides,
@@ -8,12 +8,11 @@ import { invoke, isTauriAvailable } from './tauri';
 
 const WORLD_KEY = 'mudshow_worlds';
 const CHARACTER_KEY = 'mudshow_chars';
-const HIGHLIGHT_KEY = 'mudshow_highlights';
-const RULE_KEY = 'mudshow_rules';
+const TRIGGER_KEY = 'mudshow_triggers';
 const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
 const STYLE_KEY = 'mudshow_style';
-const STORAGE_SCHEMA_VERSION = 3;
+const STORAGE_SCHEMA_VERSION = 4;
 
 export type DesktopStorageMode = 'file';
 
@@ -21,8 +20,7 @@ interface PersistentData {
   schemaVersion: number;
   worlds: WorldRecord[];
   characters: CharacterRecord[];
-  highlights: HighlightRule[];
-  rules: Rule[];
+  triggers: Trigger[];
   notes: Record<string, string>;
   style: AppStyleOverrides;
 }
@@ -52,8 +50,7 @@ function createEmptyData(): PersistentData {
     schemaVersion: STORAGE_SCHEMA_VERSION,
     worlds: [],
     characters: [],
-    highlights: [],
-    rules: [],
+    triggers: [],
     notes: {},
     style: {},
   };
@@ -141,13 +138,28 @@ function normalizeHighlightRule(value: unknown): HighlightRule | null {
     return null;
   }
 
-  return {
+  const normalized: HighlightRule = {
+    type: 'highlight',
     pattern,
-    foregroundColor: toStringValue(value.foregroundColor).trim() || '#f1c40f',
-    backgroundColor: toStringValue(value.backgroundColor).trim() || '#000000',
     caseSensitive: toBooleanValue(value.caseSensitive, false),
     wordBoundary: toBooleanValue(value.wordBoundary, true),
   };
+
+  if (Object.prototype.hasOwnProperty.call(value, 'foregroundColor')) {
+    const foregroundColor = toStringValue(value.foregroundColor).trim();
+    if (foregroundColor) {
+      normalized.foregroundColor = foregroundColor;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(value, 'backgroundColor')) {
+    const backgroundColor = toStringValue(value.backgroundColor).trim();
+    if (backgroundColor) {
+      normalized.backgroundColor = backgroundColor;
+    }
+  }
+
+  return normalized;
 }
 
 function normalizeRule(value: unknown): Rule | null {
@@ -161,6 +173,7 @@ function normalizeRule(value: unknown): Rule | null {
   }
 
   const normalized: Rule = {
+    type: 'rule',
     label: toStringValue(value.label).trim(),
     pattern,
     caseSensitive: toBooleanValue(value.caseSensitive, false),
@@ -190,6 +203,22 @@ function normalizeRule(value: unknown): Rule | null {
   }
 
   return normalized;
+}
+
+function normalizeTrigger(value: unknown): Trigger | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (value.type === 'highlight') {
+    return normalizeHighlightRule(value);
+  }
+
+  if (value.type === 'rule') {
+    return normalizeRule(value);
+  }
+
+  return null;
 }
 
 function createDefaultCharacter(worldId: string): CharacterRecord {
@@ -222,8 +251,7 @@ function buildSessionCharacters(worlds: WorldRecord[], characters: CharacterReco
     schemaVersion: STORAGE_SCHEMA_VERSION,
     worlds,
     characters,
-    highlights: [],
-    rules: [],
+    triggers: [],
     notes: {},
     style: {},
   }).characters;
@@ -261,11 +289,8 @@ function normalizePersistentData(
     schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : STORAGE_SCHEMA_VERSION,
     worlds: dedupeWorlds(worldRecords),
     characters: characterRecords,
-    highlights: Array.isArray(raw.highlights)
-      ? raw.highlights.map((entry) => normalizeHighlightRule(entry)).filter((entry): entry is HighlightRule => entry !== null)
-      : [],
-    rules: Array.isArray(raw.rules)
-      ? raw.rules.map((entry) => normalizeRule(entry)).filter((entry): entry is Rule => entry !== null)
+    triggers: Array.isArray(raw.triggers)
+      ? raw.triggers.map((entry) => normalizeTrigger(entry)).filter((entry): entry is Trigger => entry !== null)
       : [],
     notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
     style: normalizeAppStyleOverrides(raw.style),
@@ -283,8 +308,7 @@ function writeWebviewHistory(history: Record<string, TranscriptHistoryEntry[]>):
 function readWebviewData(): PersistentData {
   const worlds = safeParse<unknown>(localStorage.getItem(WORLD_KEY), []);
   const characters = safeParse<unknown>(localStorage.getItem(CHARACTER_KEY), []);
-  const highlights = safeParse<HighlightRule[]>(localStorage.getItem(HIGHLIGHT_KEY), []);
-  const rules = safeParse<Rule[]>(localStorage.getItem(RULE_KEY), []);
+  const triggers = safeParse<Trigger[]>(localStorage.getItem(TRIGGER_KEY), []);
   const style = safeParse<unknown>(localStorage.getItem(STYLE_KEY), {});
   const notes = Object.keys(localStorage)
     .filter((key) => key.startsWith(NOTES_PREFIX))
@@ -297,8 +321,7 @@ function readWebviewData(): PersistentData {
     schemaVersion: STORAGE_SCHEMA_VERSION,
     worlds,
     characters,
-    highlights,
-    rules,
+    triggers,
     notes,
     style,
   });
@@ -307,8 +330,7 @@ function readWebviewData(): PersistentData {
 function writeWebviewData(data: PersistentData): void {
   localStorage.setItem(WORLD_KEY, JSON.stringify(data.worlds));
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data.characters));
-  localStorage.setItem(HIGHLIGHT_KEY, JSON.stringify(data.highlights));
-  localStorage.setItem(RULE_KEY, JSON.stringify(data.rules));
+  localStorage.setItem(TRIGGER_KEY, JSON.stringify(data.triggers));
   localStorage.setItem(STYLE_KEY, JSON.stringify(data.style));
 
   Object.keys(localStorage)
@@ -645,63 +667,33 @@ export async function deleteNotes(characterName: string): Promise<void> {
   await queueFileMutation((data) => updateNotes(data, characterName, null));
 }
 
-export async function loadHighlights(): Promise<HighlightRule[]> {
+export async function loadTriggers(): Promise<Trigger[]> {
   if (!isTauriAvailable()) {
-    return readWebviewData().highlights;
+    return readWebviewData().triggers;
   }
 
   return withStorageAccess(async () => {
     await waitForPendingFileWrites();
     const data = await readFileData();
-    return data.highlights;
+    return data.triggers;
   });
 }
 
-export async function saveHighlights(rules: HighlightRule[]): Promise<void> {
-  const nextRules = rules.map((rule) => normalizeHighlightRule(rule)).filter((rule): rule is HighlightRule => rule !== null);
+export async function saveTriggers(triggers: Trigger[]): Promise<void> {
+  const nextTriggers = triggers.map((trigger) => normalizeTrigger(trigger)).filter((trigger): trigger is Trigger => trigger !== null);
 
   if (!isTauriAvailable()) {
     const current = readWebviewData();
     writeWebviewData({
       ...current,
-      highlights: nextRules,
+      triggers: nextTriggers,
     });
     return;
   }
 
   await queueFileMutation((data) => ({
     ...data,
-    highlights: nextRules,
-  }));
-}
-
-export async function loadRules(): Promise<Rule[]> {
-  if (!isTauriAvailable()) {
-    return readWebviewData().rules;
-  }
-
-  return withStorageAccess(async () => {
-    await waitForPendingFileWrites();
-    const data = await readFileData();
-    return data.rules;
-  });
-}
-
-export async function saveRules(rules: Rule[]): Promise<void> {
-  const nextRules = rules.map((rule) => normalizeRule(rule)).filter((rule): rule is Rule => rule !== null);
-
-  if (!isTauriAvailable()) {
-    const current = readWebviewData();
-    writeWebviewData({
-      ...current,
-      rules: nextRules,
-    });
-    return;
-  }
-
-  await queueFileMutation((data) => ({
-    ...data,
-    rules: nextRules,
+    triggers: nextTriggers,
   }));
 }
 
@@ -749,8 +741,7 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
     schemaVersion: STORAGE_SCHEMA_VERSION,
     worlds: normalizedWorlds,
     characters: normalizedCharacters,
-    highlights: [],
-    rules: [],
+    triggers: [],
     notes: {},
     style: {},
   };
@@ -771,14 +762,13 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
   }));
 }
 
-export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; characters: CharacterRecord[]; highlights: HighlightRule[]; rules: Rule[] }> {
+export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; characters: CharacterRecord[]; triggers: Trigger[] }> {
   if (!isTauriAvailable()) {
     const data = readWebviewData();
     return {
       worlds: data.worlds,
       characters: buildSessionCharacters(data.worlds, data.characters),
-      highlights: data.highlights,
-      rules: data.rules,
+      triggers: data.triggers,
     };
   }
 
@@ -788,8 +778,7 @@ export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; charac
     return {
       worlds: data.worlds,
       characters: buildSessionCharacters(data.worlds, data.characters),
-      highlights: data.highlights,
-      rules: data.rules,
+      triggers: data.triggers,
     };
   });
 }
