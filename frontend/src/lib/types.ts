@@ -36,7 +36,16 @@ export interface CharacterDraft {
 
 export interface HighlightRule {
   pattern: string;
-  color: string;
+  foregroundColor: string;
+  backgroundColor: string;
+  caseSensitive: boolean;
+  wordBoundary: boolean;
+}
+
+export interface HighlightDraft {
+  pattern: string;
+  foregroundColor: string;
+  backgroundColor: string;
   caseSensitive: boolean;
   wordBoundary: boolean;
 }

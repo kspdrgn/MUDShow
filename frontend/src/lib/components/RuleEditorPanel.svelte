@@ -91,15 +91,6 @@
 
     result += escapeHtml(sampleText.slice(lastIndex));
     sampleMirrorHtml = result.replace(/\n/g, '<br>');
-    console.debug('[MUDShow] rule sample mirror built', {
-      title,
-      pattern,
-      caseSensitive,
-      sampleLength: sampleText.length,
-      matchCount,
-      htmlLength: sampleMirrorHtml.length,
-      htmlPreview: sampleMirrorHtml.slice(0, 180),
-    });
   }
 
   function refreshSampleMirror(): void {
@@ -110,27 +101,11 @@
     saveDisabled = regex === null;
     if (!regex) {
       sampleMirrorHtml = escapeHtml(sampleText).replace(/\n/g, '<br>');
-      console.debug('[MUDShow] rule sample mirror invalid pattern', {
-        title,
-        pattern,
-        caseSensitive,
-        sampleLength: sampleText.length,
-        validationError,
-      });
       return;
     }
 
     buildSampleMirror(regex);
     saveDisabled = false;
-    console.debug('[MUDShow] rule sample mirror refreshed', {
-      title,
-      pattern,
-      caseSensitive,
-      regex: regex.toString(),
-      sampleLength: sampleText.length,
-      matchCount: (sampleMirrorHtml.match(/rule-preview-hit/g) ?? []).length,
-      saveDisabled,
-    });
   }
 
   $: {
@@ -196,195 +171,198 @@
   <div class="rule-editor-header">
     <div>
       <h2>{title}</h2>
-      <p class="settings-note">raw regexp rules are for advanced matching and later routing behaviors.</p>
+      <p class="settings-note">rules use regular expression matching for advanced styling and later routing behaviors.</p>
     </div>
   </div>
 
-  <form on:submit|preventDefault={handleSave}>
-    <div class="field">
-      <label for="rule-label">label</label>
-      <input
-        id="rule-label"
-        bind:value={label}
-        autocomplete="off"
-        spellcheck="false"
-        placeholder="organization label"
-      />
-    </div>
-
-    <div class="field">
-      <label for="rule-pattern">regexp pattern</label>
-      <textarea
-        id="rule-pattern"
-        rows="3"
-        bind:value={pattern}
-        autocomplete="off"
-        spellcheck="false"
-        placeholder="^page:"
-        on:input={refreshSampleMirror}
-      ></textarea>
-    </div>
-
-    <div class="field">
-      <label for="rule-sample-text">test text</label>
-      <textarea
-        id="rule-sample-text"
-        rows="5"
-        bind:value={sampleText}
-        spellcheck="false"
-        placeholder="paste some transcript text here"
-        on:input={refreshSampleMirror}
-      ></textarea>
-      <div
-        class="rule-sample-preview"
-        aria-label="test text preview"
-        style:--rule-preview-foreground={foregroundColorEnabled ? foregroundColor : 'inherit'}
-        style:--rule-preview-background={backgroundColorEnabled ? backgroundColor : 'rgba(241, 196, 15, 0.28)'}
-        style:--rule-preview-opacity={opacityEnabled ? opacity : 1}
-      >
-        {@html sampleMirrorHtml}
+  <form class="rule-editor-form" on:submit|preventDefault={handleSave}>
+    <div class="rule-editor-scroll">
+      <div class="field">
+        <label for="rule-label">label</label>
+        <input
+          id="rule-label"
+          bind:value={label}
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="organization label"
+        />
       </div>
-      {#if validationError}
-        <div class="rule-preview-error">{validationError}</div>
-      {/if}
-    </div>
 
-    <div class="rule-section-grid">
-      <fieldset class="rule-group">
-        <legend>actions</legend>
-
-        <section class="rule-action-card" data-disabled={!foregroundColorEnabled}>
-          <div class="rule-action-header">
-            <label for="rule-foreground-color">foreground color</label>
-            <StyleSlideToggle
-              checked={foregroundColorEnabled}
-              ariaLabel="Toggle foreground color"
-              title={foregroundColorEnabled ? 'Disable foreground color' : 'Enable foreground color'}
-              on:change={(event) => {
-                foregroundColorEnabled = event.detail;
-              }}
-            />
-          </div>
-          <div class="rule-action-body">
-            <input
-              id="rule-foreground-color"
-              type="color"
-              bind:value={foregroundColor}
-              on:pointerdown={activateForegroundColor}
-              on:focus={activateForegroundColor}
-              on:input={() => {
-                activateForegroundColor();
-                refreshSampleMirror();
-              }}
-            />
-          </div>
-        </section>
-
-        <section class="rule-action-card" data-disabled={!backgroundColorEnabled}>
-          <div class="rule-action-header">
-            <label for="rule-background-color">background color</label>
-            <StyleSlideToggle
-              checked={backgroundColorEnabled}
-              ariaLabel="Toggle background color"
-              title={backgroundColorEnabled ? 'Disable background color' : 'Enable background color'}
-              on:change={(event) => {
-                backgroundColorEnabled = event.detail;
-              }}
-            />
-          </div>
-          <div class="rule-action-body">
-            <input
-              id="rule-background-color"
-              type="color"
-              bind:value={backgroundColor}
-              on:pointerdown={activateBackgroundColor}
-              on:focus={activateBackgroundColor}
-              on:input={() => {
-                activateBackgroundColor();
-                refreshSampleMirror();
-              }}
-            />
-          </div>
-        </section>
-
-        <section class="rule-action-card" data-disabled={!opacityEnabled}>
-          <div class="rule-action-header">
-            <label for="rule-opacity">opacity</label>
-            <StyleSlideToggle
-              checked={opacityEnabled}
-              ariaLabel="Toggle opacity"
-              title={opacityEnabled ? 'Disable opacity' : 'Enable opacity'}
-              on:change={(event) => {
-                opacityEnabled = event.detail;
-              }}
-            />
-          </div>
-          <div class="rule-action-body">
-            <input
-              id="rule-opacity"
-              type="number"
-              min="0"
-              max="1"
-              step="0.01"
-              bind:value={opacity}
-              readonly={!opacityEnabled}
-              on:pointerdown={activateOpacity}
-              on:focus={activateOpacity}
-              on:input={() => {
-                activateOpacity();
-                refreshSampleMirror();
-              }}
-            />
-          </div>
-        </section>
-      </fieldset>
-
-      <fieldset class="rule-group">
-        <legend>match behavior</legend>
-
-        <div class="field field-check">
-          <label for="rule-whole-line">
-            <input
-              id="rule-whole-line"
-              type="checkbox"
-              bind:checked={wholeLine}
-              on:change={refreshSampleMirror}
-            />
-            whole line
-          </label>
-        </div>
-
-        <div class="field field-check">
-          <label for="rule-case-sensitive">
-            <input
-              id="rule-case-sensitive"
-              type="checkbox"
-              bind:checked={caseSensitive}
-              on:change={refreshSampleMirror}
-            />
-            case sensitive
-          </label>
-        </div>
-      </fieldset>
-    </div>
-
-    <fieldset class="rule-group">
-      <legend>regexp cheatsheet</legend>
-      <div class="rule-cheatsheet">
-        <div><code>^</code> start of line</div>
-        <div><code>$</code> end of line</div>
-        <div><code>.</code> any character</div>
-        <div><code>.*</code> anything in between</div>
-        <div><code>(a|b)</code> one of two choices</div>
-        <div><code>\bword\b</code> whole word match</div>
+      <div class="field">
+        <label for="rule-pattern">regexp pattern</label>
+        <textarea
+          id="rule-pattern"
+          rows="3"
+          bind:value={pattern}
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="^page:"
+          on:input={refreshSampleMirror}
+        ></textarea>
       </div>
-    </fieldset>
 
-    <div class="modal-actions">
+      <div class="field">
+        <label for="rule-sample-text">test text</label>
+        <textarea
+          id="rule-sample-text"
+          rows="5"
+          bind:value={sampleText}
+          spellcheck="false"
+          placeholder="paste some transcript text here"
+          on:input={refreshSampleMirror}
+        ></textarea>
+        <div class="rule-preview-label">preview</div>
+        <div
+          class="rule-sample-preview"
+          aria-label="test text preview"
+          style:--rule-preview-foreground={foregroundColorEnabled ? foregroundColor : 'inherit'}
+          style:--rule-preview-background={backgroundColorEnabled ? backgroundColor : 'rgba(241, 196, 15, 0.28)'}
+          style:--rule-preview-opacity={opacityEnabled ? opacity : 1}
+        >
+          {@html sampleMirrorHtml}
+        </div>
+        {#if validationError}
+          <div class="rule-preview-error">{validationError}</div>
+        {/if}
+      </div>
+
+      <div class="rule-section-grid">
+        <fieldset class="rule-group rule-actions-group">
+          <legend>actions</legend>
+
+          <section class="rule-action-card" data-disabled={!foregroundColorEnabled}>
+            <div class="rule-action-header">
+              <label for="rule-foreground-color">foreground color</label>
+              <StyleSlideToggle
+                checked={foregroundColorEnabled}
+                ariaLabel="Toggle foreground color"
+                title={foregroundColorEnabled ? 'Disable foreground color' : 'Enable foreground color'}
+                on:change={(event) => {
+                  foregroundColorEnabled = event.detail;
+                }}
+              />
+            </div>
+            <div class="rule-action-body">
+              <input
+                id="rule-foreground-color"
+                type="color"
+                bind:value={foregroundColor}
+                on:pointerdown={activateForegroundColor}
+                on:focus={activateForegroundColor}
+                on:input={() => {
+                  activateForegroundColor();
+                  refreshSampleMirror();
+                }}
+              />
+            </div>
+          </section>
+
+          <section class="rule-action-card" data-disabled={!backgroundColorEnabled}>
+            <div class="rule-action-header">
+              <label for="rule-background-color">background color</label>
+              <StyleSlideToggle
+                checked={backgroundColorEnabled}
+                ariaLabel="Toggle background color"
+                title={backgroundColorEnabled ? 'Disable background color' : 'Enable background color'}
+                on:change={(event) => {
+                  backgroundColorEnabled = event.detail;
+                }}
+              />
+            </div>
+            <div class="rule-action-body">
+              <input
+                id="rule-background-color"
+                type="color"
+                bind:value={backgroundColor}
+                on:pointerdown={activateBackgroundColor}
+                on:focus={activateBackgroundColor}
+                on:input={() => {
+                  activateBackgroundColor();
+                  refreshSampleMirror();
+                }}
+              />
+            </div>
+          </section>
+
+          <section class="rule-action-card" data-disabled={!opacityEnabled}>
+            <div class="rule-action-header">
+              <label for="rule-opacity">opacity</label>
+              <StyleSlideToggle
+                checked={opacityEnabled}
+                ariaLabel="Toggle opacity"
+                title={opacityEnabled ? 'Disable opacity' : 'Enable opacity'}
+                on:change={(event) => {
+                  opacityEnabled = event.detail;
+                }}
+              />
+            </div>
+            <div class="rule-action-body">
+              <input
+                id="rule-opacity"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                bind:value={opacity}
+                readonly={!opacityEnabled}
+                on:pointerdown={activateOpacity}
+                on:focus={activateOpacity}
+                on:input={() => {
+                  activateOpacity();
+                  refreshSampleMirror();
+                }}
+              />
+            </div>
+          </section>
+        </fieldset>
+
+        <fieldset class="rule-group">
+          <legend>match behavior</legend>
+
+          <div class="field field-check">
+            <label for="rule-whole-line">
+              <input
+                id="rule-whole-line"
+                type="checkbox"
+                bind:checked={wholeLine}
+                on:change={refreshSampleMirror}
+              />
+              whole line
+            </label>
+          </div>
+
+          <div class="field field-check">
+            <label for="rule-case-sensitive">
+              <input
+                id="rule-case-sensitive"
+                type="checkbox"
+                bind:checked={caseSensitive}
+                on:change={refreshSampleMirror}
+              />
+              case sensitive
+            </label>
+          </div>
+        </fieldset>
+      </div>
+
+      <fieldset class="rule-group">
+        <legend>regexp cheatsheet</legend>
+        <div class="rule-cheatsheet">
+          <div><code>^</code> start of line</div>
+          <div><code>$</code> end of line</div>
+          <div><code>.</code> any character</div>
+          <div><code>.*</code> anything in between</div>
+          <div><code>(a|b)</code> one of two choices</div>
+          <div><code>\bword\b</code> whole word match</div>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="rule-editor-actions">
       {#if onDelete}
         <button class="btn danger" type="button" on:click={handleDelete}>delete</button>
       {/if}
-      <div class="modal-actions-spacer"></div>
+      <div class="rule-editor-actions-spacer"></div>
       <button class="btn" type="button" on:click={onCancel}>cancel</button>
       <button class="btn primary" type="submit" disabled={saveDisabled}>save</button>
     </div>
@@ -394,11 +372,12 @@
 <style>
   .rule-editor-panel {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 0.9rem;
     min-height: 0;
+    height: 100%;
     flex: 1 1 auto;
-    overflow-y: auto;
-    padding-right: 0.25rem;
+    overflow: hidden;
   }
 
   .rule-editor-header {
@@ -410,6 +389,18 @@
 
   .rule-editor-header h2 {
     margin: 0;
+  }
+
+  .rule-editor-form {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 0;
+  }
+
+  .rule-editor-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 0.25rem;
   }
 
   .rule-section-grid {
@@ -426,6 +417,15 @@
     gap: 0.75rem;
   }
 
+  .rule-actions-group {
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    gap: 0.55rem;
+  }
+
+  .rule-actions-group legend {
+    grid-column: 1 / -1;
+  }
+
   .rule-group legend {
     padding: 0 0.35rem;
     font-family: var(--font-ui);
@@ -438,8 +438,9 @@
   .rule-action-card {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    padding: 0.72rem 0.8rem;
+    gap: 0.42rem;
+    min-width: 0;
+    padding: 0.55rem 0.6rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.02);
   }
@@ -452,23 +453,25 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .rule-action-header label {
-    font-size: 0.88rem;
+    min-width: 0;
+    font-size: 0.78rem;
+    line-height: 1.25;
     text-transform: lowercase;
   }
 
   .rule-action-body {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .rule-action-body input[type='color'] {
-    width: 3rem;
-    height: 2rem;
+    width: 2.4rem;
+    height: 1.75rem;
     padding: 0;
     border: 0;
     background: transparent;
@@ -476,7 +479,19 @@
   }
 
   .rule-action-body input[type='number'] {
-    width: 7rem;
+    width: 5.25rem;
+    padding-block: 0.42rem;
+    padding-inline: 0.55rem;
+  }
+
+  .rule-preview-label {
+    margin-top: 0.65rem;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    line-height: 1.25;
+    text-transform: uppercase;
+    color: var(--text-dim);
   }
 
   .rule-sample-preview {
@@ -484,7 +499,7 @@
     min-height: 6rem;
     max-height: 18rem;
     overflow: auto;
-    margin-top: 0.55rem;
+    margin-top: 0.35rem;
     padding: 0.85rem 0.95rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 0.55rem;
@@ -513,14 +528,17 @@
     font-size: 0.9rem;
   }
 
-  .modal-actions {
+  .rule-editor-actions {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding-bottom: 0.25rem;
+    margin-top: 0.85rem;
+    padding: 0.85rem 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
   }
 
-  .modal-actions-spacer {
+  .rule-editor-actions-spacer {
     flex: 1 1 auto;
   }
 </style>

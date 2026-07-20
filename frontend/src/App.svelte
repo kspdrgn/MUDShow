@@ -421,10 +421,7 @@ import {
         rules={$session.rules}
         contextWorldId={$session.triggersContextWorldId}
         contextCharacterId={$session.triggersContextCharacterId}
-        onHighlightUpdatePattern={(index, pattern) => session.updateHighlightPattern(index, pattern)}
-        onHighlightUpdateColor={(index, color) => session.updateHighlightColor(index, color)}
-        onHighlightToggleCaseSensitive={(index) => session.toggleHighlightCaseSensitive(index)}
-        onHighlightToggleWordBoundary={(index) => session.toggleHighlightWordBoundary(index)}
+        onHighlightSave={(index, draft) => session.saveHighlightDraft(index, draft)}
         onHighlightDelete={(index) => session.deleteHighlight(index)}
         onRuleSave={(index, draft) => session.saveRuleDraft(index, draft)}
         onRuleDelete={(index) => session.deleteRule(index)}

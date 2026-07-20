@@ -71,7 +71,7 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 - App color and font scheme - locked to 'midnight' for now, which is a dark mode
 
 ## Highlights and Rules
-- Simple highlights stay as the easy word-or-phrase color list.
+- Simple highlights stay as the easy word-or-phrase foreground/background styling list.
 - Regexp rules are stored separately at the top level of the database file.
 - Regexp rules are intended for line-oriented matching and future routing or classification behaviors.
 

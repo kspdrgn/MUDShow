@@ -29,7 +29,7 @@ import {
   scrollElementToBottom,
   scrollElementToTop,
 } from './session-dom';
-import type { CharacterRecord, HighlightRule, Rule, RuleDraft, WorldRecord } from './types';
+import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, WorldRecord } from './types';
 import type { WorldTabSessionState } from './world-session';
 import {
   getWorldDomScope,
@@ -325,14 +325,6 @@ export function createPlaybackActions({
       if (event.key === 'Escape') {
         event.preventDefault();
         patch({ modalOpen: false });
-      }
-      return;
-    }
-
-    if (state.triggerRuleModalOpen) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeRuleModal();
       }
       return;
     }
@@ -676,24 +668,18 @@ export function createPlaybackActions({
         notesVisible: shouldOpen,
         highlightsVisible: false,
         rulesVisible: false,
-        ruleModalOpen: false,
-        ruleModalEditingIndex: null,
       });
     } else if (panel === 'highlights') {
       updateWorldSession(tabId, {
         highlightsVisible: shouldOpen,
         notesVisible: false,
         rulesVisible: false,
-        ruleModalOpen: false,
-        ruleModalEditingIndex: null,
       });
     } else {
       updateWorldSession(tabId, {
         rulesVisible: shouldOpen,
         notesVisible: false,
         highlightsVisible: false,
-        ruleModalOpen: false,
-        ruleModalEditingIndex: null,
       });
     }
 
@@ -814,28 +800,6 @@ export function createPlaybackActions({
     updateWorldSession(tabId, { inputBars: normalizeInputBars(nextBars) });
   }
 
-  function addHighlight(pattern: string, color: string): void {
-    const trimmed = pattern.trim();
-
-    if (!trimmed) {
-      return;
-    }
-
-    const state = getState();
-    const next = [
-      ...state.highlights,
-      {
-        pattern: trimmed,
-        color,
-        caseSensitive: false,
-        wordBoundary: true,
-      },
-    ];
-    void saveHighlights(next);
-    setHighlightRegexes(buildHighlightRegexes(next));
-    patch({ highlights: next });
-  }
-
   function updateHighlight(index: number, updater: (rule: HighlightRule) => HighlightRule): void {
     const state = getState();
     const current = state.highlights[index];
@@ -850,41 +814,31 @@ export function createPlaybackActions({
     patch({ highlights: next });
   }
 
-  function updateHighlightPattern(index: number, pattern: string): void {
-    const trimmed = pattern.trim();
-    if (!trimmed) {
+  function saveHighlightDraft(index: number | null, draft: HighlightDraft): void {
+    const nextHighlight: HighlightRule = {
+      pattern: draft.pattern.trim(),
+      foregroundColor: draft.foregroundColor.trim() || '#f1c40f',
+      backgroundColor: draft.backgroundColor.trim() || '#000000',
+      caseSensitive: draft.caseSensitive,
+      wordBoundary: draft.wordBoundary,
+    };
+
+    if (!nextHighlight.pattern) {
       return;
     }
 
-    updateHighlight(index, (rule) => ({
-      ...rule,
-      pattern: trimmed,
-    }));
-  }
+    const state = getState();
+    const next = [...state.highlights];
 
-  function updateHighlightColor(index: number, color: string): void {
-    if (!color.trim()) {
-      return;
+    if (index === null || index === undefined || index < 0 || index >= next.length) {
+      next.push(nextHighlight);
+    } else {
+      next[index] = nextHighlight;
     }
 
-    updateHighlight(index, (rule) => ({
-      ...rule,
-      color,
-    }));
-  }
-
-  function toggleHighlightCaseSensitive(index: number): void {
-    updateHighlight(index, (rule) => ({
-      ...rule,
-      caseSensitive: !rule.caseSensitive,
-    }));
-  }
-
-  function toggleHighlightWordBoundary(index: number): void {
-    updateHighlight(index, (rule) => ({
-      ...rule,
-      wordBoundary: !rule.wordBoundary,
-    }));
+    void saveHighlights(next);
+    setHighlightRegexes(buildHighlightRegexes(next));
+    patch({ highlights: next });
   }
 
   function deleteHighlight(index: number): void {
@@ -894,65 +848,6 @@ export function createPlaybackActions({
     void saveHighlights(next);
     setHighlightRegexes(buildHighlightRegexes(next));
     patch({ highlights: next });
-  }
-
-  function addRule(pattern: string, foregroundColor: string): void {
-    const trimmed = pattern.trim();
-
-    if (!trimmed) {
-      return;
-    }
-
-    const state = getState();
-    const next = [
-      ...state.rules,
-      {
-        label: '',
-        pattern: trimmed,
-        foregroundColor,
-        backgroundColor: '#000000',
-        opacity: 1,
-        wholeLine: false,
-        caseSensitive: false,
-        sampleText: 'sample text to test the rule',
-      },
-    ];
-    void saveRules(next);
-    patch({ rules: next });
-  }
-
-  function createRuleDraft(rule: Rule | null = null): RuleDraft {
-    return {
-      label: rule?.label ?? '',
-      pattern: rule?.pattern ?? '',
-      foregroundColor: rule?.foregroundColor ?? '#f1c40f',
-      foregroundColorEnabled: rule?.foregroundColor !== undefined || rule === null,
-      backgroundColor: rule?.backgroundColor ?? '#000000',
-      backgroundColorEnabled: rule?.backgroundColor !== undefined || rule === null,
-      opacity: rule?.opacity ?? 1,
-      opacityEnabled: rule?.opacity !== undefined || rule === null,
-      wholeLine: rule?.wholeLine ?? false,
-      caseSensitive: rule?.caseSensitive ?? false,
-      sampleText: rule?.sampleText ?? 'sample text to test the rule',
-    };
-  }
-
-  function openRuleModal(index: number | null = null): void {
-    const state = getState();
-    const rule = index === null ? null : state.rules[index] ?? null;
-
-    patch({
-      triggerRuleModalOpen: true,
-      triggerRuleModalEditingIndex: index,
-      triggerRuleModalDraft: createRuleDraft(rule),
-    });
-  }
-
-  function closeRuleModal(): void {
-    patch({
-      triggerRuleModalOpen: false,
-      triggerRuleModalEditingIndex: null,
-    });
   }
 
   function saveRuleDraft(editingIndex: number | null, draft: RuleDraft): void {
@@ -991,49 +886,6 @@ export function createPlaybackActions({
 
     void saveRules(next);
     patch({ rules: next });
-  }
-
-  function updateRule(index: number, updater: (rule: Rule) => Rule): void {
-    const state = getState();
-    const current = state.rules[index];
-    if (!current) {
-      return;
-    }
-
-    const next = [...state.rules];
-    next[index] = updater(current);
-    void saveRules(next);
-    patch({ rules: next });
-  }
-
-  function updateRulePattern(index: number, pattern: string): void {
-    const trimmed = pattern.trim();
-    if (!trimmed) {
-      return;
-    }
-
-    updateRule(index, (rule) => ({
-      ...rule,
-      pattern: trimmed,
-    }));
-  }
-
-  function updateRuleColor(index: number, foregroundColor: string): void {
-    if (!foregroundColor.trim()) {
-      return;
-    }
-
-    updateRule(index, (rule) => ({
-      ...rule,
-      foregroundColor,
-    }));
-  }
-
-  function toggleRuleCaseSensitive(index: number): void {
-    updateRule(index, (rule) => ({
-      ...rule,
-      caseSensitive: !rule.caseSensitive,
-    }));
   }
 
   function deleteRule(index: number): void {
@@ -1081,19 +933,9 @@ export function createPlaybackActions({
     addInputBarAfter,
     removeInputBar,
     resizeInputBar,
-    addHighlight,
-    updateHighlightPattern,
-    updateHighlightColor,
-    toggleHighlightCaseSensitive,
-    toggleHighlightWordBoundary,
+    saveHighlightDraft,
     deleteHighlight,
-    addRule,
-    updateRulePattern,
-    updateRuleColor,
-    toggleRuleCaseSensitive,
     deleteRule,
-    openRuleModal,
-    closeRuleModal,
     saveRuleDraft,
     saveNotes,
   };

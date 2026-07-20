@@ -3,7 +3,6 @@ import type {
   CharacterRecord,
   HighlightRule,
   Rule,
-  RuleDraft,
   WorldDraft,
   WorldRecord,
 } from './types';
@@ -35,9 +34,6 @@ export interface SessionState {
   settingsActiveTab: SettingsSubTabId;
   triggersContextWorldId: string | null;
   triggersContextCharacterId: string | null;
-  triggerRuleModalOpen: boolean;
-  triggerRuleModalEditingIndex: number | null;
-  triggerRuleModalDraft: RuleDraft;
 }
 
 export const INITIAL_WORLD_DRAFT: WorldDraft = {
@@ -78,20 +74,5 @@ export function createInitialState(): SessionState {
     settingsActiveTab: 'database',
     triggersContextWorldId: null,
     triggersContextCharacterId: null,
-    triggerRuleModalOpen: false,
-    triggerRuleModalEditingIndex: null,
-    triggerRuleModalDraft: {
-      label: '',
-      pattern: '',
-      foregroundColor: '#f1c40f',
-      foregroundColorEnabled: true,
-      backgroundColor: '#000000',
-      backgroundColorEnabled: true,
-      opacity: 1,
-      opacityEnabled: true,
-      wholeLine: false,
-      caseSensitive: false,
-      sampleText: 'sample text to test the rule',
-    },
   };
 }

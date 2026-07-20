@@ -143,7 +143,8 @@ function normalizeHighlightRule(value: unknown): HighlightRule | null {
 
   return {
     pattern,
-    color: toStringValue(value.color).trim() || '#f1c40f',
+    foregroundColor: toStringValue(value.foregroundColor).trim() || '#f1c40f',
+    backgroundColor: toStringValue(value.backgroundColor).trim() || '#000000',
     caseSensitive: toBooleanValue(value.caseSensitive, false),
     wordBoundary: toBooleanValue(value.wordBoundary, true),
   };

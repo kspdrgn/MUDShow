@@ -1,7 +1,7 @@
 import type { InputBarId } from './input-bars';
 import { createInputBars, type InputBarConfig } from './input-bars';
 import { PlayTranscript, type TranscriptHistoryEntry } from './playback';
-import type { CharacterRecord, RuleDraft, WorldRecord } from './types';
+import type { CharacterRecord, WorldRecord } from './types';
 import type { ConnectionStatus, DisconnectReason } from './session-state';
 
 export interface WorldSessionProjection {
@@ -16,9 +16,6 @@ export interface WorldSessionProjection {
   notesVisible: boolean;
   highlightsVisible: boolean;
   rulesVisible: boolean;
-  ruleModalOpen: boolean;
-  ruleModalEditingIndex: number | null;
-  ruleModalDraft: RuleDraft;
   connectionStatus: ConnectionStatus;
   disconnectReason: DisconnectReason;
   hasNewActivity: boolean;
@@ -47,21 +44,6 @@ export function createWorldTabSessionState(): WorldTabSessionState {
     notesVisible: false,
     highlightsVisible: false,
     rulesVisible: false,
-    ruleModalOpen: false,
-    ruleModalEditingIndex: null,
-    ruleModalDraft: {
-      label: '',
-      pattern: '',
-      foregroundColor: '#f1c40f',
-      foregroundColorEnabled: true,
-      backgroundColor: '#000000',
-      backgroundColorEnabled: true,
-      opacity: 1,
-      opacityEnabled: true,
-      wholeLine: false,
-      caseSensitive: false,
-      sampleText: 'sample text to test the rule',
-    },
     connectionStatus: 'idle',
     disconnectReason: null,
     hasNewActivity: false,
@@ -88,9 +70,6 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     notesVisible: session.notesVisible,
     highlightsVisible: session.highlightsVisible,
     rulesVisible: session.rulesVisible,
-    ruleModalOpen: session.ruleModalOpen,
-    ruleModalEditingIndex: session.ruleModalEditingIndex,
-    ruleModalDraft: session.ruleModalDraft,
     connectionStatus: session.connectionStatus,
     disconnectReason: session.disconnectReason,
     hasNewActivity: session.hasNewActivity,

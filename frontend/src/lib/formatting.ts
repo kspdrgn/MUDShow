@@ -614,7 +614,15 @@ export function buildHighlightRegexes(rules: HighlightRule[]): HighlightRegex[] 
       rule.caseSensitive ? 'g' : 'gi',
     );
 
-    return regex ? [{ re: regex, color: rule.color }] : [];
+    return regex
+      ? [
+          {
+            re: regex,
+            color: rule.foregroundColor,
+            backgroundColor: rule.backgroundColor,
+          },
+        ]
+      : [];
   });
 }
 

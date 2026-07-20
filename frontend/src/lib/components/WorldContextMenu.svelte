@@ -208,7 +208,7 @@
       <span class="titlebar-context-menu-shortcut" aria-hidden="true">F3</span>
     </button>
     <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" on:click={onOpenTriggers}>
-      triggers...
+      triggers
     </button>
 
     <div class="titlebar-context-menu-separator" aria-hidden="true"></div>

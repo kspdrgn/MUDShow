@@ -15,7 +15,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 ## Core Model
 - 'Worlds' are the MU servers, and 'Characters' are named users on the server. All connections are done through the world + character context.
 - Per-character notes: locally stored private freeform text associated with a local character.
-- Global highlight rules: exact-text matches mapped to colors, with case-sensitive, whole-word, and editable text options.
+- Global highlight rules: exact-text matches mapped to foreground/background styling, with case-sensitive, whole-word, and editable text options.
 - Global regexp rules: raw regular-expression matches mapped to colors, with case-sensitive matching and room for future line-level behaviors.
 - Session state: active connection, output stream, input focus, read position, etc.
 
@@ -69,12 +69,12 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Store highlights and regexp rules locally on the user’s device.
 - Store rolling per-character transcript history locally and reload it when reconnecting.
 - Open and close a notes panel for the active character.
-- Open and close a highlights panel for simple color rules.
+- Open and close a highlights panel for simple text highlight rules.
 - Open and close a rules panel for global regexp matching.
 - Add and remove highlight rules.
 - Edit the text for an existing highlight rule.
-- Edit the color for an existing highlight rule.
-- Apply highlight colors to matching text in session output.
+- Edit the foreground and background colors for an existing highlight rule.
+- Apply highlight foreground and background colors to matching text in session output.
 - Let each highlight rule toggle case-sensitive matching.
 - Let each highlight rule toggle standalone-word matching.
 - Add and remove regexp rules.

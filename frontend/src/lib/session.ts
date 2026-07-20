@@ -100,9 +100,6 @@ function createSession() {
       characterWorldId: null,
       triggersContextWorldId: null,
       triggersContextCharacterId: null,
-      triggerRuleModalOpen: false,
-      triggerRuleModalEditingIndex: null,
-      triggerRuleModalDraft: { ...createInitialState().triggerRuleModalDraft },
     });
     highlightRegexes = buildHighlightRegexes([]);
     nextWorldTabId = 1;

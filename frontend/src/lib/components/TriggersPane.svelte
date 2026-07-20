@@ -1,11 +1,13 @@
 <script lang="ts">
-  import type { CharacterRecord, HighlightRule, Rule, RuleDraft, WorldRecord } from '../types';
+  import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, WorldRecord } from '../types';
   import HighlightsPanel from './HighlightsPanel.svelte';
   import RuleEditorPanel from './RuleEditorPanel.svelte';
 
   type TreeSelection =
     | { kind: 'highlight'; index: number }
+    | { kind: 'new-highlight' }
     | { kind: 'rule'; index: number }
+    | { kind: 'new-rule' }
     | { kind: 'world'; worldId: string }
     | { kind: 'character'; characterId: string };
 
@@ -20,27 +22,32 @@
   export let rules: Rule[] = [];
   export let contextWorldId: string | null = null;
   export let contextCharacterId: string | null = null;
-  export let onHighlightUpdatePattern: (index: number, pattern: string) => void;
-  export let onHighlightUpdateColor: (index: number, color: string) => void;
-  export let onHighlightToggleCaseSensitive: (index: number) => void;
-  export let onHighlightToggleWordBoundary: (index: number) => void;
+  export let onHighlightSave: (index: number | null, draft: HighlightDraft) => void;
   export let onHighlightDelete: (index: number) => void;
-  export let onRuleSave: (index: number, draft: RuleDraft) => void;
+  export let onRuleSave: (index: number | null, draft: RuleDraft) => void;
   export let onRuleDelete: (index: number) => void;
 
   let selectedItem: TreeSelection | null = null;
+  let pendingSelection: TreeSelection | null = null;
+  let treeRefreshToken = 0;
   let selectedWorld: WorldRecord | null = null;
   let selectedCharacter: CharacterRecord | null = null;
 
   $: selectedWorld = contextWorldId ? worlds.find((world) => world.id === contextWorldId) ?? null : null;
   $: selectedCharacter =
     contextCharacterId ? characters.find((character) => character.id === contextCharacterId) ?? null : null;
-  $: treeItems = buildTreeItems();
+  $: treeItems = buildTreeItems(highlights, rules, worlds, characters, treeRefreshToken);
 
-  function buildTreeItems(): TreeItem[] {
+  function buildTreeItems(
+    nextHighlights: HighlightRule[],
+    nextRules: Rule[],
+    nextWorlds: WorldRecord[],
+    nextCharacters: CharacterRecord[],
+    _refreshToken = 0,
+  ): TreeItem[] {
     const nextItems: TreeItem[] = [];
 
-    for (const [index, highlight] of highlights.entries()) {
+    for (const [index, highlight] of nextHighlights.entries()) {
       nextItems.push({
         kind: 'highlight',
         index,
@@ -48,7 +55,7 @@
       });
     }
 
-    for (const [index, rule] of rules.entries()) {
+    for (const [index, rule] of nextRules.entries()) {
       nextItems.push({
         kind: 'rule',
         index,
@@ -56,16 +63,38 @@
       });
     }
 
-    for (const world of worlds) {
+    for (const world of nextWorlds) {
       nextItems.push({
         kind: 'world',
         world,
-        characters: characters.filter((character) => character.worldId === world.id),
+        characters: nextCharacters.filter((character) => character.worldId === world.id),
       });
     }
 
     return nextItems;
   }
+
+  const DEFAULT_HIGHLIGHT_DRAFT: HighlightDraft = {
+    pattern: '',
+    foregroundColor: '#f1c40f',
+    backgroundColor: '#000000',
+    caseSensitive: false,
+    wordBoundary: true,
+  };
+
+  const DEFAULT_RULE_DRAFT: RuleDraft = {
+    label: '',
+    pattern: '',
+    foregroundColor: '#f1c40f',
+    foregroundColorEnabled: true,
+    backgroundColor: '#000000',
+    backgroundColorEnabled: true,
+    opacity: 1,
+    opacityEnabled: true,
+    wholeLine: false,
+    caseSensitive: false,
+    sampleText: 'sample text to test the rule',
+  };
 
   function isSelected(item: TreeItem): boolean {
     if (!selectedItem) {
@@ -76,11 +105,14 @@
       return false;
     }
 
-    if (item.kind === 'highlight' || item.kind === 'rule') {
+    if (
+      (item.kind === 'highlight' && selectedItem.kind === 'highlight') ||
+      (item.kind === 'rule' && selectedItem.kind === 'rule')
+    ) {
       return item.index === selectedItem.index;
     }
 
-    return item.world.id === selectedItem.worldId;
+    return item.kind === 'world' && selectedItem.kind === 'world' && item.world.id === selectedItem.worldId;
   }
 
   function selectHighlight(index: number): void {
@@ -99,7 +131,55 @@
     selectedItem = { kind: 'character', characterId };
   }
 
-  function createRuleDraft(rule: Rule): RuleDraft {
+  function refreshTree(): void {
+    treeRefreshToken += 1;
+  }
+
+  function addHighlight(): void {
+    selectedItem = { kind: 'new-highlight' };
+  }
+
+  function addRule(): void {
+    selectedItem = { kind: 'new-rule' };
+  }
+
+  function createHighlightDraft(highlight: HighlightRule | null | undefined): HighlightDraft {
+    if (!highlight) {
+      return DEFAULT_HIGHLIGHT_DRAFT;
+    }
+
+    return {
+      pattern: highlight.pattern,
+      foregroundColor: highlight.foregroundColor,
+      backgroundColor: highlight.backgroundColor,
+      caseSensitive: highlight.caseSensitive,
+      wordBoundary: highlight.wordBoundary,
+    };
+  }
+
+  function saveHighlight(index: number | null, draft: HighlightDraft): void {
+    if (index === null) {
+      pendingSelection = { kind: 'highlight', index: highlights.length };
+    }
+
+    onHighlightSave(index, draft);
+    refreshTree();
+  }
+
+  function saveRule(index: number | null, draft: RuleDraft): void {
+    if (index === null) {
+      pendingSelection = { kind: 'rule', index: rules.length };
+    }
+
+    onRuleSave(index, draft);
+    refreshTree();
+  }
+
+  function createRuleDraft(rule: Rule | null | undefined): RuleDraft {
+    if (!rule) {
+      return DEFAULT_RULE_DRAFT;
+    }
+
     return {
       label: rule.label,
       pattern: rule.pattern,
@@ -116,7 +196,13 @@
   }
 
   $: {
-    if (selectedItem?.kind === 'highlight' && highlights[selectedItem.index] === undefined) {
+    if (pendingSelection?.kind === 'highlight' && highlights[pendingSelection.index] !== undefined) {
+      selectedItem = pendingSelection;
+      pendingSelection = null;
+    } else if (pendingSelection?.kind === 'rule' && rules[pendingSelection.index] !== undefined) {
+      selectedItem = pendingSelection;
+      pendingSelection = null;
+    } else if (selectedItem?.kind === 'highlight' && highlights[selectedItem.index] === undefined) {
       selectedItem = null;
     } else if (selectedItem?.kind === 'rule' && rules[selectedItem.index] === undefined) {
       selectedItem = null;
@@ -134,76 +220,93 @@
 <div class="triggers-pane">
   <aside class="triggers-tree" aria-label="triggers tree">
     <div class="triggers-tree-title">app</div>
-    <ul class="triggers-tree-list">
-      {#each treeItems as item (item.kind === 'world' ? item.world.id : `${item.kind}-${item.index}`)}
-        {#if item.kind === 'highlight'}
-          <li>
-            <button
-              type="button"
-              class="triggers-tree-item"
-              class:active={isSelected(item)}
-              on:click={() => selectHighlight(item.index)}
-            >
-              <span class="triggers-tree-icon">w</span>
-              <span>{item.label}</span>
-            </button>
-          </li>
-        {:else if item.kind === 'rule'}
-          <li>
-            <button
-              type="button"
-              class="triggers-tree-item"
-              class:active={isSelected(item)}
-              on:click={() => selectRule(item.index)}
-            >
-              <span class="triggers-tree-icon">r</span>
-              <span>{item.label}</span>
-            </button>
-          </li>
-        {:else}
-          <li class="triggers-tree-world">
-            <button
-              type="button"
-              class="triggers-tree-item triggers-tree-item--world"
-              class:active={isSelected(item)}
-              on:click={() => selectWorld(item.world.id)}
-            >
-              <span class="triggers-tree-icon triggers-tree-icon--world">▸</span>
-              <span>{item.world.name}</span>
-            </button>
-            <ul class="triggers-tree-list triggers-tree-list--nested">
-              {#each item.characters as character}
-                <li>
-                  <button
-                    type="button"
-                    class="triggers-tree-item triggers-tree-item--character"
-                    class:active={selectedItem?.kind === 'character' && selectedItem.characterId === character.id}
-                    on:click={() => selectCharacter(character.id)}
-                  >
-                    <span class="triggers-tree-icon triggers-tree-icon--character">•</span>
-                    <span>{character.name}</span>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </li>
-        {/if}
-      {/each}
-    </ul>
+    <div class="triggers-tree-scroll">
+      <ul class="triggers-tree-list">
+        {#each treeItems as item (item.kind === 'world' ? item.world.id : `${item.kind}-${item.index}`)}
+          {#if item.kind === 'highlight'}
+            <li>
+              <button
+                type="button"
+                class="triggers-tree-item"
+                class:active={isSelected(item)}
+                on:click={() => selectHighlight(item.index)}
+              >
+                <span class="triggers-tree-icon">w</span>
+                <span>{item.label}</span>
+              </button>
+            </li>
+          {:else if item.kind === 'rule'}
+            <li>
+              <button
+                type="button"
+                class="triggers-tree-item"
+                class:active={isSelected(item)}
+                on:click={() => selectRule(item.index)}
+              >
+                <span class="triggers-tree-icon">r</span>
+                <span>{item.label}</span>
+              </button>
+            </li>
+          {:else}
+            <li class="triggers-tree-world">
+              <button
+                type="button"
+                class="triggers-tree-item triggers-tree-item--world"
+                class:active={isSelected(item)}
+                on:click={() => selectWorld(item.world.id)}
+              >
+                <span class="triggers-tree-icon triggers-tree-icon--world">▸</span>
+                <span>{item.world.name}</span>
+              </button>
+              <ul class="triggers-tree-list triggers-tree-list--nested">
+                {#each item.characters as character}
+                  <li>
+                    <button
+                      type="button"
+                      class="triggers-tree-item triggers-tree-item--character"
+                      class:active={selectedItem?.kind === 'character' && selectedItem.characterId === character.id}
+                      on:click={() => selectCharacter(character.id)}
+                    >
+                      <span class="triggers-tree-icon triggers-tree-icon--character">•</span>
+                      <span>{character.name}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            </li>
+          {/if}
+        {/each}
+      </ul>
+    </div>
+    <div class="triggers-tree-actions">
+      <button type="button" class="btn triggers-tree-action primary" on:click={addHighlight}>Add highlight</button>
+      <button type="button" class="btn triggers-tree-action primary" on:click={addRule}>Add rule</button>
+    </div>
   </aside>
 
   <section class="triggers-editor">
     {#if selectedItem?.kind === 'highlight'}
       <HighlightsPanel
         open={true}
-        highlight={highlights[selectedItem.index] ?? null}
-        index={selectedItem.index}
+        title={highlights[selectedItem.index]?.pattern || `highlight ${selectedItem.index + 1}`}
+        draft={createHighlightDraft(highlights[selectedItem.index])}
         scope="triggers"
-        onUpdatePattern={onHighlightUpdatePattern}
-        onUpdateColor={onHighlightUpdateColor}
-        onToggleCaseSensitive={onHighlightToggleCaseSensitive}
-        onToggleWordBoundary={onHighlightToggleWordBoundary}
-        onDelete={onHighlightDelete}
+        onCancel={() => {
+          selectedItem = null;
+        }}
+        onSave={(draft) => saveHighlight(selectedItem.index, draft)}
+        onDelete={() => onHighlightDelete(selectedItem.index)}
+      />
+    {:else if selectedItem?.kind === 'new-highlight'}
+      <HighlightsPanel
+        open={true}
+        title="new highlight"
+        draft={DEFAULT_HIGHLIGHT_DRAFT}
+        scope="triggers"
+        onCancel={() => {
+          selectedItem = null;
+        }}
+        onSave={(draft) => saveHighlight(null, draft)}
       />
     {:else if selectedItem?.kind === 'rule'}
       <RuleEditorPanel
@@ -212,8 +315,17 @@
         onCancel={() => {
           selectedItem = null;
         }}
-        onSave={(draft) => onRuleSave(selectedItem.index, draft)}
+        onSave={(draft) => saveRule(selectedItem.index, draft)}
         onDelete={() => onRuleDelete(selectedItem.index)}
+      />
+    {:else if selectedItem?.kind === 'new-rule'}
+      <RuleEditorPanel
+        title="new rule"
+        draft={DEFAULT_RULE_DRAFT}
+        onCancel={() => {
+          selectedItem = null;
+        }}
+        onSave={(draft) => saveRule(null, draft)}
       />
     {:else}
       <div class="triggers-empty-state">
@@ -247,7 +359,9 @@
   }
 
   .triggers-tree {
-    overflow-y: auto;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
   }
 
   .triggers-tree-title {
@@ -257,6 +371,12 @@
     text-transform: uppercase;
     color: var(--text-dim);
     margin-bottom: 0.7rem;
+  }
+
+  .triggers-tree-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 0.25rem;
   }
 
   .triggers-tree-list {
@@ -323,6 +443,21 @@
   .triggers-tree-icon--world,
   .triggers-tree-icon--character {
     color: var(--text-dim);
+  }
+
+  .triggers-tree-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .triggers-tree-action {
+    min-width: 0;
+    padding-inline: 0.6rem;
+    white-space: nowrap;
   }
 
   .triggers-editor {

@@ -76,6 +76,7 @@ Connections
 Spellcheck language and/or dictionary to use
 
 UI color scheme
+- Secondary or dim UI text must remain readable on dark grey surfaces; it should meet normal text contrast expectations instead of relying on very low-contrast grey.
 
 Window
   - On top

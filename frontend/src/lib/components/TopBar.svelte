@@ -795,7 +795,7 @@
               onOpenTriggersTab(null, null);
             }}
           >
-            triggers...
+            triggers
           </button>
           <button
             type="button"
