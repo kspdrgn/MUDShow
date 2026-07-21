@@ -18,6 +18,7 @@
   export let onCancel: () => void;
   export let onSave: (draft: HighlightDraft) => void;
   export let onDelete: (() => void) | null = null;
+  export let onDirtyChange: (dirty: boolean) => void = () => {};
 
   let pattern = '';
   let foregroundColor = '#ffffff';
@@ -28,6 +29,7 @@
   let wordBoundary = true;
   let lastSnapshot = '';
   let lastOpen = false;
+  let lastDirty = false;
 
   $: {
     const snapshot = JSON.stringify(draft);
@@ -43,6 +45,23 @@
     }
 
     lastOpen = open;
+  }
+
+  $: {
+    const currentSnapshot = JSON.stringify({
+      pattern,
+      foregroundColor,
+      foregroundColorEnabled,
+      backgroundColor,
+      backgroundColorEnabled,
+      caseSensitive,
+      wordBoundary,
+    });
+    const dirty = currentSnapshot !== lastSnapshot;
+    if (dirty !== lastDirty) {
+      lastDirty = dirty;
+      onDirtyChange(dirty);
+    }
   }
 
   function handleSave(): void {

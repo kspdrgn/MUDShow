@@ -1,6 +1,6 @@
 import type { Writable } from 'svelte/store';
-import type { CharacterDraft, CharacterRecord, WorldDraft, WorldRecord } from './types';
-import { saveConnectionData } from './storage';
+import type { CharacterDraft, CharacterRecord, Trigger, WorldDraft, WorldRecord } from './types';
+import { saveConnectionData, saveTriggers } from './storage';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { focusElement, nextFrame } from './session-dom';
 
@@ -108,6 +108,25 @@ export function createCharacterActions({
   onWorldDeleted,
   onCharacterDeleted,
 }: CharacterActionContext) {
+  function removeTriggersForWorld(triggers: Trigger[], worldId: string, removedCharacters: CharacterRecord[]): Trigger[] {
+    const removedCharacterIds = new Set(removedCharacters.map((character) => character.id));
+    return triggers.filter((trigger) => {
+      if (trigger.owner.kind === 'world') {
+        return trigger.owner.worldId !== worldId;
+      }
+
+      if (trigger.owner.kind === 'character') {
+        return !removedCharacterIds.has(trigger.owner.characterId);
+      }
+
+      return true;
+    });
+  }
+
+  function removeTriggersForCharacter(triggers: Trigger[], characterId: string): Trigger[] {
+    return triggers.filter((trigger) => trigger.owner.kind !== 'character' || trigger.owner.characterId !== characterId);
+  }
+
   async function openWorldModal(index: number | null = null): Promise<void> {
     const state = getState();
     const selected = index === null ? null : state.worlds[index] ?? null;
@@ -282,13 +301,17 @@ export function createCharacterActions({
     }
 
     const nextWorlds = state.worlds.filter((_, currentIndex) => currentIndex !== index);
+    const removedCharacters = state.characters.filter((character) => character.worldId === removed.id);
     const nextCharacters = state.characters.filter((character) => character.worldId !== removed.id);
+    const nextTriggers = removeTriggersForWorld(state.triggers, removed.id, removedCharacters);
 
     await saveConnectionData(nextWorlds, nextCharacters);
+    await saveTriggers(nextTriggers);
     onWorldDeleted?.(removed.id);
     patch({
       worlds: nextWorlds,
       characters: nextCharacters,
+      triggers: nextTriggers,
     });
     onRecordsChanged?.();
   }
@@ -301,11 +324,14 @@ export function createCharacterActions({
     }
 
     const next = state.characters.filter((_, currentIndex) => currentIndex !== index);
+    const nextTriggers = removeTriggersForCharacter(state.triggers, removed.id);
 
     await saveConnectionData(state.worlds, next);
+    await saveTriggers(nextTriggers);
     onCharacterDeleted?.(removed.id);
     patch({
       characters: next,
+      triggers: nextTriggers,
       modalOpen: false,
       modalKind: null,
       worldEditingId: null,

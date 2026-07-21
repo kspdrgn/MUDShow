@@ -1,4 +1,5 @@
-import type { CharacterRecord, HighlightRule, Rule, Trigger, WorldRecord } from './types';
+import type { CharacterRecord, HighlightRule, Rule, Trigger, TriggerOwner, WorldRecord } from './types';
+import { APP_TRIGGER_OWNER, createTriggerId } from './triggers';
 import {
   normalizeAppStyleOverrides,
   type AppStyleOverrides,
@@ -128,6 +129,24 @@ function normalizeCharacterRecord(value: unknown): CharacterRecord | null {
   };
 }
 
+function normalizeTriggerOwner(value: unknown): TriggerOwner {
+  if (!isRecord(value)) {
+    return APP_TRIGGER_OWNER;
+  }
+
+  if (value.kind === 'world') {
+    const worldId = toStringValue(value.worldId).trim();
+    return worldId ? { kind: 'world', worldId } : APP_TRIGGER_OWNER;
+  }
+
+  if (value.kind === 'character') {
+    const characterId = toStringValue(value.characterId).trim();
+    return characterId ? { kind: 'character', characterId } : APP_TRIGGER_OWNER;
+  }
+
+  return APP_TRIGGER_OWNER;
+}
+
 function normalizeHighlightRule(value: unknown): HighlightRule | null {
   if (!isRecord(value)) {
     return null;
@@ -139,7 +158,9 @@ function normalizeHighlightRule(value: unknown): HighlightRule | null {
   }
 
   const normalized: HighlightRule = {
+    id: toStringValue(value.id).trim() || createTriggerId(),
     type: 'highlight',
+    owner: normalizeTriggerOwner(value.owner),
     pattern,
     caseSensitive: toBooleanValue(value.caseSensitive, false),
     wordBoundary: toBooleanValue(value.wordBoundary, true),
@@ -173,12 +194,16 @@ function normalizeRule(value: unknown): Rule | null {
   }
 
   const normalized: Rule = {
+    id: toStringValue(value.id).trim() || createTriggerId(),
     type: 'rule',
+    owner: normalizeTriggerOwner(value.owner),
     label: toStringValue(value.label).trim(),
     pattern,
     caseSensitive: toBooleanValue(value.caseSensitive, false),
     sampleText: toStringValue(value.sampleText).trim() || 'sample text to test the rule',
     wholeLine: toBooleanValue(value.wholeLine, false),
+    stopOtherRules: toBooleanValue(value.stopOtherRules, false),
+    stopHighlights: toBooleanValue(value.stopHighlights, false),
   };
 
   if (Object.prototype.hasOwnProperty.call(value, 'foregroundColor')) {
@@ -219,6 +244,31 @@ function normalizeTrigger(value: unknown): Trigger | null {
   }
 
   return null;
+}
+
+function pruneInvalidTriggerOwners(
+  triggers: Trigger[],
+  worlds: WorldRecord[],
+  characters: CharacterRecord[],
+): Trigger[] {
+  const worldIds = new Set(worlds.map((world) => world.id));
+  const triggerCharacterIds = new Set(
+    characters
+      .filter((character) => !character.isDefault)
+      .map((character) => character.id),
+  );
+
+  return triggers.filter((trigger) => {
+    if (trigger.owner.kind === 'app') {
+      return true;
+    }
+
+    if (trigger.owner.kind === 'world') {
+      return worldIds.has(trigger.owner.worldId);
+    }
+
+    return triggerCharacterIds.has(trigger.owner.characterId);
+  });
 }
 
 function createDefaultCharacter(worldId: string): CharacterRecord {
@@ -285,13 +335,15 @@ function normalizePersistentData(
     ? raw.characters.map((entry) => normalizeCharacterRecord(entry)).filter((entry): entry is CharacterRecord => entry !== null)
     : [];
 
+  const triggers = Array.isArray(raw.triggers)
+    ? raw.triggers.map((entry) => normalizeTrigger(entry)).filter((entry): entry is Trigger => entry !== null)
+    : [];
+
   return {
     schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : STORAGE_SCHEMA_VERSION,
     worlds: dedupeWorlds(worldRecords),
     characters: characterRecords,
-    triggers: Array.isArray(raw.triggers)
-      ? raw.triggers.map((entry) => normalizeTrigger(entry)).filter((entry): entry is Trigger => entry !== null)
-      : [],
+    triggers: pruneInvalidTriggerOwners(triggers, dedupeWorlds(worldRecords), characterRecords),
     notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
     style: normalizeAppStyleOverrides(raw.style),
   };

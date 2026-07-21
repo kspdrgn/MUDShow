@@ -2,7 +2,7 @@
   import { onDestroy, onMount } from 'svelte';
   import {
     applyHighlights,
-    applyRules,
+    applyRulesWithResult,
     buildHighlightRegexes,
     buildRuleRegexes,
     renderTranscriptHtml,
@@ -72,19 +72,23 @@
   $: rules = triggers.filter((trigger): trigger is Rule => trigger.type === 'rule');
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: ruleRegexes = buildRuleRegexes(rules);
-  $: renderedChunks = chunks.map((chunk) =>
-    applyHighlights(
-      applyRules(
-        renderTranscriptHtml(chunk, linkImagePreviews, hiddenPreviewUrls, imagePreviewCacheVersion),
-        ruleRegexes,
-      ),
-      highlightRegexes,
-    ),
-  );
-  $: liveRenderedChunks = chunks.map((chunk) =>
-    applyHighlights(applyRules(renderTranscriptHtml(chunk, false), ruleRegexes), highlightRegexes),
-  );
+  $: renderedChunks = chunks.map((chunk) => renderChunk(chunk, true));
+  $: liveRenderedChunks = chunks.map((chunk) => renderChunk(chunk, false));
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
+
+  function renderChunk(chunk: string, includePreviews: boolean): string {
+    const ruleResult = applyRulesWithResult(
+      renderTranscriptHtml(
+        chunk,
+        includePreviews ? linkImagePreviews : false,
+        hiddenPreviewUrls,
+        includePreviews ? imagePreviewCacheVersion : 0,
+      ),
+      ruleRegexes,
+    );
+
+    return ruleResult.stopHighlights ? ruleResult.html : applyHighlights(ruleResult.html, highlightRegexes);
+  }
 
   function scrollTranscriptToBottomIfFollowing(): void {
     if (userScrolled) {

@@ -1,30 +1,35 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
-  import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, WorldRecord } from '../../types';
+  import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, TriggerOwner, WorldRecord } from '../../types';
+  import { APP_TRIGGER_OWNER, canCharacterOwnTriggers, getOwnerTriggers, triggerOwnerEquals } from '../../triggers';
   import HighlightsPanel from './HighlightsPanel.svelte';
   import RuleEditorPanel from './RuleEditorPanel.svelte';
 
   type TreeSelection =
     | { kind: 'app' }
-    | { kind: 'highlight'; index: number }
+    | { kind: 'highlight'; id: string }
     | { kind: 'new-highlight' }
-    | { kind: 'rule'; index: number }
+    | { kind: 'rule'; id: string }
     | { kind: 'new-rule' }
     | { kind: 'world'; worldId: string }
     | { kind: 'character'; characterId: string };
 
-  type TreeItem =
-    | { kind: 'highlight'; index: number; label: string }
-    | { kind: 'rule'; index: number; label: string }
-    | { kind: 'world'; world: WorldRecord; characters: CharacterRecord[] };
-
   type FlatTreeItem =
-    | { kind: 'app'; key: string }
-    | { kind: 'highlight'; key: string; index: number; label: string }
-    | { kind: 'rule'; key: string; index: number; label: string }
-    | { kind: 'world'; key: string; world: WorldRecord }
-    | { kind: 'character'; key: string; character: CharacterRecord };
+    | { kind: 'app'; key: string; owner: TriggerOwner; label: string; depth: number; draggable: false; droppable: true }
+    | { kind: 'highlight'; key: string; trigger: HighlightRule; owner: TriggerOwner; label: string; depth: number; draggable: true; droppable: true }
+    | { kind: 'rule'; key: string; trigger: Rule; owner: TriggerOwner; label: string; depth: number; draggable: true; droppable: true }
+    | { kind: 'world'; key: string; world: WorldRecord; owner: TriggerOwner; label: string; depth: number; draggable: false; droppable: true }
+    | { kind: 'character'; key: string; character: CharacterRecord; owner: TriggerOwner; label: string; depth: number; draggable: false; droppable: true };
+
+  type PointerDragState = {
+    pointerId: number;
+    sourceNodeKey: string;
+    triggerId: string;
+    startX: number;
+    startY: number;
+    active: boolean;
+  };
 
   type ValidPastedTrigger =
     | { kind: 'highlight'; draft: HighlightDraft }
@@ -35,102 +40,114 @@
   export let triggers: Trigger[] = [];
   export let contextWorldId: string | null = null;
   export let contextCharacterId: string | null = null;
-  export let onHighlightSave: (index: number | null, draft: HighlightDraft) => void;
-  export let onHighlightDelete: (index: number) => void;
-  export let onRuleSave: (index: number | null, draft: RuleDraft) => void;
-  export let onRuleDelete: (index: number) => void;
+  export let onHighlightSave: (id: string | null, owner: TriggerOwner, draft: HighlightDraft) => void;
+  export let onHighlightDelete: (id: string) => void;
+  export let onRuleSave: (id: string | null, owner: TriggerOwner, draft: RuleDraft) => void;
+  export let onRuleDelete: (id: string) => void;
+  export let onTriggerMove: (id: string, owner: TriggerOwner, beforeTriggerId: string | null) => void;
 
   let selectedItem: TreeSelection | null = null;
-  let pendingSelection: TreeSelection | null = null;
+  let pendingNewSelection: { type: Trigger['type']; owner: TriggerOwner } | null = null;
   let treeRefreshToken = 0;
-  let selectedWorld: WorldRecord | null = null;
-  let selectedCharacter: CharacterRecord | null = null;
   let selectedKeys = new Set<string>();
   let selectionAnchorKey: string | null = null;
   let contextMenuOpen = false;
   let contextMenuPosition = { x: 0, y: 0 };
   let contextMenuElement: HTMLDivElement | null = null;
   let copiedStatus = '';
+  let pendingDraftOwner: TriggerOwner = APP_TRIGGER_OWNER;
+  let editorDirty = false;
+  let pointerDragState: PointerDragState | null = null;
+  let dropIndicatorIndex: number | null = null;
+  let suppressNextClick = false;
   let highlights: HighlightRule[] = [];
   let rules: Rule[] = [];
 
-  $: selectedWorld = contextWorldId ? worlds.find((world) => world.id === contextWorldId) ?? null : null;
-  $: selectedCharacter =
-    contextCharacterId ? characters.find((character) => character.id === contextCharacterId) ?? null : null;
   $: highlights = triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
   $: rules = triggers.filter((trigger): trigger is Rule => trigger.type === 'rule');
-  $: treeItems = buildTreeItems(highlights, rules, worlds, characters, treeRefreshToken);
-  $: flatTreeItems = buildFlatTreeItems(treeItems);
+  $: visibleCharacters = characters.filter(canCharacterOwnTriggers);
+  $: flatTreeItems = buildFlatTreeItems(triggers, worlds, visibleCharacters, treeRefreshToken);
   $: selectedTriggerCount = getSelectedTriggerItems().length;
 
-  function buildTreeItems(
-    nextHighlights: HighlightRule[],
-    nextRules: Rule[],
+  function buildFlatTreeItems(
+    nextTriggers: Trigger[],
     nextWorlds: WorldRecord[],
     nextCharacters: CharacterRecord[],
     _refreshToken = 0,
-  ): TreeItem[] {
-    const nextItems: TreeItem[] = [];
-
-    for (const [index, highlight] of nextHighlights.entries()) {
-      nextItems.push({
-        kind: 'highlight',
-        index,
-        label: highlight.pattern || `highlight ${index + 1}`,
-      });
-    }
-
-    for (const [index, rule] of nextRules.entries()) {
-      nextItems.push({
-        kind: 'rule',
-        index,
-        label: rule.label || rule.pattern || `rule ${index + 1}`,
-      });
-    }
+  ): FlatTreeItem[] {
+    const nextItems: FlatTreeItem[] = [{
+      kind: 'app',
+      key: 'app',
+      owner: APP_TRIGGER_OWNER,
+      label: 'app',
+      depth: 0,
+      draggable: false,
+      droppable: true,
+    }];
+    nextItems.push(...getFlatTriggerItemsForOwner(nextTriggers, APP_TRIGGER_OWNER, 1));
 
     for (const world of nextWorlds) {
+      const worldOwner: TriggerOwner = { kind: 'world', worldId: world.id };
       nextItems.push({
         kind: 'world',
+        key: getSelectionKey({ kind: 'world', worldId: world.id }),
         world,
-        characters: nextCharacters.filter((character) => character.worldId === world.id),
+        owner: worldOwner,
+        label: world.name,
+        depth: 1,
+        draggable: false,
+        droppable: true,
       });
+      nextItems.push(...getFlatTriggerItemsForOwner(nextTriggers, worldOwner, 2));
+
+      for (const character of nextCharacters.filter((entry) => entry.worldId === world.id)) {
+        const characterOwner: TriggerOwner = { kind: 'character', characterId: character.id };
+        nextItems.push({
+          kind: 'character',
+          key: getCharacterSelectionKey(character.id),
+          character,
+          owner: characterOwner,
+          label: character.name,
+          depth: 2,
+          draggable: false,
+          droppable: true,
+        });
+        nextItems.push(...getFlatTriggerItemsForOwner(nextTriggers, characterOwner, 3));
+      }
     }
 
     return nextItems;
   }
 
-  function buildFlatTreeItems(nextTreeItems: TreeItem[]): FlatTreeItem[] {
-    const nextItems: FlatTreeItem[] = [{ kind: 'app', key: 'app' }];
-
-    for (const item of nextTreeItems) {
-      if (item.kind === 'highlight') {
-        nextItems.push({
-          ...item,
-          key: getSelectionKey(item),
-        });
-      } else if (item.kind === 'rule') {
-        nextItems.push({
-          ...item,
-          key: getSelectionKey(item),
-        });
-      } else {
-        nextItems.push({
-          kind: 'world',
-          key: getSelectionKey(item),
-          world: item.world,
-        });
-
-        for (const character of item.characters) {
-          nextItems.push({
-            kind: 'character',
-            key: getCharacterSelectionKey(character.id),
-            character,
-          });
-        }
+  function getFlatTriggerItemsForOwner(nextTriggers: Trigger[], owner: TriggerOwner, depth: number): FlatTreeItem[] {
+    return [
+      ...getOwnerTriggers(nextTriggers, owner).filter((trigger): trigger is HighlightRule => trigger.type === 'highlight'),
+      ...getOwnerTriggers(nextTriggers, owner).filter((trigger): trigger is Rule => trigger.type === 'rule'),
+    ].map((trigger) => {
+      if (trigger.type === 'highlight') {
+        return {
+          kind: 'highlight',
+          key: getTriggerSelectionKey(trigger.id),
+          trigger,
+          owner,
+          label: trigger.pattern || 'highlight',
+          depth,
+          draggable: true,
+          droppable: true,
+        };
       }
-    }
 
-    return nextItems;
+      return {
+        kind: 'rule',
+        key: getTriggerSelectionKey(trigger.id),
+        trigger,
+        owner,
+        label: trigger.label || trigger.pattern || 'rule',
+        depth,
+        draggable: true,
+        droppable: true,
+      };
+    });
   }
 
   const DEFAULT_HIGHLIGHT_DRAFT: HighlightDraft = {
@@ -154,6 +171,8 @@
     opacityEnabled: true,
     wholeLine: false,
     caseSensitive: false,
+    stopOtherRules: false,
+    stopHighlights: false,
     sampleText: 'sample text to test the rule',
   };
 
@@ -161,21 +180,25 @@
     return `character-${characterId}`;
   }
 
-  function getSelectionKey(item: TreeItem | Exclude<TreeSelection, { kind: 'new-highlight' } | { kind: 'new-rule' }>): string {
+  function getTriggerSelectionKey(id: string): string {
+    return `trigger-${id}`;
+  }
+
+  function getSelectionKey(item: Exclude<TreeSelection, { kind: 'new-highlight' } | { kind: 'new-rule' }>): string {
     if (item.kind === 'app') {
       return 'app';
     }
 
     if (item.kind === 'highlight') {
-      return `highlight-${item.index}`;
+      return getTriggerSelectionKey(item.id);
     }
 
     if (item.kind === 'rule') {
-      return `rule-${item.index}`;
+      return getTriggerSelectionKey(item.id);
     }
 
     if (item.kind === 'world') {
-      return 'world' in item ? `world-${item.world.id}` : `world-${item.worldId}`;
+      return `world-${item.worldId}`;
     }
 
     return getCharacterSelectionKey(item.characterId);
@@ -185,7 +208,7 @@
     return flatTreeItems.find((item) => item.key === key) ?? null;
   }
 
-  function isSelected(item: TreeItem | TreeSelection): boolean {
+  function isSelected(item: Exclude<TreeSelection, { kind: 'new-highlight' } | { kind: 'new-rule' }>): boolean {
     return selectedKeys.has(getSelectionKey(item));
   }
 
@@ -197,12 +220,12 @@
     copiedStatus = '';
   }
 
-  function selectHighlight(index: number, event: MouseEvent): void {
-    selectTreeItem(event, { kind: 'highlight', index });
+  function selectHighlight(id: string, event: MouseEvent): void {
+    selectTreeItem(event, { kind: 'highlight', id });
   }
 
-  function selectRule(index: number, event: MouseEvent): void {
-    selectTreeItem(event, { kind: 'rule', index });
+  function selectRule(id: string, event: MouseEvent): void {
+    selectTreeItem(event, { kind: 'rule', id });
   }
 
   function selectWorld(worldId: string, event: MouseEvent): void {
@@ -214,6 +237,10 @@
   }
 
   function selectTreeItem(event: MouseEvent, selection: TreeSelection): void {
+    if (!confirmDiscardDirtyEditor()) {
+      return;
+    }
+
     const key = getSelectionKey(selection);
 
     if (event.shiftKey && selectionAnchorKey) {
@@ -258,11 +285,11 @@
     }
 
     if (item.kind === 'highlight') {
-      return { kind: 'highlight', index: item.index };
+      return { kind: 'highlight', id: item.trigger.id };
     }
 
     if (item.kind === 'rule') {
-      return { kind: 'rule', index: item.index };
+      return { kind: 'rule', id: item.trigger.id };
     }
 
     if (item.kind === 'world') {
@@ -276,16 +303,74 @@
     treeRefreshToken += 1;
   }
 
+  function getOwnerForSelection(selection: TreeSelection | null): TriggerOwner | null {
+    if (!selection) {
+      return null;
+    }
+
+    if (selection.kind === 'app') {
+      return APP_TRIGGER_OWNER;
+    }
+
+    if (selection.kind === 'world') {
+      return { kind: 'world', worldId: selection.worldId };
+    }
+
+    if (selection.kind === 'character') {
+      return { kind: 'character', characterId: selection.characterId };
+    }
+
+    if (selection.kind === 'highlight' || selection.kind === 'rule') {
+      return triggers.find((trigger) => trigger.id === selection.id)?.owner ?? null;
+    }
+
+    return null;
+  }
+
+  function getPreferredNewOwner(): TriggerOwner {
+    const selectedOwner = getClearPasteOwner();
+    if (selectedOwner) {
+      return selectedOwner;
+    }
+
+    const contextCharacter = contextCharacterId
+      ? visibleCharacters.find((character) => character.id === contextCharacterId) ?? null
+      : null;
+    if (contextCharacter) {
+      return { kind: 'character', characterId: contextCharacter.id };
+    }
+
+    if (contextWorldId && worlds.some((world) => world.id === contextWorldId)) {
+      return { kind: 'world', worldId: contextWorldId };
+    }
+
+    return APP_TRIGGER_OWNER;
+  }
+
   function addHighlight(): void {
+    if (!confirmDiscardDirtyEditor()) {
+      return;
+    }
+
+    const owner = getPreferredNewOwner();
     selectedKeys = new Set();
     selectionAnchorKey = null;
     selectedItem = { kind: 'new-highlight' };
+    pendingNewSelection = null;
+    pendingDraftOwner = owner;
   }
 
   function addRule(): void {
+    if (!confirmDiscardDirtyEditor()) {
+      return;
+    }
+
+    const owner = getPreferredNewOwner();
     selectedKeys = new Set();
     selectionAnchorKey = null;
     selectedItem = { kind: 'new-rule' };
+    pendingNewSelection = null;
+    pendingDraftOwner = owner;
   }
 
   function createHighlightDraft(highlight: HighlightRule | null | undefined): HighlightDraft {
@@ -304,21 +389,27 @@
     };
   }
 
-  function saveHighlight(index: number | null, draft: HighlightDraft): void {
-    if (index === null) {
-      pendingSelection = { kind: 'highlight', index: highlights.length };
+  function findTrigger(id: string | null): Trigger | null {
+    return id ? triggers.find((trigger) => trigger.id === id) ?? null : null;
+  }
+
+  function saveHighlight(id: string | null, owner: TriggerOwner, draft: HighlightDraft): void {
+    if (id === null) {
+      pendingNewSelection = { type: 'highlight', owner };
     }
 
-    onHighlightSave(index, draft);
+    onHighlightSave(id, owner, draft);
+    editorDirty = false;
     refreshTree();
   }
 
-  function saveRule(index: number | null, draft: RuleDraft): void {
-    if (index === null) {
-      pendingSelection = { kind: 'rule', index: rules.length };
+  function saveRule(id: string | null, owner: TriggerOwner, draft: RuleDraft): void {
+    if (id === null) {
+      pendingNewSelection = { type: 'rule', owner };
     }
 
-    onRuleSave(index, draft);
+    onRuleSave(id, owner, draft);
+    editorDirty = false;
     refreshTree();
   }
 
@@ -338,6 +429,8 @@
       opacityEnabled: rule.opacity !== undefined,
       wholeLine: rule.wholeLine,
       caseSensitive: rule.caseSensitive,
+      stopOtherRules: rule.stopOtherRules,
+      stopHighlights: rule.stopHighlights,
       sampleText: rule.sampleText,
     };
   }
@@ -411,6 +504,8 @@
       !isOptionalString(value.label) ||
       typeof value.wholeLine !== 'boolean' ||
       typeof value.caseSensitive !== 'boolean' ||
+      (value.stopOtherRules !== undefined && typeof value.stopOtherRules !== 'boolean') ||
+      (value.stopHighlights !== undefined && typeof value.stopHighlights !== 'boolean') ||
       !isOptionalString(value.sampleText)
     ) {
       return null;
@@ -455,6 +550,8 @@
       opacityEnabled,
       wholeLine: value.wholeLine,
       caseSensitive: value.caseSensitive,
+      stopOtherRules: value.stopOtherRules === true,
+      stopHighlights: value.stopHighlights === true,
       sampleText: value.sampleText?.trim() || 'sample text to test the rule',
     };
   }
@@ -498,10 +595,307 @@
     return { triggers, skipped };
   }
 
+  function getOwnerFromFlatItem(item: FlatTreeItem | null): TriggerOwner | null {
+    if (!item) {
+      return null;
+    }
+
+    if (item.kind === 'app') {
+      return APP_TRIGGER_OWNER;
+    }
+
+    if (item.kind === 'world') {
+      return { kind: 'world', worldId: item.world.id };
+    }
+
+    if (item.kind === 'character') {
+      return { kind: 'character', characterId: item.character.id };
+    }
+
+    return item.owner;
+  }
+
+  function getClearPasteOwner(): TriggerOwner | null {
+    if (selectedKeys.size === 0) {
+      return APP_TRIGGER_OWNER;
+    }
+
+    let owner: TriggerOwner | null = null;
+    for (const key of selectedKeys) {
+      const itemOwner = getOwnerFromFlatItem(findFlatTreeItem(key));
+      if (!itemOwner) {
+        continue;
+      }
+
+      if (!owner) {
+        owner = itemOwner;
+        continue;
+      }
+
+      if (!triggerOwnerEquals(owner, itemOwner)) {
+        return null;
+      }
+    }
+
+    return owner;
+  }
+
+  function handleTriggerKeydown(event: KeyboardEvent, id: string, type: Trigger['type']): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    setSingleSelection({ kind: type, id });
+  }
+
+  function getNodeSelection(item: FlatTreeItem): Exclude<TreeSelection, { kind: 'new-highlight' } | { kind: 'new-rule' }> {
+    if (item.kind === 'app') {
+      return { kind: 'app' };
+    }
+
+    if (item.kind === 'world') {
+      return { kind: 'world', worldId: item.world.id };
+    }
+
+    if (item.kind === 'character') {
+      return { kind: 'character', characterId: item.character.id };
+    }
+
+    if (item.kind === 'highlight') {
+      return { kind: 'highlight', id: item.trigger.id };
+    }
+
+    return { kind: 'rule', id: item.trigger.id };
+  }
+
+  function getNodeIcon(item: FlatTreeItem): string {
+    if (item.kind === 'app') {
+      return 'a';
+    }
+
+    if (item.kind === 'world') {
+      return '▸';
+    }
+
+    if (item.kind === 'character') {
+      return '•';
+    }
+
+    return item.kind === 'highlight' ? 'w' : 'r';
+  }
+
+  function getNodeClasses(item: FlatTreeItem): string {
+    const classes = ['triggers-tree-item'];
+    if (item.draggable) {
+      classes.push('triggers-tree-item--draggable');
+    }
+    if (item.kind === 'app') {
+      classes.push('triggers-tree-item--app');
+    } else if (item.kind === 'world') {
+      classes.push('triggers-tree-item--world');
+    } else if (item.kind === 'character') {
+      classes.push('triggers-tree-item--character');
+    }
+
+    return classes.join(' ');
+  }
+
+  function handleNodeClick(event: MouseEvent, item: FlatTreeItem): void {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      event.preventDefault();
+      return;
+    }
+
+    selectTreeItem(event, getNodeSelection(item));
+  }
+
+  function handleNodeKeydown(event: KeyboardEvent, item: FlatTreeItem): void {
+    if (item.kind === 'highlight' || item.kind === 'rule') {
+      handleTriggerKeydown(event, item.trigger.id, item.kind);
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSingleSelection(getNodeSelection(item));
+    }
+  }
+
+  function handleNodePointerDown(event: PointerEvent, item: FlatTreeItem): void {
+    if (!item.draggable || (item.kind !== 'highlight' && item.kind !== 'rule') || event.button !== 0) {
+      return;
+    }
+
+    pointerDragState = {
+      pointerId: event.pointerId,
+      sourceNodeKey: item.key,
+      triggerId: item.trigger.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+    };
+  }
+
+  function getDropIndicatorIndexFromPoint(_x: number, y: number): number {
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-trigger-tree-node-key]'));
+    if (rows.length === 0) {
+      return 0;
+    }
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const rect = rows[index].getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) {
+        return index;
+      }
+    }
+
+    return rows.length;
+  }
+
+  function getFirstTriggerIdForOwnerAndType(
+    items: FlatTreeItem[],
+    owner: TriggerOwner,
+    type: Trigger['type'],
+  ): string | null {
+    const first = items.find(
+      (item) =>
+        (item.kind === 'highlight' || item.kind === 'rule') &&
+        item.trigger.type === type &&
+        triggerOwnerEquals(item.owner, owner),
+    );
+
+    return first && (first.kind === 'highlight' || first.kind === 'rule') ? first.trigger.id : null;
+  }
+
+  function getFirstFollowingTriggerIdForOwnerAndType(
+    items: FlatTreeItem[],
+    startIndex: number,
+    owner: TriggerOwner,
+    type: Trigger['type'],
+  ): string | null {
+    const following = items.slice(Math.max(0, startIndex)).find(
+      (item) =>
+        (item.kind === 'highlight' || item.kind === 'rule') &&
+        item.trigger.type === type &&
+        triggerOwnerEquals(item.owner, owner),
+    );
+
+    return following && (following.kind === 'highlight' || following.kind === 'rule') ? following.trigger.id : null;
+  }
+
+  function getDropPlanForIndicator(
+    source: Trigger,
+    sourceNodeKey: string,
+    indicatorIndex: number,
+  ): { owner: TriggerOwner; beforeTriggerId: string | null } | null {
+    const sourceIndex = flatTreeItems.findIndex((item) => item.key === sourceNodeKey);
+    const itemsWithoutSource = flatTreeItems.filter((item) => item.key !== sourceNodeKey);
+    const insertionIndex = sourceIndex >= 0 && sourceIndex < indicatorIndex
+      ? indicatorIndex - 1
+      : indicatorIndex;
+    const beforeItem = itemsWithoutSource[insertionIndex] ?? null;
+    const previousItem = insertionIndex > 0 ? itemsWithoutSource[insertionIndex - 1] ?? null : null;
+    const beforeItemIsSameTypeTrigger =
+      beforeItem !== null &&
+      (beforeItem.kind === 'highlight' || beforeItem.kind === 'rule') &&
+      beforeItem.trigger.type === source.type;
+    const ownerSource = beforeItemIsSameTypeTrigger
+      ? beforeItem
+      : previousItem ?? beforeItem;
+    const owner = ownerSource ? getOwnerFromFlatItem(ownerSource) : APP_TRIGGER_OWNER;
+
+    if (!owner) {
+      return null;
+    }
+
+    if (
+      beforeItemIsSameTypeTrigger &&
+      triggerOwnerEquals(beforeItem.owner, owner)
+    ) {
+      return { owner, beforeTriggerId: beforeItem.trigger.id };
+    }
+
+    const firstFollowingSameTypeTriggerId = getFirstFollowingTriggerIdForOwnerAndType(
+      itemsWithoutSource,
+      insertionIndex,
+      owner,
+      source.type,
+    );
+    if (firstFollowingSameTypeTriggerId) {
+      return { owner, beforeTriggerId: firstFollowingSameTypeTriggerId };
+    }
+
+    if (
+      beforeItem &&
+      ownerSource === beforeItem &&
+      (beforeItem.kind === 'app' || beforeItem.kind === 'world' || beforeItem.kind === 'character')
+    ) {
+      return {
+        owner,
+        beforeTriggerId: getFirstTriggerIdForOwnerAndType(itemsWithoutSource, owner, source.type),
+      };
+    }
+
+    return { owner, beforeTriggerId: null };
+  }
+
+  function handlePointerMove(event: PointerEvent): void {
+    const dragState = pointerDragState;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const distance = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
+    if (!dragState.active && distance < 4) {
+      return;
+    }
+
+    pointerDragState = { ...dragState, active: true };
+    event.preventDefault();
+    dropIndicatorIndex = getDropIndicatorIndexFromPoint(event.clientX, event.clientY);
+  }
+
+  function handlePointerUp(event: PointerEvent): void {
+    const dragState = pointerDragState;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    pointerDragState = null;
+    const indicatorIndex = dropIndicatorIndex;
+    dropIndicatorIndex = null;
+
+    if (!dragState.active || indicatorIndex === null) {
+      return;
+    }
+
+    suppressNextClick = true;
+    event.preventDefault();
+
+    if (!confirmDiscardDirtyEditor()) {
+      return;
+    }
+
+    const moved = triggers.find((trigger) => trigger.id === dragState.triggerId);
+    const dropPlan = moved ? getDropPlanForIndicator(moved, dragState.sourceNodeKey, indicatorIndex) : null;
+    if (!moved || !dropPlan) {
+      return;
+    }
+
+    onTriggerMove(dragState.triggerId, dropPlan.owner, dropPlan.beforeTriggerId);
+    if (moved?.type === 'rule') {
+      setSingleSelection({ kind: 'rule', id: dragState.triggerId });
+    } else if (moved?.type === 'highlight') {
+      setSingleSelection({ kind: 'highlight', id: dragState.triggerId });
+    }
+  }
+
   function buildCopyPayload(): Array<Record<string, unknown>> {
     return getSelectedTriggerItems().flatMap((item) => {
       if (item.kind === 'highlight') {
-        const highlight = highlights[item.index];
+        const highlight = item.trigger;
 
         return highlight
           ? [
@@ -518,7 +912,7 @@
       }
 
       if (item.kind === 'rule') {
-        const rule = rules[item.index];
+        const rule = item.trigger;
 
         return rule
           ? [
@@ -531,6 +925,8 @@
                 opacity: rule.opacity,
                 wholeLine: rule.wholeLine,
                 caseSensitive: rule.caseSensitive,
+                stopOtherRules: rule.stopOtherRules,
+                stopHighlights: rule.stopHighlights,
                 sampleText: rule.sampleText,
               },
             ]
@@ -564,6 +960,13 @@
 
   async function pasteFromJson(): Promise<void> {
     try {
+      const owner = getClearPasteOwner();
+      if (!owner) {
+        copiedStatus = 'paste needs one target owner';
+        contextMenuOpen = false;
+        return;
+      }
+
       const clipboardText = await readTextFromClipboard();
       const parsed = JSON.parse(clipboardText) as unknown;
       const normalized = normalizePastedTriggerPayload(parsed);
@@ -585,10 +988,10 @@
 
       for (const trigger of normalized.triggers) {
         if (trigger.kind === 'highlight') {
-          onHighlightSave(null, trigger.draft);
+          onHighlightSave(null, owner, trigger.draft);
           addedHighlights += 1;
         } else {
-          onRuleSave(null, trigger.draft);
+          onRuleSave(null, owner, trigger.draft);
           addedRules += 1;
         }
       }
@@ -611,12 +1014,27 @@
     contextMenuOpen = false;
   }
 
+  function confirmDiscardDirtyEditor(): boolean {
+    if (!editorDirty) {
+      return true;
+    }
+
+    const confirmed = window.confirm('Discard unsaved trigger changes?');
+    if (confirmed) {
+      editorDirty = false;
+    }
+    return confirmed;
+  }
+
   async function openContextMenu(event: MouseEvent, selection: TreeSelection): Promise<void> {
     event.preventDefault();
     event.stopPropagation();
 
     const key = getSelectionKey(selection);
     if (!selectedKeys.has(key)) {
+      if (!confirmDiscardDirtyEditor()) {
+        return;
+      }
       setSingleSelection(selection);
     }
 
@@ -679,27 +1097,39 @@
     document.addEventListener('click', handleDocumentClick);
     document.addEventListener('contextmenu', handleDocumentContextMenu);
     window.addEventListener('keydown', handleEscape);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
     window.addEventListener('mudshow-context-menu-open', handleMenuOpen as EventListener);
 
     return () => {
       document.removeEventListener('click', handleDocumentClick);
       document.removeEventListener('contextmenu', handleDocumentContextMenu);
       window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
       window.removeEventListener('mudshow-context-menu-open', handleMenuOpen as EventListener);
     };
   });
 
   $: {
-    if (pendingSelection?.kind === 'highlight' && highlights[pendingSelection.index] !== undefined) {
-      setSingleSelection(pendingSelection);
-      pendingSelection = null;
-    } else if (pendingSelection?.kind === 'rule' && rules[pendingSelection.index] !== undefined) {
-      setSingleSelection(pendingSelection);
-      pendingSelection = null;
-    } else if (selectedItem?.kind === 'highlight' && highlights[selectedItem.index] === undefined) {
+    if (pendingNewSelection) {
+      const candidates = triggers.filter(
+        (trigger) => trigger.type === pendingNewSelection?.type && triggerOwnerEquals(trigger.owner, pendingNewSelection.owner),
+      );
+      const created = candidates[candidates.length - 1] ?? null;
+      if (created?.type === 'highlight') {
+        setSingleSelection({ kind: 'highlight', id: created.id });
+        pendingNewSelection = null;
+      } else if (created?.type === 'rule') {
+        setSingleSelection({ kind: 'rule', id: created.id });
+        pendingNewSelection = null;
+      }
+    } else if (selectedItem?.kind === 'highlight' && !triggers.some((trigger) => trigger.id === selectedItem.id)) {
       selectedItem = null;
       selectedKeys = new Set();
-    } else if (selectedItem?.kind === 'rule' && rules[selectedItem.index] === undefined) {
+    } else if (selectedItem?.kind === 'rule' && !triggers.some((trigger) => trigger.id === selectedItem.id)) {
       selectedItem = null;
       selectedKeys = new Set();
     } else if (selectedItem?.kind === 'world' && !worlds.some((world) => world.id === selectedItem.worldId)) {
@@ -707,7 +1137,7 @@
       selectedKeys = new Set();
     } else if (
       selectedItem?.kind === 'character' &&
-      !characters.some((character) => character.id === selectedItem.characterId)
+      !visibleCharacters.some((character) => character.id === selectedItem.characterId)
     ) {
       selectedItem = null;
       selectedKeys = new Set();
@@ -716,76 +1146,39 @@
 </script>
 
 <div class="triggers-pane">
-  <aside class="triggers-tree" aria-label="triggers tree">
-    <button
-      type="button"
-      class="triggers-tree-title triggers-tree-item triggers-tree-item--app"
-      class:active={isSelected({ kind: 'app' })}
-      on:click={(event) => selectTreeItem(event, { kind: 'app' })}
-      on:contextmenu={(event) => openContextMenu(event, { kind: 'app' })}
-    >
-      app
-    </button>
+  <aside class:dragging={pointerDragState?.active} class="triggers-tree" aria-label="triggers tree">
     <div class="triggers-tree-scroll">
       <ul class="triggers-tree-list">
-        {#each treeItems as item (item.kind === 'world' ? item.world.id : `${item.kind}-${item.index}`)}
-          {#if item.kind === 'highlight'}
-            <li>
-              <button
-                type="button"
-                class="triggers-tree-item"
-                class:active={isSelected(item)}
-                on:click={(event) => selectHighlight(item.index, event)}
-                on:contextmenu={(event) => openContextMenu(event, { kind: 'highlight', index: item.index })}
-              >
-                <span class="triggers-tree-icon">w</span>
-                <span>{item.label}</span>
-              </button>
-            </li>
-          {:else if item.kind === 'rule'}
-            <li>
-              <button
-                type="button"
-                class="triggers-tree-item"
-                class:active={isSelected(item)}
-                on:click={(event) => selectRule(item.index, event)}
-                on:contextmenu={(event) => openContextMenu(event, { kind: 'rule', index: item.index })}
-              >
-                <span class="triggers-tree-icon">r</span>
-                <span>{item.label}</span>
-              </button>
-            </li>
-          {:else}
-            <li class="triggers-tree-world">
-              <button
-                type="button"
-                class="triggers-tree-item triggers-tree-item--world"
-                class:active={isSelected(item)}
-                on:click={(event) => selectWorld(item.world.id, event)}
-                on:contextmenu={(event) => openContextMenu(event, { kind: 'world', worldId: item.world.id })}
-              >
-                <span class="triggers-tree-icon triggers-tree-icon--world">▸</span>
-                <span>{item.world.name}</span>
-              </button>
-              <ul class="triggers-tree-list triggers-tree-list--nested">
-                {#each item.characters as character}
-                  <li>
-                    <button
-                      type="button"
-                      class="triggers-tree-item triggers-tree-item--character"
-                      class:active={isSelected({ kind: 'character', characterId: character.id })}
-                      on:click={(event) => selectCharacter(character.id, event)}
-                      on:contextmenu={(event) => openContextMenu(event, { kind: 'character', characterId: character.id })}
-                    >
-                      <span class="triggers-tree-icon triggers-tree-icon--character">•</span>
-                      <span>{character.name}</span>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            </li>
-          {/if}
+        {#each flatTreeItems as item, index (item.key)}
+          <li class="triggers-tree-row">
+            {#if pointerDragState?.active && dropIndicatorIndex === index}
+              <div class="triggers-tree-drop-indicator"></div>
+            {/if}
+            <div
+              role="button"
+              tabindex="0"
+              data-trigger-tree-node-key={item.key}
+              class={getNodeClasses(item)}
+              class:active={selectedKeys.has(item.key)}
+              class:drag-source={pointerDragState?.sourceNodeKey === item.key}
+              style={`--tree-depth: ${item.depth};`}
+              on:click={(event) => handleNodeClick(event, item)}
+              on:keydown={(event) => handleNodeKeydown(event, item)}
+              on:contextmenu={(event) => openContextMenu(event, getNodeSelection(item))}
+              on:pointerdown={(event) => handleNodePointerDown(event, item)}
+            >
+              <span class="triggers-tree-icon" class:triggers-tree-icon--owner={item.kind === 'app' || item.kind === 'world' || item.kind === 'character'}>
+                {getNodeIcon(item)}
+              </span>
+              <span>{item.label}</span>
+            </div>
+          </li>
         {/each}
+        {#if pointerDragState?.active && dropIndicatorIndex === flatTreeItems.length}
+          <li class="triggers-tree-row triggers-tree-row--drop-end">
+            <div class="triggers-tree-drop-indicator"></div>
+          </li>
+        {/if}
       </ul>
     </div>
     <div class="triggers-tree-actions">
@@ -824,7 +1217,7 @@
         role="menuitem"
         on:click={() => void pasteFromJson()}
       >
-        paste from JSON
+        paste JSON
       </button>
     </div>
   {/if}
@@ -843,16 +1236,25 @@
         {/if}
       </div>
     {:else if selectedItem?.kind === 'highlight'}
+      {@const selectedHighlight = findTrigger(selectedItem.id) as HighlightRule | null}
       <HighlightsPanel
         open={true}
-        title={highlights[selectedItem.index]?.pattern || `highlight ${selectedItem.index + 1}`}
-        draft={createHighlightDraft(highlights[selectedItem.index])}
+        title={selectedHighlight?.pattern || 'highlight'}
+        draft={createHighlightDraft(selectedHighlight)}
         scope="triggers"
         onCancel={() => {
+          editorDirty = false;
           selectedItem = null;
         }}
-        onSave={(draft) => saveHighlight(selectedItem.index, draft)}
-        onDelete={() => onHighlightDelete(selectedItem.index)}
+        onSave={(draft) => saveHighlight(selectedItem.id, selectedHighlight?.owner ?? APP_TRIGGER_OWNER, draft)}
+        onDelete={() => {
+          if (confirmDiscardDirtyEditor()) {
+            onHighlightDelete(selectedItem.id);
+          }
+        }}
+        onDirtyChange={(dirty) => {
+          editorDirty = dirty;
+        }}
       />
     {:else if selectedItem?.kind === 'new-highlight'}
       <HighlightsPanel
@@ -861,28 +1263,45 @@
         draft={DEFAULT_HIGHLIGHT_DRAFT}
         scope="triggers"
         onCancel={() => {
+          editorDirty = false;
           selectedItem = null;
         }}
-        onSave={(draft) => saveHighlight(null, draft)}
+        onSave={(draft) => saveHighlight(null, pendingDraftOwner, draft)}
+        onDirtyChange={(dirty) => {
+          editorDirty = dirty;
+        }}
       />
     {:else if selectedItem?.kind === 'rule'}
+      {@const selectedRule = findTrigger(selectedItem.id) as Rule | null}
       <RuleEditorPanel
-        title={rules[selectedItem.index]?.label || rules[selectedItem.index]?.pattern || `rule ${selectedItem.index + 1}`}
-        draft={createRuleDraft(rules[selectedItem.index])}
+        title={selectedRule?.label || selectedRule?.pattern || 'rule'}
+        draft={createRuleDraft(selectedRule)}
         onCancel={() => {
+          editorDirty = false;
           selectedItem = null;
         }}
-        onSave={(draft) => saveRule(selectedItem.index, draft)}
-        onDelete={() => onRuleDelete(selectedItem.index)}
+        onSave={(draft) => saveRule(selectedItem.id, selectedRule?.owner ?? APP_TRIGGER_OWNER, draft)}
+        onDelete={() => {
+          if (confirmDiscardDirtyEditor()) {
+            onRuleDelete(selectedItem.id);
+          }
+        }}
+        onDirtyChange={(dirty) => {
+          editorDirty = dirty;
+        }}
       />
     {:else if selectedItem?.kind === 'new-rule'}
       <RuleEditorPanel
         title="new rule"
         draft={DEFAULT_RULE_DRAFT}
         onCancel={() => {
+          editorDirty = false;
           selectedItem = null;
         }}
-        onSave={(draft) => saveRule(null, draft)}
+        onSave={(draft) => saveRule(null, pendingDraftOwner, draft)}
+        onDirtyChange={(dirty) => {
+          editorDirty = dirty;
+        }}
       />
     {:else}
       <div class="triggers-empty-state">
@@ -909,7 +1328,7 @@
             Rules offer full regular expression matching for advanced style and trigger behavior.
           </p>
           <p>
-            In the future, rules and highlights will be supported within worlds and characters but they are top level for now.
+            App triggers apply everywhere. World triggers apply to every character in that world. Character triggers apply only to that character.
           </p>
         {/if}
       </div>
@@ -938,7 +1357,7 @@
 
   .triggers-tree {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     overflow: hidden;
   }
 
@@ -970,15 +1389,8 @@
     gap: 0.35rem;
   }
 
-  .triggers-tree-list--nested {
-    margin-left: 1rem;
-    padding-left: 0.7rem;
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .triggers-tree-world {
-    display: grid;
-    gap: 0.35rem;
+  .triggers-tree-row {
+    min-width: 0;
   }
 
   .triggers-tree-item {
@@ -987,17 +1399,29 @@
     gap: 0.5rem;
     width: 100%;
     min-height: 1.8rem;
-    padding: 0.2rem 0.35rem;
+    padding: 0.2rem 0.35rem 0.2rem calc(0.35rem + var(--tree-depth, 0) * 1.35rem);
     border: 1px solid transparent;
     border-radius: 0.45rem;
     background: transparent;
     color: var(--text-main);
     font-size: 0.9rem;
     text-align: left;
+    user-select: none;
+    touch-action: none;
   }
 
   .triggers-tree-item:hover {
     background: rgba(255, 255, 255, 0.04);
+  }
+
+  .triggers-tree-item--draggable {
+    cursor: grab;
+  }
+
+  .triggers-tree.dragging,
+  .triggers-tree.dragging .triggers-tree-item,
+  .triggers-tree-item--draggable:active {
+    cursor: grabbing;
   }
 
   .triggers-tree-item.active {
@@ -1005,12 +1429,46 @@
     background: rgba(255, 255, 255, 0.07);
   }
 
+  .triggers-tree-item.drag-source {
+    opacity: 0.55;
+  }
+
+  .triggers-tree-drop-indicator {
+    position: relative;
+    height: 0;
+    margin: -0.18rem 0 0.18rem;
+    pointer-events: none;
+  }
+
+  .triggers-tree-drop-indicator::before {
+    content: '';
+    position: absolute;
+    left: 0.3rem;
+    right: 0.3rem;
+    top: -1px;
+    height: 2px;
+    border-radius: 999px;
+    background: #f1c40f;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28), 0 0 0.75rem rgba(241, 196, 15, 0.45);
+  }
+
+  .triggers-tree-drop-indicator::after {
+    content: '';
+    position: absolute;
+    left: 0.18rem;
+    top: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #f1c40f;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28);
+  }
+
   .triggers-tree-item--world {
     font-weight: 600;
   }
 
   .triggers-tree-item--character {
-    padding-left: 1.15rem;
     font-size: 0.88rem;
   }
 
@@ -1023,14 +1481,14 @@
     flex: 0 0 auto;
   }
 
-  .triggers-tree-icon--world,
-  .triggers-tree-icon--character {
+  .triggers-tree-icon--owner {
     color: var(--text-dim);
   }
 
   .triggers-tree-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
     gap: 0.5rem;
     margin-top: 0.85rem;
     padding-top: 0.85rem;
@@ -1041,6 +1499,7 @@
     min-width: 0;
     padding-inline: 0.6rem;
     white-space: nowrap;
+    min-height: 2rem;
   }
 
   .triggers-editor {

@@ -16,12 +16,15 @@
     opacityEnabled: true,
     wholeLine: false,
     caseSensitive: false,
+    stopOtherRules: false,
+    stopHighlights: false,
     sampleText: DEFAULT_SAMPLE_TEXT,
   };
 
   export let onCancel: () => void;
   export let onSave: (draft: RuleDraft) => void;
   export let onDelete: (() => void) | null = null;
+  export let onDirtyChange: (dirty: boolean) => void = () => {};
 
   let pattern = '';
   let foregroundColor = '#ffffff';
@@ -32,6 +35,8 @@
   let opacityEnabled = true;
   let wholeLine = false;
   let caseSensitive = false;
+  let stopOtherRules = false;
+  let stopHighlights = false;
   let sampleText = DEFAULT_SAMPLE_TEXT;
   let label = '';
   let lastSnapshot = '';
@@ -39,6 +44,7 @@
   let validationError = '';
   let sampleMirrorHtml = '';
   let saveDisabled = true;
+  let lastDirty = false;
 
   type MatchIndices = Array<[number, number] | undefined>;
   type MatchWithIndices = RegExpMatchArray & {
@@ -188,6 +194,8 @@
       opacityEnabled = draft.opacityEnabled;
       wholeLine = draft.wholeLine;
       caseSensitive = draft.caseSensitive;
+      stopOtherRules = draft.stopOtherRules;
+      stopHighlights = draft.stopHighlights;
       sampleText = draft.sampleText || DEFAULT_SAMPLE_TEXT;
       label = draft.label ?? '';
       lastSnapshot = snapshot;
@@ -195,6 +203,29 @@
     }
 
     lastOpen = true;
+  }
+
+  $: {
+    const currentSnapshot = JSON.stringify({
+      label,
+      pattern,
+      foregroundColor,
+      foregroundColorEnabled,
+      backgroundColor,
+      backgroundColorEnabled,
+      opacity,
+      opacityEnabled,
+      wholeLine,
+      caseSensitive,
+      stopOtherRules,
+      stopHighlights,
+      sampleText,
+    });
+    const dirty = currentSnapshot !== lastSnapshot;
+    if (dirty !== lastDirty) {
+      lastDirty = dirty;
+      onDirtyChange(dirty);
+    }
   }
 
   function handleSave(): void {
@@ -214,6 +245,8 @@
       opacityEnabled,
       wholeLine,
       caseSensitive,
+      stopOtherRules,
+      stopHighlights,
       sampleText,
     });
   }
@@ -284,7 +317,7 @@
           class="rule-sample-preview"
           aria-label="test text preview"
           style:--rule-preview-foreground={foregroundColorEnabled ? foregroundColor : 'inherit'}
-          style:--rule-preview-background={backgroundColorEnabled ? backgroundColor : 'rgba(241, 196, 15, 0.28)'}
+          style:--rule-preview-background={backgroundColorEnabled ? backgroundColor : 'rgba(174, 188, 255, 0.3)'}
           style:--rule-preview-opacity={opacityEnabled ? opacity : 1}
         >
           {@html sampleMirrorHtml}
@@ -408,6 +441,28 @@
                 on:change={refreshSampleMirror}
               />
               case sensitive
+            </label>
+          </div>
+
+          <div class="field field-check">
+            <label for="rule-stop-other-rules">
+              <input
+                id="rule-stop-other-rules"
+                type="checkbox"
+                bind:checked={stopOtherRules}
+              />
+              stop other rules
+            </label>
+          </div>
+
+          <div class="field field-check">
+            <label for="rule-stop-highlights">
+              <input
+                id="rule-stop-highlights"
+                type="checkbox"
+                bind:checked={stopHighlights}
+              />
+              stop highlights
             </label>
           </div>
         </fieldset>
@@ -583,7 +638,7 @@
     background: var(--rule-preview-background);
     color: var(--rule-preview-foreground);
     opacity: var(--rule-preview-opacity);
-    box-shadow: 0 0 0 1px rgba(241, 196, 15, 0.35) inset;
+    box-shadow: 0 0 0 1px rgba(174, 188, 255, 0.42) inset;
   }
 
   :global(.rule-sample-preview .rule-preview-zero-width) {

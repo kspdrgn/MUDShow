@@ -7,7 +7,7 @@ MVP Features:
 - [ ] Style. WIP. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
-- [ ] Trigger hierarchy
+- [X] Trigger hierarchy
 - [X] Tabs, multiple connections
 - [X] Character Settings
   - [X] make hierarchical
@@ -109,8 +109,8 @@ Release:
   - Trigger Rules
     - [X] Reg-ex highlights
     - [ ] Show action shorthands in tree view, such as color swatches, maybe small indicators of big functionality
-    - [ ] Hierarchical rules/highlights
-    - [ ] Drag reorder/rearrange rules
+    - [X] Hierarchical rules/highlights
+    - [X] Drag reorder/rearrange rules
     - [X] Color foreground/background
     - [X] Opacity
     - [ ] Toggle matching on beginning of line only

@@ -12,6 +12,7 @@ import {
   saveTranscriptHistory,
 } from './storage';
 import { buildHighlightRegexes } from './formatting';
+import { APP_TRIGGER_OWNER, createTriggerId, triggerOwnerEquals } from './triggers';
 import { generateLogFilename, getLogFileName, stripTranscriptForLog } from './logging';
 import {
   createInputBar,
@@ -28,7 +29,7 @@ import {
   scrollElementToBottom,
   scrollElementToTop,
 } from './session-dom';
-import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, WorldRecord } from './types';
+import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, TriggerOwner, WorldRecord } from './types';
 import type { WorldTabSessionState } from './world-session';
 import {
   getWorldDomScope,
@@ -831,9 +832,15 @@ export function createPlaybackActions({
     patch({ triggers: next });
   }
 
-  function saveHighlightDraft(index: number | null, draft: HighlightDraft): void {
+  function findTriggerIndexById(triggers: Trigger[], id: string | null): number {
+    return id ? triggers.findIndex((trigger) => trigger.id === id) : -1;
+  }
+
+  function saveHighlightDraft(id: string | null, owner: TriggerOwner, draft: HighlightDraft): void {
     const nextHighlight: HighlightRule = {
+      id: '',
       type: 'highlight',
+      owner: APP_TRIGGER_OWNER,
       pattern: draft.pattern.trim(),
       caseSensitive: draft.caseSensitive,
       wordBoundary: draft.wordBoundary,
@@ -854,7 +861,10 @@ export function createPlaybackActions({
     const state = getState();
     const next = [...state.triggers];
     const triggerIndex =
-      index === null || index === undefined ? -1 : findTriggerIndexByTypeIndex(next, 'highlight', index);
+      findTriggerIndexById(next, id);
+    const existing = triggerIndex >= 0 ? next[triggerIndex] : null;
+    nextHighlight.id = existing?.id ?? createTriggerId();
+    nextHighlight.owner = existing?.owner ?? owner;
 
     if (triggerIndex < 0) {
       next.push(nextHighlight);
@@ -867,9 +877,9 @@ export function createPlaybackActions({
     patch({ triggers: next });
   }
 
-  function deleteHighlight(index: number): void {
+  function deleteHighlight(id: string): void {
     const state = getState();
-    const triggerIndex = findTriggerIndexByTypeIndex(state.triggers, 'highlight', index);
+    const triggerIndex = findTriggerIndexById(state.triggers, id);
     if (triggerIndex < 0) {
       return;
     }
@@ -881,15 +891,20 @@ export function createPlaybackActions({
     patch({ triggers: next });
   }
 
-  function saveRuleDraft(editingIndex: number | null, draft: RuleDraft): void {
+  function saveRuleDraft(id: string | null, owner: TriggerOwner, draft: RuleDraft): void {
     const state = getState();
+    const next = [...state.triggers];
     const nextRule: Rule = {
+      id: '',
       type: 'rule',
+      owner: APP_TRIGGER_OWNER,
       label: draft.label.trim(),
       pattern: draft.pattern.trim(),
       caseSensitive: draft.caseSensitive,
       sampleText: draft.sampleText,
       wholeLine: draft.wholeLine,
+      stopOtherRules: draft.stopOtherRules,
+      stopHighlights: draft.stopHighlights,
     };
 
     if (draft.foregroundColorEnabled) {
@@ -908,11 +923,11 @@ export function createPlaybackActions({
       return;
     }
 
-    const next = [...state.triggers];
     const triggerIndex =
-      editingIndex === null || editingIndex === undefined
-        ? -1
-        : findTriggerIndexByTypeIndex(next, 'rule', editingIndex);
+      findTriggerIndexById(next, id);
+    const existing = triggerIndex >= 0 ? next[triggerIndex] : null;
+    nextRule.id = existing?.id ?? createTriggerId();
+    nextRule.owner = existing?.owner ?? owner;
 
     if (triggerIndex < 0) {
       next.push(nextRule);
@@ -924,9 +939,9 @@ export function createPlaybackActions({
     patch({ triggers: next });
   }
 
-  function deleteRule(index: number): void {
+  function deleteRule(id: string): void {
     const state = getState();
-    const triggerIndex = findTriggerIndexByTypeIndex(state.triggers, 'rule', index);
+    const triggerIndex = findTriggerIndexById(state.triggers, id);
     if (triggerIndex < 0) {
       return;
     }
@@ -934,6 +949,39 @@ export function createPlaybackActions({
     const next = [...state.triggers];
     next.splice(triggerIndex, 1);
     void saveTriggers(next);
+    patch({ triggers: next });
+  }
+
+  function moveTrigger(id: string, owner: TriggerOwner, beforeTriggerId: string | null = null): void {
+    const state = getState();
+    const trigger = state.triggers.find((entry) => entry.id === id);
+    if (!trigger) {
+      return;
+    }
+
+    const remaining = state.triggers.filter((entry) => entry.id !== id);
+    const moved = { ...trigger, owner };
+    const next = [...remaining];
+    const beforeIndex = beforeTriggerId
+      ? next.findIndex(
+          (entry) =>
+            entry.id === beforeTriggerId &&
+            entry.type === moved.type &&
+            triggerOwnerEquals(entry.owner, owner),
+        )
+      : -1;
+
+    if (beforeIndex >= 0) {
+      next.splice(beforeIndex, 0, moved);
+    } else {
+      const insertAfterIndex = remaining.reduce((lastIndex, entry, index) => {
+        return entry.type === moved.type && triggerOwnerEquals(entry.owner, owner) ? index : lastIndex;
+      }, -1);
+      next.splice(insertAfterIndex + 1, 0, moved);
+    }
+
+    void saveTriggers(next);
+    setHighlightRegexes(buildHighlightRegexes(getHighlightTriggers(next)));
     patch({ triggers: next });
   }
 
@@ -978,6 +1026,7 @@ export function createPlaybackActions({
     deleteHighlight,
     deleteRule,
     saveRuleDraft,
+    moveTrigger,
     saveNotes,
   };
 }

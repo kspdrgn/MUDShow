@@ -28,6 +28,7 @@ import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
+import { getTriggersForCharacter } from './lib/triggers';
 import {
   createAppStyleEditor,
   createDefaultAppStyleEditor,
@@ -373,7 +374,7 @@ import {
         activeBar={worldSession.activeBar}
         connectionStatus={worldSession.connectionStatus}
         bars={worldSession.inputBars}
-        triggers={$session.triggers}
+        triggers={worldSession.currentCharacter ? getTriggersForCharacter($session.triggers, worldSession.currentCharacter) : []}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
@@ -419,10 +420,11 @@ import {
         triggers={$session.triggers}
         contextWorldId={$session.triggersContextWorldId}
         contextCharacterId={$session.triggersContextCharacterId}
-        onHighlightSave={(index, draft) => session.saveHighlightDraft(index, draft)}
-        onHighlightDelete={(index) => session.deleteHighlight(index)}
-        onRuleSave={(index, draft) => session.saveRuleDraft(index, draft)}
-        onRuleDelete={(index) => session.deleteRule(index)}
+        onHighlightSave={(id, owner, draft) => session.saveHighlightDraft(id, owner, draft)}
+        onHighlightDelete={(id) => session.deleteHighlight(id)}
+        onRuleSave={(id, owner, draft) => session.saveRuleDraft(id, owner, draft)}
+        onRuleDelete={(id) => session.deleteRule(id)}
+        onTriggerMove={(id, owner, beforeTriggerId) => session.moveTrigger(id, owner, beforeTriggerId)}
       />
     {/if}
 

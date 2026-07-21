@@ -7,6 +7,13 @@ export type HighlightRegex = {
   opacity?: number;
   wholeLine?: boolean;
   matchGroupsOnly?: boolean;
+  stopOtherRules?: boolean;
+  stopHighlights?: boolean;
+};
+
+export type RuleApplicationResult = {
+  html: string;
+  stopHighlights: boolean;
 };
 
 type AnsiStyle = {
@@ -720,19 +727,24 @@ export function buildRuleRegexes(rules: Rule[]): HighlightRegex[] {
             opacity,
             wholeLine: rule.wholeLine,
             matchGroupsOnly: true,
+            stopOtherRules: rule.stopOtherRules,
+            stopHighlights: rule.stopHighlights,
           },
         ]
       : [];
   });
 }
 
-export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): string {
+export function applyRegexDecorationsWithResult(html: string, regexes: HighlightRegex[]): RuleApplicationResult {
   if (regexes.length === 0) {
-    return html;
+    return { html, stopHighlights: false };
   }
 
   const inlineRegexes = regexes.filter((regex) => !regex.wholeLine);
   const wholeLineRegexes = regexes.filter((regex) => regex.wholeLine);
+  let stopHighlights = false;
+  let stopInlineRules = false;
+  let stopWholeLineRules = false;
 
   const decorateInline = (text: string): string => {
     if (inlineRegexes.length === 0) {
@@ -746,7 +758,11 @@ export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): 
           return part;
         }
 
-        for (const { re, color, backgroundColor, opacity, matchGroupsOnly } of inlineRegexes) {
+        for (const { re, color, backgroundColor, opacity, matchGroupsOnly, stopOtherRules, stopHighlights: shouldStopHighlights } of inlineRegexes) {
+          if (stopInlineRules) {
+            break;
+          }
+
           const style = buildRuleStyle(color, backgroundColor, opacity);
           if (!style) {
             continue;
@@ -755,6 +771,13 @@ export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): 
           const ranges = collectRegexDecorationRanges(part, re, matchGroupsOnly);
           if (ranges.length > 0) {
             part = decorateTextRanges(part, ranges, style);
+            if (shouldStopHighlights) {
+              stopHighlights = true;
+            }
+            if (stopOtherRules) {
+              stopInlineRules = true;
+              break;
+            }
           }
         }
 
@@ -771,7 +794,11 @@ export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): 
     const lineText = stripHtmlTags(lineHtml);
     let nextLineHtml = lineHtml;
 
-    for (const { re, color, backgroundColor, opacity } of wholeLineRegexes) {
+    for (const { re, color, backgroundColor, opacity, stopOtherRules, stopHighlights: shouldStopHighlights } of wholeLineRegexes) {
+      if (stopWholeLineRules) {
+        break;
+      }
+
       re.lastIndex = 0;
       if (!re.test(lineText)) {
         continue;
@@ -781,12 +808,21 @@ export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): 
       if (style) {
         nextLineHtml = `<span style="${style}">${nextLineHtml}</span>`;
       }
+
+      if (shouldStopHighlights) {
+        stopHighlights = true;
+      }
+
+      if (stopOtherRules) {
+        stopWholeLineRules = true;
+        break;
+      }
     }
 
     return nextLineHtml;
   };
 
-  return html
+  const nextHtml = html
     .split(/(<br>)/)
     .map((part) => {
       if (part === '<br>') {
@@ -797,6 +833,12 @@ export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): 
       return `${decorateWholeLine(decorateInline(body))}${previewRows}`;
     })
     .join('');
+
+  return { html: nextHtml, stopHighlights };
+}
+
+export function applyRegexDecorations(html: string, regexes: HighlightRegex[]): string {
+  return applyRegexDecorationsWithResult(html, regexes).html;
 }
 
 export function applyHighlights(html: string, regexes: HighlightRegex[]): string {
@@ -805,4 +847,8 @@ export function applyHighlights(html: string, regexes: HighlightRegex[]): string
 
 export function applyRules(html: string, regexes: HighlightRegex[]): string {
   return applyRegexDecorations(html, regexes);
+}
+
+export function applyRulesWithResult(html: string, regexes: HighlightRegex[]): RuleApplicationResult {
+  return applyRegexDecorationsWithResult(html, regexes);
 }

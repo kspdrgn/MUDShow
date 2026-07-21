@@ -118,9 +118,7 @@ Display sorting within each owner:
 1. highlights
 2. rules
 
-Within each type, preserve persisted order unless the user later gets explicit reorder controls.
-
-When drag/drop transfers a trigger to a different owner, insert it at the end of the same-type group in the target owner unless a later explicit reorder feature changes this.
+Within each type, preserve persisted order. Drag/drop provides explicit reorder controls for one trigger at a time.
 
 Worlds, characters, and `app` are selectable tree items. If selected, they should show actions that make sense for that owner. At minimum, selected owners should support paste and add actions that create triggers owned by that selected scope.
 
@@ -201,9 +199,17 @@ Users can drag individual trigger items in the tree.
 Drag behavior:
 
 - Only triggers are draggable in the first implementation.
-- Dragging a trigger onto `app`, a world, or a character transfers ownership to that target.
+- Dragging uses an insertion line between visible tree rows, including the top and bottom of the visible list.
+- The insertion line, not a row highlight, is the visible drop target.
+- Dropping at an insertion line moves the trigger to the owner implied by that line.
 - Transferring ownership also transfers persistence location because the owner field is the persistence location.
-- Dragging a trigger onto another trigger should target that trigger's owner.
+- Insertion lines at owner boundaries use the row above the line as owner context, unless the line is at the very top of an owner section.
+- Dropping at the end of one owner group must not move the trigger into the next world or character.
+- Dropping at the top of an owner section moves the trigger to that owner.
+- Dragging within the same trigger type reorders within that type.
+- Because highlights display above rules, cross-type drops clamp to the nearest valid position for the dragged trigger's own type.
+- Dragging a rule upward into the highlight section places it at the top of the rule group for that owner.
+- Dragging a highlight downward into the rule section places it at the bottom of the highlight group for that owner.
 - Dragging multiple selected triggers can be added later; initial support can be one dragged trigger at a time.
 
 Drop validation:
@@ -212,7 +218,7 @@ Drop validation:
 - world target sets owner to `{ kind: 'world', worldId }`
 - character target sets owner to `{ kind: 'character', characterId }`
 - dropped triggers keep their `type`, editor fields, and id
-- dropped triggers are appended to the same-type group in the target owner
+- dropped triggers are inserted at the indicated position within their same-type group
 - after drop, rebuild the tree and keep the moved trigger selected
 - if the dragged trigger has unsaved editor changes, show the unsaved changes warning before moving it
 
@@ -403,9 +409,11 @@ Checklist:
 Checklist:
 
 - [ ] Add drag data for one trigger id.
-- [ ] Add drop target detection.
+- [ ] Add insertion-line drop target detection.
 - [ ] Update owner on drop.
-- [ ] Append moved triggers to the target owner's same-type group.
+- [ ] Insert moved triggers before the indicated same-type trigger when present.
+- [ ] Append moved triggers to the target owner's same-type group when the insertion line is after the final same-type trigger.
+- [ ] Clamp cross-type drops to the nearest valid same-type boundary.
 - [ ] Keep selection stable after transfer.
 
 ### 8. Add dirty editor protection
@@ -450,6 +458,9 @@ Checklist:
 - Confirm pasted `id` and `owner` fields are ignored.
 - Confirm invalid pasted JSON does not corrupt storage.
 - Confirm drag/drop changes ownership and persistence.
+- Confirm drag/drop reorders within same-type groups.
+- Confirm insertion lines at owner boundaries use the expected owner.
+- Confirm cross-type drops clamp to valid highlight/rule boundaries.
 - Confirm dirty trigger edits warn before selection changes, close, delete, or drag/drop.
 - Confirm deleting worlds and characters removes their contained triggers.
 - Confirm `stopOtherRules` and `stopHighlights` alter evaluation as intended.
@@ -489,6 +500,9 @@ Checklist:
 - The context menu can paste valid trigger JSON into app, world, or character ownership.
 - Pasted JSON ignores incoming ids and ownership.
 - The user can drag an individual trigger to app, world, or character ownership.
+- The drag target is shown as an insertion line between rows.
+- Drag/drop can reorder within a trigger type.
+- Cross-type drag/drop clamps to the dragged trigger's nearest valid type boundary.
 - Dirty editor forms warn before unsaved changes are lost, including during drag/drop.
 - Connected characters evaluate character triggers, then world triggers, then app triggers.
 - Rules can stop later rule evaluation with `stopOtherRules`.
