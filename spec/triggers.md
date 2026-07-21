@@ -8,11 +8,33 @@ Highlights and rules are persisted together in the `triggers` collection. Each t
 - `highlight` - Simple word or phrase matching.
 - `rule` - Regular expression matching.
 
+Each trigger also has an owner:
+- `app` - Applies to every connected character.
+- `world` - Applies to every connected character in that world.
+- `character` - Applies only to that character.
+
+The default character cannot own triggers. Shared triggers for a world belong to the world itself.
+
+For a connected character, active triggers are evaluated from the most specific owner to the least specific owner:
+1. character-owned triggers
+2. world-owned triggers
+3. app-owned triggers
+
+Rule evaluation and highlight evaluation both use owner priority: character-owned triggers, then world-owned triggers, then app-owned triggers, with persisted order preserved within each owner and type. Rules are evaluated before highlights so matched rules can stop later rule evaluation or highlight evaluation. Matching continues through later owner levels and later triggers unless a rule explicitly stops later processing.
+
 The triggers tree has fixed bottom controls to add a new highlight or a new rule, and selecting either new item opens an unsaved draft in the editor pane.
 New highlights and rules appear in the tree only after the editor is saved. Highlight, rule label, and rule pattern changes refresh the tree after the editor is saved.
-Highlight type triggers are sorted above rule type triggers in the editor tree.
+Highlight type triggers are displayed above rule type triggers in the editor tree for each owner. The tree shows app-owned triggers, then worlds, then each world's characters and owned triggers. App, world, and character rows are selectable owner rows. Selecting an owner row supports owner-level actions such as adding a trigger or pasting trigger JSON into that owner.
 
-The triggers tree context menu supports copying selected highlight and rule triggers as JSON and pasting valid trigger JSON. Paste validates every item and imports only entries that match the current trigger schemas.
+The default character is not shown as a trigger owner target.
+
+The tree supports single selection, CTRL multi-selection of individual rows, and SHIFT range selection across the visible flattened tree rows. If exactly one trigger is selected, the corresponding editor is shown. If exactly one owner is selected, an owner summary and owner-level actions are shown. If multiple rows are selected, a multi-selection summary and valid bulk actions are shown.
+
+The triggers tree context menu supports copying selected highlight and rule triggers as JSON and pasting valid trigger JSON. Copy includes only selected trigger definitions, not selected owner rows. Copied JSON omits ownership and ids. Paste validates every item and imports only entries that match the current trigger schemas. Pasted JSON may contain `id` or `owner` fields, but those fields are ignored. Pasted triggers receive new ids and the selected paste target owner. If the user explicitly selects an app, world, or character owner row and uses paste JSON, pasted triggers are inserted into that owner. If a trigger row is the paste target, pasted triggers are inserted into that trigger's owner.
+
+The user can drag an individual trigger row onto app, world, character, or another trigger row. Dropping onto an owner transfers the trigger to that owner. Dropping onto another trigger transfers the dragged trigger to the target trigger's owner. Ownership transfer also changes persistence ownership. A moved trigger keeps its id and trigger fields, and is inserted at the end of the target owner's same-type group. Multiple-trigger drag can be added later.
+
+If a trigger editor has unsaved changes and the user attempts to move away, close the editor, select something else, drag the trigger to a different owner, or otherwise lose the draft, the app shows an unsaved changes warning before discarding or replacing the dirty draft.
 
 # Rules
 
@@ -32,6 +54,8 @@ The rules editor shows the saved test text with a labeled preview pane that high
 Match behavior fields:
 - wholeLine - Any match will apply its action to the entire line, not just capture groups or the matched text
 - caseSensitive - Controls the 'i' flag of regular expression to match case.
+- stopOtherRules - When the rule matches, stop evaluating later rules for the current input.
+- stopHighlights - When the rule matches, stop evaluating highlights for the current input.
 
 Highlights use the same editor layout model as rules: local draft changes, a fixed bottom delete/cancel/save action bar, action controls, and a match behavior section.
 Highlight styling supports foregroundColor and backgroundColor.

@@ -72,6 +72,10 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 ## Triggers
 - Simple highlights and regexp rules are stored together in the top-level `triggers` collection.
 - The trigger `type` field distinguishes `highlight` triggers from `rule` triggers.
+- Triggers are owned by app, world, or character scope.
+- App-owned triggers apply everywhere, world-owned triggers apply to every connected character in that world, and character-owned triggers apply only to that character.
+- Connected characters evaluate triggers from character scope, then world scope, then app scope.
+- The default character cannot own triggers; shared triggers for that world belong to the world.
 - Simple highlight triggers stay as the easy word-or-phrase foreground/background styling entries.
 - Regexp rule triggers are intended for line-oriented matching and future routing or classification behaviors.
 

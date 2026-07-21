@@ -5,8 +5,9 @@
 MVP Features:
 - [ ] Session logging. WIP. needs testing. needs better ui!
 - [ ] Style. WIP. See "MUD Text > Appearance"
-- [ ] Regexp rules, want to dim traffic messages and color pages/whispers to make them stand out
+- [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
+- [ ] Trigger hierarchy
 - [X] Tabs, multiple connections
 - [X] Character Settings
   - [X] make hierarchical
@@ -79,7 +80,7 @@ Release:
     - [X] Output history - Buffer of previous session contents restored for context
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
     - [ ] New activity indicator (separator line?)
-    - [ ] Max width is off, too short, try calculate glyph width from a mono font, maybe support pixel max width for non-mono fonts
+    - [X] Max width is off, too short, try calculate glyph width from a mono font, maybe support pixel max width for non-mono fonts
 
   - Scrolling
     - [ ] Pause auto-scroll when selecting

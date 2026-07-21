@@ -15,7 +15,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 ## Core Model
 - 'Worlds' are the MU servers, and 'Characters' are named users on the server. All connections are done through the world + character context.
 - Per-character notes: locally stored private freeform text associated with a local character.
-- Global triggers: highlight type triggers provide exact-text matches mapped to foreground/background styling, and rule type triggers provide raw regular-expression matches mapped to style actions with room for future line-level behaviors.
+- Hierarchical triggers: highlight type triggers provide exact-text matches mapped to foreground/background styling, and rule type triggers provide raw regular-expression matches mapped to style actions with room for future line-level behaviors. Triggers can be owned by the app, a world, or a character.
 - Session state: active connection, output stream, input focus, read position, etc.
 
 ## User Stories
@@ -64,12 +64,12 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
 - Allow reconnecting after disconnect.
-- Store characters, notes, and highlights locally on the user’s device.
-- Store highlight and regexp rule triggers locally on the user’s device.
+- Store characters, notes, and triggers locally on the user’s device.
+- Store highlight and regexp rule triggers locally at app, world, or character scope.
 - Store rolling per-character transcript history locally and reload it when reconnecting.
 - Open and close a notes panel for the active character.
-- Open and close a highlights panel for simple text highlight rules.
-- Open and close a rules panel for global regexp matching.
+- Open and close a triggers panel for simple text highlights and regexp rules.
+- Manage triggers at app, world, or character scope.
 - Add and remove highlight rules.
 - Edit the text for an existing highlight rule.
 - Edit the foreground and background colors for an existing highlight rule.
@@ -83,6 +83,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Apply regexp rule colors to matching text in session output.
 - Apply regexp rule colors to capture groups when present, to the whole regexp match when no capture groups are present, or to the entire matching line when whole-line matching is active.
 - Let each regexp rule toggle case-sensitive matching.
+- Let each regexp rule optionally stop later rule evaluation or highlight evaluation when it matches.
 - Support simple word completion from recently seen session text.
 - Support quick switching between the first two input bars with F1 and F2 when a world tab is active. If only one input bar exists, F2 opens a second one.
 - Support quick toggling of notes panel with F3.

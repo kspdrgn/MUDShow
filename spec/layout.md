@@ -104,8 +104,8 @@ Character Settings
   - Renaming a saved character will migrate any persisted history and settings to stay associated to the new character name
 
 Deleting a world or a character requires confirmation before it takes effect.
-- Deleting a world warns that all saved characters for that world will be removed.
-- Deleting a character warns that its saved notes, highlights, and stored history will be removed.
+- Deleting a world warns that all saved characters and contained triggers for that world will be removed.
+- Deleting a character warns that its saved notes, contained triggers, and stored history will be removed.
 - The delete confirmation is the same whether the action is triggered from a world row or a character row.
 
 Deleting a world or a character will not be allowed if there is an open tab on that world or character.
