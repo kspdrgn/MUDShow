@@ -2256,16 +2256,18 @@ body {
 
 .status-dot-slot {
   position: absolute;
-  right: 0.7rem;
+  right: 0.45rem;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  pointer-events: none;
+  pointer-events: auto;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  min-width: 1rem;
+  min-height: 2.1rem;
 }
 
 .status-dot-slot .status-dot {
@@ -2293,12 +2295,22 @@ body {
   background: var(--text-dim);
 }
 
+.status-dot.activity {
+  background: #f2b84b;
+  box-shadow: 0 0 8px rgba(242, 184, 75, 0.45);
+}
+
 .status-dot.error {
   background: var(--danger);
 }
 
 .status-dot.logging {
   background: var(--danger);
+}
+
+.status-dot.inactive {
+  background: transparent;
+  box-shadow: none;
 }
 
 .input-controls {

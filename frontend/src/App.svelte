@@ -222,6 +222,7 @@ import {
 
   onMount(() => {
     const handleVisibilityChange = () => session.handleVisibilityChange();
+    const handleWindowFocus = () => session.handleWindowFocus();
     const handleKeyDown = (event: KeyboardEvent) => {
       const isReloadKey =
         event.key === 'F5' ||
@@ -267,11 +268,13 @@ import {
     })();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('keydown', handleKeyDown, { capture: true });
 
     return () => {
       disposed = true;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('keydown', handleKeyDown, { capture: true });
       session.dispose();
     };
@@ -373,6 +376,7 @@ import {
         styleValues={resolvedAppStyle}
         activeBar={worldSession.activeBar}
         connectionStatus={worldSession.connectionStatus}
+        hasNewActivity={worldSession.hasNewActivity}
         bars={worldSession.inputBars}
         triggers={worldSession.currentCharacter ? getTriggersForCharacter($session.triggers, worldSession.currentCharacter) : []}
         notes={worldSession.notes}

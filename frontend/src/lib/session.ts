@@ -282,6 +282,13 @@ function createSession() {
       activeTabId: tabId,
       modalOpen: false,
       modalKind: null,
+      worldSessions: {
+        ...current.worldSessions,
+        [tabId]: applyWorldProjection(
+          current.worldSessions[tabId] ?? createWorldTabSessionState(),
+          { hasNewActivity: false },
+        ),
+      },
     }));
   }
 

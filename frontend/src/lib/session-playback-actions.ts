@@ -119,6 +119,51 @@ export function createPlaybackActions({
     logWriteQueues.delete(tabId);
   }
 
+  function isAppFocused(): boolean {
+    return typeof document !== 'undefined' && !document.hidden && document.hasFocus();
+  }
+
+  function setWindowAttention(enabled: boolean): void {
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    void invoke('window_request_attention', { enabled }).catch((error) => {
+      console.error('failed to update window attention:', error);
+    });
+  }
+
+  function clearActiveTabActivity(): void {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    updateWorldSession(tabId, { hasNewActivity: false });
+
+    const scope = getActiveWorldScope();
+    if (scope && !session.userScrolled) {
+      scrollElementToBottom(getWorldOutputAreaId(scope));
+    }
+  }
+
+  function noteOutputActivity(tabId: string): void {
+    const activeTabId = getActiveWorldTabId();
+    const appFocused = isAppFocused();
+
+    if (activeTabId !== tabId || !appFocused) {
+      const current = getWorldSession(tabId);
+      if (!current.hasNewActivity) {
+        updateWorldSession(tabId, { hasNewActivity: true });
+      }
+    }
+
+    if (!appFocused) {
+      setWindowAttention(true);
+    }
+  }
+
   function enqueueLogWrite(tabId: string, work: () => Promise<void>): Promise<void> {
     const previous = logWriteQueues.get(tabId) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(work);
@@ -139,6 +184,7 @@ export function createPlaybackActions({
     }
 
     setWorldOutput(tabId, next.chunks, next.endsWithBr);
+    noteOutputActivity(tabId);
 
     const logText = stripTranscriptForLog(rawText);
     if (isTauriAvailable() && session.loggingActive && session.logFilePath && logText.length > 0) {
@@ -312,19 +358,14 @@ export function createPlaybackActions({
 
   function handleVisibilityChange(): void {
     if (!document.hidden) {
-      const tabId = getActiveWorldTabId();
-      if (!tabId) {
-        return;
-      }
-
-      const session = getWorldSession(tabId);
-      updateWorldSession(tabId, { hasNewActivity: false });
-
-      const scope = getActiveWorldScope();
-      if (scope && !session.userScrolled) {
-        scrollElementToBottom(getWorldOutputAreaId(scope));
-      }
+      setWindowAttention(false);
+      clearActiveTabActivity();
     }
+  }
+
+  function handleWindowFocus(): void {
+    setWindowAttention(false);
+    clearActiveTabActivity();
   }
 
   function handleGlobalKeyDown(event: KeyboardEvent): void {
@@ -486,15 +527,15 @@ export function createPlaybackActions({
           void appendConnectionStatusToTab(tabId, `\x1b[90m[connected to ${world.host}:${world.port}]\x1b[0m\n`);
         },
         onMessage: (text) => {
+          const current = getWorldSession(tabId);
+          const shouldPlayActivitySound = !isAppFocused() && !current.hasNewActivity;
+
           void appendOutputToTab(tabId, text);
 
-          const current = getWorldSession(tabId);
-          if (document.hidden && !current.hasNewActivity) {
+          if (shouldPlayActivitySound) {
             if (character.sound) {
               playBeep();
             }
-
-            updateWorldSession(tabId, { hasNewActivity: true });
           }
         },
         onClose: () => {
@@ -1002,6 +1043,7 @@ export function createPlaybackActions({
 
   return {
     handleVisibilityChange,
+    handleWindowFocus,
     handleGlobalKeyDown,
     connectToCharacter,
     reconnectWorldTab,

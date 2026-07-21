@@ -13,6 +13,7 @@
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
   export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
+  export let hasNewActivity = false;
   export let loggingActive = false;
   export let triggers: Trigger[] = [];
   export let notes = '';
@@ -189,6 +190,7 @@
     {bars}
     {activeBar}
     {connectionStatus}
+    {hasNewActivity}
     {loggingActive}
     {scope}
     onFocusBar={onInputFocusBar}

@@ -631,9 +631,8 @@
           {#if tab.kind === 'world'}
             <div class="world-tab-status" aria-hidden="true">
               <StatusDot status={worldSession?.connectionStatus ?? 'idle'} />
-              {#if worldSession?.loggingActive}
-                <StatusDot status="connected" variant="logging" />
-              {/if}
+              <StatusDot status="connected" variant="activity" active={worldSession?.hasNewActivity === true} />
+              <StatusDot status="connected" variant="logging" active={worldSession?.loggingActive === true} />
             </div>
           {/if}
         </div>

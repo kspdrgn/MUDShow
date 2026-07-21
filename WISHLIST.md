@@ -31,7 +31,7 @@ Bugs:
 - [ ] fix autoscroll to bottom not working if tab is not active? should scroll down when switching back? related to activity indicator line?
 - [X] Fix image previews not triggering scroll-to-bottom consistently
 - [ ] Fix extra blank line after Taps "Somewhere on the muck, * has connected." Maybe related to PD blank lines at end of +watch and other places.
-- [ ] Fix window not flashing on activity
+- [X] Fix window not flashing on activity
 - [X] Fix unmodified home/end keys not working in input window, the passthru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
 - [X] Linux: Fix resize frame, can't see while mousing over
 

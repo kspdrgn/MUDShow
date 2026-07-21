@@ -5,7 +5,7 @@ mod storage;
 
 use std::process::Command;
 
-use tauri::{Manager, Window};
+use tauri::{Manager, UserAttentionType, Window};
 use tauri_runtime::ResizeDirection;
 
 #[tauri::command]
@@ -38,6 +38,14 @@ fn window_toggle_maximize(window: Window) {
 #[tauri::command]
 fn window_close(window: Window) {
     let _ = window.close();
+}
+
+#[tauri::command]
+fn window_request_attention(window: Window, enabled: bool) -> Result<(), String> {
+    let request_type = enabled.then_some(UserAttentionType::Informational);
+    window
+        .request_user_attention(request_type)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -148,6 +156,7 @@ fn main() {
             window_minimize,
             window_toggle_maximize,
             window_close,
+            window_request_attention,
             window_start_dragging,
             window_start_resize_dragging,
             window_open_devtools,

@@ -15,6 +15,7 @@
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
   export let connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' = 'idle';
+  export let hasNewActivity = false;
   export let loggingActive = false;
   export let onFocusBar: (bar: InputBarId) => void;
   export let onSubmit: (bar: InputBarId, value: string) => void;
@@ -531,6 +532,28 @@
     handleCloseBar(bar);
     await restoreFocus();
   }
+
+  function getConnectionStatusTitle(): string {
+    if (connectionStatus === 'idle') {
+      return 'Idle';
+    }
+
+    if (connectionStatus === 'connecting') {
+      return 'Connecting';
+    }
+
+    if (connectionStatus === 'connected') {
+      return 'Connected';
+    }
+
+    return 'Disconnected';
+  }
+
+  function getStatusAreaTitle(): string {
+    const loggingLabel = loggingActive ? 'Logging' : 'Not Logging';
+
+    return `${getConnectionStatusTitle()} - Activity - ${loggingLabel}`;
+  }
 </script>
 
 <div class="input-area">
@@ -604,11 +627,10 @@
         </div>
 
         {#if bar.showStatusDot}
-          <div class="status-dot-slot">
+          <div class="status-dot-slot" title={getStatusAreaTitle()} aria-label={getStatusAreaTitle()}>
             <StatusDot status={connectionStatus} />
-            {#if loggingActive}
-              <StatusDot status="connected" variant="logging" />
-            {/if}
+            <StatusDot status="connected" variant="activity" active={hasNewActivity} />
+            <StatusDot status="connected" variant="logging" active={loggingActive} />
           </div>
         {/if}
 

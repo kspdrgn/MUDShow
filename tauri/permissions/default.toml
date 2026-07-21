@@ -25,6 +25,7 @@ permissions = [
   "allow-window-minimize",
   "allow-window-toggle-maximize",
   "allow-window-close",
+  "allow-window-request-attention",
   "allow-window-start-dragging",
   "allow-window-start-resize-dragging",
   "allow-window-open-devtools",
