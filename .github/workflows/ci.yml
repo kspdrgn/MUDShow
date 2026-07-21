@@ -33,7 +33,7 @@ jobs:
         run: npm run build:frontend
 
   desktop-release:
-    name: Build desktop release artifact
+    name: Build Windows desktop release artifact
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -122,4 +122,72 @@ jobs:
         with:
           name: mudshow-version-${{ steps.version.outputs.semVer }}
           path: artifacts/desktop-release/meta/version.txt
+          if-no-files-found: error
+
+  linux-desktop-release:
+    name: Build Linux desktop executable artifact
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v4.5.0
+        with:
+          versionSpec: 6.7.x
+
+      - name: Determine version
+        id: version
+        uses: gittools/actions/gitversion/execute@v4.5.0
+
+      - name: Stamp desktop version
+        shell: bash
+        run: |
+          version='${{ steps.version.outputs.semVer }}'
+          node -e "const fs=require('fs'); const path='tauri/tauri.conf.json'; const config=JSON.parse(fs.readFileSync(path, 'utf8')); config.version=process.argv[1]; fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');" "$version"
+
+      - name: Build desktop executable
+        run: npm run build -- --no-bundle
+
+      - name: Stage Linux desktop release file
+        shell: bash
+        run: |
+          version='${{ steps.version.outputs.semVer }}'
+          stage_root='artifacts/desktop-release/linux'
+          mkdir -p "$stage_root"
+          cp tauri/target/release/mudshow "$stage_root/mudshow-linux-x64-$version"
+
+      - name: Upload Linux executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mudshow-linux-exe-${{ steps.version.outputs.semVer }}
+          path: artifacts/desktop-release/linux/mudshow-linux-x64-*
           if-no-files-found: error

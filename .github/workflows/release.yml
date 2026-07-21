@@ -44,6 +44,7 @@ jobs:
           name: MUDShow ${{ steps.meta.outputs.version }}
           files: |
             mudshow-${{ steps.meta.outputs.version }}.exe
+            mudshow-linux-x64-${{ steps.meta.outputs.version }}
             *.msi
             *.exe
           generate_release_notes: true
