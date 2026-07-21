@@ -11,7 +11,6 @@ export interface CharacterRecord {
   id: string;
   worldId: string;
   name: string;
-  isDefault: boolean;
   width?: number;
   sound?: boolean;
   outputHistoryLines?: number;

@@ -146,10 +146,10 @@ This would support:
   - Save database version code so user database files can be converted or upgraded losslessly as the app changes. Version such as "j1" for json version 1 storage schema, or "b1" for binary storage version 1.
 
 ## Multiple Connections
-  - [ ] UI tabs for active viewing worlds and allowing switching between them
-    - [X] show connection status
-    - [ ] show activity status, should always be visible and grey if no new activity, maybe flashing amber for unread activity?
-    - [X] show logging status
+  - [X] UI tabs for active viewing worlds and allowing switching between them
+    - [X] show green connection status
+    - [X] show amber activity status
+    - [X] show red logging status
   - [X] CTRL+TAB switch worlds
   - [X] CTRL+F4 to close active tab
   - [X] Reconnect without closing world tab

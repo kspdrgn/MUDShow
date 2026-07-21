@@ -56,7 +56,7 @@ interface PlaybackActionContext {
   closeTab: (tabId: string, source?: 'mouse' | 'shortcut') => void;
   getHighlightRegexes: () => ReturnType<typeof buildHighlightRegexes>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
-  ensureWorldTab: (world: WorldRecord, character: CharacterRecord) => string;
+  ensureWorldTab: (world: WorldRecord, character?: CharacterRecord | null) => string;
 }
 
 interface CreateSessionLogResult {
@@ -226,7 +226,7 @@ export function createPlaybackActions({
 
   async function startLogging(tabId: string, defaultLogFolder: string | null, requestedName: string | null = null): Promise<void> {
     const session = getWorldSession(tabId);
-    if (!session.currentWorld || !session.currentCharacter || session.loggingActive) {
+    if (!session.currentWorld || session.loggingActive) {
       return;
     }
 
@@ -236,7 +236,7 @@ export function createPlaybackActions({
 
     const fileName = requestedName && requestedName.trim()
       ? requestedName.trim()
-      : generateLogFilename(session.currentWorld.name, session.currentCharacter.name);
+      : generateLogFilename(session.currentWorld.name, session.currentCharacter?.name ?? 'world');
     const initialText = stripTranscriptForLog(session.outputChunks.join(''));
 
     try {
@@ -445,6 +445,16 @@ export function createPlaybackActions({
     }
   }
 
+  async function connectToWorld(worldId: string): Promise<void> {
+    const state = getState();
+    const world = state.worlds.find((entry) => entry.id === worldId);
+    if (!world) {
+      return;
+    }
+
+    await connectToTarget(world, null);
+  }
+
   async function connectToCharacter(index: number): Promise<void> {
     const state = getState();
     const character = state.characters[index];
@@ -457,6 +467,11 @@ export function createPlaybackActions({
       return;
     }
 
+    await connectToTarget(world, character);
+  }
+
+  async function connectToTarget(world: WorldRecord, character: CharacterRecord | null): Promise<void> {
+    const state = getState();
     const tabId = ensureWorldTab(world, character);
     const session = ensureWorldSession(tabId);
     const connection = getWorldConnection(tabId);
@@ -466,15 +481,17 @@ export function createPlaybackActions({
     }
 
     const activeBar = session.activeBar ?? session.inputBars[0]?.id ?? 1;
-    const shouldInitializeSession = session.currentCharacter === null;
+    const shouldInitializeSession = session.currentWorld === null;
 
     if (shouldInitializeSession) {
-      const maxHistoryLines = character.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+      const maxHistoryLines = character?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
       const highlightRegexes = buildHighlightRegexes(getHighlightTriggers(state.triggers));
-      const [notes, history] = await Promise.all([
-        loadNotes(character.id, false),
-        loadTranscriptHistory(character.id, maxHistoryLines, false),
-      ]);
+      const [notes, history] = character
+        ? await Promise.all([
+            loadNotes(character.id, false),
+            loadTranscriptHistory(character.id, maxHistoryLines, false),
+          ])
+        : ['', []];
 
       const historySnapshot = maxHistoryLines > 0
         ? session.transcript.loadHistory(history)
@@ -520,7 +537,7 @@ export function createPlaybackActions({
       },
       {
         onOpen: () => {
-          if (character.connectString && character.connectString.trim()) {
+          if (character?.connectString && character.connectString.trim()) {
             connection.send(`${character.connectString}\r\n`);
           }
           updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });
@@ -533,7 +550,7 @@ export function createPlaybackActions({
           void appendOutputToTab(tabId, text);
 
           if (shouldPlayActivitySound) {
-            if (character.sound) {
+            if (character?.sound) {
               playBeep();
             }
           }
@@ -555,16 +572,20 @@ export function createPlaybackActions({
     const tab = state.tabs.find((entry) => entry.id === tabId);
     const session = getWorldSession(tabId);
 
-    if (!tab || tab.kind !== 'world' || !session.currentCharacter || !session.currentWorld) {
+    if (!tab || tab.kind !== 'world' || !session.currentWorld) {
       return;
     }
 
-    const characterIndex = state.characters.findIndex((character) => character.id === session.currentCharacter?.id);
-    if (characterIndex < 0) {
-      return;
-    }
+    if (!session.currentCharacter) {
+      await connectToTarget(session.currentWorld, null);
+    } else {
+      const characterIndex = state.characters.findIndex((character) => character.id === session.currentCharacter?.id);
+      if (characterIndex < 0) {
+        return;
+      }
 
-    await connectToCharacter(characterIndex);
+      await connectToCharacter(characterIndex);
+    }
   }
 
   async function disconnectWorldTab(tabId: string): Promise<void> {
@@ -1046,6 +1067,7 @@ export function createPlaybackActions({
     handleWindowFocus,
     handleGlobalKeyDown,
     connectToCharacter,
+    connectToWorld,
     reconnectWorldTab,
     disconnectWorldTab,
     startLogging,

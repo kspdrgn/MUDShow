@@ -51,13 +51,12 @@ function createCharacterRecordFromDraft(
     id: existing?.id ?? '',
     worldId,
     name: draft.name.trim(),
-    isDefault: existing?.isDefault ?? false,
     width: undefined,
     sound: draft.sound,
     outputHistoryLines: Number.isFinite(parsedOutputHistoryLines)
       ? Math.max(0, parsedOutputHistoryLines)
       : DEFAULT_OUTPUT_HISTORY_LINES,
-    connectString: existing?.isDefault ? undefined : draft.connectString.trim() || undefined,
+    connectString: draft.connectString.trim() || undefined,
   };
 
   if (parsedWidth !== undefined && Number.isFinite(parsedWidth)) {
@@ -83,21 +82,7 @@ function createCharacterDraftFromCharacter(character: CharacterRecord): Characte
     width: String(character.width ?? ''),
     sound: character.sound === true,
     outputHistoryLines: String(character.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES),
-    connectString: character.isDefault ? '' : character.connectString ?? '',
-  };
-}
-
-function createDefaultCharacterRecord(worldId: string): CharacterRecord {
-  const uuid = globalThis.crypto?.randomUUID?.();
-  const id = uuid
-    ? `character-${uuid}`
-    : `character-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-
-  return {
-    id,
-    worldId,
-    name: 'Default',
-    isDefault: true,
+    connectString: character.connectString ?? '',
   };
 }
 
@@ -168,10 +153,6 @@ export function createCharacterActions({
 
     const selected = index === null ? null : state.characters[index] ?? null;
 
-    if (selected?.isDefault) {
-      return;
-    }
-
     if (selected) {
       patch({
         modalKind: 'character',
@@ -234,21 +215,10 @@ export function createCharacterActions({
       ? state.worlds.map((entry) => (entry.id === previousWorld.id ? { ...entry, ...world } : entry))
       : [...state.worlds, world];
 
-    const nextCharacters = [...state.characters];
-    const existingDefaultWorldIds = new Set(nextCharacters.filter((character) => character.isDefault).map((character) => character.worldId));
-
-    for (const nextWorldEntry of nextWorlds) {
-      if (!existingDefaultWorldIds.has(nextWorldEntry.id)) {
-        nextCharacters.push(createDefaultCharacterRecord(nextWorldEntry.id));
-        existingDefaultWorldIds.add(nextWorldEntry.id);
-      }
-    }
-
-    await saveConnectionData(nextWorlds, nextCharacters);
+    await saveConnectionData(nextWorlds, state.characters);
 
     patch({
       worlds: nextWorlds,
-      characters: nextCharacters,
       modalOpen: false,
       modalKind: null,
       worldEditingId: null,

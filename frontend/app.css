@@ -624,6 +624,7 @@ body {
 
 .titlebar-close-confirm-dropdown {
   position: fixed;
+  right: auto;
   min-width: 280px;
   max-width: min(420px, calc(100vw - 16px));
   gap: 8px;
@@ -1111,7 +1112,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
   background: var(--bg);
+  min-height: 3.2rem;
   padding: 0.6rem 0.8rem;
   gap: 0.5rem;
   transition: background 0.1s;
@@ -1124,6 +1127,18 @@ body {
 
 .char-row:hover {
   background: var(--surface);
+}
+
+.empty-character-row {
+  min-height: 2.2rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.empty-character-actions {
+  justify-content: flex-start;
+  margin-left: 0;
+  width: 100%;
 }
 
 .char-name {
@@ -1142,9 +1157,28 @@ body {
 
 .char-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   margin-left: auto;
   flex-shrink: 0;
+}
+
+.char-menu-button {
+  width: 2.35rem;
+  padding-left: 0;
+  padding-right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.characters-context-menu {
+  min-width: 180px;
+}
+
+.titlebar-context-menu-item.danger {
+  color: var(--danger);
 }
 
 .btn {
@@ -2280,6 +2314,7 @@ body {
   border-radius: 50%;
   background: var(--text-dim);
   flex-shrink: 0;
+  position: relative;
   transition: background 0.3s;
 }
 
@@ -2311,6 +2346,18 @@ body {
 .status-dot.inactive {
   background: transparent;
   box-shadow: none;
+}
+
+.status-dot.inactive::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(184, 197, 214, 0.45);
+  transform: translate(-50%, -50%);
 }
 
 .input-controls {

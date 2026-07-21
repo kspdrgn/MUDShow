@@ -13,8 +13,8 @@
 Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with just enough features to support roleplay and day-to-day play.
 
 ## Core Model
-- 'Worlds' are the MU servers, and 'Characters' are named users on the server. All connections are done through the world + character context.
-- Per-character notes: locally stored private freeform text associated with a local character.
+- 'Worlds' are the MU servers, and 'Characters' are named users on the server. Connections can be opened directly to a world, or to a named character within a world.
+- Per-character notes: locally stored private freeform text associated with a named local character.
 - Hierarchical triggers: highlight type triggers provide exact-text matches mapped to foreground/background styling, and rule type triggers provide raw regular-expression matches mapped to style actions with room for future line-level behaviors. Triggers can be owned by the app, a world, or a character.
 - Session state: active connection, output stream, input focus, read position, etc.
 
@@ -47,7 +47,11 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 # Requirements 
 
 ## High-Level Functional Requirements
-- Show a character list with create, edit, connect, and delete actions.
+- Show a character list with create, edit, connect, and delete actions. Clicking world or character row background does not connect; only explicit connect controls start a connection.
+- World and character list rows show a right-aligned connect button and a three-dot actions menu button.
+- Row action menus contain all row actions. World menus include connect, edit world, new character, and delete world. Character menus include connect, edit character, and delete character.
+- Right-clicking a world or character row opens the same row action menu.
+- When a world has no characters, a shorter character-style row appears beneath it with only an add a character button.
 - Allow adding and editing character profiles.
 - Allow configuring a per-character transcript history line limit, with 0 disabling history storage and restore. The default is 0.
 - Connect to a remote MU* endpoint using the selected profile.

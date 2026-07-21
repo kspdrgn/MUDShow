@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
   import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, TriggerOwner, WorldRecord } from '../../types';
-  import { APP_TRIGGER_OWNER, canCharacterOwnTriggers, getOwnerTriggers, triggerOwnerEquals } from '../../triggers';
+  import { APP_TRIGGER_OWNER, getOwnerTriggers, triggerOwnerEquals } from '../../triggers';
   import HighlightsPanel from './HighlightsPanel.svelte';
   import RuleEditorPanel from './RuleEditorPanel.svelte';
 
@@ -65,7 +65,7 @@
 
   $: highlights = triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
   $: rules = triggers.filter((trigger): trigger is Rule => trigger.type === 'rule');
-  $: visibleCharacters = characters.filter(canCharacterOwnTriggers);
+  $: visibleCharacters = characters;
   $: flatTreeItems = buildFlatTreeItems(triggers, worlds, visibleCharacters, treeRefreshToken);
   $: selectedTriggerCount = getSelectedTriggerItems().length;
 

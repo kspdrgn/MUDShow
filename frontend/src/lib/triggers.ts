@@ -35,6 +35,13 @@ export function getTriggersForCharacter(triggers: Trigger[], character: Characte
   ];
 }
 
+export function getTriggersForWorld(triggers: Trigger[], worldId: string): Trigger[] {
+  return [
+    ...getOwnerTriggers(triggers, { kind: 'world', worldId }),
+    ...getOwnerTriggers(triggers, APP_TRIGGER_OWNER),
+  ];
+}
+
 export function getTriggerOwnerLabel(owner: TriggerOwner): string {
   if (owner.kind === 'app') {
     return 'app';
@@ -45,8 +52,4 @@ export function getTriggerOwnerLabel(owner: TriggerOwner): string {
   }
 
   return 'character';
-}
-
-export function canCharacterOwnTriggers(character: CharacterRecord): boolean {
-  return !character.isDefault;
 }

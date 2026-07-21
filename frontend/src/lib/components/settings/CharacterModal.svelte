@@ -23,6 +23,7 @@
   let sound = false;
   let outputHistoryLines = String(DEFAULT_OUTPUT_HISTORY_LINES);
   let connectString = '';
+  $: displayTitle = worldName ? `${title} - ${worldName}` : title;
 
   $: if (open) {
     name = draft.name;
@@ -65,10 +66,7 @@
     on:keydown={handleOverlayKeyDown}
   >
     <div id="modal" class="character-modal">
-      <h2>{title}</h2>
-      {#if worldName}
-        <p class="settings-note">world: {worldName}</p>
-      {/if}
+      <h2>{displayTitle}</h2>
       <form on:submit|preventDefault={handleSave}>
         <div class="field">
           <label for="field-name">name</label>

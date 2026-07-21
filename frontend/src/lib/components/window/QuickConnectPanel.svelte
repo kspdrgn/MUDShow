@@ -27,22 +27,15 @@
         <button
           type="button"
           class="titlebar-quick-connect-row"
-          disabled={worldCharacters.length === 0}
           on:click={() => onConnectWorld(world.id)}
         >
           <span class="titlebar-quick-connect-name">{world.name}</span>
           <span class="titlebar-quick-connect-meta">{world.host}:{world.port}</span>
-          <span class="titlebar-quick-connect-action">
-            {#if worldCharacters.length > 0}
-              connect
-            {:else}
-              no characters
-            {/if}
-          </span>
+          <span class="titlebar-quick-connect-action">connect</span>
         </button>
 
         <div class="titlebar-quick-connect-tree">
-          {#each worldCharacters.filter((character) => !character.isDefault) as character}
+          {#each worldCharacters as character}
             <button
               type="button"
               class="titlebar-quick-connect-row titlebar-quick-connect-child"

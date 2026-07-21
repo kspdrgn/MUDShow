@@ -13,7 +13,7 @@ const TRIGGER_KEY = 'mudshow_triggers';
 const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
 const STYLE_KEY = 'mudshow_style';
-const STORAGE_SCHEMA_VERSION = 4;
+const STORAGE_SCHEMA_VERSION = 1;
 
 export type DesktopStorageMode = 'file';
 
@@ -105,7 +105,6 @@ function normalizeCharacterRecord(value: unknown): CharacterRecord | null {
 
   const worldId = toStringValue(value.worldId).trim();
   const name = toStringValue(value.name).trim();
-  const isDefault = toBooleanValue(value.isDefault, false);
 
   if (!worldId || !name) {
     return null;
@@ -115,17 +114,13 @@ function normalizeCharacterRecord(value: unknown): CharacterRecord | null {
     id: toStringValue(value.id).trim() || createId('character'),
     worldId,
     name,
-    isDefault,
     width: typeof value.width === 'number' && Number.isFinite(value.width) ? value.width : undefined,
     sound: typeof value.sound === 'boolean' ? value.sound : undefined,
     outputHistoryLines:
       typeof value.outputHistoryLines === 'number' && Number.isFinite(value.outputHistoryLines)
         ? value.outputHistoryLines
         : undefined,
-    connectString:
-      !isDefault && typeof value.connectString === 'string' && value.connectString.trim()
-        ? value.connectString
-        : undefined,
+    connectString: typeof value.connectString === 'string' && value.connectString.trim() ? value.connectString : undefined,
   };
 }
 
@@ -252,11 +247,7 @@ function pruneInvalidTriggerOwners(
   characters: CharacterRecord[],
 ): Trigger[] {
   const worldIds = new Set(worlds.map((world) => world.id));
-  const triggerCharacterIds = new Set(
-    characters
-      .filter((character) => !character.isDefault)
-      .map((character) => character.id),
-  );
+  const triggerCharacterIds = new Set(characters.map((character) => character.id));
 
   return triggers.filter((trigger) => {
     if (trigger.owner.kind === 'app') {
@@ -269,42 +260,6 @@ function pruneInvalidTriggerOwners(
 
     return triggerCharacterIds.has(trigger.owner.characterId);
   });
-}
-
-function createDefaultCharacter(worldId: string): CharacterRecord {
-  return {
-    id: createId('character'),
-    worldId,
-    name: 'Default',
-    isDefault: true,
-  };
-}
-
-function injectDefaultCharacters(data: PersistentData): PersistentData {
-  const nextCharacters = [...data.characters];
-  const existingDefaults = new Set(nextCharacters.filter((character) => character.isDefault).map((character) => character.worldId));
-
-  for (const world of data.worlds) {
-    if (!existingDefaults.has(world.id)) {
-      nextCharacters.push(createDefaultCharacter(world.id));
-    }
-  }
-
-  return {
-    ...data,
-    characters: nextCharacters,
-  };
-}
-
-function buildSessionCharacters(worlds: WorldRecord[], characters: CharacterRecord[]): CharacterRecord[] {
-  return injectDefaultCharacters({
-    schemaVersion: STORAGE_SCHEMA_VERSION,
-    worlds,
-    characters,
-    triggers: [],
-    notes: {},
-    style: {},
-  }).characters;
 }
 
 function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
@@ -543,11 +498,7 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
 
   const update = (data: PersistentData): PersistentData => {
     const worldIds = new Set(normalizedWorlds.map((world) => world.id));
-    const nextCharacters = injectDefaultCharacters({
-      ...data,
-      worlds: normalizedWorlds,
-      characters: data.characters.filter((character) => worldIds.has(character.worldId)),
-    }).characters;
+    const nextCharacters = data.characters.filter((character) => worldIds.has(character.worldId));
 
     return {
       ...data,
@@ -567,13 +518,13 @@ export async function saveWorlds(worlds: WorldRecord[]): Promise<void> {
 export async function loadCharacters(): Promise<CharacterRecord[]> {
   if (!isTauriAvailable()) {
     const data = readWebviewData();
-    return buildSessionCharacters(data.worlds, data.characters);
+    return data.characters;
   }
 
   return withStorageAccess(async () => {
     await waitForPendingFileWrites();
     const data = await readFileData();
-    return buildSessionCharacters(data.worlds, data.characters);
+    return data.characters;
   });
 }
 
@@ -783,12 +734,11 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
   const normalizedWorlds = dedupeWorlds(
     worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null),
   );
-  const normalizedCharacters = buildSessionCharacters(
-    normalizedWorlds,
-    characters
-      .map((entry) => normalizeCharacterRecord(entry))
-      .filter((entry): entry is CharacterRecord => entry !== null),
-  );
+  const worldIds = new Set(normalizedWorlds.map((world) => world.id));
+  const normalizedCharacters = characters
+    .map((entry) => normalizeCharacterRecord(entry))
+    .filter((entry): entry is CharacterRecord => entry !== null)
+    .filter((character) => worldIds.has(character.worldId));
   const nextData: PersistentData = {
     schemaVersion: STORAGE_SCHEMA_VERSION,
     worlds: normalizedWorlds,
@@ -819,7 +769,7 @@ export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; charac
     const data = readWebviewData();
     return {
       worlds: data.worlds,
-      characters: buildSessionCharacters(data.worlds, data.characters),
+      characters: data.characters,
       triggers: data.triggers,
     };
   }
@@ -829,7 +779,7 @@ export async function loadSessionData(): Promise<{ worlds: WorldRecord[]; charac
     const data = await readFileData();
     return {
       worlds: data.worlds,
-      characters: buildSessionCharacters(data.worlds, data.characters),
+      characters: data.characters,
       triggers: data.triggers,
     };
   });

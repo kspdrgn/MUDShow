@@ -75,7 +75,7 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 - Triggers are owned by app, world, or character scope.
 - App-owned triggers apply everywhere, world-owned triggers apply to every connected character in that world, and character-owned triggers apply only to that character.
 - Connected characters evaluate triggers from character scope, then world scope, then app scope.
-- The default character cannot own triggers; shared triggers for that world belong to the world.
+- World-only connections use world-owned and app-owned triggers; shared triggers for a world belong to the world.
 - Simple highlight triggers stay as the easy word-or-phrase foreground/background styling entries.
 - Regexp rule triggers are intended for line-oriented matching and future routing or classification behaviors.
 
@@ -94,11 +94,11 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 
 Some settings can be stored anywhere in a tree hierarchy of worlds and their characters.
 
-Many settings can apply to a MU world as a whole or only to specific characters within the world. This interface appears as a tree with each known MU world, containing each owned character.
+Many settings can apply to a MU world as a whole or only to specific named characters within the world. This interface appears as a tree with each known MU world, containing each owned character.
 
-A 'Default' character exists for every world, which cannot be renamed. The default character is used to connect without using any specific character settings.
+Worlds can be connected directly without selecting a character. World-only connections use world-level settings and do not create an implicit character.
 
-Named characters can store input and output history, and can override style settings provided by the default character.
+Named characters can store input and output history, and can override style settings provided by the world.
 
 ## World / Character Style Settings
 

@@ -62,7 +62,7 @@
   let worldContextMenuCanEditCharacter = false;
   let closeConfirmDropdown: HTMLDivElement | null = null;
   let closeConfirmPosition = { x: 0, y: 0 };
-  let closeConfirmAnchorRect: DOMRect | null = null;
+  let closeConfirmAnchorPoint: { x: number; y: number } | null = null;
   let closeConfirmTab: AppTab | null = null;
   let closeConfirmWorldName = '';
   const tabCloseButtons: Record<string, HTMLButtonElement | null> = {};
@@ -97,7 +97,7 @@
     worldContextMenuTab?.kind === 'world' &&
     worldContextMenuSession !== null &&
     worldContextMenuSession.connectionStatus === 'disconnected' &&
-    worldContextMenuSession.currentCharacter !== null;
+    worldContextMenuSession.currentWorld !== null;
   $: worldContextMenuCanDisconnect =
     worldContextMenuTab?.kind === 'world' &&
     worldContextMenuSession !== null &&
@@ -118,8 +118,7 @@
   $: worldContextMenuCanEditCharacter =
     worldContextMenuTab?.kind === 'world' &&
     worldContextMenuSession !== null &&
-    worldContextMenuSession.currentCharacter !== null &&
-    !worldContextMenuSession.currentCharacter.isDefault;
+    worldContextMenuSession.currentCharacter !== null;
   $: closeConfirmTab = closeConfirmTabId ? tabs.find((tab) => tab.id === closeConfirmTabId) ?? null : null;
   $: closeConfirmWorldName = closeConfirmTabId
     ? worldSessions[closeConfirmTabId]?.currentWorld?.name ??
@@ -130,19 +129,6 @@
 
   function isCloseConfirmDropdownOpen(): boolean {
     return closeConfirmMode === 'dropdown' && closeConfirmTab !== null;
-  }
-
-  function setCloseConfirmAnchor(target: EventTarget | null): void {
-    if (!(target instanceof HTMLElement)) {
-      closeConfirmAnchorRect = null;
-      return;
-    }
-
-    closeConfirmAnchorRect = target.getBoundingClientRect();
-    closeConfirmPosition = {
-      x: closeConfirmAnchorRect.left,
-      y: closeConfirmAnchorRect.bottom + 10,
-    };
   }
 
   function toggleMenu(event: MouseEvent): void {
@@ -359,21 +345,20 @@
       return;
     }
 
-    if (!closeConfirmAnchorRect || !closeConfirmDropdown) {
+    if (!closeConfirmAnchorPoint || !closeConfirmDropdown) {
       return;
     }
 
     const margin = 8;
     const dropdownRect = closeConfirmDropdown.getBoundingClientRect();
-    const preferredLeft = closeConfirmAnchorRect.left - Math.max(0, dropdownRect.width - closeConfirmAnchorRect.width);
-    const preferredTop = closeConfirmAnchorRect.bottom + 10;
+    const preferredLeft = closeConfirmAnchorPoint.x - dropdownRect.width / 2;
+    const preferredTop = closeConfirmAnchorPoint.y + 10;
     const maxLeft = window.innerWidth - dropdownRect.width - margin;
     const maxTop = window.innerHeight - dropdownRect.height - margin;
-    const top = maxTop >= preferredTop ? preferredTop : Math.max(preferredTop, margin);
 
     closeConfirmPosition = {
       x: Math.max(margin, Math.min(preferredLeft, maxLeft)),
-      y: top,
+      y: Math.max(margin, Math.min(preferredTop, maxTop)),
     };
   }
 
@@ -434,8 +419,15 @@
     action();
   }
 
-  function beginWorldTabClose(anchorRect: DOMRect, tab: AppTab): void {
-    closeConfirmAnchorRect = anchorRect;
+  function beginWorldTabClose(event: MouseEvent, tab: AppTab): void {
+    closeConfirmAnchorPoint = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+    closeConfirmPosition = {
+      x: event.clientX,
+      y: event.clientY + 10,
+    };
     closeWorldContextMenu();
     onCloseTab(tab.id, 'mouse');
   }
@@ -456,7 +448,7 @@
 
       if (closeConfirmDropdown && !closeConfirmDropdown.contains(event.target as Node)) {
         if (isCloseConfirmDropdownOpen()) {
-          closeConfirmAnchorRect = null;
+          closeConfirmAnchorPoint = null;
           onCancelCloseConfirm();
         }
       }
@@ -478,7 +470,7 @@
         menuOpen = false;
         quickConnectOpen = false;
         closeWorldContextMenu();
-        closeConfirmAnchorRect = null;
+        closeConfirmAnchorPoint = null;
         onCancelCloseConfirm();
       }
     };
@@ -620,9 +612,7 @@
               title={`close ${tab.title}`}
               aria-label={`close ${tab.title}`}
               on:pointerdown|stopPropagation
-              on:click|stopPropagation={(event) =>
-                beginWorldTabClose((event.currentTarget as HTMLElement).getBoundingClientRect(), tab)
-              }
+              on:click|stopPropagation={(event) => beginWorldTabClose(event, tab)}
             >
               X
             </button>
@@ -743,7 +733,14 @@
           )
         }
         onDismiss={closeWorldContextMenu}
-        onCloseRequest={(rect) => beginWorldTabClose(rect, worldContextMenuTab)}
+        onCloseRequest={(rect) =>
+          beginWorldTabClose(
+            new MouseEvent('click', {
+              clientX: rect.left + rect.width / 2,
+              clientY: rect.bottom,
+            }),
+            worldContextMenuTab,
+          )}
       />
     </div>
   {/if}

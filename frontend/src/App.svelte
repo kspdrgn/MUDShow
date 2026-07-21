@@ -28,7 +28,7 @@ import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
-import { getTriggersForCharacter } from './lib/triggers';
+import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
 import {
   createAppStyleEditor,
   createDefaultAppStyleEditor,
@@ -205,8 +205,8 @@ import {
   $: loggingModalInitialFileName =
     loggingModalSession?.loggingActive && loggingModalSession.logFilePath
       ? getLogFileName(loggingModalSession.logFilePath)
-      : loggingModalSession?.currentWorld && loggingModalSession.currentCharacter
-        ? generateLogFilename(loggingModalSession.currentWorld.name, loggingModalSession.currentCharacter.name)
+      : loggingModalSession?.currentWorld
+        ? generateLogFilename(loggingModalSession.currentWorld.name, loggingModalSession.currentCharacter?.name ?? 'world')
         : '';
 
   $: pageTitle =
@@ -214,10 +214,12 @@ import {
       ? `App Settings · MUDShow`
       : activeTab?.kind === 'triggers'
         ? 'Triggers · MUDShow'
-      : activeTab?.kind === 'world' && activeWorldSession?.currentCharacter
+      : activeTab?.kind === 'world' && activeWorldSession?.currentWorld
         ? appSettings.titleAttention && activeWorldSession.hasNewActivity
-          ? `* ${activeWorldSession.currentWorld?.name ?? activeWorldSession.currentCharacter.name} · ${activeWorldSession.currentCharacter.name}`
-          : `${activeWorldSession.currentWorld?.name ?? activeWorldSession.currentCharacter.name} · ${activeWorldSession.currentCharacter.name}`
+          ? `* ${activeWorldSession.currentCharacter ? `${activeWorldSession.currentWorld.name} · ${activeWorldSession.currentCharacter.name}` : activeWorldSession.currentWorld.name}`
+          : activeWorldSession.currentCharacter
+            ? `${activeWorldSession.currentWorld.name} · ${activeWorldSession.currentCharacter.name}`
+            : activeWorldSession.currentWorld.name
         : 'MUDShow';
 
   onMount(() => {
@@ -304,18 +306,7 @@ import {
     onQuickLogTab={(tabId) => void session.startLogging(tabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null)}
     onOpenLoggingTab={(tabId) => openLoggingModal(tabId)}
     onStopLoggingTab={(tabId) => void session.stopLogging(tabId)}
-    onConnectWorld={(worldId) => {
-      const defaultCharacterIndex = $session.characters.findIndex(
-        (character) => character.worldId === worldId && character.isDefault,
-      );
-      const fallbackCharacterIndex =
-        defaultCharacterIndex >= 0
-          ? defaultCharacterIndex
-          : $session.characters.findIndex((character) => character.worldId === worldId);
-      if (fallbackCharacterIndex >= 0) {
-        void session.connectToCharacter(fallbackCharacterIndex);
-      }
-    }}
+    onConnectWorld={(worldId) => void session.connectToWorld(worldId)}
     onConnectCharacter={(index) => void session.connectToCharacter(index)}
     onOpenCharactersTab={() => session.selectTab('characters')}
     onEditWorldTab={(tabId) => void session.openWorldEditorFromWorldTab(tabId)}
@@ -332,18 +323,7 @@ import {
       <HomePanel
         worlds={$session.worlds}
         characters={$session.characters}
-        onConnectWorld={(worldId) => {
-          const defaultCharacterIndex = $session.characters.findIndex(
-            (character) => character.worldId === worldId && character.isDefault,
-          );
-          const fallbackCharacterIndex =
-            defaultCharacterIndex >= 0
-              ? defaultCharacterIndex
-              : $session.characters.findIndex((character) => character.worldId === worldId);
-          if (fallbackCharacterIndex >= 0) {
-            void session.connectToCharacter(fallbackCharacterIndex);
-          }
-        }}
+        onConnectWorld={(worldId) => void session.connectToWorld(worldId)}
         onConnectCharacter={(index) => void session.connectToCharacter(index)}
         onOpenCharactersTab={() => session.selectTab('characters')}
         onOpenSettings={() => session.selectTab('settings')}
@@ -363,6 +343,7 @@ import {
           }
         }}
         onDeleteCharacter={(index) => session.deleteCharacter(index)}
+        onConnectWorld={(worldId) => void session.connectToWorld(worldId)}
         onConnectCharacter={(index) => void session.connectToCharacter(index)}
         onOpenSettings={() => session.selectTab('settings')}
       />
@@ -378,7 +359,11 @@ import {
         connectionStatus={worldSession.connectionStatus}
         hasNewActivity={worldSession.hasNewActivity}
         bars={worldSession.inputBars}
-        triggers={worldSession.currentCharacter ? getTriggersForCharacter($session.triggers, worldSession.currentCharacter) : []}
+        triggers={worldSession.currentCharacter
+          ? getTriggersForCharacter($session.triggers, worldSession.currentCharacter)
+          : worldSession.currentWorld
+            ? getTriggersForWorld($session.triggers, worldSession.currentWorld.id)
+            : []}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
@@ -388,12 +373,12 @@ import {
         characterWidth={worldSession.currentCharacter?.width}
         loggingActive={worldSession.loggingActive}
         imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
-        canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentCharacter !== null}
+        canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentWorld !== null}
         canDisconnect={worldSession.connectionStatus === 'connecting' || worldSession.connectionStatus === 'connected'}
         canQuickLog={!worldSession.loggingActive}
         canStopLogging={worldSession.loggingActive}
         canEditWorld={worldSession.currentWorld !== null}
-        canEditCharacter={worldSession.currentCharacter !== null && !worldSession.currentCharacter.isDefault}
+        canEditCharacter={worldSession.currentCharacter !== null}
         onReconnectTab={() => void session.reconnectWorldTab(tab.id)}
         onDisconnectTab={() => void session.disconnectWorldTab(tab.id)}
         onQuickLogTab={() => void session.startLogging(tab.id, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null)}

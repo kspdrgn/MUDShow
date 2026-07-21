@@ -35,7 +35,7 @@ export interface TriggersTab extends AppTabBase {
 export interface WorldTab extends AppTabBase {
   kind: 'world';
   worldId: string;
-  characterId: string;
+  characterId: string | null;
   connectionId: string;
 }
 
@@ -71,7 +71,7 @@ export function createTriggersTab(): TriggersTab {
 export function createWorldTab(
   id: string,
   worldId: string,
-  characterId: string,
+  characterId: string | null,
   title: string,
   connectionId: string,
 ): WorldTab {

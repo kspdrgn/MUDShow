@@ -19,10 +19,10 @@ Anchored to the right:
   - OS window controls: minimize, maximize, close
 
 ## Tab Bar
-  - Every connected world character will have its own tab.
+  - Every connected world or world character will have its own tab.
   - Tabs can be closed.
-  - Only one tab can be opened at a time per world character. Attempting to open the same character will instead activate that tab.
-  - Tab names appear with world name and character name.
+  - Only one tab can be opened at a time per world-only or world-character target. Attempting to open the same target will instead activate that tab.
+  - Tab names appear with the world name for world-only connections, or with world name and character name for character connections.
   - Connected tabs show a vertical status display with fixed dot positions for accessibility: connection status, unread activity, and logging status.
   - Inactive activity and logging states remain in fixed invisible slots instead of being removed, so each position always has the same meaning without showing inactive grey dots.
   - A tab shows amber unread activity when it receives output while it is not active, or while it is active but the app window is not focused. The unread activity clears when that tab becomes active in the focused window.
@@ -31,7 +31,7 @@ Anchored to the right:
   - Characters and App Settings are opened only when the user chooses them and are not instantiated until then.
   - Tabs will have an X button anchored on their right side to close a tab.
   - CTRL+F4 will close the active tab.
-  - Closing a connected or connecting world tab requires confirmation. Clicking the tab X shows a small dropdown anchored to that X, while Ctrl+F4 uses a centered modal confirmation.
+  - Closing a connected or connecting world tab requires confirmation. Clicking the tab X shows a small confirmation dialog centered beneath the mouse cursor and clamped within the window, while Ctrl+F4 uses a centered modal confirmation.
   - Tabs can be dragged to re-order them within the tab bar arbitrarily
 
 ## Quick Connect Menu

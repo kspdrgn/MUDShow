@@ -413,17 +413,17 @@ function createSession() {
           return tab;
         }
 
-        const character = characterById.get(tab.characterId);
+        const character = tab.characterId ? characterById.get(tab.characterId) ?? null : null;
         const world = character ? worldById.get(character.worldId) : worldById.get(tab.worldId);
 
-        if (!world || !character) {
+        if (!world) {
           return tab;
         }
 
         return {
           ...tab,
           worldId: world.id,
-          title: `${world.name} · ${character.name}`,
+          title: character ? `${world.name} · ${character.name}` : world.name,
         };
       });
 
@@ -435,12 +435,12 @@ function createSession() {
           continue;
         }
 
-        const character = characterById.get(tab.characterId);
+        const character = tab.characterId ? characterById.get(tab.characterId) ?? null : null;
         const world = character ? worldById.get(character.worldId) ?? null : worldById.get(tab.worldId) ?? null;
         worldSessions[tabId] = {
           ...session,
           currentWorld: world,
-          currentCharacter: character ?? null,
+          currentCharacter: character,
         };
       }
 
@@ -452,10 +452,13 @@ function createSession() {
     });
   }
 
-  function ensureWorldTab(world: WorldRecord, character: CharacterRecord): string {
+  function ensureWorldTab(world: WorldRecord, character: CharacterRecord | null = null): string {
     const current = getState();
     const existing = current.tabs.find(
-      (tab): tab is WorldTab => tab.kind === 'world' && tab.worldId === world.id && tab.characterId === character.id,
+      (tab): tab is WorldTab =>
+        tab.kind === 'world' &&
+        tab.worldId === world.id &&
+        tab.characterId === (character?.id ?? null),
     );
 
     if (existing) {
@@ -468,8 +471,8 @@ function createSession() {
     const tab = createWorldTab(
       `world-${nextWorldTabId++}`,
       world.id,
-      character.id,
-      `${world.name} · ${character.name}`,
+      character?.id ?? null,
+      character ? `${world.name} · ${character.name}` : world.name,
       connectionId,
     );
     const worldSession = createWorldTabSessionState();
@@ -646,7 +649,7 @@ function createSession() {
   async function openCharacterEditorFromWorldTab(tabId: string): Promise<void> {
     const session = getWorldSession(tabId);
     const character = session.currentCharacter;
-    if (!character || character.isDefault) {
+    if (!character) {
       return;
     }
 

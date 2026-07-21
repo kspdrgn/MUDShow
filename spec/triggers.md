@@ -13,7 +13,7 @@ Each trigger also has an owner:
 - `world` - Applies to every connected character in that world.
 - `character` - Applies only to that character.
 
-The default character cannot own triggers. Shared triggers for a world belong to the world itself.
+World-only connections use world-owned and app-owned triggers. Shared triggers for a world belong to the world itself.
 
 For a connected character, active triggers are evaluated from the most specific owner to the least specific owner:
 1. character-owned triggers
@@ -26,7 +26,7 @@ The triggers tree has fixed bottom controls to add a new highlight or a new rule
 New highlights and rules appear in the tree only after the editor is saved. Highlight, rule label, and rule pattern changes refresh the tree after the editor is saved.
 Highlight type triggers are displayed above rule type triggers in the editor tree for each owner. The tree shows app-owned triggers, then worlds, then each world's characters and owned triggers. App, world, and character rows are selectable owner rows. Selecting an owner row supports owner-level actions such as adding a trigger or pasting trigger JSON into that owner.
 
-The default character is not shown as a trigger owner target.
+Only named characters are shown as character trigger owner targets.
 
 The tree supports single selection, CTRL multi-selection of individual rows, and SHIFT range selection across the visible flattened tree rows. If exactly one trigger is selected, the corresponding editor is shown. If exactly one owner is selected, an owner summary and owner-level actions are shown. If multiple rows are selected, a multi-selection summary and valid bulk actions are shown.
 
