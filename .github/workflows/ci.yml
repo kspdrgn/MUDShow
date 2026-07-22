@@ -188,6 +188,6 @@ jobs:
       - name: Upload Linux executable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mudshow-linux-exe-${{ steps.version.outputs.semVer }}
+          name: mudshow-linux-x64-exe-${{ steps.version.outputs.semVer }}
           path: artifacts/desktop-release/linux/mudshow-linux-x64-*
           if-no-files-found: error

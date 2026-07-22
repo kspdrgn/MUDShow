@@ -35,6 +35,10 @@ jobs:
           version="$(cat "${{ runner.temp }}/desktop-release/version.txt")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: List downloaded desktop release files
+        shell: bash
+        run: find "${{ runner.temp }}/desktop-release" -type f -printf '%P\n' | sort
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -43,10 +47,11 @@ jobs:
           target_commitish: ${{ github.event.workflow_run.head_sha }}
           name: MUDShow ${{ steps.meta.outputs.version }}
           files: |
-            mudshow-win-x64-${{ steps.meta.outputs.version }}.exe
-            mudshow-linux-x64-${{ steps.meta.outputs.version }}
-            MUDShow_win_x64_setup_${{ steps.meta.outputs.version }}.exe
-            MUDShow_win_x64_setup_${{ steps.meta.outputs.version }}.msi
+            **/mudshow-win-x64-*.exe
+            **/mudshow-linux-x64-*
+            **/MUDShow_win_x64_setup_*.exe
+            **/MUDShow_win_x64_setup_*.msi
+          fail_on_unmatched_files: true
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
