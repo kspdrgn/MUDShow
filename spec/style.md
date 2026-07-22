@@ -43,11 +43,16 @@ The app-level style settings are live and persist to the app storage file. App d
 
 ## Fonts UI
 
-- Font Source - Toggle between selecting built-in fonts and system fonts. The built-in picker currently exposes these internal options:
-  - Internal: JetBrains Mono
-  - Internal: System UI
-  - Internal: Serif
-  - Future system-font support will add a separate set of choices.
+- Font selection uses the app font shelf described in `spec/fonts.md`.
+- The shelf includes built-in fonts and user-added system font families.
+- Built-in font choices are always available:
+  - JetBrains Mono
+  - System UI
+  - Serif
+- System font families are added from a separate system font picker backed by the desktop font discovery layer.
+- The normal style UI should show the compact shelf rather than every installed system font.
+- If the selected shelf family has multiple available faces, the style UI may expose a style selector for weight, italic, and stretch variants.
+- Missing system font shelf entries remain visible and can be replaced or deleted according to `spec/fonts.md`.
 - Font Size, number picker
 
 ## Colors UI

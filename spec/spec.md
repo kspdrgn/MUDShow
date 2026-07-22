@@ -6,6 +6,7 @@
 - spec/output.md - Primary display window and features
 - spec/logging.md - Session logging behavior and file handling
 - spec/settings.md - App and world settings
+- spec/fonts.md - Built-in and system font discovery, shelf persistence, validation, fallback, and fontdb behavior
 - spec/style.md - Style settings for fonts and colors used by input and output area, can be stored at three levels: app, world, character
 - spec/triggers.md - Simple word highlights and complex regexp triggers
 
