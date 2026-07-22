@@ -85,36 +85,36 @@ jobs:
           $stageRoot = "artifacts\desktop-release"
           New-Item -ItemType Directory -Force -Path "$stageRoot\exe" | Out-Null
           New-Item -ItemType Directory -Force -Path "$stageRoot\meta" | Out-Null
-          Copy-Item "tauri\target\release\mudshow.exe" "$stageRoot\exe\mudshow-$version.exe" -Force
+          Copy-Item "tauri\target\release\mudshow.exe" "$stageRoot\exe\mudshow-win-x64-$version.exe" -Force
           if ($buildInstallers) {
             New-Item -ItemType Directory -Force -Path "$stageRoot\msi" | Out-Null
             New-Item -ItemType Directory -Force -Path "$stageRoot\nsis" | Out-Null
-            Copy-Item "tauri\target\release\bundle\msi\*.msi" "$stageRoot\msi" -Force
-            Copy-Item "tauri\target\release\bundle\nsis\*.exe" "$stageRoot\nsis" -Force
+            Copy-Item "tauri\target\release\bundle\msi\*.msi" "$stageRoot\msi\MUDShow_win_x64_setup_$version.msi" -Force
+            Copy-Item "tauri\target\release\bundle\nsis\*.exe" "$stageRoot\nsis\MUDShow_win_x64_setup_$version.exe" -Force
           }
           Set-Content "$stageRoot\meta\version.txt" $version -Encoding utf8
 
       - name: Upload raw exe artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mudshow-exe-${{ steps.version.outputs.semVer }}
-          path: artifacts/desktop-release/exe/mudshow-*.exe
+          name: mudshow-win-x64-exe-${{ steps.version.outputs.semVer }}
+          path: artifacts/desktop-release/exe/mudshow-win-x64-*.exe
           if-no-files-found: error
 
       - name: Upload MSI artifact
         if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
         uses: actions/upload-artifact@v4
         with:
-          name: mudshow-msi-${{ steps.version.outputs.semVer }}
-          path: artifacts/desktop-release/msi/*.msi
+          name: mudshow-win-x64-msi-${{ steps.version.outputs.semVer }}
+          path: artifacts/desktop-release/msi/MUDShow_win_x64_setup_*.msi
           if-no-files-found: error
 
       - name: Upload NSIS artifact
         if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
         uses: actions/upload-artifact@v4
         with:
-          name: mudshow-nsis-${{ steps.version.outputs.semVer }}
-          path: artifacts/desktop-release/nsis/*.exe
+          name: mudshow-win-x64-nsis-${{ steps.version.outputs.semVer }}
+          path: artifacts/desktop-release/nsis/MUDShow_win_x64_setup_*.exe
           if-no-files-found: error
 
       - name: Upload version artifact

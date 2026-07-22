@@ -38,11 +38,12 @@ Bugs:
 Release:
 - [X] include plain exe in 'release' artifacts?
 - [X] rename bundle zip from 'desktop-bundle' to app name and version
-- [ ] Linux: CI + Release build?
+- [X] Linux: CI + Release build?
+- [ ] signed releases
 - [ ] Auto-updater:
   - [ ] Tauri updater package for auto-update
   - [ ] Windows partial update packages, signed and onto github
-  - [ ] Linux idk, needs release build too
+  - [ ] Linux idk
 
 ## Input Box
   - [X] Input Command History

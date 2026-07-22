@@ -43,10 +43,10 @@ jobs:
           target_commitish: ${{ github.event.workflow_run.head_sha }}
           name: MUDShow ${{ steps.meta.outputs.version }}
           files: |
-            mudshow-${{ steps.meta.outputs.version }}.exe
+            mudshow-win-x64-${{ steps.meta.outputs.version }}.exe
             mudshow-linux-x64-${{ steps.meta.outputs.version }}
-            *.msi
-            *.exe
+            MUDShow_win_x64_setup_${{ steps.meta.outputs.version }}.exe
+            MUDShow_win_x64_setup_${{ steps.meta.outputs.version }}.msi
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
