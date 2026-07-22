@@ -30,5 +30,7 @@ permissions = [
   "allow-window-start-resize-dragging",
   "allow-window-open-devtools",
   "allow-open-external-url",
+  "allow-list-system-fonts",
+  "allow-validate-system-font",
   "core:window:allow-start-dragging",
 ]

@@ -4,6 +4,8 @@
 
 Use a small Rust-side font enumeration layer, ideally `fontdb`, to discover installed system fonts and pass that data to the frontend so the app can present a pure Svelte font picker.
 
+The picker should act as a source browser for adding system font families to a smaller app-level font shelf. The normal style settings UI should use that compact shelf, not expose every installed system font all the time.
+
 This plan intentionally avoids a GTK dependency.
 
 ## Why This Approach
@@ -21,7 +23,9 @@ The user should be able to:
 - browse installed font families
 - see style variants where available, such as regular, italic, bold, and bold italic
 - preview the currently selected family in the picker
-- choose a font that applies to transcript and input text
+- add a system font family to the app's compact selectable font shelf
+- choose a shelf font family and face style for transcript and input text
+- remove non-built-in shelf font families when they are unwanted or unavailable
 - fall back cleanly if the system font list cannot be loaded
 
 ## Scope
@@ -29,10 +33,12 @@ The user should be able to:
 The picker should support:
 
 - system font enumeration
-- family selection
-- style selection within a family
+- a compact app font shelf containing built-in fonts and user-added system font families
+- family selection from the shelf in the normal style settings UI
+- style selection within the selected family
 - font preview
-- persistence of the chosen font family and style
+- persistence of the chosen shelf family and selected face traits
+- preservation of unavailable system font choices without silently deleting them
 
 Optional later additions:
 
@@ -51,7 +57,8 @@ Responsibilities:
 - load system fonts
 - group faces by family
 - return available style variants
-- provide stable identifiers or normalized names for the frontend
+- provide normalized family names and face metadata for the frontend
+- report enough face traits for CSS rendering, including weight, italic, and stretch where available
 - report errors cleanly if system font discovery fails
 
 ### 2. Tauri command boundary
@@ -64,36 +71,71 @@ The command should return a compact JSON structure such as:
 - style variants
 - weight
 - italic flag
-- postscript or face name if useful
+- stretch if useful
+- postscript or face name if useful for diagnostics or best-effort matching
 - optional preview metadata
 
 The frontend should not need to know anything about `fontdb` internals.
 
-### 3. Pure Svelte picker UI
+### 3. App font shelf
 
-Build the picker as a normal Svelte component in the existing settings screen.
+Persist a curated list of font families that are available in MUDShow style settings.
+
+Rules:
+
+- built-in fonts are always present
+- built-in fonts cannot be deleted
+- system font shelf entries store a family-level identity, not a specific face
+- a missing system family remains in the shelf and is marked unavailable
+- deleting a system shelf entry removes it from the compact style dropdown
+- deletion should be blocked or require replacement if any saved style still references that shelf entry
+- unavailable font entries should not be silently removed from shared configuration files
+
+This keeps normal style editing compact while still allowing the user to bring in more families from the full system font list.
+
+### 4. Pure Svelte picker UI
+
+Build the full system font picker as a normal Svelte component opened from the existing settings screen.
 
 Recommended UI pieces:
 
 - search field
 - scrollable family list
 - selected-family detail panel
-- style variant selector
+- style variant preview list
 - live preview sample
+- add-to-shelf / select action
+
+Build the compact shelf selector directly into the existing style font settings:
+
+- font source or grouped font select showing built-ins and shelf system fonts
+- style selector for the selected family's available face variants
+- add system font button that opens the full system picker
+- delete action for non-built-in shelf entries
 - reset-to-default / inherit button
 
 This keeps the UI portable and avoids platform-specific dialog code.
 
 ## Data Shape
 
+There are three related but separate font concepts:
+
+1. The system font universe, returned by Rust from `fontdb`.
+2. The app font shelf, persisted in the user's settings database.
+3. The actual style font selection, persisted in app/world/character style settings.
+
+### System font universe
+
 A practical response shape from Rust could look like:
 
 ```ts
 type FontFaceOption = {
   family: string;
-  style: string;
+  styleName: string;
   weight?: number;
   italic?: boolean;
+  stretch?: string;
+  postscriptName?: string;
   displayName: string;
 };
 
@@ -109,19 +151,83 @@ The frontend can then derive:
 - the selectable styles for the chosen family
 - the preview CSS for the selected face
 
+### App font shelf
+
+The shelf should store family-level entries. A user should not need to add separate shelf entries for Regular, Bold, Italic, and Bold Italic from the same family.
+
+```ts
+type BuiltInFontId = 'jetbrains-mono' | 'system-ui' | 'serif';
+
+type FontShelfEntry =
+  | {
+      source: 'builtin';
+      id: BuiltInFontId;
+      label: string;
+    }
+  | {
+      source: 'system';
+      id: string;
+      family: string;
+      label: string;
+      status?: 'available' | 'missing';
+    };
+```
+
+The system shelf `id` should be stable inside the settings file, but it does not need to be a globally portable font identifier. The family name is the primary cross-machine matching value.
+
+### Style font selection
+
+Each output/input style setting should reference a shelf family and store the chosen face traits separately.
+
+```ts
+type StyleFontSelection = {
+  source: 'builtin' | 'system';
+  id: string;
+  weight?: number;
+  italic?: boolean;
+  stretch?: string;
+};
+```
+
+The resolved renderer can turn this into CSS:
+
+```ts
+type ResolvedFontCss = {
+  fontFamily: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  fontStretch?: string;
+};
+```
+
+For a system font, `fontFamily` should include a safe fallback chain. For a missing system font, resolution should use the inherited or default font while preserving the saved unavailable selection.
+
+### Built-in fonts
+
+Built-ins are app-controlled shelf entries:
+
+- JetBrains Mono
+- System UI
+- Serif
+
+They may expose a smaller generic style list than system fonts. JetBrains Mono can expose real bundled faces if available; System UI and Serif may rely on generic CSS family behavior and should not pretend to have exact OS-enumerated faces.
+
 ## Suggested Work Phases
 
 ### Phase 1: Confirm storage shape
 
-- decide how font family and style are stored in app settings and per-world/per-character style settings
-- decide whether a single field stores a combined font descriptor or whether family and style are separate fields
-- confirm inheritance behavior for missing font fields
+- define the persisted font shelf in the app settings database
+- define `StyleFontSelection` for app/world/character style settings
+- decide how old `fontFamily` string settings migrate to the new font selection shape
+- confirm inheritance behavior when a selected shelf family or face is unavailable
 
 Checklist:
 
-- [ ] Decide where font selection is persisted.
-- [ ] Decide whether family and style are separate fields.
-- [ ] Decide how inheritance falls back when only part of a font selection is overridden.
+- [ ] Persist the app font shelf separately from individual style selections.
+- [ ] Store font family selection and face traits separately.
+- [ ] Add built-in shelf entries that are always present.
+- [ ] Decide how existing `fontFamily` values migrate.
+- [ ] Decide how inheritance falls back when a selected system family is missing.
 
 ### Phase 2: Add Rust font enumeration
 
@@ -159,28 +265,50 @@ Checklist:
 - populate it from the Tauri command result
 - allow filtering by family name
 - show a live preview using the candidate font
-- let the user confirm or cancel selection
+- let the user add a system family to the font shelf
+- let the user optionally select the newly added shelf family immediately
 
 Checklist:
 
 - [ ] Add the picker component.
 - [ ] Add font family filtering.
-- [ ] Add style selection.
+- [ ] Add style preview for faces within a family.
 - [ ] Add preview rendering.
-- [ ] Wire selection into the settings form.
+- [ ] Wire add-to-shelf into the settings form.
 
-### Phase 5: Wire persistence and inheritance
+### Phase 5: Build the compact shelf selector
 
-- save the selected font family and style in the existing settings model
-- make the picker reflect inherited values
-- allow explicit override or reset-to-inherit behavior
-- ensure the transcript and input box both pick up the chosen font
+- update the existing style font controls to show shelf font families
+- show built-in and system entries together, grouped or clearly labeled
+- show a style selector for the selected shelf family
+- derive system style options from the enumerated `fontdb` faces
+- allow deleting non-built-in shelf entries when safe
+- mark missing system families clearly
 
 Checklist:
 
-- [ ] Persist the selected family and style.
+- [ ] Render built-in shelf entries.
+- [ ] Render user-added system shelf entries.
+- [ ] Add a style selector for the selected family.
+- [ ] Add a delete action for non-built-in shelf entries.
+- [ ] Block or replace deletion when a shelf entry is still referenced.
+- [ ] Show unavailable state for missing system families.
+
+### Phase 6: Wire persistence and inheritance
+
+- save the shelf and style selections in the settings model
+- make the picker reflect inherited values
+- allow explicit override or reset-to-inherit behavior
+- ensure the transcript and input box both pick up the chosen font
+- preserve missing system fonts in shared databases without silently changing stored values
+
+Checklist:
+
+- [ ] Persist the font shelf.
+- [ ] Persist selected shelf family and face traits.
 - [ ] Support reset-to-inherit.
 - [ ] Apply the font to transcript and input text.
+- [ ] Preserve missing fonts without mutating the user's saved choice.
 - [ ] Verify named-character overrides work as expected.
 
 ## Implementation Options
@@ -246,9 +374,13 @@ Recommended direction:
 
 ## UI Considerations
 
-- Keep the picker compact and searchable.
+- Keep the normal style font control compact by showing only shelf entries.
+- Keep the full system picker searchable.
 - Group faces under families instead of showing a huge flat list.
 - Show a sample line in the selected font so the user can verify the choice quickly.
+- Let the user add a system family once, then try different styles/weights from that family in the compact style UI.
+- Let the user remove non-built-in shelf entries.
+- Do not delete missing font entries automatically; make them visible and removable.
 - Keep the picker style consistent with the existing settings page.
 - Provide a clear fallback message if the font list cannot be loaded.
 
@@ -260,9 +392,19 @@ Handle these cases explicitly:
 - enumeration failure
 - duplicate or malformed family names
 - missing style variants for a chosen family
+- selected shelf family unavailable on this OS
+- selected style traits unavailable within an otherwise available family
+- deleting a shelf entry that is still referenced by app, world, or character styles
 - backend command failure
 
 The frontend should still function with a safe default font even if enumeration fails.
+
+For shared configuration databases:
+
+- preserve unavailable system shelf entries
+- preserve style selections that reference unavailable system fonts
+- resolve rendering through inheritance or built-in defaults
+- avoid rewriting the database just because the current OS cannot find a saved font
 
 ## Verification Checklist
 
@@ -272,12 +414,18 @@ The frontend should still function with a safe default font even if enumeration 
 - [ ] Confirm the Svelte picker renders grouped families.
 - [ ] Confirm selecting a family updates the preview.
 - [ ] Confirm selecting a style persists correctly.
+- [ ] Confirm adding a system family places it on the compact shelf.
+- [ ] Confirm a shelf family can use multiple face styles without adding duplicate shelf entries.
+- [ ] Confirm deleting a non-built-in shelf entry works when unreferenced.
+- [ ] Confirm deleting a referenced shelf entry is blocked or requires a replacement.
 - [ ] Confirm the transcript and input box use the selected font.
 - [ ] Confirm the app falls back cleanly if enumeration fails.
+- [ ] Confirm missing system fonts remain visible and do not get deleted from shared settings.
 
 ## Open Questions
 
-1. Should the picker store a combined font descriptor or separate family and style fields?
+1. Should deletion of a referenced system shelf entry be blocked, or should it offer an immediate replacement flow?
 2. Should the first version allow only installed system fonts, or also user-imported font files?
 3. Should the font list be cached at startup or loaded only when the settings page opens?
 4. Should the preview sample use the transcript font, the input font, or both?
+5. Should built-in `system-ui` and `serif` expose generic bold/italic controls, or only a default style?

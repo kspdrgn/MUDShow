@@ -1,0 +1,11 @@
+# Allows the frontend to validate whether a saved system font shelf entry exists.
+
+[[permission]]
+identifier = "allow-validate-system-font"
+description = "Enables the validate_system_font command without any pre-configured scope."
+commands.allow = ["validate_system_font"]
+
+[[permission]]
+identifier = "deny-validate-system-font"
+description = "Denies the validate_system_font command without any pre-configured scope."
+commands.deny = ["validate_system_font"]

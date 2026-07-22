@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod fonts;
 mod mud_backend;
 mod storage;
 
@@ -161,6 +162,8 @@ fn main() {
             window_start_resize_dragging,
             window_open_devtools,
             open_external_url,
+            fonts::list_system_fonts,
+            fonts::validate_system_font,
             mud_backend::connect_mud,
             mud_backend::send_mud,
             mud_backend::disconnect_mud,
