@@ -1,6 +1,7 @@
 import { get, writable } from 'svelte/store';
 import { MudConnection } from './connection';
 import { buildHighlightRegexes } from './formatting';
+import { DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS } from './playback';
 import { createCharacterActions } from './session-character-actions';
 import { createInitialState, type SessionState } from './session-state';
 import { createPlaybackActions } from './session-playback-actions';
@@ -33,6 +34,7 @@ function createSession() {
   let highlightRegexes = buildHighlightRegexes(getHighlightTriggers(get(state).triggers));
   let nextWorldTabId = 1;
   let nextConnectionId = 1;
+  let transcriptScrollbackChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS;
   const worldConnections = new Map<string, MudConnection>();
   let clearLoggingQueue = (_tabId: string): void => {};
 
@@ -66,7 +68,7 @@ function createSession() {
   }
 
   function getWorldSession(tabId: string): WorldTabSessionState {
-    return getWorldSessions()[tabId] ?? createWorldTabSessionState();
+    return getWorldSessions()[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
   }
 
   function resetPersistentView(): void {
@@ -113,7 +115,7 @@ function createSession() {
       return existing;
     }
 
-    const created = createWorldTabSessionState();
+    const created = createWorldTabSessionState(transcriptScrollbackChunks);
     state.update((current) => ({
       ...current,
       worldSessions: {
@@ -126,7 +128,7 @@ function createSession() {
 
   function updateWorldSession(tabId: string, patch: Partial<WorldTabSessionState>): void {
     state.update((current) => {
-      const existing = current.worldSessions[tabId] ?? createWorldTabSessionState();
+      const existing = current.worldSessions[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
       const next = applyWorldProjection(existing, patch);
 
       return {
@@ -141,7 +143,7 @@ function createSession() {
 
   function setWorldOutput(tabId: string, outputChunks: string[], outputEndsWithBr: boolean): void {
     state.update((current) => {
-      const existing = current.worldSessions[tabId] ?? createWorldTabSessionState();
+      const existing = current.worldSessions[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
 
       return {
         ...current,
@@ -285,7 +287,7 @@ function createSession() {
       worldSessions: {
         ...current.worldSessions,
         [tabId]: applyWorldProjection(
-          current.worldSessions[tabId] ?? createWorldTabSessionState(),
+          current.worldSessions[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks),
           { hasNewActivity: false },
         ),
       },
@@ -475,7 +477,7 @@ function createSession() {
       character ? `${world.name} · ${character.name}` : world.name,
       connectionId,
     );
-    const worldSession = createWorldTabSessionState();
+    const worldSession = createWorldTabSessionState(transcriptScrollbackChunks);
 
     state.update((snapshot) => ({
       ...snapshot,
@@ -599,6 +601,34 @@ function createSession() {
     }
   };
 
+  function setTranscriptScrollbackChunks(maxChunks: number): void {
+    transcriptScrollbackChunks = Math.max(1, Math.round(maxChunks));
+
+    state.update((current) => {
+      const worldSessions: Record<string, WorldTabSessionState> = {};
+
+      for (const [tabId, worldSession] of Object.entries(current.worldSessions)) {
+        const previousChunkCount = worldSession.transcript.chunks.length;
+        worldSession.transcript.setMaxChunks(transcriptScrollbackChunks);
+        const outputChunks = worldSession.transcript.chunks;
+
+        worldSessions[tabId] = {
+          ...worldSession,
+          outputChunks,
+          outputRevision:
+            outputChunks.length === previousChunkCount
+              ? worldSession.outputRevision
+              : worldSession.outputRevision + 1,
+        };
+      }
+
+      return {
+        ...current,
+        worldSessions,
+      };
+    });
+  }
+
   const characterActions = createCharacterActions({
     state,
     getState,
@@ -671,6 +701,7 @@ function createSession() {
       }
     },
     selectTab,
+    setTranscriptScrollbackChunks,
     setSettingsActiveTab,
     openTriggersTab,
     selectNextTab,

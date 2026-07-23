@@ -7,6 +7,7 @@ MVP Features:
 - [ ] Style. WIP. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
+- [ ] scroll virtualization for long sessions? need stress testing to see when we need it?
 - [X] Trigger hierarchy
 - [X] Tabs, multiple connections
 - [X] Character Settings
@@ -40,6 +41,7 @@ Release:
 - [X] rename bundle zip from 'desktop-bundle' to app name and version
 - [X] Linux: CI + Release build?
 - [ ] signed releases
+  - [ ] separate github?
 - [ ] Auto-updater:
   - [ ] Tauri updater package for auto-update
   - [ ] Windows partial update packages, signed and onto github
@@ -134,7 +136,7 @@ Release:
 
 ## Database MUD text backend
 
-Instead of storing world text simply as the contents of the play window, it should be stored locally in an in-memory SQLite database. Future file databases or exports should be user-readable such as  JSONL, or structured text.
+Instead of storing world text simply as the contents of the play window, it should be stored locally in an in-memory database. Future file databases or exports should be user-readable such as  JSONL, or structured text.
 
 This would support:
   - Virtualized scrolling

@@ -6,6 +6,8 @@ export interface TranscriptHistoryEntry {
   lines: number;
 }
 
+export const DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS = 50000;
+
 export function countTranscriptLines(rawText: string): number {
   const text = stripTelnet(rawText).replace(/\r+\n/g, '\n');
 
@@ -55,8 +57,17 @@ export function appendTranscriptHistory(
 export class PlayTranscript {
   private completion = new CompletionManager();
   private outputEndsWithBr = true;
-  private readonly maxChunks = 2000;
+  private maxChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS;
   chunks: string[] = [];
+
+  constructor(maxChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS) {
+    this.setMaxChunks(maxChunks);
+  }
+
+  setMaxChunks(maxChunks: number): void {
+    this.maxChunks = Math.max(1, Math.round(maxChunks));
+    this.trimChunks();
+  }
 
   reset(): void {
     this.chunks = [];
@@ -91,11 +102,15 @@ export class PlayTranscript {
     this.outputEndsWithBr = chunk.endsWith('\n');
     this.chunks = [...this.chunks, chunk];
 
+    this.trimChunks();
+
+    return { chunks: this.chunks, endsWithBr: this.outputEndsWithBr };
+  }
+
+  private trimChunks(): void {
     if (this.chunks.length > this.maxChunks) {
       this.chunks = this.chunks.slice(-this.maxChunks);
     }
-
-    return { chunks: this.chunks, endsWithBr: this.outputEndsWithBr };
   }
 
   complete(value: string, selectionStart: number): { value: string; cursor: number } | null {

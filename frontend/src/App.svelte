@@ -87,6 +87,10 @@ import {
   function updateAppSettings(patch: Partial<AppSettings>): void {
     appSettings = { ...appSettings, ...patch };
     saveAppSettings(appSettings);
+
+    if (typeof patch.transcriptScrollbackChunks === 'number') {
+      session.setTranscriptScrollbackChunks(appSettings.transcriptScrollbackChunks);
+    }
   }
 
   function updateAppStyle(nextStyle: AppStyleEditor): void {
@@ -267,6 +271,7 @@ import {
         await initializeStoragePath();
         await initializeStyleSettings();
         await refreshResolvedLogFolder();
+        session.setTranscriptScrollbackChunks(appSettings.transcriptScrollbackChunks);
         if (disposed) {
           return;
         }

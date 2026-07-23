@@ -31,7 +31,7 @@ export interface WorldTabSessionState extends WorldSessionProjection {
   transcriptHistory: TranscriptHistoryEntry[];
 }
 
-export function createWorldTabSessionState(): WorldTabSessionState {
+export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldTabSessionState {
   return {
     currentWorld: null,
     currentCharacter: null,
@@ -52,7 +52,7 @@ export function createWorldTabSessionState(): WorldTabSessionState {
     logFilePath: null,
     logFolderPath: null,
     logError: null,
-    transcript: new PlayTranscript(),
+    transcript: new PlayTranscript(transcriptMaxChunks),
     transcriptHistory: [],
   };
 }

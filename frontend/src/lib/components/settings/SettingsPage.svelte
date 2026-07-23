@@ -214,6 +214,19 @@
             />
             <span>show previews for image links.</span>
           </label>
+          <label class="field">
+            <span>scrollback chunks</span>
+            <input
+              type="number"
+              min="1"
+              step="100"
+              value={settings.transcriptScrollbackChunks}
+              on:input={(event) =>
+                onChange({
+                  transcriptScrollbackChunks: Math.max(1, Math.round(Number((event.currentTarget as HTMLInputElement).value))),
+                })}
+            />
+          </label>
           <button
             type="button"
             class="btn"
@@ -225,7 +238,7 @@
             refresh image previews
           </button>
           <p class="settings-note">
-            Reloads preview images without changing the database file location or transcript history.
+            Cache-bust loaded preview images for testing.
           </p>
         </section>
       {:else if activeTab === 'logging'}

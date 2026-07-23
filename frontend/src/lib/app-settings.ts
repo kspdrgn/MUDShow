@@ -1,3 +1,4 @@
+import { DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS } from './playback';
 import { setDesktopStorageMode, type DesktopStorageMode } from './storage';
 
 const SETTINGS_KEY = 'mudshow_app_settings';
@@ -10,6 +11,7 @@ export interface AppSettings {
   linkImagePreviews: boolean;
   imagePreviewCacheVersion: number;
   showCurrentOutputWhenScrollingUp: boolean;
+  transcriptScrollbackChunks: number;
   connectionTimeoutSeconds: number;
   connectionRetries: number;
   keepAlive: boolean;
@@ -27,6 +29,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   linkImagePreviews: false,
   imagePreviewCacheVersion: 0,
   showCurrentOutputWhenScrollingUp: true,
+  transcriptScrollbackChunks: DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS,
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
   keepAlive: true,
@@ -82,6 +85,14 @@ function normalizeNonNegativeInteger(value: unknown, fallback: number): number {
   return Math.max(0, Math.round(value));
 }
 
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.round(value));
+}
+
 export function loadAppSettings(): AppSettings {
   if (typeof window === 'undefined') {
     return { ...DEFAULT_APP_SETTINGS };
@@ -98,6 +109,10 @@ export function loadAppSettings(): AppSettings {
     linkImagePreviews: raw.linkImagePreviews === true,
     imagePreviewCacheVersion: normalizeNonNegativeInteger(raw.imagePreviewCacheVersion, DEFAULT_APP_SETTINGS.imagePreviewCacheVersion),
     showCurrentOutputWhenScrollingUp: raw.showCurrentOutputWhenScrollingUp !== false,
+    transcriptScrollbackChunks: normalizePositiveInteger(
+      raw.transcriptScrollbackChunks,
+      DEFAULT_APP_SETTINGS.transcriptScrollbackChunks,
+    ),
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
       : DEFAULT_APP_SETTINGS.connectionTimeoutSeconds,
@@ -138,6 +153,10 @@ export function saveAppSettings(settings: AppSettings): void {
       DEFAULT_APP_SETTINGS.imagePreviewCacheVersion,
     ),
     showCurrentOutputWhenScrollingUp: settings.showCurrentOutputWhenScrollingUp !== false,
+    transcriptScrollbackChunks: normalizePositiveInteger(
+      settings.transcriptScrollbackChunks,
+      DEFAULT_APP_SETTINGS.transcriptScrollbackChunks,
+    ),
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),
     keepAlive: settings.keepAlive !== false,
