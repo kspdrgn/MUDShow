@@ -44,14 +44,15 @@ The app-level style settings are live and persist to the app storage file. App d
 ## Fonts UI
 
 - Font selection uses the app font shelf described in `spec/fonts.md`.
-- The shelf includes built-in fonts and user-added system font families.
+- The shelf includes built-in fonts and user-added system font faces.
 - Built-in font choices are always available:
   - JetBrains Mono
   - System UI
   - Serif
-- System font families are added from a separate system font picker backed by the desktop font discovery layer.
+- System font faces are added from a separate system font picker backed by the desktop font discovery layer.
+- The system font picker shows families in the main list and face/style radio buttons for the selected family.
+- Adding a system font adds the selected face/style to the shelf, so multiple styles from the same family can appear as separate shelf choices.
 - The normal style UI should show the compact shelf rather than every installed system font.
-- If the selected shelf family has multiple available faces, the style UI may expose a style selector for weight, italic, and stretch variants.
 - Missing system font shelf entries remain visible and can be replaced or deleted according to `spec/fonts.md`.
 - Font Size, number picker
 

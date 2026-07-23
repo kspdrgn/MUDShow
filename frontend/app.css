@@ -1517,10 +1517,16 @@ body {
   flex-direction: column;
   --play-width: none;
   --world-output-font-family: var(--font-mono);
+  --world-output-font-weight: 400;
+  --world-output-font-style: normal;
+  --world-output-font-stretch: normal;
   --world-output-font-size: 13px;
   --world-output-foreground: var(--text);
   --world-output-background: var(--bg);
   --world-input-font-family: var(--font-mono);
+  --world-input-font-weight: 400;
+  --world-input-font-style: normal;
+  --world-input-font-stretch: normal;
   --world-input-font-size: 13px;
   --world-input-foreground: var(--text-bright);
   --world-input-background: var(--input-bg);
@@ -1538,6 +1544,9 @@ body {
   padding: 0.5rem 0.7rem;
   position: relative;
   font-family: var(--world-output-font-family, var(--font-mono));
+  font-weight: var(--world-output-font-weight, 400);
+  font-style: var(--world-output-font-style, normal);
+  font-stretch: var(--world-output-font-stretch, normal);
   font-size: var(--world-output-font-size, 13px);
   line-height: 1.55;
   color: var(--world-output-foreground, var(--text));
@@ -2006,6 +2015,9 @@ body {
   background: var(--world-output-background, var(--input-bg));
   color: var(--world-output-foreground, var(--text));
   font-family: var(--world-output-font-family, var(--font-mono));
+  font-weight: var(--world-output-font-weight, 400);
+  font-style: var(--world-output-font-style, normal);
+  font-stretch: var(--world-output-font-stretch, normal);
   font-size: var(--world-output-font-size, 13px);
   line-height: 1.55;
   border: none;
@@ -2206,6 +2218,9 @@ body {
 .rules-add input[type='text'] {
   flex: 1;
   font-family: var(--world-output-font-family, var(--font-mono));
+  font-weight: var(--world-output-font-weight, 400);
+  font-style: var(--world-output-font-style, normal);
+  font-stretch: var(--world-output-font-stretch, normal);
   font-size: 0.85rem;
   background: var(--world-output-background, var(--input-bg));
   border: 1px solid var(--border);
@@ -2276,6 +2291,9 @@ body {
   border: none;
   outline: none;
   font-family: var(--world-input-font-family, var(--font-mono));
+  font-weight: var(--world-input-font-weight, 400);
+  font-style: var(--world-input-font-style, normal);
+  font-stretch: var(--world-input-font-stretch, normal);
   font-size: var(--world-input-font-size, 13px);
   line-height: 1.55;
   color: var(--world-input-foreground, var(--text-bright));

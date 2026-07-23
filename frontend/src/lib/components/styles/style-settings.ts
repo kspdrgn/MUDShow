@@ -15,6 +15,9 @@ export interface StyleBackgroundImageValue {
 
 export interface StyleSectionValue {
   fontFamily: string;
+  fontWeight: number;
+  fontStyle: 'normal' | 'italic';
+  fontStretch: string;
   fontSize: number;
   foregroundColor: string;
   backgroundColor: string;
@@ -34,6 +37,9 @@ export interface StyleBackgroundImageOverrides {
 
 export interface StyleSectionOverrides {
   fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  fontStretch?: string;
   fontSize?: number;
   foregroundColor?: string;
   backgroundColor?: string;
@@ -47,6 +53,9 @@ export interface AppStyleOverrides {
 
 export interface StyleSectionEditor {
   fontFamily: string;
+  fontWeight: number;
+  fontStyle: 'normal' | 'italic';
+  fontStretch: string;
   fontFamilyEnabled: boolean;
   fontSize: number;
   fontSizeEnabled: boolean;
@@ -66,6 +75,9 @@ export interface AppStyleEditor {
 }
 
 const DEFAULT_FONT_FAMILY = 'var(--font-mono)';
+const DEFAULT_FONT_WEIGHT = 400;
+const DEFAULT_FONT_STYLE: 'normal' | 'italic' = 'normal';
+const DEFAULT_FONT_STRETCH = 'normal';
 const DEFAULT_FONT_SIZE = 13;
 const DEFAULT_FOREGROUND_COLOR = '#c8c8c8';
 const DEFAULT_INPUT_FOREGROUND_COLOR = '#e8e8e8';
@@ -86,6 +98,22 @@ function normalizeColorValue(value: unknown, fallback: string): string {
 
 function normalizeFitValue(value: unknown): StyleImageFit {
   return value === 'contain' || value === 'repeat' ? value : 'cover';
+}
+
+function normalizeFontWeight(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_FONT_WEIGHT;
+  }
+
+  return Math.max(1, Math.round(value));
+}
+
+function normalizeFontStyle(value: unknown): 'normal' | 'italic' {
+  return value === 'italic' ? 'italic' : 'normal';
+}
+
+function normalizeFontStretch(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : DEFAULT_FONT_STRETCH;
 }
 
 function normalizeOpacityValue(value: unknown): number {
@@ -115,6 +143,9 @@ function createDefaultBackgroundImage(): StyleBackgroundImageValue {
 function createDefaultSectionValue(scope: StyleSectionScope): StyleSectionValue {
   return {
     fontFamily: DEFAULT_FONT_FAMILY,
+    fontWeight: DEFAULT_FONT_WEIGHT,
+    fontStyle: DEFAULT_FONT_STYLE,
+    fontStretch: DEFAULT_FONT_STRETCH,
     fontSize: DEFAULT_FONT_SIZE,
     foregroundColor: scope === 'output' ? DEFAULT_FOREGROUND_COLOR : DEFAULT_INPUT_FOREGROUND_COLOR,
     backgroundColor: scope === 'output' ? DEFAULT_BACKGROUND_COLOR : DEFAULT_INPUT_BACKGROUND_COLOR,
@@ -125,6 +156,9 @@ function createDefaultSectionValue(scope: StyleSectionScope): StyleSectionValue 
 function createSectionEditorFromValue(value: StyleSectionValue): StyleSectionEditor {
   return {
     fontFamily: value.fontFamily,
+    fontWeight: value.fontWeight,
+    fontStyle: value.fontStyle,
+    fontStretch: value.fontStretch,
     fontFamilyEnabled: false,
     fontSize: value.fontSize,
     fontSizeEnabled: false,
@@ -142,6 +176,9 @@ function createSectionEditorFromValue(value: StyleSectionValue): StyleSectionEdi
 function createSectionValueFromEditor(editor: StyleSectionEditor): StyleSectionValue {
   return {
     fontFamily: editor.fontFamily,
+    fontWeight: editor.fontWeight,
+    fontStyle: editor.fontStyle,
+    fontStretch: editor.fontStretch,
     fontSize: editor.fontSize,
     foregroundColor: editor.foregroundColor,
     backgroundColor: editor.backgroundColor,
@@ -170,6 +207,18 @@ function normalizeSectionOverrides(
 
   if (typeof value.fontFamily === 'string' && value.fontFamily.trim()) {
     next.fontFamily = value.fontFamily.trim();
+  }
+
+  if (typeof value.fontWeight === 'number' && Number.isFinite(value.fontWeight)) {
+    next.fontWeight = normalizeFontWeight(value.fontWeight);
+  }
+
+  if (value.fontStyle === 'normal' || value.fontStyle === 'italic') {
+    next.fontStyle = value.fontStyle;
+  }
+
+  if (typeof value.fontStretch === 'string' && value.fontStretch.trim()) {
+    next.fontStretch = value.fontStretch.trim();
   }
 
   if (typeof value.fontSize === 'number' && Number.isFinite(value.fontSize)) {
@@ -208,6 +257,15 @@ function normalizeSectionOverrides(
   if (next.fontFamily === defaults.fontFamily) {
     delete next.fontFamily;
   }
+  if (next.fontWeight === defaults.fontWeight) {
+    delete next.fontWeight;
+  }
+  if (next.fontStyle === defaults.fontStyle) {
+    delete next.fontStyle;
+  }
+  if (next.fontStretch === defaults.fontStretch) {
+    delete next.fontStretch;
+  }
   if (next.fontSize === defaults.fontSize) {
     delete next.fontSize;
   }
@@ -243,6 +301,21 @@ function normalizeSectionEditor(
   if (typeof overrides.fontFamily === 'string') {
     editor.fontFamily = overrides.fontFamily;
     editor.fontFamilyEnabled = normalizeText(overrides.fontFamily) !== normalizeText(defaults.fontFamily);
+  }
+
+  if (typeof overrides.fontWeight === 'number' && Number.isFinite(overrides.fontWeight)) {
+    editor.fontWeight = normalizeFontWeight(overrides.fontWeight);
+    editor.fontFamilyEnabled = editor.fontFamilyEnabled || editor.fontWeight !== defaults.fontWeight;
+  }
+
+  if (overrides.fontStyle === 'normal' || overrides.fontStyle === 'italic') {
+    editor.fontStyle = overrides.fontStyle;
+    editor.fontFamilyEnabled = editor.fontFamilyEnabled || editor.fontStyle !== defaults.fontStyle;
+  }
+
+  if (typeof overrides.fontStretch === 'string') {
+    editor.fontStretch = normalizeFontStretch(overrides.fontStretch);
+    editor.fontFamilyEnabled = editor.fontFamilyEnabled || normalizeText(editor.fontStretch) !== normalizeText(defaults.fontStretch);
   }
 
   if (typeof overrides.fontSize === 'number' && Number.isFinite(overrides.fontSize)) {
@@ -295,6 +368,18 @@ function serializeSectionEditor(
     next.fontFamily = editor.fontFamily.trim();
   }
 
+  if (editor.fontFamilyEnabled && editor.fontWeight !== defaults.fontWeight) {
+    next.fontWeight = normalizeFontWeight(editor.fontWeight);
+  }
+
+  if (editor.fontFamilyEnabled && editor.fontStyle !== defaults.fontStyle) {
+    next.fontStyle = normalizeFontStyle(editor.fontStyle);
+  }
+
+  if (editor.fontFamilyEnabled && normalizeText(editor.fontStretch) !== normalizeText(defaults.fontStretch)) {
+    next.fontStretch = normalizeFontStretch(editor.fontStretch);
+  }
+
   if (editor.fontSizeEnabled && editor.fontSize !== defaults.fontSize) {
     next.fontSize = Math.max(1, Math.round(editor.fontSize));
   }
@@ -336,6 +421,9 @@ function resolveSectionEditor(scope: StyleSectionScope, editor: StyleSectionEdit
 
   return {
     fontFamily: serialized.fontFamily ?? defaults.fontFamily,
+    fontWeight: serialized.fontWeight ?? defaults.fontWeight,
+    fontStyle: serialized.fontStyle ?? defaults.fontStyle,
+    fontStretch: serialized.fontStretch ?? defaults.fontStretch,
     fontSize: serialized.fontSize ?? defaults.fontSize,
     foregroundColor: serialized.foregroundColor ?? defaults.foregroundColor,
     backgroundColor: serialized.backgroundColor ?? defaults.backgroundColor,

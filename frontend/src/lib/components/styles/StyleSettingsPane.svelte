@@ -1,6 +1,7 @@
 <script lang="ts">
   import StyleColorsSection from './StyleColorsSection.svelte';
   import StyleFontsSection from './StyleFontsSection.svelte';
+  import { normalizeFontShelf, type FontShelfEntry } from '../../fonts';
   import {
     getStyleScopeLabel,
     getStyleScopePath,
@@ -16,9 +17,12 @@
 
   export let storageScope: StyleScope;
   export let style: AppStyleEditor;
+  export let fontShelf: FontShelfEntry[];
   export let onChange: (nextStyle: AppStyleEditor) => void = () => {};
+  export let onFontShelfChange: (nextShelf: FontShelfEntry[]) => void = () => {};
 
   $: previewStyle = resolveAppStyleEditor(style);
+  $: normalizedFontShelf = normalizeFontShelf(fontShelf);
 
   function updateSection(sectionScope: StyleSectionScope, nextSection: StyleSectionEditor): void {
     onChange({
@@ -30,6 +34,9 @@
   function getPreviewBlockStyle(section: StyleSectionValue): string {
     const parts = [
       `font-family:${section.fontFamily}`,
+      `font-weight:${section.fontWeight}`,
+      `font-style:${section.fontStyle}`,
+      `font-stretch:${section.fontStretch}`,
       `font-size:${section.fontSize}px`,
       `color:${section.foregroundColor}`,
       `background:${section.backgroundColor}`,
@@ -47,6 +54,8 @@
   function describePreview(section: StyleSectionValue): string {
     const pieces = [
       section.fontFamily,
+      `${section.fontWeight}`,
+      section.fontStyle,
       `${section.fontSize}px`,
       section.foregroundColor,
       section.backgroundColor,
@@ -81,7 +90,9 @@
           sectionScope="output"
           section={style.output}
           defaults={DEFAULT_APP_STYLE_VALUES.output}
+          fontShelf={normalizedFontShelf}
           onChange={(nextSection) => updateSection('output', nextSection)}
+          onFontShelfChange={onFontShelfChange}
         />
         <StyleColorsSection
           sectionScope="output"
@@ -99,7 +110,9 @@
           sectionScope="input"
           section={style.input}
           defaults={DEFAULT_APP_STYLE_VALUES.input}
+          fontShelf={normalizedFontShelf}
           onChange={(nextSection) => updateSection('input', nextSection)}
+          onFontShelfChange={onFontShelfChange}
         />
         <StyleColorsSection
           sectionScope="input"

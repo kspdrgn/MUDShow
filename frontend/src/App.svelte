@@ -11,7 +11,10 @@ import {
   setAppStoragePath,
   loadAppStyleOverrides,
   saveAppStyleOverrides,
+  loadFontShelf,
+  saveFontShelf,
 } from './lib/storage';
+import { normalizeFontShelf, type FontShelfEntry } from './lib/fonts';
 import WorldsAndCharactersEditor from './lib/components/settings/WorldsAndCharactersEditor.svelte';
 import CharacterModal from './lib/components/settings/CharacterModal.svelte';
 import ConfirmCloseTabModal from './lib/components/window/ConfirmCloseTabModal.svelte';
@@ -41,6 +44,7 @@ import {
   let appSettings = loadAppSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
   let resolvedAppStyle: AppStyleValues = resolveAppStyleEditor(appStyle);
+  let fontShelf: FontShelfEntry[] = normalizeFontShelf([]);
   let storageFilePath: string | null = appSettings.storageFilePath;
   let loggingModalTabId: string | null = null;
   let activeTab: AppTab | null = null;
@@ -70,10 +74,12 @@ import {
   async function initializeStyleSettings(): Promise<void> {
     try {
       appStyle = createAppStyleEditor(await loadAppStyleOverrides());
+      fontShelf = normalizeFontShelf(await loadFontShelf());
       resolvedAppStyle = resolveAppStyleEditor(appStyle);
     } catch (error) {
       console.error('failed to load app style overrides:', error);
       appStyle = createDefaultAppStyleEditor();
+      fontShelf = normalizeFontShelf([]);
       resolvedAppStyle = resolveAppStyleEditor(appStyle);
     }
   }
@@ -87,6 +93,11 @@ import {
     appStyle = nextStyle;
     resolvedAppStyle = resolveAppStyleEditor(appStyle);
     void saveAppStyleOverrides(serializeAppStyleEditor(appStyle));
+  }
+
+  function updateFontShelf(nextShelf: FontShelfEntry[]): void {
+    fontShelf = normalizeFontShelf(nextShelf);
+    void saveFontShelf(fontShelf);
   }
 
   async function refreshResolvedLogFolder(): Promise<void> {
@@ -423,6 +434,8 @@ import {
         onChange={updateAppSettings}
         style={appStyle}
         onStyleChange={updateAppStyle}
+        fontShelf={fontShelf}
+        onFontShelfChange={updateFontShelf}
         activeTab={$session.settingsActiveTab}
         onTabChange={(tab) => session.setSettingsActiveTab(tab)}
         storageFilePath={storageFilePath}

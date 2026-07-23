@@ -79,6 +79,9 @@
     probe.style.pointerEvents = 'none';
     probe.style.whiteSpace = 'pre';
     probe.style.fontFamily = 'var(--world-output-font-family, var(--font-mono))';
+    probe.style.fontWeight = 'var(--world-output-font-weight, 400)';
+    probe.style.fontStyle = 'var(--world-output-font-style, normal)';
+    probe.style.fontStretch = 'var(--world-output-font-stretch, normal)';
     probe.style.fontSize = 'var(--world-output-font-size, 13px)';
     probe.style.fontVariantLigatures = 'none';
     probe.style.fontFeatureSettings = '"liga" 0, "clig" 0, "calt" 0';
@@ -146,10 +149,16 @@
   class="screen-play"
   style={`--play-width: ${measuredPlayWidth};`}
   style:--world-output-font-family={styleValues.output.fontFamily}
+  style:--world-output-font-weight={`${styleValues.output.fontWeight}`}
+  style:--world-output-font-style={styleValues.output.fontStyle}
+  style:--world-output-font-stretch={styleValues.output.fontStretch}
   style:--world-output-font-size={`${styleValues.output.fontSize}px`}
   style:--world-output-foreground={styleValues.output.foregroundColor}
   style:--world-output-background={styleValues.output.backgroundColor}
   style:--world-input-font-family={styleValues.input.fontFamily}
+  style:--world-input-font-weight={`${styleValues.input.fontWeight}`}
+  style:--world-input-font-style={styleValues.input.fontStyle}
+  style:--world-input-font-stretch={styleValues.input.fontStretch}
   style:--world-input-font-size={`${styleValues.input.fontSize}px`}
   style:--world-input-foreground={styleValues.input.foregroundColor}
   style:--world-input-background={styleValues.input.backgroundColor}

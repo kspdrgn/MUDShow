@@ -4,6 +4,11 @@ import {
   normalizeAppStyleOverrides,
   type AppStyleOverrides,
 } from './components/styles/style-settings';
+import {
+  normalizeFontShelf,
+  serializeFontShelf,
+  type FontShelfEntry,
+} from './fonts';
 import { trimTranscriptHistory, type TranscriptHistoryEntry } from './playback';
 import { invoke, isTauriAvailable } from './tauri';
 
@@ -13,6 +18,7 @@ const TRIGGER_KEY = 'mudshow_triggers';
 const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
 const STYLE_KEY = 'mudshow_style';
+const FONT_SHELF_KEY = 'mudshow_font_shelf';
 const STORAGE_SCHEMA_VERSION = 1;
 
 export type DesktopStorageMode = 'file';
@@ -24,6 +30,7 @@ interface PersistentData {
   triggers: Trigger[];
   notes: Record<string, string>;
   style: AppStyleOverrides;
+  fontShelf: FontShelfEntry[];
 }
 
 let fileWriteQueue: Promise<void> = Promise.resolve();
@@ -54,6 +61,7 @@ function createEmptyData(): PersistentData {
     triggers: [],
     notes: {},
     style: {},
+    fontShelf: normalizeFontShelf([]),
   };
 }
 
@@ -276,10 +284,11 @@ function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
 }
 
 function normalizePersistentData(
-  raw: Partial<Omit<PersistentData, 'characters' | 'worlds' | 'style'>> & {
+  raw: Partial<Omit<PersistentData, 'characters' | 'worlds' | 'style' | 'fontShelf'>> & {
     characters?: unknown;
     worlds?: unknown;
     style?: unknown;
+    fontShelf?: unknown;
   },
 ): PersistentData {
   const worldRecords = Array.isArray(raw.worlds)
@@ -301,6 +310,7 @@ function normalizePersistentData(
     triggers: pruneInvalidTriggerOwners(triggers, dedupeWorlds(worldRecords), characterRecords),
     notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
     style: normalizeAppStyleOverrides(raw.style),
+    fontShelf: normalizeFontShelf(raw.fontShelf),
   };
 }
 
@@ -317,6 +327,7 @@ function readWebviewData(): PersistentData {
   const characters = safeParse<unknown>(localStorage.getItem(CHARACTER_KEY), []);
   const triggers = safeParse<Trigger[]>(localStorage.getItem(TRIGGER_KEY), []);
   const style = safeParse<unknown>(localStorage.getItem(STYLE_KEY), {});
+  const fontShelf = safeParse<unknown>(localStorage.getItem(FONT_SHELF_KEY), []);
   const notes = Object.keys(localStorage)
     .filter((key) => key.startsWith(NOTES_PREFIX))
     .reduce<Record<string, string>>((accumulator, key) => {
@@ -331,6 +342,7 @@ function readWebviewData(): PersistentData {
     triggers,
     notes,
     style,
+    fontShelf,
   });
 }
 
@@ -339,6 +351,7 @@ function writeWebviewData(data: PersistentData): void {
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data.characters));
   localStorage.setItem(TRIGGER_KEY, JSON.stringify(data.triggers));
   localStorage.setItem(STYLE_KEY, JSON.stringify(data.style));
+  localStorage.setItem(FONT_SHELF_KEY, JSON.stringify(serializeFontShelf(data.fontShelf)));
 
   Object.keys(localStorage)
     .filter((key) => key.startsWith(NOTES_PREFIX))
@@ -404,7 +417,10 @@ export async function resolveDefaultLogFolder(currentFolder: string | null): Pro
 
 async function writeFileData(data: PersistentData): Promise<void> {
   await invoke<void>('save_app_storage', {
-    json: JSON.stringify(data),
+    json: JSON.stringify({
+      ...data,
+      fontShelf: serializeFontShelf(data.fontShelf),
+    }),
   });
 }
 
@@ -730,6 +746,36 @@ export async function saveAppStyleOverrides(style: AppStyleOverrides): Promise<v
   }));
 }
 
+export async function loadFontShelf(): Promise<FontShelfEntry[]> {
+  if (!isTauriAvailable()) {
+    return readWebviewData().fontShelf;
+  }
+
+  return withStorageAccess(async () => {
+    await waitForPendingFileWrites();
+    const data = await readFileData();
+    return data.fontShelf;
+  });
+}
+
+export async function saveFontShelf(fontShelf: FontShelfEntry[]): Promise<void> {
+  const nextFontShelf = normalizeFontShelf(fontShelf);
+
+  if (!isTauriAvailable()) {
+    const current = readWebviewData();
+    writeWebviewData({
+      ...current,
+      fontShelf: nextFontShelf,
+    });
+    return;
+  }
+
+  await queueFileMutation((data) => ({
+    ...data,
+    fontShelf: nextFontShelf,
+  }));
+}
+
 export async function saveConnectionData(worlds: WorldRecord[], characters: CharacterRecord[]): Promise<void> {
   const normalizedWorlds = dedupeWorlds(
     worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null),
@@ -746,6 +792,7 @@ export async function saveConnectionData(worlds: WorldRecord[], characters: Char
     triggers: [],
     notes: {},
     style: {},
+    fontShelf: normalizeFontShelf([]),
   };
 
   if (!isTauriAvailable()) {

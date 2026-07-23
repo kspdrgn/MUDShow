@@ -5,14 +5,14 @@ Fonts are shared application resources used by style settings for the transcript
 The font system has three separate concepts:
 
 - System font universe - installed fonts discovered from the operating system through the desktop backend.
-- App font shelf - the compact set of font families that MUDShow shows in normal style controls.
-- Style font selection - the specific shelf family and face traits used by one output or input style setting.
+- App font shelf - the compact set of font face entries that MUDShow shows in normal style controls.
+- Style font selection - the specific shelf entry used by one output or input style setting.
 
 The style UI details live in `spec/style.md`. This document defines the backend, persistence, validation, and fallback behavior needed to make fonts reliable across machines and operating systems.
 
 ## Goals
 
-- Let users add installed system font families to MUDShow without exposing every installed font in every style dropdown.
+- Let users add installed system font faces to MUDShow without exposing every installed font in every style dropdown.
 - Keep built-in fonts available on every system.
 - Store user-added system fonts in a way that remains understandable in the JSON settings database.
 - Preserve missing system font choices when a settings database is shared across machines or operating systems.
@@ -136,14 +136,14 @@ The backend may still need to load the system font database internally. The impo
 
 ## App Font Shelf
 
-The app font shelf is a persisted, curated list of families available in normal style settings.
+The app font shelf is a persisted, curated list of font face entries available in normal style settings.
 
 The shelf contains:
 
 - built-in entries that are always present
-- user-added system font family entries
+- user-added system font face entries
 
-The shelf stores system fonts at the family level. A user should not need to add separate shelf entries for Regular, Bold, Italic, and Bold Italic from the same family.
+The shelf stores system fonts at the selected face level. A user can add Regular, Bold, Italic, and Bold Italic from the same family as separate shelf entries. This keeps the ordinary style dropdown compact and explicit while still allowing multiple styles from one discovered family.
 
 Suggested data shape:
 
@@ -155,12 +155,21 @@ type FontShelfEntry =
       source: 'builtin';
       id: BuiltInFontId;
       label: string;
+      cssFamily: string;
+      weight: number;
+      fontStyle: 'normal' | 'italic';
+      stretch: string;
     }
   | {
       source: 'system';
       id: string;
       family: string;
       label: string;
+      cssFamily: string;
+      weight: number;
+      fontStyle: 'normal' | 'italic';
+      stretch: string;
+      postscriptName: string;
       status?: 'available' | 'missing';
     };
 ```
@@ -169,41 +178,41 @@ Shelf rules:
 
 - built-in entries are added automatically
 - built-in entries cannot be deleted
-- system entries can be added from the full system font picker
-- system entries can be deleted when no saved style references them
-- deleting a referenced system entry should be blocked or require a replacement flow
+- system entries can be added from the full system font picker by choosing a family and one of its faces
+- system entries can be deleted from the shelf
+- deleting the currently selected system entry should reset that style selection to inherited or default rendering
+- deleting a system entry referenced by another saved style should leave that style recoverable or move it through an explicit fallback/replacement flow
 - missing system entries remain visible and removable
 - missing system entries must not be silently deleted
 
-The system shelf `id` should be stable inside the settings file. It does not need to be a globally portable font identifier. The family name is the primary cross-machine matching value.
+The system shelf `id` should be stable inside the settings file and include enough face information to distinguish multiple entries from the same family. It does not need to be a globally portable font identifier. Family name plus CSS-like traits are the primary cross-machine matching values; PostScript name can improve same-machine distinction when available.
 
 ## Style Font Selection
 
-Each output or input style setting stores a reference to a shelf family and optional face traits.
+Each output or input style setting stores the CSS family and face traits from the selected shelf entry.
 
 Suggested data shape:
 
 ```ts
 type StyleFontSelection = {
-  source: 'builtin' | 'system';
-  id: string;
-  weight?: number;
-  italic?: boolean;
-  stretch?: string;
+  fontFamily: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  fontStretch?: string;
 };
 ```
 
 The style selection answers:
 
-- which shelf family is selected
-- which face traits should be requested within that family
+- which CSS font family should be requested
+- which face traits should be requested
 
-The face traits are not separate shelf entries. If a user adds Cascadia Mono to the shelf, the style UI may let them choose Regular, Italic, Bold, or Bold Italic from that one family entry.
+Face traits are part of the shelf entry. If a user wants Cascadia Mono Regular and Cascadia Mono Italic in the ordinary style dropdown, they add both faces from the picker.
 
 When resolving a style:
 
 - built-in selections resolve through app-defined CSS family values
-- available system selections resolve to the saved family plus selected traits
+- available system selections resolve to the saved family plus saved face traits
 - missing system selections fall back through inheritance or defaults
 - unresolved selections should preserve the saved value in storage
 
@@ -315,5 +324,5 @@ Font system verification should cover:
 - validate a family with specific face traits
 - keep missing shelf entries in storage
 - render fallback when a selected system font is missing
-- use multiple styles from one shelf family without adding duplicate shelf entries
-- block or replace deletion of referenced system shelf entries
+- add multiple styles from one system family as separate shelf entries
+- delete the currently selected system shelf entry and reset that style to inherited or default rendering

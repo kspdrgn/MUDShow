@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AppSettings } from '../../app-settings';
+  import type { FontShelfEntry } from '../../fonts';
   import type { AppStyleEditor } from '../styles/style-settings';
   import StyleSettingsPane from '../styles/StyleSettingsPane.svelte';
 
@@ -17,6 +18,8 @@
   export let onChange: (patch: Partial<AppSettings>) => void;
   export let style: AppStyleEditor;
   export let onStyleChange: (next: AppStyleEditor) => void;
+  export let fontShelf: FontShelfEntry[];
+  export let onFontShelfChange: (next: FontShelfEntry[]) => void;
   export let storageFilePath: string | null;
   export let resolvedLogFolderPath: string | null;
   export let onRevealLogFolder: () => void;
@@ -335,7 +338,13 @@
           </label>
         </section>
       {:else if activeTab === 'style'}
-        <StyleSettingsPane storageScope={appStyleScope} style={style} onChange={onStyleChange} />
+        <StyleSettingsPane
+          storageScope={appStyleScope}
+          style={style}
+          fontShelf={fontShelf}
+          onChange={onStyleChange}
+          onFontShelfChange={onFontShelfChange}
+        />
       {:else if activeTab === 'ui'}
         <section class="settings-card">
           <h2>ui</h2>
