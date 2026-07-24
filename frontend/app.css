@@ -1615,6 +1615,11 @@ body {
   margin: 0 auto;
 }
 
+.output-spacer {
+  width: 100%;
+  flex: 0 0 auto;
+}
+
 .output-area--history-scroller .output-area-content {
   min-height: 100%;
 }

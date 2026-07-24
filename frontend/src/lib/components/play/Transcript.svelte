@@ -21,6 +21,12 @@
   import WorldContextMenu from './WorldContextMenu.svelte';
 
   const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
+  const HISTORY_OVERSCAN_PX = 900;
+  const LIVE_OVERSCAN_PX = 500;
+  const ESTIMATED_LINE_HEIGHT_PX = 20;
+  const ESTIMATED_CHUNK_PADDING_PX = 6;
+  const ESTIMATED_CHARS_PER_LINE = 84;
+  const ESTIMATED_IMAGE_PREVIEW_HEIGHT_PX = 180;
 
   export let activeBar: InputBarId = 1;
   export let transcript: PlayTranscript;
@@ -59,16 +65,30 @@
   type RenderedChunk = { id: number; html: string; title: string };
   let renderedChunks: RenderedChunk[] = [];
   let liveRenderedChunks: RenderedChunk[] = [];
+  let renderedTopSpacer = 0;
+  let renderedBottomSpacer = 0;
+  let liveTopSpacer = 0;
+  let liveBottomSpacer = 0;
+  let historyScrollTop = 0;
+  let historyViewportHeight = 0;
+  let liveViewportHeight = 0;
   let splitView = false;
   let hiddenPreviewUrls = new Set<string>();
   let transcriptShellElement: HTMLDivElement | null = null;
   let transcriptContentElement: HTMLDivElement | null = null;
+  let transcriptHistoryScrollerElement: HTMLDivElement | null = null;
+  let transcriptLiveElement: HTMLDivElement | null = null;
   let contextMenuOpen = false;
   let contextMenuPosition = { x: 0, y: 0 };
   let contentResizeObserver: ResizeObserver | null = null;
+  let shellResizeObserver: ResizeObserver | null = null;
   let userScrollIntent = false;
   let lastSyncedTranscript: PlayTranscript | null = null;
   let lastSyncedRevision = -1;
+  let lastSyncedScrollTop = -1;
+  let lastSyncedHistoryHeight = -1;
+  let lastSyncedLiveHeight = -1;
+  let lastSyncedWidth = width;
   let renderDependencyKey = '';
   let lastRenderDependencyKey = '';
 
@@ -180,127 +200,191 @@
     return renderChunkHtml(chunk, includePreviews);
   }
 
-  function rebuildRenderedChunks(): void {
-    const count = transcript.getChunkCount();
-    const nextRenderedChunks: RenderedChunk[] = [];
-    const nextLiveRenderedChunks: RenderedChunk[] = [];
+  function estimateChunkHeight(chunk: TranscriptChunkEntry, includePreviews: boolean): number {
+    const measuredWidth = width.endsWith('px') ? Number.parseFloat(width) : Number.NaN;
+    const charsPerLine = Number.isFinite(measuredWidth) && measuredWidth > 0
+      ? Math.max(24, Math.floor(measuredWidth / 8.25))
+      : ESTIMATED_CHARS_PER_LINE;
+    const wrappedLines = Math.max(chunk.lineCount, Math.ceil(chunk.charCount / charsPerLine));
+    const previewMatches = includePreviews
+      ? chunk.text.match(/https?:\/\/[^\s<>"']+/giu)?.filter((candidate) => /\.(?:avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#].*)?$/iu.test(candidate)).length ?? 0
+      : 0;
 
+    return Math.max(
+      ESTIMATED_LINE_HEIGHT_PX + ESTIMATED_CHUNK_PADDING_PX,
+      wrappedLines * ESTIMATED_LINE_HEIGHT_PX + ESTIMATED_CHUNK_PADDING_PX + previewMatches * ESTIMATED_IMAGE_PREVIEW_HEIGHT_PX,
+    );
+  }
+
+  function findHistoryScrollMetrics(): { scrollTop: number; clientHeight: number } {
+    const outputEl = transcriptHistoryScrollerElement ?? document.getElementById(`${scope}-output-area`);
+    if (!(outputEl instanceof HTMLElement)) {
+      return { scrollTop: historyScrollTop, clientHeight: historyViewportHeight };
+    }
+
+    return {
+      scrollTop: outputEl.scrollTop,
+      clientHeight: outputEl.clientHeight,
+    };
+  }
+
+  function buildVisibleRange(
+    startOffset: number,
+    viewportHeight: number,
+    overscanPx: number,
+    includePreviews: boolean,
+    anchorBottom = false,
+  ): {
+    startIndex: number;
+    endIndex: number;
+    topSpacer: number;
+    bottomSpacer: number;
+    rendered: RenderedChunk[];
+  } {
+    const count = transcript.getChunkCount();
+    if (count === 0) {
+      return {
+        startIndex: 0,
+        endIndex: 0,
+        topSpacer: 0,
+        bottomSpacer: 0,
+        rendered: [],
+      };
+    }
+
+    const chunks: TranscriptChunkEntry[] = [];
+    let totalHeight = 0;
     for (let index = 0; index < count; index += 1) {
       const chunk = transcript.getChunk(index);
       if (!chunk) {
         continue;
       }
 
-      nextRenderedChunks.push({
-        id: chunk.id,
-        html: renderChunk(chunk, true),
-      });
-      nextLiveRenderedChunks.push({
-        id: chunk.id,
-        html: renderChunk(chunk, false),
-      });
+      chunks.push(chunk);
+      totalHeight += estimateChunkHeight(chunk, includePreviews);
     }
 
-    renderedChunks = nextRenderedChunks;
-    liveRenderedChunks = nextLiveRenderedChunks;
-    lastSyncedTranscript = transcript;
-    lastSyncedRevision = outputRevision;
-    lastRenderDependencyKey = renderDependencyKey;
+    const targetTop = anchorBottom ? Math.max(0, totalHeight - viewportHeight) : startOffset;
+    const visibleStart = Math.max(0, targetTop - overscanPx);
+    const visibleEnd = Math.max(0, targetTop + viewportHeight + overscanPx);
+
+    let cursor = 0;
+    let startIndex = chunks.length;
+    let endIndex = chunks.length;
+    let topSpacer = 0;
+    let bottomSpacer = totalHeight;
+    const rendered: RenderedChunk[] = [];
+
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index];
+      const height = estimateChunkHeight(chunk, includePreviews);
+      const nextCursor = cursor + height;
+
+      if (nextCursor <= visibleStart) {
+        topSpacer = nextCursor;
+        cursor = nextCursor;
+        continue;
+      }
+
+      if (cursor >= visibleEnd) {
+        endIndex = index;
+        bottomSpacer = Math.max(0, totalHeight - cursor);
+        break;
+      }
+
+      if (startIndex === chunks.length) {
+        startIndex = index;
+      }
+
+      rendered.push({
+        id: chunk.id,
+        html: renderChunk(chunk, includePreviews),
+        title: buildChunkTitle(chunk),
+      });
+      cursor = nextCursor;
+      endIndex = index + 1;
+      bottomSpacer = Math.max(0, totalHeight - cursor);
+    }
+
+    return {
+      startIndex,
+      endIndex,
+      topSpacer,
+      bottomSpacer,
+      rendered,
+    };
   }
 
   function syncTranscriptRenderState(): void {
     if (!transcript) {
       renderedChunks = [];
       liveRenderedChunks = [];
+      renderedTopSpacer = 0;
+      renderedBottomSpacer = 0;
+      liveTopSpacer = 0;
+      liveBottomSpacer = 0;
       lastSyncedTranscript = null;
       lastSyncedRevision = outputRevision;
+      lastSyncedScrollTop = -1;
+      lastSyncedHistoryHeight = -1;
+      lastSyncedLiveHeight = -1;
       return;
+    }
+
+    if (lastSyncedWidth !== width) {
+      lastSyncedWidth = width;
+      lastSyncedTranscript = null;
+      lastSyncedRevision = -1;
+      lastSyncedScrollTop = -1;
+      lastSyncedHistoryHeight = -1;
+      lastSyncedLiveHeight = -1;
     }
 
     if (lastSyncedTranscript !== transcript || lastRenderDependencyKey !== renderDependencyKey) {
       lastRenderDependencyKey = renderDependencyKey;
-      rebuildRenderedChunks();
+      lastSyncedTranscript = transcript;
+      lastSyncedRevision = -1;
+      lastSyncedScrollTop = -1;
+      lastSyncedHistoryHeight = -1;
+      lastSyncedLiveHeight = -1;
+    }
+
+    const historyMetrics = findHistoryScrollMetrics();
+    const liveHeight = splitView && transcriptLiveElement instanceof HTMLElement ? transcriptLiveElement.clientHeight : 0;
+
+    if (
+      outputRevision === lastSyncedRevision &&
+      historyMetrics.scrollTop === lastSyncedScrollTop &&
+      historyMetrics.clientHeight === lastSyncedHistoryHeight &&
+      liveHeight === lastSyncedLiveHeight &&
+      renderedChunks.length > 0
+    ) {
       return;
     }
 
-    if (outputRevision === lastSyncedRevision) {
-      return;
-    }
+    historyScrollTop = historyMetrics.scrollTop;
+    historyViewportHeight = historyMetrics.clientHeight;
+    const historyRange = buildVisibleRange(historyScrollTop, historyViewportHeight, HISTORY_OVERSCAN_PX, true, false);
+    renderedChunks = historyRange.rendered;
+    renderedTopSpacer = historyRange.topSpacer;
+    renderedBottomSpacer = historyRange.bottomSpacer;
 
-    const currentCount = transcript.getChunkCount();
-    const currentFirstChunk = currentCount > 0 ? transcript.getChunk(0) ?? null : null;
-    const previousCount = renderedChunks.length;
-    const previousFirstChunkId = renderedChunks[0]?.id ?? null;
-
-    if (currentCount === 0) {
-      renderedChunks = [];
+    if (splitView) {
+      liveViewportHeight = liveHeight;
+      const liveRange = buildVisibleRange(0, liveViewportHeight, LIVE_OVERSCAN_PX, false, true);
+      liveRenderedChunks = liveRange.rendered;
+      liveTopSpacer = liveRange.topSpacer;
+      liveBottomSpacer = liveRange.bottomSpacer;
+    } else {
       liveRenderedChunks = [];
-      lastSyncedRevision = outputRevision;
-      lastRenderDependencyKey = renderDependencyKey;
-      return;
+      liveTopSpacer = 0;
+      liveBottomSpacer = 0;
     }
 
-    if (previousCount === 0 || previousFirstChunkId === null || currentFirstChunk === null) {
-      rebuildRenderedChunks();
-      lastRenderDependencyKey = renderDependencyKey;
-      return;
-    }
-
-    if (currentFirstChunk.id === previousFirstChunkId && currentCount >= previousCount) {
-      for (let index = previousCount; index < currentCount; index += 1) {
-        const chunk = transcript.getChunk(index);
-        if (!chunk) {
-          continue;
-        }
-
-        renderedChunks.push({
-          id: chunk.id,
-          html: renderChunk(chunk, true),
-          title: buildChunkTitle(chunk),
-        });
-        liveRenderedChunks.push({
-          id: chunk.id,
-          html: renderChunk(chunk, false),
-          title: buildChunkTitle(chunk),
-        });
-      }
-
-      lastSyncedRevision = outputRevision;
-      lastRenderDependencyKey = renderDependencyKey;
-      return;
-    }
-
-    const droppedCount = currentFirstChunk.id - previousFirstChunkId;
-    if (droppedCount > 0 && droppedCount <= previousCount) {
-      renderedChunks = renderedChunks.slice(droppedCount);
-      liveRenderedChunks = liveRenderedChunks.slice(droppedCount);
-
-      const nextStartIndex = previousCount - droppedCount;
-      for (let index = nextStartIndex; index < currentCount; index += 1) {
-        const chunk = transcript.getChunk(index);
-        if (!chunk) {
-          continue;
-        }
-
-        renderedChunks.push({
-          id: chunk.id,
-          html: renderChunk(chunk, true),
-          title: buildChunkTitle(chunk),
-        });
-        liveRenderedChunks.push({
-          id: chunk.id,
-          html: renderChunk(chunk, false),
-          title: buildChunkTitle(chunk),
-        });
-      }
-
-      lastSyncedRevision = outputRevision;
-      lastRenderDependencyKey = renderDependencyKey;
-      return;
-    }
-
-    rebuildRenderedChunks();
-    lastRenderDependencyKey = renderDependencyKey;
+    lastSyncedRevision = outputRevision;
+    lastSyncedScrollTop = historyMetrics.scrollTop;
+    lastSyncedHistoryHeight = historyMetrics.clientHeight;
+    lastSyncedLiveHeight = liveHeight;
   }
 
   function scrollTranscriptToBottomIfFollowing(): void {
@@ -492,7 +576,15 @@
     }
   }
 
-  function handleScroll(): void {
+  function handleScroll(event: Event): void {
+    const outputEl = event.currentTarget;
+    if (outputEl instanceof HTMLElement) {
+      historyScrollTop = outputEl.scrollTop;
+      historyViewportHeight = outputEl.clientHeight;
+    }
+
+    syncTranscriptRenderState();
+
     if (!userScrolled && !userScrollIntent) {
       return;
     }
@@ -596,25 +688,33 @@
   }
 
   onMount(() => {
-    if (!transcriptContentElement) {
-      return;
+    if (transcriptContentElement) {
+      contentResizeObserver = new ResizeObserver(() => {
+        if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+          console.debug('[MUDShow] transcript resized', {
+            scrollState: getScrollMetrics(),
+            userScrolled,
+          });
+        }
+        scrollTranscriptToBottomIfFollowing();
+      });
+      contentResizeObserver.observe(transcriptContentElement);
     }
 
-    contentResizeObserver = new ResizeObserver(() => {
-      if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
-        console.debug('[MUDShow] transcript resized', {
-          scrollState: getScrollMetrics(),
-          userScrolled,
-        });
-      }
-      scrollTranscriptToBottomIfFollowing();
-    });
-    contentResizeObserver.observe(transcriptContentElement);
+    if (transcriptHistoryScrollerElement) {
+      shellResizeObserver = new ResizeObserver(() => {
+        syncTranscriptRenderState();
+      });
+      shellResizeObserver.observe(transcriptHistoryScrollerElement);
+    }
   });
 
   onDestroy(() => {
     contentResizeObserver?.disconnect();
     contentResizeObserver = null;
+
+    shellResizeObserver?.disconnect();
+    shellResizeObserver = null;
   });
 </script>
 
@@ -627,6 +727,7 @@
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div class="output-area output-area--history">
     <div
+      bind:this={transcriptHistoryScrollerElement}
       class="output-area output-area--history-scroller"
       id={`${scope}-output-area`}
       role="region"
@@ -641,9 +742,11 @@
       on:error|capture={handlePreviewError}
     >
       <div class="output-area-content" bind:this={transcriptContentElement}>
+        <div class="output-spacer" aria-hidden="true" style={`height: ${renderedTopSpacer}px;`}></div>
         {#each renderedChunks as renderedChunk (renderedChunk.id)}
           <div class="output-chunk" title={renderedChunk.title}>{@html renderedChunk.html}</div>
         {/each}
+        <div class="output-spacer" aria-hidden="true" style={`height: ${renderedBottomSpacer}px;`}></div>
       </div>
     </div>
 
@@ -663,6 +766,7 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
+      bind:this={transcriptLiveElement}
       class="output-area output-area--live"
       role="region"
       aria-label="Current output"
@@ -672,9 +776,11 @@
       on:wheel|passive={handleLiveWheel}
     >
       <div class="output-area-content output-area-content--live">
+        <div class="output-spacer" aria-hidden="true" style={`height: ${liveTopSpacer}px;`}></div>
         {#each liveRenderedChunks as renderedChunk (renderedChunk.id)}
           <div class="output-chunk" title={renderedChunk.title}>{@html renderedChunk.html}</div>
         {/each}
+        <div class="output-spacer" aria-hidden="true" style={`height: ${liveBottomSpacer}px;`}></div>
       </div>
     </div>
   {/if}

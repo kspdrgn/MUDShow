@@ -6,6 +6,8 @@ Selecting text will automatically copy to clipboard and return keyboard focus to
 
 HTTP and HTTPS URLs in transcript text are rendered as clickable links. Clicking a link opens it in the user's default browser, while plain text selection and copy behavior still work normally.
 
+The transcript keeps only the visible rows and a small scroll buffer mounted while the history is very large, so scrolling stays responsive even with a lot of saved output.
+
 ## Automatic Scrolling
 
 When new transcript content arrives, the output panel scrolls down to keep the most recent content in view.
