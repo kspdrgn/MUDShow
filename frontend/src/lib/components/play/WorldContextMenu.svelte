@@ -128,10 +128,16 @@
     bind:this={menuElement}
     class="titlebar-dropdown titlebar-context-menu"
     role="menu"
+    tabindex="-1"
     aria-label={ariaLabel}
     style={`left: ${renderedPosition.x}px; top: ${renderedPosition.y}px;`}
     on:click|stopPropagation
     on:contextmenu|preventDefault
+    on:keydown={(event) => {
+      if (event.key === 'Escape') {
+        onDismiss();
+      }
+    }}
   >
     <button
       type="button"

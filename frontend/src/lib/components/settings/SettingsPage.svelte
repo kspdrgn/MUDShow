@@ -93,7 +93,7 @@
               <option value="file">external json file</option>
             </select>
           </div>
-          <label class="field storage-location-field">
+          <div class="field storage-location-field">
             <span>storage file location</span>
             <div class="storage-location-row">
               <input
@@ -148,7 +148,7 @@
                 </button>
               </div>
             </div>
-          </label>
+          </div>
           <p class="settings-note">
             database file location is saved in the app itself. if the app forgets the location, use the pick button to locate the correct file.
           </p>
@@ -244,7 +244,7 @@
       {:else if activeTab === 'logging'}
         <section class="settings-card">
           <h2>logging</h2>
-          <label class="field storage-location-field">
+          <div class="field storage-location-field">
             <span>default log folder</span>
             <div class="storage-location-row">
               <input
@@ -282,7 +282,7 @@
                 </button>
               </div>
             </div>
-          </label>
+          </div>
           <p class="settings-note">
             new session logs start here.
           </p>

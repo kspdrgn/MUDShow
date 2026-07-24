@@ -207,6 +207,8 @@
       {@const worldCharacters = characters.filter((character) => character.worldId === world.id)}
       <div
         class="char-row"
+        role="group"
+        aria-label={`${world.name} row`}
         on:contextmenu={(event) => openContextMenuFromRow(event, { kind: 'world', index: worldIndex, world })}
       >
         <div>
@@ -245,6 +247,8 @@
         {@const characterIndex = characters.indexOf(character)}
         <div
           class="char-row"
+          role="group"
+          aria-label={`${character.name} row`}
           style="margin-left: 1rem;"
           on:contextmenu={(event) => openContextMenuFromRow(event, { kind: 'character', index: characterIndex, character })}
         >
@@ -283,10 +287,16 @@
     bind:this={menuElement}
     class="titlebar-dropdown titlebar-context-menu characters-context-menu"
     role="menu"
+    tabindex="-1"
     aria-label={`${menuTarget.kind === 'world' ? menuTarget.world.name : menuTarget.character.name} actions`}
     style={`left: ${renderedMenuPosition.x}px; top: ${renderedMenuPosition.y}px;`}
     on:click|stopPropagation
     on:contextmenu|preventDefault
+    on:keydown={(event) => {
+      if (event.key === 'Escape') {
+        closeContextMenu();
+      }
+    }}
   >
     {#if menuTarget.kind === 'world'}
       <button
