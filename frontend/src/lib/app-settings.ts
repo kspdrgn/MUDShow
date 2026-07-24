@@ -6,6 +6,7 @@ export interface AppSettings {
   storageMode: DesktopStorageMode;
   storageFilePath: string | null;
   defaultLogFolder: string | null;
+  confirmUnloggedTabClose: boolean;
   titleAttention: boolean;
   linkImagePreviews: boolean;
   imagePreviewCacheVersion: number;
@@ -23,6 +24,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   storageMode: 'file',
   storageFilePath: null,
   defaultLogFolder: null,
+  confirmUnloggedTabClose: false,
   titleAttention: true,
   linkImagePreviews: false,
   imagePreviewCacheVersion: 0,
@@ -94,6 +96,7 @@ export function loadAppSettings(): AppSettings {
     storageMode: 'file',
     storageFilePath: normalizeStorageFilePath(raw.storageFilePath),
     defaultLogFolder: normalizeLogFolderPath(raw.defaultLogFolder),
+    confirmUnloggedTabClose: raw.confirmUnloggedTabClose === true,
     titleAttention: raw.titleAttention !== false,
     linkImagePreviews: raw.linkImagePreviews === true,
     imagePreviewCacheVersion: normalizeNonNegativeInteger(raw.imagePreviewCacheVersion, DEFAULT_APP_SETTINGS.imagePreviewCacheVersion),
@@ -131,6 +134,7 @@ export function saveAppSettings(settings: AppSettings): void {
     storageMode: 'file',
     storageFilePath: normalizeStorageFilePath(settings.storageFilePath),
     defaultLogFolder: normalizeLogFolderPath(settings.defaultLogFolder),
+    confirmUnloggedTabClose: settings.confirmUnloggedTabClose === true,
     titleAttention: settings.titleAttention !== false,
     linkImagePreviews: settings.linkImagePreviews === true,
     imagePreviewCacheVersion: normalizeNonNegativeInteger(

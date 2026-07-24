@@ -155,8 +155,8 @@ This would support:
   - [X] Reconnect without closing world tab
   - [X] Disconnect without closing world tab
   - [X] Confirm closing connected tab, no matter the means of closing the tab
-  - [ ] Confirm closing the app if tabs are connected
-  - [ ] Confirm closing un-logged tab (if this reminder is enabled in app settings)
+  - [X] Confirm closing the app if tabs are connected
+  - [X] Confirm closing un-logged tab (if this reminder is enabled in app settings)
 
 ## Window
   - [ ] On-top option

@@ -1,42 +1,43 @@
 <script lang="ts">
-import { onMount, tick } from 'svelte';
-import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
-import {
-  getDefaultLogFolder,
-  moveAppStorageFile,
-  moveDefaultLogFolder,
-  pickAppStorageFile,
-  revealAppStorageFile,
-  revealDefaultLogFolder,
-  setAppStoragePath,
-  loadAppStyleOverrides,
-  saveAppStyleOverrides,
-} from './lib/storage';
-import WorldsAndCharactersEditor from './lib/components/settings/WorldsAndCharactersEditor.svelte';
-import CharacterModal from './lib/components/settings/CharacterModal.svelte';
-import ConfirmCloseTabModal from './lib/components/window/ConfirmCloseTabModal.svelte';
-import HomePanel from './lib/components/window/HomePanel.svelte';
-import LoggingModal from './lib/components/play/LoggingModal.svelte';
-import NoticeModal from './lib/components/window/NoticeModal.svelte';
-import PlayScreen from './lib/components/play/PlayScreen.svelte';
-import SettingsPage from './lib/components/settings/SettingsPage.svelte';
-import TriggersPane from './lib/components/settings/TriggersPane.svelte';
-import TopBar from './lib/components/window/TopBar.svelte';
-import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
-import WorldModal from './lib/components/settings/WorldModal.svelte';
-import { session } from './lib/session';
-import { generateLogFilename, getLogFileName } from './lib/logging';
-import type { AppTab } from './lib/tabs';
-import type { WorldTabSessionState } from './lib/world-session';
-import { getTriggersForCharacter } from './lib/triggers';
-import {
-  createAppStyleEditor,
-  createDefaultAppStyleEditor,
-  resolveAppStyleEditor,
-  serializeAppStyleEditor,
-  type AppStyleEditor,
-  type AppStyleValues,
-} from './lib/components/styles/style-settings';
+  import { onMount, tick } from 'svelte';
+  import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
+  import {
+    getDefaultLogFolder,
+    moveAppStorageFile,
+    moveDefaultLogFolder,
+    pickAppStorageFile,
+    revealAppStorageFile,
+    revealDefaultLogFolder,
+    setAppStoragePath,
+    loadAppStyleOverrides,
+    saveAppStyleOverrides,
+  } from './lib/storage';
+  import WorldsAndCharactersEditor from './lib/components/settings/WorldsAndCharactersEditor.svelte';
+  import CharacterModal from './lib/components/settings/CharacterModal.svelte';
+  import ConfirmCloseTabModal from './lib/components/window/ConfirmCloseTabModal.svelte';
+  import HomePanel from './lib/components/window/HomePanel.svelte';
+  import LoggingModal from './lib/components/play/LoggingModal.svelte';
+  import NoticeModal from './lib/components/window/NoticeModal.svelte';
+  import PlayScreen from './lib/components/play/PlayScreen.svelte';
+  import SettingsPage from './lib/components/settings/SettingsPage.svelte';
+  import TriggersPane from './lib/components/settings/TriggersPane.svelte';
+  import TopBar from './lib/components/window/TopBar.svelte';
+  import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
+  import WorldModal from './lib/components/settings/WorldModal.svelte';
+  import { session } from './lib/session';
+  import { generateLogFilename, getLogFileName } from './lib/logging';
+  import type { AppTab } from './lib/tabs';
+  import type { WorldTabSessionState } from './lib/world-session';
+  import { getTriggersForCharacter } from './lib/triggers';
+  import {
+    createAppStyleEditor,
+    createDefaultAppStyleEditor,
+    resolveAppStyleEditor,
+    serializeAppStyleEditor,
+    type AppStyleEditor,
+    type AppStyleValues,
+  } from './lib/components/styles/style-settings';
+  import { getCurrentWebviewWindow } from './lib/tauri';
 
   let appSettings = loadAppSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
@@ -51,6 +52,9 @@ import {
   let loggingModalRefreshNonce = 0;
   let resolvedLogFolderPath: string | null = null;
   let storageImportNoticeOpen = false;
+  let appCloseConfirmOpen = false;
+  let allowWindowCloseOnce = false;
+  let unlistenAppClose: (() => void) | null = null;
 
   async function initializeStoragePath(): Promise<void> {
     try {
@@ -81,6 +85,7 @@ import {
   function updateAppSettings(patch: Partial<AppSettings>): void {
     appSettings = { ...appSettings, ...patch };
     saveAppSettings(appSettings);
+    session.setConfirmUnloggedTabClose(appSettings.confirmUnloggedTabClose);
   }
 
   function updateAppStyle(nextStyle: AppStyleEditor): void {
@@ -166,9 +171,95 @@ import {
     return (
       $session.modalOpen ||
       ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') ||
+      appCloseConfirmOpen ||
       loggingModalTabId !== null ||
       storageImportNoticeOpen
     );
+  }
+
+  function hasConnectedWorldTabs(): boolean {
+    return $session.tabs.some((tab) => {
+      if (tab.kind !== 'world') {
+        return false;
+      }
+
+      const sessionState = $session.worldSessions[tab.id];
+      return (
+        sessionState?.connectionStatus === 'connected' ||
+        sessionState?.connectionStatus === 'connecting'
+      );
+    });
+  }
+
+  function getCloseConfirmCopy(tabId: string): { title: string; message: string; confirmLabel: string } {
+    const sessionState = $session.worldSessions[tabId];
+    const worldName =
+      sessionState?.currentWorld?.name ??
+      sessionState?.currentCharacter?.name ??
+      $session.tabs.find((tab) => tab.id === tabId)?.title ??
+      'this world';
+
+    if (
+      sessionState?.connectionStatus === 'connected' ||
+      sessionState?.connectionStatus === 'connecting'
+    ) {
+      return {
+        title: 'close world tab?',
+        message: `World ${worldName} is connected. Disconnect and close?`,
+        confirmLabel: 'disconnect and close',
+      };
+    }
+
+    return {
+      title: 'close world tab?',
+      message: `World ${worldName} is not being logged. Close anyway?`,
+      confirmLabel: 'close anyway',
+    };
+  }
+
+  function handleAppCloseRequest(event: { preventDefault: () => void }): void {
+    if (allowWindowCloseOnce) {
+      allowWindowCloseOnce = false;
+      return;
+    }
+
+    if ($session.modalOpen || ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') || loggingModalTabId !== null || storageImportNoticeOpen) {
+      event.preventDefault();
+      return;
+    }
+
+    if (!hasConnectedWorldTabs()) {
+      return;
+    }
+
+    event.preventDefault();
+    appCloseConfirmOpen = true;
+  }
+
+  async function confirmAppClose(): Promise<void> {
+    if (!hasConnectedWorldTabs()) {
+      appCloseConfirmOpen = false;
+      return;
+    }
+
+    try {
+      const currentWebviewWindow = getCurrentWebviewWindow();
+      if (!currentWebviewWindow) {
+        appCloseConfirmOpen = false;
+        return;
+      }
+
+      allowWindowCloseOnce = true;
+      appCloseConfirmOpen = false;
+      await currentWebviewWindow.close();
+    } catch (error) {
+      allowWindowCloseOnce = false;
+      console.error('failed to close the app window:', error);
+    }
+  }
+
+  function cancelAppClose(): void {
+    appCloseConfirmOpen = false;
   }
 
   async function handleMoveLogFolder(): Promise<void> {
@@ -251,6 +342,7 @@ import {
 
     void (async () => {
       try {
+        session.setConfirmUnloggedTabClose(appSettings.confirmUnloggedTabClose);
         await initializeStoragePath();
         await initializeStyleSettings();
         await refreshResolvedLogFolder();
@@ -267,6 +359,24 @@ import {
       }
     })();
 
+    void (async () => {
+      try {
+        const currentWebviewWindow = getCurrentWebviewWindow();
+        if (!currentWebviewWindow) {
+          return;
+        }
+
+        unlistenAppClose = await currentWebviewWindow.onCloseRequested(handleAppCloseRequest);
+        if (disposed) {
+          unlistenAppClose();
+          unlistenAppClose = null;
+          return;
+        }
+      } catch (error) {
+        console.error('failed to install app close handler:', error);
+      }
+    })();
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('keydown', handleKeyDown, { capture: true });
@@ -276,6 +386,8 @@ import {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      unlistenAppClose?.();
+      unlistenAppClose = null;
       session.dispose();
     };
   });
@@ -292,6 +404,7 @@ import {
     worldSessions={$session.worldSessions}
     closeConfirmTabId={$session.closeConfirmTabId}
     closeConfirmMode={$session.closeConfirmMode}
+    confirmUnloggedTabClose={appSettings.confirmUnloggedTabClose}
     worlds={$session.worlds}
     characters={$session.characters}
     onSelectTab={(tabId) => session.selectTab(tabId)}
@@ -477,16 +590,20 @@ import {
 
 <ConfirmCloseTabModal
   open={$session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null}
-  worldName={
-    $session.closeConfirmTabId
-      ? $session.worldSessions[$session.closeConfirmTabId]?.currentWorld?.name ??
-        $session.worldSessions[$session.closeConfirmTabId]?.currentCharacter?.name ??
-        $session.tabs.find((tab) => tab.id === $session.closeConfirmTabId)?.title ??
-        'this world'
-      : ''
-  }
+  title={getCloseConfirmCopy($session.closeConfirmTabId ?? '').title}
+  message={getCloseConfirmCopy($session.closeConfirmTabId ?? '').message}
+  confirmLabel={getCloseConfirmCopy($session.closeConfirmTabId ?? '').confirmLabel}
   onCancel={() => session.cancelCloseConfirm()}
   onConfirm={() => session.confirmCloseTab()}
+/>
+
+<ConfirmCloseTabModal
+  open={appCloseConfirmOpen}
+  title="close app?"
+  message="One or more tabs are connected. Disconnect and close the app?"
+  confirmLabel="disconnect and close app"
+  onCancel={cancelAppClose}
+  onConfirm={() => void confirmAppClose()}
 />
 
 <NoticeModal

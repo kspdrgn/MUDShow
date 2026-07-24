@@ -192,6 +192,10 @@ function createSession() {
     patch({ settingsActiveTab: tab });
   }
 
+  function setConfirmUnloggedTabClose(confirmUnloggedTabClose: boolean): void {
+    patch({ confirmUnloggedTabClose });
+  }
+
   function getWorldConnection(tabId: string): MudConnection | null {
     const tab = getTab(tabId);
     if (!tab || tab.kind !== 'world') {
@@ -232,6 +236,24 @@ function createSession() {
 
     const session = getWorldSession(tabId);
     return session.connectionStatus === 'connected' || session.connectionStatus === 'connecting';
+  }
+
+  function shouldConfirmUnloggedWorldTabClose(tabId: string): boolean {
+    if (!getState().confirmUnloggedTabClose) {
+      return false;
+    }
+
+    const tab = getTab(tabId);
+    if (!tab || tab.kind !== 'world') {
+      return false;
+    }
+
+    const session = getWorldSession(tabId);
+    return (
+      !session.loggingActive &&
+      session.connectionStatus !== 'connected' &&
+      session.connectionStatus !== 'connecting'
+    );
   }
 
   function closeTabImmediately(tabId: string): void {
@@ -492,7 +514,7 @@ function createSession() {
   }
 
   function closeTab(tabId: string, source: 'mouse' | 'shortcut' = 'mouse'): void {
-    if (shouldConfirmWorldTabClose(tabId)) {
+    if (shouldConfirmWorldTabClose(tabId) || shouldConfirmUnloggedWorldTabClose(tabId)) {
       patch({
         closeConfirmTabId: tabId,
         closeConfirmMode: source === 'shortcut' ? 'modal' : 'dropdown',
@@ -669,6 +691,7 @@ function createSession() {
     },
     selectTab,
     setSettingsActiveTab,
+    setConfirmUnloggedTabClose,
     openTriggersTab,
     selectNextTab,
     selectPreviousTab,

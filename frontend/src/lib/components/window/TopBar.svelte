@@ -17,6 +17,7 @@
   export let worldSessions: Record<string, WorldTabSessionState> = {};
   export let closeConfirmTabId: string | null = null;
   export let closeConfirmMode: 'modal' | 'dropdown' | null = null;
+  export let confirmUnloggedTabClose = false;
   export let worlds: WorldRecord[] = [];
   export let characters: CharacterRecord[] = [];
   export let onSelectTab: (tabId: string) => void;
@@ -64,7 +65,10 @@
   let closeConfirmPosition = { x: 0, y: 0 };
   let closeConfirmAnchorRect: DOMRect | null = null;
   let closeConfirmTab: AppTab | null = null;
+  let closeConfirmSession: WorldTabSessionState | null = null;
   let closeConfirmWorldName = '';
+  let closeConfirmMessage = '';
+  let closeConfirmActionLabel = 'disconnect and close';
   const tabCloseButtons: Record<string, HTMLButtonElement | null> = {};
   const tabGroupElements: Record<string, HTMLDivElement | null> = {};
   const TAB_DRAG_THRESHOLD = 6;
@@ -121,12 +125,30 @@
     worldContextMenuSession.currentCharacter !== null &&
     !worldContextMenuSession.currentCharacter.isDefault;
   $: closeConfirmTab = closeConfirmTabId ? tabs.find((tab) => tab.id === closeConfirmTabId) ?? null : null;
+  $: closeConfirmSession =
+    closeConfirmTabId && closeConfirmTab?.kind === 'world'
+      ? worldSessions[closeConfirmTabId] ?? null
+      : null;
   $: closeConfirmWorldName = closeConfirmTabId
-    ? worldSessions[closeConfirmTabId]?.currentWorld?.name ??
-      worldSessions[closeConfirmTabId]?.currentCharacter?.name ??
+    ? closeConfirmSession?.currentWorld?.name ??
+      closeConfirmSession?.currentCharacter?.name ??
       closeConfirmTab?.title ??
       'this world'
     : '';
+  $: closeConfirmMessage =
+    closeConfirmSession?.connectionStatus === 'connected' ||
+    closeConfirmSession?.connectionStatus === 'connecting'
+      ? `World ${closeConfirmWorldName} is connected. Disconnect and close?`
+      : confirmUnloggedTabClose && closeConfirmSession !== null
+        ? `World ${closeConfirmWorldName} is not being logged. Close anyway?`
+        : '';
+  $: closeConfirmActionLabel =
+    closeConfirmSession?.connectionStatus === 'connected' ||
+    closeConfirmSession?.connectionStatus === 'connecting'
+      ? 'disconnect and close'
+      : confirmUnloggedTabClose && closeConfirmSession !== null
+        ? 'close anyway'
+        : 'disconnect and close';
 
   function isCloseConfirmDropdownOpen(): boolean {
     return closeConfirmMode === 'dropdown' && closeConfirmTab !== null;
@@ -655,7 +677,7 @@
         aria-label="close tab confirmation"
         style={`left: ${closeConfirmPosition.x}px; top: ${closeConfirmPosition.y}px;`}
       >
-        <p class="titlebar-close-confirm-copy">World {closeConfirmWorldName} is connected.</p>
+        <p class="titlebar-close-confirm-copy">{closeConfirmMessage}</p>
         <div class="titlebar-close-confirm-actions">
           <button
             type="button"
@@ -663,7 +685,7 @@
             role="menuitem"
             on:click={() => onConfirmCloseTab()}
           >
-            disconnect and close
+            {closeConfirmActionLabel}
           </button>
         </div>
       </div>

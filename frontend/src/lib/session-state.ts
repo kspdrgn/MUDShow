@@ -24,6 +24,7 @@ export interface SessionState {
   modalTitle: string;
   closeConfirmTabId: string | null;
   closeConfirmMode: 'modal' | 'dropdown' | null;
+  confirmUnloggedTabClose: boolean;
   worldEditingId: string | null;
   worldModalDraft: WorldDraft;
   editingIndex: number | null;
@@ -63,6 +64,7 @@ export function createInitialState(): SessionState {
     modalTitle: 'add character',
     closeConfirmTabId: null,
     closeConfirmMode: null,
+    confirmUnloggedTabClose: false,
     worldEditingId: null,
     worldModalDraft: { ...INITIAL_WORLD_DRAFT },
     editingIndex: null,
