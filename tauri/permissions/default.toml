@@ -32,5 +32,7 @@ permissions = [
   "allow-open-external-url",
   "allow-list-system-fonts",
   "allow-validate-system-font",
+  "core:window:allow-close",
+  "core:window:allow-destroy",
   "core:window:allow-start-dragging",
 ]
