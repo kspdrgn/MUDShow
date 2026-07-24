@@ -1,6 +1,6 @@
 import type { InputBarId } from './input-bars';
 import { createInputBars, type InputBarConfig } from './input-bars';
-import { PlayTranscript, type TranscriptHistoryEntry } from './playback';
+import { PlayTranscript, type TranscriptHistoryEntry, RenderCache } from './playback';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { ConnectionStatus, DisconnectReason } from './session-state';
 
@@ -8,8 +8,6 @@ export interface WorldSessionProjection {
   currentWorld: WorldRecord | null;
   currentCharacter: CharacterRecord | null;
   inputBars: InputBarConfig[];
-  outputChunks: string[];
-  outputEndsWithBr: boolean;
   outputRevision: number;
   userScrolled: boolean;
   activeBar: InputBarId;
@@ -29,6 +27,7 @@ export interface WorldSessionProjection {
 export interface WorldTabSessionState extends WorldSessionProjection {
   transcript: PlayTranscript;
   transcriptHistory: TranscriptHistoryEntry[];
+  renderCache: RenderCache; // Hot render cache for visible output
 }
 
 export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldTabSessionState {
@@ -36,8 +35,6 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     currentWorld: null,
     currentCharacter: null,
     inputBars: createInputBars(1),
-    outputChunks: [],
-    outputEndsWithBr: true,
     outputRevision: 0,
     userScrolled: false,
     activeBar: 1,
@@ -54,6 +51,7 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     logError: null,
     transcript: new PlayTranscript(transcriptMaxChunks),
     transcriptHistory: [],
+    renderCache: new RenderCache(1000), // Cache last 1000 rendered entries
   };
 }
 
@@ -62,8 +60,6 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     currentWorld: session.currentWorld,
     currentCharacter: session.currentCharacter,
     inputBars: session.inputBars,
-    outputChunks: session.outputChunks,
-    outputEndsWithBr: session.outputEndsWithBr,
     outputRevision: session.outputRevision,
     userScrolled: session.userScrolled,
     activeBar: session.activeBar,

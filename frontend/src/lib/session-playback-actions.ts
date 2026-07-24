@@ -3,6 +3,7 @@ import type { MudConnection } from './connection';
 import {
   appendTranscriptHistory,
   playBeep,
+  countTranscriptLines,
 } from './playback';
 import {
   loadNotes,
@@ -49,7 +50,6 @@ interface PlaybackActionContext {
   getWorldSession: (tabId: string) => WorldTabSessionState;
   ensureWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
-  setWorldOutput: (tabId: string, outputChunks: string[], outputEndsWithBr: boolean) => void;
   activateWorldTab: (tabId: string) => void;
   getWorldConnection: (tabId: string) => MudConnection | null;
   closeWorldTabConnection: (tabId: string) => Promise<void>;
@@ -88,7 +88,6 @@ export function createPlaybackActions({
   getWorldSession,
   ensureWorldSession,
   updateWorldSession,
-  setWorldOutput,
   activateWorldTab,
   getWorldConnection,
   closeWorldTabConnection,
@@ -174,8 +173,9 @@ export function createPlaybackActions({
 
   async function appendOutputToTab(tabId: string, rawText: string): Promise<void> {
     const session = getWorldSession(tabId);
-    const next = session.transcript.append(rawText);
     const maxHistoryLines = session.currentCharacter?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+
+    session.transcript.append(rawText);
 
     if (session.currentCharacter && maxHistoryLines > 0) {
       const transcriptHistory = appendTranscriptHistory(session.transcriptHistory, rawText, maxHistoryLines);
@@ -183,7 +183,9 @@ export function createPlaybackActions({
       void saveTranscriptHistory(session.currentCharacter.id, transcriptHistory, maxHistoryLines);
     }
 
-    setWorldOutput(tabId, next.chunks, next.endsWithBr);
+    updateWorldSession(tabId, {
+      outputRevision: session.outputRevision + 1,
+    });
     noteOutputActivity(tabId);
 
     const logText = stripTranscriptForLog(rawText);
@@ -237,7 +239,7 @@ export function createPlaybackActions({
     const fileName = requestedName && requestedName.trim()
       ? requestedName.trim()
       : generateLogFilename(session.currentWorld.name, session.currentCharacter?.name ?? 'world');
-    const initialText = stripTranscriptForLog(session.outputChunks.join(''));
+    const initialText = stripTranscriptForLog(session.transcript.getText());
 
     try {
       const result = await invoke<CreateSessionLogResult>('create_session_log', {
@@ -493,9 +495,7 @@ export function createPlaybackActions({
           ])
         : ['', []];
 
-      const historySnapshot = maxHistoryLines > 0
-        ? session.transcript.loadHistory(history)
-        : session.transcript.loadHistory([]);
+      session.transcript.loadHistory(maxHistoryLines > 0 ? history : []);
 
       setHighlightRegexes(highlightRegexes);
 
@@ -507,8 +507,6 @@ export function createPlaybackActions({
         connectionStatus: 'connecting',
         disconnectReason: null,
         hasNewActivity: false,
-        outputChunks: historySnapshot.chunks,
-        outputEndsWithBr: historySnapshot.endsWithBr,
         outputRevision: session.outputRevision + 1,
         userScrolled: false,
         activeBar,

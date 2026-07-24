@@ -71,7 +71,7 @@ Release:
       - [ ] Keyboard/mousewheel shortcut to change font size on the fly?
     - [X] App default styles
     - [X] App override styles
-    - [ ] System fonts picking, see `PLAN_FONTS.md`
+    - [X] System fonts picking, see `PLAN_FONTS.md`
     - [ ] Background images
 
   - Contents
@@ -137,6 +137,15 @@ Release:
 ## Database MUD text backend
 
 Instead of storing world text simply as the contents of the play window, it should be stored locally in an in-memory database. Future file databases or exports should be user-readable such as  JSONL, or structured text.
+
+- [X] Long canonical history store with rich state
+- [X] Short render cache
+- [ ] Triggers integration
+  - [ ] Triggers configurable to route matches out of logging
+- [ ] Logging options?
+  - [ ] Write timestamps an beginning of log chunks, maybe with configurable formatting.
+  - Would the user ever want to re-log from history with different settings?
+- [ ] Smooth sexy 60/120fps scrolling
 
 This would support:
   - Virtualized scrolling

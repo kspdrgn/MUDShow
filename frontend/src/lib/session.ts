@@ -141,25 +141,6 @@ function createSession() {
     });
   }
 
-  function setWorldOutput(tabId: string, outputChunks: string[], outputEndsWithBr: boolean): void {
-    state.update((current) => {
-      const existing = current.worldSessions[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
-
-      return {
-        ...current,
-        worldSessions: {
-          ...current.worldSessions,
-          [tabId]: {
-            ...existing,
-            outputChunks,
-            outputEndsWithBr,
-            outputRevision: existing.outputRevision + 1,
-          },
-        },
-      };
-    });
-  }
-
   function ensureSpecialTab(kind: 'characters' | 'settings' | 'triggers'): AppTab {
     const current = getState();
     const existing = current.tabs.find((tab) =>
@@ -608,15 +589,14 @@ function createSession() {
       const worldSessions: Record<string, WorldTabSessionState> = {};
 
       for (const [tabId, worldSession] of Object.entries(current.worldSessions)) {
-        const previousChunkCount = worldSession.transcript.chunks.length;
+        const previousChunkCount = worldSession.transcript.getChunkCount();
         worldSession.transcript.setMaxChunks(transcriptScrollbackChunks);
-        const outputChunks = worldSession.transcript.chunks;
+        const nextChunkCount = worldSession.transcript.getChunkCount();
 
         worldSessions[tabId] = {
           ...worldSession,
-          outputChunks,
           outputRevision:
-            outputChunks.length === previousChunkCount
+            nextChunkCount === previousChunkCount
               ? worldSession.outputRevision
               : worldSession.outputRevision + 1,
         };
@@ -646,7 +626,6 @@ function createSession() {
     getWorldSession,
     ensureWorldSession,
     updateWorldSession,
-    setWorldOutput,
     activateWorldTab,
     getWorldConnection,
     closeWorldTabConnection,

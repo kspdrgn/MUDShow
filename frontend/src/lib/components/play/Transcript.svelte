@@ -7,6 +7,7 @@
     buildRuleRegexes,
     renderTranscriptHtml,
   } from '../../formatting';
+  import type { PlayTranscript, RenderCache, TranscriptChunkEntry } from '../../playback';
   import {
     copyTextToClipboard,
     focusElement,
@@ -22,12 +23,14 @@
   const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
 
   export let activeBar: InputBarId = 1;
-  export let chunks: string[] = [];
+  export let transcript: PlayTranscript;
+  export let outputRevision = 0;
   export let width = 'none';
   export let scope = 'world';
   export let triggers: Trigger[] = [];
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
+  export let renderCache: RenderCache | null = null;
   export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
   export let canReconnect = false;
@@ -53,8 +56,9 @@
   let rules: Rule[] = [];
   let highlightRegexes = buildHighlightRegexes(highlights);
   let ruleRegexes = buildRuleRegexes(rules);
-  let renderedChunks: string[] = [];
-  let liveRenderedChunks: string[] = [];
+  type RenderedChunk = { id: number; html: string; title: string };
+  let renderedChunks: RenderedChunk[] = [];
+  let liveRenderedChunks: RenderedChunk[] = [];
   let splitView = false;
   let hiddenPreviewUrls = new Set<string>();
   let transcriptShellElement: HTMLDivElement | null = null;
@@ -63,6 +67,10 @@
   let contextMenuPosition = { x: 0, y: 0 };
   let contentResizeObserver: ResizeObserver | null = null;
   let userScrollIntent = false;
+  let lastSyncedTranscript: PlayTranscript | null = null;
+  let lastSyncedRevision = -1;
+  let renderDependencyKey = '';
+  let lastRenderDependencyKey = '';
 
   function closeContextMenu(): void {
     contextMenuOpen = false;
@@ -72,14 +80,79 @@
   $: rules = triggers.filter((trigger): trigger is Rule => trigger.type === 'rule');
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: ruleRegexes = buildRuleRegexes(rules);
-  $: renderedChunks = chunks.map((chunk) => renderChunk(chunk, true));
-  $: liveRenderedChunks = chunks.map((chunk) => renderChunk(chunk, false));
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
 
-  function renderChunk(chunk: string, includePreviews: boolean): string {
+  $: {
+    const nextRenderDependencyKey = buildRenderDependencyKey();
+    if (nextRenderDependencyKey !== renderDependencyKey) {
+      renderDependencyKey = nextRenderDependencyKey;
+      renderCache?.clear();
+      lastSyncedTranscript = null;
+      lastSyncedRevision = -1;
+      renderedChunks = [];
+      liveRenderedChunks = [];
+    }
+  }
+
+  $: syncTranscriptRenderState();
+
+  function buildRenderDependencyKey(): string {
+    const triggerKey = triggers
+      .map((trigger) => {
+        if (trigger.type === 'highlight') {
+          return [
+            'h',
+            trigger.id,
+            trigger.owner.kind,
+            trigger.owner.kind === 'world'
+              ? trigger.owner.worldId
+              : trigger.owner.kind === 'character'
+                ? trigger.owner.characterId
+                : '',
+            trigger.pattern,
+            trigger.caseSensitive ? '1' : '0',
+            trigger.wordBoundary ? '1' : '0',
+            trigger.foregroundColor ?? '',
+            trigger.backgroundColor ?? '',
+          ].join(':');
+        }
+
+        return [
+          'r',
+          trigger.id,
+          trigger.owner.kind,
+          trigger.owner.kind === 'world'
+            ? trigger.owner.worldId
+            : trigger.owner.kind === 'character'
+              ? trigger.owner.characterId
+              : '',
+          trigger.label,
+          trigger.pattern,
+          trigger.caseSensitive ? '1' : '0',
+          trigger.wholeLine ? '1' : '0',
+          trigger.stopOtherRules ? '1' : '0',
+          trigger.stopHighlights ? '1' : '0',
+          trigger.foregroundColor ?? '',
+          trigger.backgroundColor ?? '',
+          trigger.opacity ?? '',
+          trigger.sampleText,
+        ].join(':');
+      })
+      .join('|');
+
+    const hiddenPreviewKey = [...hiddenPreviewUrls].sort().join('|');
+    return [
+      linkImagePreviews ? '1' : '0',
+      String(imagePreviewCacheVersion),
+      triggerKey,
+      hiddenPreviewKey,
+    ].join('|');
+  }
+
+  function renderChunkHtml(chunk: TranscriptChunkEntry, includePreviews: boolean): string {
     const ruleResult = applyRulesWithResult(
       renderTranscriptHtml(
-        chunk,
+        chunk.text,
         includePreviews ? linkImagePreviews : false,
         hiddenPreviewUrls,
         includePreviews ? imagePreviewCacheVersion : 0,
@@ -88,6 +161,146 @@
     );
 
     return ruleResult.stopHighlights ? ruleResult.html : applyHighlights(ruleResult.html, highlightRegexes);
+  }
+
+  function buildChunkTitle(chunk: TranscriptChunkEntry): string {
+    const lineLabel = chunk.lineCount === 1 ? 'line' : 'lines';
+    const charLabel = chunk.charCount === 1 ? 'char' : 'chars';
+    const newlineLabel = chunk.text.endsWith('\n') ? 'ends with newline' : 'no trailing newline';
+
+    return `Chunk #${chunk.id}\n${chunk.lineCount} ${lineLabel}\n${chunk.charCount} ${charLabel}\n${newlineLabel}`;
+  }
+
+  function renderChunk(chunk: TranscriptChunkEntry, includePreviews: boolean): string {
+    const cacheKey = `${includePreviews ? 'live' : 'history'}:${renderDependencyKey}:${chunk.id}`;
+    if (renderCache) {
+      return renderCache.getOrSet(cacheKey, () => renderChunkHtml(chunk, includePreviews));
+    }
+
+    return renderChunkHtml(chunk, includePreviews);
+  }
+
+  function rebuildRenderedChunks(): void {
+    const count = transcript.getChunkCount();
+    const nextRenderedChunks: RenderedChunk[] = [];
+    const nextLiveRenderedChunks: RenderedChunk[] = [];
+
+    for (let index = 0; index < count; index += 1) {
+      const chunk = transcript.getChunk(index);
+      if (!chunk) {
+        continue;
+      }
+
+      nextRenderedChunks.push({
+        id: chunk.id,
+        html: renderChunk(chunk, true),
+      });
+      nextLiveRenderedChunks.push({
+        id: chunk.id,
+        html: renderChunk(chunk, false),
+      });
+    }
+
+    renderedChunks = nextRenderedChunks;
+    liveRenderedChunks = nextLiveRenderedChunks;
+    lastSyncedTranscript = transcript;
+    lastSyncedRevision = outputRevision;
+    lastRenderDependencyKey = renderDependencyKey;
+  }
+
+  function syncTranscriptRenderState(): void {
+    if (!transcript) {
+      renderedChunks = [];
+      liveRenderedChunks = [];
+      lastSyncedTranscript = null;
+      lastSyncedRevision = outputRevision;
+      return;
+    }
+
+    if (lastSyncedTranscript !== transcript || lastRenderDependencyKey !== renderDependencyKey) {
+      lastRenderDependencyKey = renderDependencyKey;
+      rebuildRenderedChunks();
+      return;
+    }
+
+    if (outputRevision === lastSyncedRevision) {
+      return;
+    }
+
+    const currentCount = transcript.getChunkCount();
+    const currentFirstChunk = currentCount > 0 ? transcript.getChunk(0) ?? null : null;
+    const previousCount = renderedChunks.length;
+    const previousFirstChunkId = renderedChunks[0]?.id ?? null;
+
+    if (currentCount === 0) {
+      renderedChunks = [];
+      liveRenderedChunks = [];
+      lastSyncedRevision = outputRevision;
+      lastRenderDependencyKey = renderDependencyKey;
+      return;
+    }
+
+    if (previousCount === 0 || previousFirstChunkId === null || currentFirstChunk === null) {
+      rebuildRenderedChunks();
+      lastRenderDependencyKey = renderDependencyKey;
+      return;
+    }
+
+    if (currentFirstChunk.id === previousFirstChunkId && currentCount >= previousCount) {
+      for (let index = previousCount; index < currentCount; index += 1) {
+        const chunk = transcript.getChunk(index);
+        if (!chunk) {
+          continue;
+        }
+
+        renderedChunks.push({
+          id: chunk.id,
+          html: renderChunk(chunk, true),
+          title: buildChunkTitle(chunk),
+        });
+        liveRenderedChunks.push({
+          id: chunk.id,
+          html: renderChunk(chunk, false),
+          title: buildChunkTitle(chunk),
+        });
+      }
+
+      lastSyncedRevision = outputRevision;
+      lastRenderDependencyKey = renderDependencyKey;
+      return;
+    }
+
+    const droppedCount = currentFirstChunk.id - previousFirstChunkId;
+    if (droppedCount > 0 && droppedCount <= previousCount) {
+      renderedChunks = renderedChunks.slice(droppedCount);
+      liveRenderedChunks = liveRenderedChunks.slice(droppedCount);
+
+      const nextStartIndex = previousCount - droppedCount;
+      for (let index = nextStartIndex; index < currentCount; index += 1) {
+        const chunk = transcript.getChunk(index);
+        if (!chunk) {
+          continue;
+        }
+
+        renderedChunks.push({
+          id: chunk.id,
+          html: renderChunk(chunk, true),
+          title: buildChunkTitle(chunk),
+        });
+        liveRenderedChunks.push({
+          id: chunk.id,
+          html: renderChunk(chunk, false),
+          title: buildChunkTitle(chunk),
+        });
+      }
+
+      lastSyncedRevision = outputRevision;
+      lastRenderDependencyKey = renderDependencyKey;
+      return;
+    }
+
+    rebuildRenderedChunks();
+    lastRenderDependencyKey = renderDependencyKey;
   }
 
   function scrollTranscriptToBottomIfFollowing(): void {
@@ -428,8 +641,8 @@
       on:error|capture={handlePreviewError}
     >
       <div class="output-area-content" bind:this={transcriptContentElement}>
-        {#each renderedChunks as renderedChunk}
-          <div class="output-chunk">{@html renderedChunk}</div>
+        {#each renderedChunks as renderedChunk (renderedChunk.id)}
+          <div class="output-chunk" title={renderedChunk.title}>{@html renderedChunk.html}</div>
         {/each}
       </div>
     </div>
@@ -459,8 +672,8 @@
       on:wheel|passive={handleLiveWheel}
     >
       <div class="output-area-content output-area-content--live">
-        {#each liveRenderedChunks as renderedChunk}
-          <div class="output-chunk">{@html renderedChunk}</div>
+        {#each liveRenderedChunks as renderedChunk (renderedChunk.id)}
+          <div class="output-chunk" title={renderedChunk.title}>{@html renderedChunk.html}</div>
         {/each}
       </div>
     </div>

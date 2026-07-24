@@ -2,6 +2,7 @@
   import { type InputBarConfig, type InputBarId } from '../../input-bars';
   import { onMount } from 'svelte';
   import type { Trigger } from '../../types';
+  import type { PlayTranscript, RenderCache } from '../../playback';
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
@@ -22,7 +23,9 @@
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
-  export let outputChunks: string[] = [];
+  export let transcript: PlayTranscript;
+  export let outputRevision = 0;
+  export let renderCache: RenderCache | null = null;
   export let characterWidth: number | undefined = undefined;
   export let onReconnectTab: () => void;
   export let onDisconnectTab: () => void;
@@ -167,12 +170,14 @@
 
   <Transcript
     {activeBar}
-    chunks={outputChunks}
+    {transcript}
+    {outputRevision}
     width={measuredPlayWidth}
     {scope}
     {triggers}
     {linkImagePreviews}
     {imagePreviewCacheVersion}
+    {renderCache}
     {showCurrentOutputWhenScrollingUp}
     {userScrolled}
     {canReconnect}

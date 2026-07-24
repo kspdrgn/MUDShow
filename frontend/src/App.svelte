@@ -385,7 +385,9 @@ import {
         linkImagePreviews={appSettings.linkImagePreviews}
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         userScrolled={worldSession.userScrolled}
-        outputChunks={worldSession.outputChunks}
+        transcript={worldSession.transcript}
+        outputRevision={worldSession.outputRevision}
+        renderCache={worldSession.renderCache}
         characterWidth={worldSession.currentCharacter?.width}
         loggingActive={worldSession.loggingActive}
         imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
