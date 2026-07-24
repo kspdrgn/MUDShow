@@ -5,6 +5,7 @@
   export let position = { x: 0, y: 0 };
   export let ariaLabel = 'spellcheck context menu';
   export let suggestions: string[] = [];
+  export let loading = false;
   export let onDismiss: () => void;
   export let onCopy: () => void;
   export let onCut: () => void;
@@ -162,6 +163,10 @@
           {suggestion}
         </button>
       {/each}
+    {:else if loading}
+      <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" disabled>
+        loading spelling suggestions...
+      </button>
     {:else}
       <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" disabled>
         no spelling suggestions yet
@@ -169,4 +174,3 @@
     {/if}
   </div>
 {/if}
-

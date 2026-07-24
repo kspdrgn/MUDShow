@@ -3,6 +3,7 @@
 mod fonts;
 mod mud_backend;
 mod storage;
+mod spellcheck;
 
 use std::process::Command;
 
@@ -141,6 +142,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(mud_backend::ConnectionManager::default())
+        .manage(spellcheck::SpellcheckManager::default())
         .setup(|app| {
             let default_storage_path = match storage::default_storage_path(app.handle()) {
                 Ok(path) => path,
@@ -183,6 +185,9 @@ fn main() {
             storage::append_session_log,
             storage::rename_session_log,
             storage::reveal_session_log_file,
+            spellcheck::spellcheck_check,
+            spellcheck::spellcheck_suggest,
+            spellcheck::spellcheck_add,
         ])
         .build(tauri::generate_context!())
         .expect("error while building MUDShow")

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { tick } from 'svelte';
-  import { onDestroy, onMount } from 'svelte';
-  import StatusDot from './StatusDot.svelte';
-  import SpellcheckContextMenu from './SpellcheckContextMenu.svelte';
-  import { getWordBounds } from '../../spellcheck';
+import { tick } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
+import StatusDot from './StatusDot.svelte';
+import SpellcheckContextMenu from './SpellcheckContextMenu.svelte';
+import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
   import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
   import {
     clampInputBarLines,
@@ -33,6 +33,9 @@
   export let onOutputScrollKey: (key: string) => void;
   export let spellcheckEnabled = true;
   export let spellcheckLanguage = 'en-US';
+  export let spellcheckIgnoredWords = '';
+  export let spellcheckSuggestionLimit = 5;
+  export let spellcheckMinimumWordLength = 3;
   export let onIgnoreWord: (word: string) => void;
   export let scope = 'world';
 
@@ -51,6 +54,9 @@
   let spellcheckMenuBar: InputBarId | null = null;
   let spellcheckMenuPosition = { x: 0, y: 0 };
   let spellcheckMenuWord = '';
+  let spellcheckMenuSuggestions: string[] = [];
+  let spellcheckMenuLoading = false;
+  let spellcheckMenuRequestToken = 0;
   let lastSelectedBar: InputBarId = activeBar;
   const controlTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
 
@@ -565,8 +571,51 @@
   }
 
   function closeSpellcheckMenu(): void {
+    spellcheckMenuRequestToken += 1;
+    spellcheckMenuLoading = false;
+    spellcheckMenuSuggestions = [];
     spellcheckMenuBar = null;
     spellcheckMenuWord = '';
+  }
+
+  async function loadSpellcheckMenuSuggestions(bar: InputBarId, word: string): Promise<void> {
+    const token = ++spellcheckMenuRequestToken;
+    const normalizedWord = word.trim();
+
+    if (!normalizedWord || normalizedWord.length < spellcheckMinimumWordLength) {
+      if (spellcheckMenuRequestToken === token) {
+        spellcheckMenuSuggestions = [];
+        spellcheckMenuLoading = false;
+      }
+      return;
+    }
+
+    spellcheckMenuLoading = true;
+
+    try {
+      const suggestions = await getSpellcheckSuggestions({
+        word: normalizedWord,
+        language: spellcheckLanguage,
+        ignoredWords: spellcheckIgnoredWords,
+        minimumWordLength: spellcheckMinimumWordLength,
+        suggestionLimit: spellcheckSuggestionLimit,
+      });
+
+      if (spellcheckMenuRequestToken !== token || spellcheckMenuBar !== bar) {
+        return;
+      }
+
+      spellcheckMenuSuggestions = suggestions;
+    } catch (error) {
+      if (spellcheckMenuRequestToken === token) {
+        spellcheckMenuSuggestions = [];
+        console.error('failed to fetch spellcheck suggestions:', error);
+      }
+    } finally {
+      if (spellcheckMenuRequestToken === token) {
+        spellcheckMenuLoading = false;
+      }
+    }
   }
 
   function openSpellcheckMenu(bar: InputBarId, event: MouseEvent): void {
@@ -587,6 +636,8 @@
       y: event.clientY,
     };
     spellcheckMenuWord = selectedText || word?.word || '';
+    spellcheckMenuSuggestions = [];
+    void loadSpellcheckMenuSuggestions(bar, spellcheckMenuWord);
   }
 
   function getSpellcheckInput(bar: InputBarId): HTMLTextAreaElement | null {
@@ -777,7 +828,8 @@
   open={spellcheckMenuBar !== null}
   position={spellcheckMenuPosition}
   ariaLabel="input spellcheck context menu"
-  suggestions={[]}
+  suggestions={spellcheckMenuSuggestions}
+  loading={spellcheckMenuLoading}
   onDismiss={closeSpellcheckMenu}
   onCopy={() => void (spellcheckMenuBar !== null && handleCopySpellcheck(spellcheckMenuBar))}
   onCut={() => void (spellcheckMenuBar !== null && handleCutSpellcheck(spellcheckMenuBar))}

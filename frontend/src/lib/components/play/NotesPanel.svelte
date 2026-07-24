@@ -2,7 +2,7 @@
   import SpellcheckContextMenu from './SpellcheckContextMenu.svelte';
   import { getWorldNotesEditorId, getWorldNotesPanelId } from '../../world-dom';
   import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
-  import { getWordBounds } from '../../spellcheck';
+  import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
 
   export let open = false;
   export let notes = '';
@@ -11,6 +11,9 @@
   export let onClose: () => void;
   export let spellcheckEnabled = true;
   export let spellcheckLanguage = 'en-US';
+  export let spellcheckIgnoredWords = '';
+  export let spellcheckSuggestionLimit = 5;
+  export let spellcheckMinimumWordLength = 3;
   export let onIgnoreWord: (word: string) => void;
 
   let draft = notes;
@@ -20,6 +23,9 @@
   let menuOpen = false;
   let menuPosition = { x: 0, y: 0 };
   let menuWord = '';
+  let menuSuggestions: string[] = [];
+  let menuLoading = false;
+  let menuRequestToken = 0;
 
   $: if (open && (!lastOpen || notes !== lastNotes)) {
     draft = notes;
@@ -31,8 +37,51 @@
   }
 
   function closeMenu(): void {
+    menuRequestToken += 1;
+    menuLoading = false;
+    menuSuggestions = [];
     menuOpen = false;
     menuWord = '';
+  }
+
+  async function loadMenuSuggestions(word: string): Promise<void> {
+    const token = ++menuRequestToken;
+    const normalizedWord = word.trim();
+
+    if (!normalizedWord || normalizedWord.length < spellcheckMinimumWordLength) {
+      if (menuRequestToken === token) {
+        menuSuggestions = [];
+        menuLoading = false;
+      }
+      return;
+    }
+
+    menuLoading = true;
+
+    try {
+      const suggestions = await getSpellcheckSuggestions({
+        word: normalizedWord,
+        language: spellcheckLanguage,
+        ignoredWords: spellcheckIgnoredWords,
+        minimumWordLength: spellcheckMinimumWordLength,
+        suggestionLimit: spellcheckSuggestionLimit,
+      });
+
+      if (menuRequestToken !== token || !menuOpen) {
+        return;
+      }
+
+      menuSuggestions = suggestions;
+    } catch (error) {
+      if (menuRequestToken === token) {
+        menuSuggestions = [];
+        console.error('failed to fetch notes spellcheck suggestions:', error);
+      }
+    } finally {
+      if (menuRequestToken === token) {
+        menuLoading = false;
+      }
+    }
   }
 
   function applyReplacement(replacement: string): void {
@@ -61,6 +110,8 @@
     menuOpen = true;
     menuPosition = { x: event.clientX, y: event.clientY };
     menuWord = selectedText || word?.word || '';
+    menuSuggestions = [];
+    void loadMenuSuggestions(menuWord);
   }
 
   async function copySelection(): Promise<void> {
@@ -163,7 +214,8 @@
   open={menuOpen}
   position={menuPosition}
   ariaLabel="notes spellcheck context menu"
-  suggestions={[]}
+  suggestions={menuSuggestions}
+  loading={menuLoading}
   onDismiss={closeMenu}
   onCopy={() => void copySelection()}
   onCut={() => void cutSelection()}

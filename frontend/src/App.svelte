@@ -28,7 +28,7 @@ import TopBar from './lib/components/window/TopBar.svelte';
 import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
 import WorldModal from './lib/components/settings/WorldModal.svelte';
 import { session } from './lib/session';
-import { appendSpellcheckIgnoredWord } from './lib/spellcheck';
+import { addSpellcheckWord, appendSpellcheckIgnoredWord } from './lib/spellcheck';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
@@ -99,7 +99,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     }
   }
 
-  function handleSpellcheckIgnoreWord(word: string): void {
+  async function handleSpellcheckIgnoreWord(word: string): Promise<void> {
     if (!word.trim()) {
       return;
     }
@@ -107,6 +107,12 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     updateAppSettings({
       spellcheckIgnoredWords: appendSpellcheckIgnoredWord(appSettings.spellcheckIgnoredWords, word),
     });
+
+    try {
+      await addSpellcheckWord(word, appSettings.spellcheckLanguage);
+    } catch (error) {
+      console.error('failed to add spellcheck word:', error);
+    }
   }
 
   function updateAppStyle(nextStyle: AppStyleEditor): void {
@@ -509,6 +515,9 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         spellcheckEnabled={appSettings.spellcheckEnabled}
         spellcheckLanguage={appSettings.spellcheckLanguage}
+        spellcheckIgnoredWords={appSettings.spellcheckIgnoredWords}
+        spellcheckSuggestionLimit={appSettings.spellcheckSuggestionLimit}
+        spellcheckMinimumWordLength={appSettings.spellcheckMinimumWordLength}
         userScrolled={worldSession.userScrolled}
         transcript={worldSession.transcript}
         outputRevision={worldSession.outputRevision}

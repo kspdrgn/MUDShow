@@ -455,7 +455,7 @@
             </label>
           </div>
           <p class="settings-note">
-            the input context menu is always available and currently handles text actions plus persistent ignore words while the backend spell engine is still being prepared.
+            the input context menu stays available even when spellcheck is off, and right-click suggestions use the Rust spell engine with your saved ignore words.
           </p>
         </section>
       {:else if activeTab === 'style'}

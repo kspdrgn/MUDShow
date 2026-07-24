@@ -33,7 +33,7 @@ Keyboard focus should be automatically restored to the last selected input box:
 ## [ ] Input Spellcheck
 
 - [X] The input text box should highlight known spelling errors with red underlines.
-- [X] Indicated typos should offer spelling correction suggestions.
+- [X] Indicated typos should offer spelling correction suggestions from the app's spellcheck backend.
 - [X] The spelling check system should allow local overrides, these will be stored app-wide.
 - [X] Right-clicking an input field opens an app-owned text context menu with standard editing actions and spellcheck actions.
 

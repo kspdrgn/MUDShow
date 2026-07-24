@@ -17,6 +17,7 @@ devtools = []
 fontdb = "0.23"
 native-tls = "0.2"
 serde = { version = "1", features = ["derive"] }
+spellbook = "0.4.2"
 tauri = { version = "2", features = [] }
 tauri-plugin-clipboard-manager = "2"
 tauri-runtime = "2"

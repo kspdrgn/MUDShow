@@ -25,6 +25,9 @@
   export let userScrolled = false;
   export let spellcheckEnabled = true;
   export let spellcheckLanguage = 'en-US';
+  export let spellcheckIgnoredWords = '';
+  export let spellcheckSuggestionLimit = 5;
+  export let spellcheckMinimumWordLength = 3;
   export let transcript: PlayTranscript;
   export let outputRevision = 0;
   export let renderCache: RenderCache | null = null;
@@ -175,6 +178,9 @@
     {scope}
     {spellcheckEnabled}
     {spellcheckLanguage}
+    {spellcheckIgnoredWords}
+    {spellcheckSuggestionLimit}
+    {spellcheckMinimumWordLength}
     onInput={onNotesInput}
     onIgnoreWord={onSpellcheckIgnoreWord}
     onClose={onNotesClose}
@@ -221,6 +227,9 @@
     {scope}
     {spellcheckEnabled}
     {spellcheckLanguage}
+    {spellcheckIgnoredWords}
+    {spellcheckSuggestionLimit}
+    {spellcheckMinimumWordLength}
     onIgnoreWord={onSpellcheckIgnoreWord}
     onFocusBar={onInputFocusBar}
     onSubmit={onInputSubmit}

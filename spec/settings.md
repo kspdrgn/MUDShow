@@ -68,7 +68,7 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 - Minimum word length
 - Typing debounce interval
 - Backend queue concurrency
-- The input spellcheck context menu remains available even when spellcheck is disabled
+- The input spellcheck context menu remains available even when spellcheck is disabled, and right-click suggestions use the app's backend spell engine with the saved ignore list
 
 ## Default Style
 - Shared style settings shell for the app-wide defaults, with no override controls since this is the bottom level used by any worlds or characters
