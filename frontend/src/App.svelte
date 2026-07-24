@@ -41,7 +41,7 @@ import {
   type AppStyleEditor,
   type AppStyleValues,
 } from './lib/components/styles/style-settings';
-import { getCurrentWebviewWindow } from './lib/tauri';
+import { getCurrentWebviewWindow, invoke } from './lib/tauri';
 
   let appSettings = loadAppSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
@@ -269,15 +269,14 @@ import { getCurrentWebviewWindow } from './lib/tauri';
     }
 
     try {
-      const currentWebviewWindow = getCurrentWebviewWindow();
-      if (!currentWebviewWindow) {
+      if (!getCurrentWebviewWindow()) {
         appCloseConfirmOpen = false;
         return;
       }
 
       allowWindowCloseOnce = true;
       appCloseConfirmOpen = false;
-      await currentWebviewWindow.close();
+      await invoke('window_close');
     } catch (error) {
       allowWindowCloseOnce = false;
       console.error('failed to close the app window:', error);

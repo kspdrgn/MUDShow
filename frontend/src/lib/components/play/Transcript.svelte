@@ -103,6 +103,12 @@
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
 
   $: {
+    // Touch the inputs directly so Svelte reruns this block when they change.
+    triggers;
+    linkImagePreviews;
+    imagePreviewCacheVersion;
+    hiddenPreviewUrls;
+
     const nextRenderDependencyKey = buildRenderDependencyKey();
     if (nextRenderDependencyKey !== renderDependencyKey) {
       renderDependencyKey = nextRenderDependencyKey;
@@ -114,7 +120,18 @@
     }
   }
 
-  $: syncTranscriptRenderState();
+  $: {
+    transcript;
+    outputRevision;
+    width;
+    splitView;
+    hiddenPreviewUrls;
+    triggers;
+    linkImagePreviews;
+    imagePreviewCacheVersion;
+    renderCache;
+    syncTranscriptRenderState();
+  }
 
   function buildRenderDependencyKey(): string {
     const triggerKey = triggers
@@ -364,7 +381,14 @@
 
     historyScrollTop = historyMetrics.scrollTop;
     historyViewportHeight = historyMetrics.clientHeight;
-    const historyRange = buildVisibleRange(historyScrollTop, historyViewportHeight, HISTORY_OVERSCAN_PX, true, false);
+    const anchorHistoryToBottom = !userScrolled;
+    const historyRange = buildVisibleRange(
+      historyScrollTop,
+      historyViewportHeight,
+      HISTORY_OVERSCAN_PX,
+      true,
+      anchorHistoryToBottom,
+    );
     renderedChunks = historyRange.rendered;
     renderedTopSpacer = historyRange.topSpacer;
     renderedBottomSpacer = historyRange.bottomSpacer;
@@ -381,10 +405,24 @@
       liveBottomSpacer = 0;
     }
 
+    if (renderedChunks.length === 0 && transcript.getChunkCount() > 0) {
+      const lastChunk = transcript.getChunk(transcript.getChunkCount() - 1);
+      if (lastChunk) {
+        renderedChunks = [{
+          id: lastChunk.id,
+          html: renderChunk(lastChunk, true),
+          title: buildChunkTitle(lastChunk),
+        }];
+        renderedTopSpacer = Math.max(0, renderedTopSpacer);
+        renderedBottomSpacer = 0;
+      }
+    }
+
     lastSyncedRevision = outputRevision;
     lastSyncedScrollTop = historyMetrics.scrollTop;
     lastSyncedHistoryHeight = historyMetrics.clientHeight;
     lastSyncedLiveHeight = liveHeight;
+
   }
 
   function scrollTranscriptToBottomIfFollowing(): void {
