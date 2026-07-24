@@ -28,6 +28,22 @@ For every feature or behavior added to the app, we need to ensure the entire fun
 - Prefer the existing npm scripts and Tauri commands for desktop workflows instead of inventing new shell wrappers.
 - Git may reject the repo with a safe-directory warning in this environment. If that happens, use `git -c safe.directory=<repo path> ...` for the command you need instead of assuming the checkout is broken.
 
+## Fork / Permanent Worktree Startup Instructions
+
+- Treat the checkout root as the top of the fork you opened, and do not assume a worktree id or parent folder naming scheme.
+- The main code areas are `frontend/` for the UI, `tauri/` for the desktop shell and Rust code, `scripts/` for helper scripts, and `spec/` for the feature spec documents.
+- For a fast orientation, open `README.md`, `package.json`, `spec/spec.md`, `tauri/tauri.conf.json`, and `scripts/tauri-dev.mjs` first.
+- Do not assume `node`, `npm`, or `node_modules/` are already on PATH or installed in the fork.
+- When you need to run npm scripts, choose the least disruptive startup path first:
+  - Reuse an existing `node_modules/` tree from the parent worktree when it is already known-good and the task only needs a quick, matching dependency snapshot.
+  - If the fork already has dependencies installed, invoke the package manager by absolute path or through the local runtime instructions in `AGENTS.local.md` instead of relying on PATH.
+  - If dependencies are missing and a fresh install is appropriate, run `npm ci` from the repo root after launching npm through the local runtime path, not a shell shim.
+- For the two common entry points, use the local runtime instructions rather than PATH:
+  - `build:frontend` should be launched as documented in `AGENTS.local.md` for this fork.
+  - `start` should be launched as documented in `AGENTS.local.md` for this fork.
+- If a script fails because the shell cannot find `node` or `npm`, fix the launch path once and continue rather than repeatedly retrying the same broken command.
+- If a fork needs machine-specific runtime or checkout-root guidance, put that in `AGENTS.local.md` so the shared file stays generic.
+
 ## Release Build Notes
 
 - `npm run build` may download Windows bundle tools on first run.
