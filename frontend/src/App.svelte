@@ -28,6 +28,7 @@ import TopBar from './lib/components/window/TopBar.svelte';
 import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
 import WorldModal from './lib/components/settings/WorldModal.svelte';
 import { session } from './lib/session';
+import { appendSpellcheckIgnoredWord } from './lib/spellcheck';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
@@ -96,6 +97,16 @@ import { getCurrentWebviewWindow } from './lib/tauri';
     if (typeof patch.transcriptScrollbackChunks === 'number') {
       session.setTranscriptScrollbackChunks(appSettings.transcriptScrollbackChunks);
     }
+  }
+
+  function handleSpellcheckIgnoreWord(word: string): void {
+    if (!word.trim()) {
+      return;
+    }
+
+    updateAppSettings({
+      spellcheckIgnoredWords: appendSpellcheckIgnoredWord(appSettings.spellcheckIgnoredWords, word),
+    });
   }
 
   function updateAppStyle(nextStyle: AppStyleEditor): void {
@@ -497,6 +508,8 @@ import { getCurrentWebviewWindow } from './lib/tauri';
         notesVisible={worldSession.notesVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
+        spellcheckEnabled={appSettings.spellcheckEnabled}
+        spellcheckLanguage={appSettings.spellcheckLanguage}
         userScrolled={worldSession.userScrolled}
         transcript={worldSession.transcript}
         outputRevision={worldSession.outputRevision}
@@ -525,6 +538,7 @@ import { getCurrentWebviewWindow } from './lib/tauri';
         onInputRemoveBar={(bar) => void session.removeInputBar(bar)}
         onInputResizeBar={(bar, delta) => session.resizeInputBar(bar, delta)}
         onNotesInput={(notes) => session.saveNotes(notes)}
+        onSpellcheckIgnoreWord={handleSpellcheckIgnoreWord}
         onNotesClose={() => void session.togglePanel('notes')}
         onOutputScroll={() => session.handleOutputScroll()}
         onOutputScrollKey={(action) => session.handleOutputScrollKey(action)}

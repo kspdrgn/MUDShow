@@ -23,6 +23,8 @@
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
   export let userScrolled = false;
+  export let spellcheckEnabled = true;
+  export let spellcheckLanguage = 'en-US';
   export let transcript: PlayTranscript;
   export let outputRevision = 0;
   export let renderCache: RenderCache | null = null;
@@ -53,6 +55,7 @@
   export let onInputRemoveBar: (bar: InputBarId) => void;
   export let onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
   export let onNotesInput: (notes: string) => void;
+  export let onSpellcheckIgnoreWord: (word: string) => void;
   export let onNotesClose: () => void;
   export let onOutputScroll: () => void;
   export let onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
@@ -166,7 +169,16 @@
   style:--world-input-foreground={styleValues.input.foregroundColor}
   style:--world-input-background={styleValues.input.backgroundColor}
 >
-  <NotesPanel open={notesVisible} {notes} {scope} onInput={onNotesInput} onClose={onNotesClose} />
+  <NotesPanel
+    open={notesVisible}
+    {notes}
+    {scope}
+    {spellcheckEnabled}
+    {spellcheckLanguage}
+    onInput={onNotesInput}
+    onIgnoreWord={onSpellcheckIgnoreWord}
+    onClose={onNotesClose}
+  />
 
   <Transcript
     {activeBar}
@@ -207,6 +219,9 @@
     {hasNewActivity}
     {loggingActive}
     {scope}
+    {spellcheckEnabled}
+    {spellcheckLanguage}
+    onIgnoreWord={onSpellcheckIgnoreWord}
     onFocusBar={onInputFocusBar}
     onSubmit={onInputSubmit}
     onComplete={onInputComplete}

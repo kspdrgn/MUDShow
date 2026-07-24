@@ -61,7 +61,14 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 - Send TCP keep-alive signals
 
 ## Spellcheck
-- Dictionary to use for input spellchecker
+- Master enable toggle for live input spellcheck underlines
+- Dictionary or locale hint to use for input spellchecker
+- Comma-separated app-wide ignored words list
+- Suggestion limit
+- Minimum word length
+- Typing debounce interval
+- Backend queue concurrency
+- The input spellcheck context menu remains available even when spellcheck is disabled
 
 ## Default Style
 - Shared style settings shell for the app-wide defaults, with no override controls since this is the bottom level used by any worlds or characters

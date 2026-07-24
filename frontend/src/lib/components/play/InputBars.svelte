@@ -2,6 +2,9 @@
   import { tick } from 'svelte';
   import { onDestroy, onMount } from 'svelte';
   import StatusDot from './StatusDot.svelte';
+  import SpellcheckContextMenu from './SpellcheckContextMenu.svelte';
+  import { getWordBounds } from '../../spellcheck';
+  import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
   import {
     clampInputBarLines,
     getScopedInputBarContainerId,
@@ -28,6 +31,9 @@
   export let onRemoveBar: (bar: InputBarId) => void;
   export let onResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
   export let onOutputScrollKey: (key: string) => void;
+  export let spellcheckEnabled = true;
+  export let spellcheckLanguage = 'en-US';
+  export let onIgnoreWord: (word: string) => void;
   export let scope = 'world';
 
   const HISTORY_LIMIT = 50;
@@ -42,6 +48,9 @@
   let history: string[] = [];
   let historyState: Record<InputBarId, HistoryBrowseState> = {};
   let controlsVisible: Record<InputBarId, boolean> = {};
+  let spellcheckMenuBar: InputBarId | null = null;
+  let spellcheckMenuPosition = { x: 0, y: 0 };
+  let spellcheckMenuWord = '';
   let lastSelectedBar: InputBarId = activeBar;
   const controlTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
 
@@ -554,6 +563,126 @@
 
     return `${getConnectionStatusTitle()} - Activity - ${loggingLabel}`;
   }
+
+  function closeSpellcheckMenu(): void {
+    spellcheckMenuBar = null;
+    spellcheckMenuWord = '';
+  }
+
+  function openSpellcheckMenu(bar: InputBarId, event: MouseEvent): void {
+    const input = getInput(bar);
+    if (!input) {
+      return;
+    }
+
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? selectionStart;
+    const selectedText = input.value.slice(selectionStart, selectionEnd).trim();
+    const word = getWordBounds(input.value, selectionStart, selectionEnd);
+
+    window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'spellcheck' } }));
+    spellcheckMenuBar = bar;
+    spellcheckMenuPosition = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+    spellcheckMenuWord = selectedText || word?.word || '';
+  }
+
+  function getSpellcheckInput(bar: InputBarId): HTMLTextAreaElement | null {
+    return getInput(bar);
+  }
+
+  function applyReplacement(bar: InputBarId, replacement: string, start?: number, end?: number): void {
+    const input = getSpellcheckInput(bar);
+    if (!input) {
+      return;
+    }
+
+    const selectionStart = start ?? input.selectionStart ?? 0;
+    const selectionEnd = end ?? input.selectionEnd ?? selectionStart;
+    input.setRangeText(replacement, selectionStart, selectionEnd, 'end');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  }
+
+  async function handleCopySpellcheck(bar: InputBarId): Promise<void> {
+    const input = getSpellcheckInput(bar);
+    if (!input) {
+      return;
+    }
+
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? selectionStart;
+    const selectedText = input.value.slice(selectionStart, selectionEnd);
+    if (!selectedText) {
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(selectedText);
+    } catch (error) {
+      console.error('failed to copy spellcheck selection:', error);
+    }
+  }
+
+  async function handleCutSpellcheck(bar: InputBarId): Promise<void> {
+    const input = getSpellcheckInput(bar);
+    if (!input) {
+      return;
+    }
+
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? selectionStart;
+    const selectedText = input.value.slice(selectionStart, selectionEnd);
+    if (!selectedText) {
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(selectedText);
+      applyReplacement(bar, '', selectionStart, selectionEnd);
+    } catch (error) {
+      console.error('failed to cut spellcheck selection:', error);
+    }
+  }
+
+  async function handlePasteSpellcheck(bar: InputBarId): Promise<void> {
+    const input = getSpellcheckInput(bar);
+    if (!input) {
+      return;
+    }
+
+    try {
+      const pastedText = await readTextFromClipboard();
+      const selectionStart = input.selectionStart ?? 0;
+      const selectionEnd = input.selectionEnd ?? selectionStart;
+      applyReplacement(bar, pastedText, selectionStart, selectionEnd);
+    } catch (error) {
+      console.error('failed to paste spellcheck text:', error);
+    }
+  }
+
+  function handleSelectAllSpellcheck(bar: InputBarId): void {
+    const input = getSpellcheckInput(bar);
+    if (!input) {
+      return;
+    }
+
+    input.focus();
+    input.setSelectionRange(0, input.value.length);
+  }
+
+  function handleIgnoreOnce(): void {
+    closeSpellcheckMenu();
+  }
+
+  function handleIgnoreAlways(): void {
+    if (spellcheckMenuWord) {
+      onIgnoreWord(spellcheckMenuWord);
+    }
+    closeSpellcheckMenu();
+  }
 </script>
 
 <div class="input-area">
@@ -566,10 +695,15 @@
           rows={clampInputBarLines(bar.lines)}
           bind:value={values[bar.id]}
           autocomplete="off"
-          spellcheck="true"
+          lang={spellcheckLanguage}
+          spellcheck={spellcheckEnabled}
           on:focus={() => handleFocus(bar.id)}
           on:input={(event) => handleInput(bar.id, event)}
           on:keydown={(event) => handleKeydown(event, bar.id)}
+          on:contextmenu={(event) => {
+            event.preventDefault();
+            openSpellcheckMenu(bar.id, event);
+          }}
           ></textarea>
 
         <div
@@ -638,3 +772,25 @@
     {/each}
   </div>
 </div>
+
+<SpellcheckContextMenu
+  open={spellcheckMenuBar !== null}
+  position={spellcheckMenuPosition}
+  ariaLabel="input spellcheck context menu"
+  suggestions={[]}
+  onDismiss={closeSpellcheckMenu}
+  onCopy={() => void (spellcheckMenuBar !== null && handleCopySpellcheck(spellcheckMenuBar))}
+  onCut={() => void (spellcheckMenuBar !== null && handleCutSpellcheck(spellcheckMenuBar))}
+  onPaste={() => void (spellcheckMenuBar !== null && handlePasteSpellcheck(spellcheckMenuBar))}
+  onSelectAll={() => spellcheckMenuBar !== null && handleSelectAllSpellcheck(spellcheckMenuBar)}
+  onIgnoreOnce={handleIgnoreOnce}
+  onIgnoreAlways={handleIgnoreAlways}
+  onChooseSuggestion={(suggestion) => {
+    if (spellcheckMenuBar === null) {
+      return;
+    }
+
+    applyReplacement(spellcheckMenuBar, suggestion);
+    closeSpellcheckMenu();
+  }}
+/>

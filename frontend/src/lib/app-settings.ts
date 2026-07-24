@@ -16,7 +16,13 @@ export interface AppSettings {
   connectionTimeoutSeconds: number;
   connectionRetries: number;
   keepAlive: boolean;
+  spellcheckEnabled: boolean;
   spellcheckLanguage: string;
+  spellcheckIgnoredWords: string;
+  spellcheckSuggestionLimit: number;
+  spellcheckMinimumWordLength: number;
+  spellcheckDebounceMs: number;
+  spellcheckQueueConcurrency: number;
   colorScheme: string;
   alwaysOnTop: boolean;
   transparency: number;
@@ -35,7 +41,13 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
   keepAlive: true,
+  spellcheckEnabled: true,
   spellcheckLanguage: 'en-US',
+  spellcheckIgnoredWords: '',
+  spellcheckSuggestionLimit: 5,
+  spellcheckMinimumWordLength: 3,
+  spellcheckDebounceMs: 250,
+  spellcheckQueueConcurrency: 1,
   colorScheme: 'midnight',
   alwaysOnTop: false,
   transparency: 100,
@@ -95,6 +107,40 @@ function normalizePositiveInteger(value: unknown, fallback: number): number {
   return Math.max(1, Math.round(value));
 }
 
+function normalizeNonNegativeIntegerWithFallback(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(0, Math.round(value));
+}
+
+function normalizeCommaSeparatedWordList(value: unknown): string {
+  if (typeof value !== 'string') {
+    return DEFAULT_APP_SETTINGS.spellcheckIgnoredWords;
+  }
+
+  const words: string[] = [];
+  const seen = new Set<string>();
+
+  for (const part of value.split(',')) {
+    const trimmed = part.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    words.push(trimmed);
+  }
+
+  return words.join(', ');
+}
+
 export function loadAppSettings(): AppSettings {
   if (typeof window === 'undefined') {
     return { ...DEFAULT_APP_SETTINGS };
@@ -123,9 +169,27 @@ export function loadAppSettings(): AppSettings {
       ? Math.max(0, Math.round(raw.connectionRetries))
       : DEFAULT_APP_SETTINGS.connectionRetries,
     keepAlive: raw.keepAlive !== false,
+    spellcheckEnabled: raw.spellcheckEnabled !== false,
     spellcheckLanguage: typeof raw.spellcheckLanguage === 'string' && raw.spellcheckLanguage.trim()
       ? raw.spellcheckLanguage.trim()
       : DEFAULT_APP_SETTINGS.spellcheckLanguage,
+    spellcheckIgnoredWords: normalizeCommaSeparatedWordList(raw.spellcheckIgnoredWords),
+    spellcheckSuggestionLimit: normalizePositiveInteger(
+      raw.spellcheckSuggestionLimit,
+      DEFAULT_APP_SETTINGS.spellcheckSuggestionLimit,
+    ),
+    spellcheckMinimumWordLength: normalizePositiveInteger(
+      raw.spellcheckMinimumWordLength,
+      DEFAULT_APP_SETTINGS.spellcheckMinimumWordLength,
+    ),
+    spellcheckDebounceMs: normalizeNonNegativeIntegerWithFallback(
+      raw.spellcheckDebounceMs,
+      DEFAULT_APP_SETTINGS.spellcheckDebounceMs,
+    ),
+    spellcheckQueueConcurrency: normalizePositiveInteger(
+      raw.spellcheckQueueConcurrency,
+      DEFAULT_APP_SETTINGS.spellcheckQueueConcurrency,
+    ),
     colorScheme: typeof raw.colorScheme === 'string' && raw.colorScheme.trim()
       ? raw.colorScheme.trim()
       : DEFAULT_APP_SETTINGS.colorScheme,
@@ -164,7 +228,25 @@ export function saveAppSettings(settings: AppSettings): void {
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),
     keepAlive: settings.keepAlive !== false,
+    spellcheckEnabled: settings.spellcheckEnabled !== false,
     spellcheckLanguage: settings.spellcheckLanguage.trim() || DEFAULT_APP_SETTINGS.spellcheckLanguage,
+    spellcheckIgnoredWords: normalizeCommaSeparatedWordList(settings.spellcheckIgnoredWords),
+    spellcheckSuggestionLimit: normalizePositiveInteger(
+      settings.spellcheckSuggestionLimit,
+      DEFAULT_APP_SETTINGS.spellcheckSuggestionLimit,
+    ),
+    spellcheckMinimumWordLength: normalizePositiveInteger(
+      settings.spellcheckMinimumWordLength,
+      DEFAULT_APP_SETTINGS.spellcheckMinimumWordLength,
+    ),
+    spellcheckDebounceMs: normalizeNonNegativeIntegerWithFallback(
+      settings.spellcheckDebounceMs,
+      DEFAULT_APP_SETTINGS.spellcheckDebounceMs,
+    ),
+    spellcheckQueueConcurrency: normalizePositiveInteger(
+      settings.spellcheckQueueConcurrency,
+      DEFAULT_APP_SETTINGS.spellcheckQueueConcurrency,
+    ),
     colorScheme: settings.colorScheme.trim() || DEFAULT_APP_SETTINGS.colorScheme,
     alwaysOnTop: settings.alwaysOnTop === true,
     transparency: clampTransparency(settings.transparency),

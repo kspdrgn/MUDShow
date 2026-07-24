@@ -350,19 +350,113 @@
       {:else if activeTab === 'spellcheck'}
         <section class="settings-card">
           <h2>spellcheck</h2>
-          <p>crossed out settings do not work yet.</p>
-          <label class="field disabled-field">
-            <span>dictionary language</span>
+          <label class="settings-toggle">
             <input
-              type="text"
-              value={settings.spellcheckLanguage}
-              disabled
-              on:input={(event) =>
-                onChange({
-                  spellcheckLanguage: (event.currentTarget as HTMLInputElement).value,
-                })}
+              type="checkbox"
+              checked={settings.spellcheckEnabled}
+              on:change={(event) =>
+                onChange({ spellcheckEnabled: (event.currentTarget as HTMLInputElement).checked })}
             />
+            <span>enable live spellcheck underlines in editable text fields.</span>
           </label>
+          <div class="settings-stack">
+            <label class="field">
+              <span>dictionary language or locale hint</span>
+              <input
+                type="text"
+                value={settings.spellcheckLanguage}
+                spellcheck="false"
+                on:input={(event) =>
+                  onChange({
+                    spellcheckLanguage: (event.currentTarget as HTMLInputElement).value,
+                  })}
+              />
+            </label>
+
+            <label class="field">
+              <span>ignored words, comma separated</span>
+              <input
+                type="text"
+                value={settings.spellcheckIgnoredWords}
+                spellcheck="false"
+                on:input={(event) =>
+                  onChange({
+                    spellcheckIgnoredWords: (event.currentTarget as HTMLInputElement).value,
+                  })}
+              />
+            </label>
+
+            <label class="field">
+              <span>suggestion limit</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={settings.spellcheckSuggestionLimit}
+                on:input={(event) =>
+                  onChange({
+                    spellcheckSuggestionLimit: Math.max(
+                      1,
+                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                    ),
+                  })}
+              />
+            </label>
+
+            <label class="field">
+              <span>minimum word length</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={settings.spellcheckMinimumWordLength}
+                on:input={(event) =>
+                  onChange({
+                    spellcheckMinimumWordLength: Math.max(
+                      1,
+                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                    ),
+                  })}
+              />
+            </label>
+
+            <label class="field">
+              <span>typing debounce (ms)</span>
+              <input
+                type="number"
+                min="0"
+                step="25"
+                value={settings.spellcheckDebounceMs}
+                on:input={(event) =>
+                  onChange({
+                    spellcheckDebounceMs: Math.max(
+                      0,
+                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                    ),
+                  })}
+              />
+            </label>
+
+            <label class="field">
+              <span>queue concurrency</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={settings.spellcheckQueueConcurrency}
+                on:input={(event) =>
+                  onChange({
+                    spellcheckQueueConcurrency: Math.max(
+                      1,
+                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                    ),
+                  })}
+              />
+            </label>
+          </div>
+          <p class="settings-note">
+            the input context menu is always available and currently handles text actions plus persistent ignore words while the backend spell engine is still being prepared.
+          </p>
         </section>
       {:else if activeTab === 'style'}
         <StyleSettingsPane
