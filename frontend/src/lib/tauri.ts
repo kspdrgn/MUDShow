@@ -13,6 +13,14 @@ type TauriGlobal = Window & {
         handler: (event: { event: string; id: number; payload: T }) => void,
       ): Promise<() => void>;
     };
+    webviewWindow?: {
+      getCurrentWebviewWindow(): {
+        close(): Promise<void>;
+        onCloseRequested(
+          handler: (event: { preventDefault(): void }) => void,
+        ): Promise<() => void>;
+      };
+    };
   };
 };
 
@@ -81,4 +89,19 @@ export async function listen<T>(
   }
 
   return api.listen<T>(event, handler);
+}
+
+export function getCurrentWebviewWindow():
+  | {
+      close(): Promise<void>;
+      onCloseRequested(
+        handler: (event: { preventDefault(): void }) => void,
+      ): Promise<() => void>;
+    }
+  | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return (window as TauriGlobal).__TAURI__?.webviewWindow?.getCurrentWebviewWindow() ?? null;
 }

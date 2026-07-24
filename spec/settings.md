@@ -53,6 +53,7 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
   - Button to open a native folder picker to select a different folder, no logs will be moved
 - The app uses a safe default location when this setting is null or invalid.
 - Session logs are created in this folder unless the user explicitly chooses a different destination.
+- Includes a reminder toggle that asks before closing a world tab when logging is not active on that tab.
 
 ## Connections
 - Connection timeout time

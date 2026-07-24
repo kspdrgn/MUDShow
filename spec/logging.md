@@ -40,6 +40,7 @@ A modal window will provide options for the current world tab
   - User may open the folder in native OS file explorer, or move the folder, similar to app settings database file controls. Moving the log folder in this way will not move any existing log files, or disrupt active logging sessions.
 - If the configured folder is missing or invalid, the app should fall back to a safe default location. The default save location is the user profile folder, similar to app settings database file handling, with fallback to a temp folder.
 - The logging feature should use the configured default folder unless the user chooses a different destination.
+- App Settings also include a reminder toggle that asks before closing a world tab while logging is inactive on that tab.
 
 ## Visibility
 

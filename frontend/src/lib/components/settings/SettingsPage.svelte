@@ -286,6 +286,20 @@
           <p class="settings-note">
             new session logs start here.
           </p>
+          <label class="settings-toggle">
+            <input
+              type="checkbox"
+              checked={settings.confirmUnloggedTabClose}
+              on:change={(event) =>
+                onChange({
+                  confirmUnloggedTabClose: (event.currentTarget as HTMLInputElement).checked,
+                })}
+            />
+            <span>confirm before closing a world tab that is not being logged.</span>
+          </label>
+          <p class="settings-note">
+            when enabled, disconnected world tabs show the same kind of warning as connected tabs before they close.
+          </p>
         </section>
       {:else if activeTab === 'connections'}
         <section class="settings-card">
