@@ -125,8 +125,11 @@ jobs:
           if-no-files-found: error
 
   linux-desktop-release:
-    name: Build Linux desktop executable artifact
+    name: Build Linux desktop AppImage artifact
     runs-on: ubuntu-22.04
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -168,14 +171,24 @@ jobs:
         id: version
         uses: gittools/actions/gitversion/execute@v4.5.0
 
-      - name: Stamp desktop version
+      - name: Configure Linux release bundling
         shell: bash
         run: |
           version='${{ steps.version.outputs.semVer }}'
-          node -e "const fs=require('fs'); const path='tauri/tauri.conf.json'; const config=JSON.parse(fs.readFileSync(path, 'utf8')); config.version=process.argv[1]; fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');" "$version"
+          build_appimage='false'
+          if [ '${{ github.event_name }}' = 'push' ] && [ '${{ github.ref_name }}' = 'main' ]; then
+            build_appimage='true'
+          fi
+          node -e "const fs=require('fs'); const path='tauri/tauri.conf.json'; const config=JSON.parse(fs.readFileSync(path, 'utf8')); config.version=process.argv[1]; if (process.argv[2] === 'true') { config.bundle.targets = ['appimage']; config.bundle.createUpdaterArtifacts = true; } fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');" "$version" "$build_appimage"
 
-      - name: Build desktop executable
-        run: npm run build -- --no-bundle
+      - name: Build desktop bundle
+        shell: bash
+        run: |
+          if [ '${{ github.event_name }}' = 'push' ] && [ '${{ github.ref_name }}' = 'main' ]; then
+            npm run build
+          else
+            npm run build -- --no-bundle
+          fi
 
       - name: Stage Linux desktop release file
         shell: bash
@@ -183,9 +196,31 @@ jobs:
           version='${{ steps.version.outputs.semVer }}'
           stage_root='artifacts/desktop-release/linux'
           mkdir -p "$stage_root"
-          cp tauri/target/release/mudshow "$stage_root/mudshow-linux-x64-$version"
+          if [ '${{ github.event_name }}' = 'push' ] && [ '${{ github.ref_name }}' = 'main' ]; then
+            cp tauri/target/release/bundle/appimage/*.AppImage "$stage_root/mudshow-linux-x64-$version.AppImage"
+            cp tauri/target/release/bundle/appimage/*.AppImage.sig "$stage_root/mudshow-linux-x64-$version.AppImage.sig"
+          else
+            cp tauri/target/release/mudshow "$stage_root/mudshow-linux-x64-$version"
+          fi
+
+      - name: Upload Linux AppImage artifact
+        if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mudshow-linux-x64-appimage-${{ steps.version.outputs.semVer }}
+          path: artifacts/desktop-release/linux/mudshow-linux-x64-*.AppImage
+          if-no-files-found: error
+
+      - name: Upload Linux AppImage signature artifact
+        if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mudshow-linux-x64-appimage-sig-${{ steps.version.outputs.semVer }}
+          path: artifacts/desktop-release/linux/mudshow-linux-x64-*.AppImage.sig
+          if-no-files-found: error
 
       - name: Upload Linux executable artifact
+        if: ${{ github.event_name != 'push' || github.ref_name != 'main' }}
         uses: actions/upload-artifact@v4
         with:
           name: mudshow-linux-x64-exe-${{ steps.version.outputs.semVer }}

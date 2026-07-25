@@ -48,7 +48,8 @@ jobs:
           name: MUDShow ${{ steps.meta.outputs.version }}
           files: |
             **/mudshow-win-x64-*.exe
-            **/mudshow-linux-x64-*
+            **/mudshow-linux-x64-*.AppImage
+            **/mudshow-linux-x64-*.AppImage.sig
             **/MUDShow_win_x64_setup_*.exe
             **/MUDShow_win_x64_setup_*.msi
           fail_on_unmatched_files: true
