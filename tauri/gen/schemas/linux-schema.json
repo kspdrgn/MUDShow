@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `core:window:allow-start-dragging`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`"
         },
         {
           "description": "Enables the append_session_log command without any pre-configured scope.",
@@ -217,6 +217,12 @@
           "type": "string",
           "const": "allow-get-default-log-folder",
           "markdownDescription": "Enables the get_default_log_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_system_fonts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-system-fonts",
+          "markdownDescription": "Enables the list_system_fonts command without any pre-configured scope."
         },
         {
           "description": "Enables the load_app_storage command without any pre-configured scope.",
@@ -303,6 +309,30 @@
           "markdownDescription": "Enables the set_app_storage_path command without any pre-configured scope."
         },
         {
+          "description": "Enables the spellcheck_add command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-spellcheck-add",
+          "markdownDescription": "Enables the spellcheck_add command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the spellcheck_check command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-spellcheck-check",
+          "markdownDescription": "Enables the spellcheck_check command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the spellcheck_suggest command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-spellcheck-suggest",
+          "markdownDescription": "Enables the spellcheck_suggest command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the validate_system_font command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-validate-system-font",
+          "markdownDescription": "Enables the validate_system_font command without any pre-configured scope."
+        },
+        {
           "description": "Enables the window_close command without any pre-configured scope.",
           "type": "string",
           "const": "allow-window-close",
@@ -319,6 +349,12 @@
           "type": "string",
           "const": "allow-window-open-devtools",
           "markdownDescription": "Enables the window_open_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the window_request_attention command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-request-attention",
+          "markdownDescription": "Enables the window_request_attention command without any pre-configured scope."
         },
         {
           "description": "Enables the window_start_dragging command without any pre-configured scope.",
@@ -373,6 +409,12 @@
           "type": "string",
           "const": "deny-get-default-log-folder",
           "markdownDescription": "Denies the get_default_log_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_system_fonts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-system-fonts",
+          "markdownDescription": "Denies the list_system_fonts command without any pre-configured scope."
         },
         {
           "description": "Denies the load_app_storage command without any pre-configured scope.",
@@ -459,6 +501,30 @@
           "markdownDescription": "Denies the set_app_storage_path command without any pre-configured scope."
         },
         {
+          "description": "Denies the spellcheck_add command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-spellcheck-add",
+          "markdownDescription": "Denies the spellcheck_add command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the spellcheck_check command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-spellcheck-check",
+          "markdownDescription": "Denies the spellcheck_check command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the spellcheck_suggest command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-spellcheck-suggest",
+          "markdownDescription": "Denies the spellcheck_suggest command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the validate_system_font command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-validate-system-font",
+          "markdownDescription": "Denies the validate_system_font command without any pre-configured scope."
+        },
+        {
           "description": "Denies the window_close command without any pre-configured scope.",
           "type": "string",
           "const": "deny-window-close",
@@ -477,6 +543,12 @@
           "markdownDescription": "Denies the window_open_devtools command without any pre-configured scope."
         },
         {
+          "description": "Denies the window_request_attention command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-request-attention",
+          "markdownDescription": "Denies the window_request_attention command without any pre-configured scope."
+        },
+        {
           "description": "Denies the window_start_dragging command without any pre-configured scope.",
           "type": "string",
           "const": "deny-window-start-dragging",
@@ -493,6 +565,84 @@
           "type": "string",
           "const": "deny-window-toggle-maximize",
           "markdownDescription": "Denies the window_toggle_maximize command without any pre-configured scope."
+        },
+        {
+          "description": "No features are enabled by default, as we believe\nthe clipboard can be inherently dangerous and it is \napplication specific if read and/or write access is needed.\n\nClipboard interaction needs to be explicitly enabled.\n",
+          "type": "string",
+          "const": "clipboard-manager:default",
+          "markdownDescription": "No features are enabled by default, as we believe\nthe clipboard can be inherently dangerous and it is \napplication specific if read and/or write access is needed.\n\nClipboard interaction needs to be explicitly enabled.\n"
+        },
+        {
+          "description": "Enables the clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:allow-clear",
+          "markdownDescription": "Enables the clear command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_image command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:allow-read-image",
+          "markdownDescription": "Enables the read_image command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:allow-read-text",
+          "markdownDescription": "Enables the read_text command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_html command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:allow-write-html",
+          "markdownDescription": "Enables the write_html command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_image command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:allow-write-image",
+          "markdownDescription": "Enables the write_image command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:allow-write-text",
+          "markdownDescription": "Enables the write_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:deny-clear",
+          "markdownDescription": "Denies the clear command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_image command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:deny-read-image",
+          "markdownDescription": "Denies the read_image command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:deny-read-text",
+          "markdownDescription": "Denies the read_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the write_html command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:deny-write-html",
+          "markdownDescription": "Denies the write_html command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the write_image command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:deny-write-image",
+          "markdownDescription": "Denies the write_image command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the write_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "clipboard-manager:deny-write-text",
+          "markdownDescription": "Denies the write_text command without any pre-configured scope."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
