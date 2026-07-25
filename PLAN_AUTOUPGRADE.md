@@ -1,107 +1,115 @@
 # Auto-Upgrade Plan for MUDShow
 
+## Goal
+
+Implement Tauri Updater inside the app so MUDShow can check for updates, download them, and install them safely.
+
+## Scope
+
+This document is only about the app-level updater implementation.
+
+Platform-specific packaging, artifact naming, and release pipeline details live in:
+
+- [PLAN_AUTOUPGRADE_WINDOWS.md](/C:/_/projects/MUDShow/PLAN_AUTOUPGRADE_WINDOWS.md)
+- [PLAN_AUTOUPGRADE_LINUX.md](/C:/_/projects/MUDShow/PLAN_AUTOUPGRADE_LINUX.md)
+
 ## Short Answer
 
-Yes, this can work with a bundled desktop release, including an installer-based release flow, but not with the current packaging exactly as-is.
+The app needs a small updater layer that can:
 
-The current repo already produces Windows installers on `main` (`msi` and `nsis`) and publishes them to GitHub Releases, but Tauri's updater needs a few extra pieces:
+- check the configured release endpoint
+- show update availability to the user
+- download the update with progress feedback
+- install the update and relaunch cleanly
 
-- signed update artifacts
-- updater plugin wiring in the app
-- release assets or a static update JSON that points to the right artifact
-- UI flow for "update now" and "remind me on exit"
+The app should not care how the release artifact was built. It only needs to know the updater endpoint, the public signing key, and the user-facing update flow.
 
-For Windows specifically, Tauri supports updater installs from MSI and NSIS releases, and the install step will quit the app as part of the update process.
+## What Belongs Here
 
-## What the Repo Does Today
+- Updater plugin wiring in the app
+- App-side update state and lifecycle
+- UI for checking and installing updates
+- Progress, error, and release-note presentation
+- Safe shutdown and relaunch behavior
+- Channel handling if we add stable or beta tracks later
 
-- The Tauri config currently bundles the app, but does not enable updater support in `tauri/tauri.conf.json`.
-- The CI workflow stamps the version and switches release targets between app-only builds and installer builds in `.github/workflows/ci.yml`.
-- The release workflow publishes the installers and the standalone executable to GitHub Releases in `.github/workflows/release.yml`.
-- The app already handles `ExitRequested` and `Exit` so it can disconnect from the MUD cleanly in `tauri/src/main.rs`.
+## What Does Not Belong Here
 
-## Recommended Path
+- Windows installer packaging details
+- Linux AppImage packaging details
+- CI artifact naming
+- Release workflow publishing rules
+- Platform-specific release notes
 
-Use the Tauri updater plugin with GitHub Releases as the source of truth.
-
-That gives us:
-
-- version checks against the latest release
-- a signed update artifact
-- a simple release pipeline that still lands on GitHub
-- support for prompting the user either immediately or on app exit
+Those details belong in the platform-specific plans.
 
 ## Implementation Plan
 
-### 1. Decide the update packaging strategy
+### 1. Add updater support to the app
 
-- Keep the current installer release flow for end users.
-- Add updater artifacts alongside the regular installer assets.
-- Prefer one Windows update path for simplicity if release maintenance starts to feel heavy, but do not require that decision up front.
+- Add the Tauri updater plugin to the app.
+- Wire the updater public key into the app config.
+- Keep the updater endpoint configurable by platform.
 
-### 2. Add updater support to the app
+### 2. Add an updater controller in the app
 
-- Add the Tauri updater plugin.
-- Configure the updater public key in `tauri/tauri.conf.json`.
-- Add a small UI entry point for:
-  - checking for updates
-  - downloading the update
-  - offering to install now
-  - offering to install on exit
-- Make sure the exit path still disconnects MUD sessions before the installer starts.
+- Create one place that owns update checks, downloads, and installs.
+- Expose the current updater state to the UI.
+- Track states such as:
+  - idle
+  - checking
+  - available
+  - downloading
+  - ready to install
+  - installing
+  - failed
 
-### 3. Add signing and artifact generation to the build
+### 3. Build the user-facing update flow
 
-- Generate and store the Tauri signing keys securely.
-- Add the private key to the build environment in CI.
-- Enable `createUpdaterArtifacts` in the Tauri bundle config.
-- Verify the build produces both:
-  - the normal installer files
-  - the updater-side signed artifacts Tauri expects
-
-### 4. Update GitHub release publishing
-
-- Publish the updater JSON or updater assets needed by the plugin.
-- Keep the existing release notes flow.
-- Make sure the update metadata always points to the exact versioned artifact for the matching platform.
-- Keep `main` as the only branch that publishes real release artifacts.
-
-### 5. Add the in-app user flow
-
-- Check for updates on startup or after the main window is ready.
-- If an update is found, show a lightweight prompt with:
+- Add a small update entry point in settings or a similar low-clutter location.
+- Show the currently installed version.
+- Show update availability and release notes when present.
+- Let the user choose:
+  - check now
   - install now
   - remind me later
-  - install when closing the app
-- If the user chooses "on exit", persist that preference for the current session or character profile.
-- If the user closes the app while an update is pending, prompt again before exit or immediately launch the installer, depending on the install mode.
+  - install on exit
 
-### 6. Handle platform-specific behavior
+### 4. Handle installation safely
 
-- On Windows, expect the installer to exit the app during install.
-- On Linux and macOS, verify the updater package format and any restart behavior separately.
-- Keep any "close and relaunch" logic platform-aware instead of assuming every OS behaves the same way.
+- Disconnect active MUD sessions before the update installs.
+- Close the app cleanly before the installer or updater relaunches it.
+- Avoid double-starting an install if one is already in progress.
 
-### 7. Add tests and release checks
+### 5. Support release notes and errors
 
-- Add a dry-run path or mocked update check for development builds.
-- Verify the updater metadata and signed artifact names in CI.
-- Confirm that a release build can:
-  - detect a newer release
-  - download it
-  - install it
-  - relaunch successfully
+- Show release notes when the endpoint provides them.
+- Show download and install failures in a readable way.
+- Keep the UI simple enough that update problems do not block normal play.
+
+### 6. Leave room for channels later
+
+- Keep the app ready for stable/beta channel separation later if we decide to add it.
+- Avoid hard-coding assumptions that only work for a single release stream.
+
+### 7. Verify the updater flow
+
+- Confirm the app can detect an available update.
+- Confirm the app can download it.
+- Confirm the app can install it and relaunch successfully.
+- Confirm the app handles a no-update case cleanly.
 
 ## Open Questions
 
-- Do we want the updater to check only against stable releases, or should we eventually support beta/nightly channels?
-- Should the user see the prompt on startup, on manual action only, or both?
-- Do we want to keep both MSI and NSIS, or simplify to one Windows installer format before wiring up auto-update?
+- Should the app check for updates automatically on launch, or only when the user asks?
+- Should the app prompt immediately when an update is found, or wait for user action?
+- Should update checks be on by default for all release channels?
+- Do we want one release channel first, with beta support later?
 
 ## Suggested First Pass
 
-1. Add the updater plugin and config wiring.
-2. Turn on updater artifact generation in CI.
-3. Publish the matching signed update artifacts from GitHub Releases.
-4. Add a simple "Check for updates" action in the UI.
-5. Add the "offer on exit" flow once the basic update path is working.
+1. Add the updater plugin wiring.
+2. Build the app-side updater controller.
+3. Add a minimal settings-page update UI.
+4. Add safe shutdown and relaunch behavior.
+5. Verify the updater flow against the release metadata produced by the platform plans.
