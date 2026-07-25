@@ -201,11 +201,12 @@
   }
 
   function buildChunkTitle(chunk: TranscriptChunkEntry): string {
+    const timestamp = new Date(chunk.timestamp).toLocaleString();
     const lineLabel = chunk.lineCount === 1 ? 'line' : 'lines';
     const charLabel = chunk.charCount === 1 ? 'char' : 'chars';
     const newlineLabel = chunk.text.endsWith('\n') ? 'ends with newline' : 'no trailing newline';
 
-    return `Chunk #${chunk.id}\n${chunk.lineCount} ${lineLabel}\n${chunk.charCount} ${charLabel}\n${newlineLabel}`;
+    return `Timestamp: ${timestamp}\nChunk #${chunk.id}\n${chunk.lineCount} ${lineLabel}\n${chunk.charCount} ${charLabel}\n${newlineLabel}`;
   }
 
   function renderChunk(chunk: TranscriptChunkEntry, includePreviews: boolean): string {

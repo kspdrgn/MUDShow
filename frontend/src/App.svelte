@@ -518,6 +518,11 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         spellcheckIgnoredWords={appSettings.spellcheckIgnoredWords}
         spellcheckSuggestionLimit={appSettings.spellcheckSuggestionLimit}
         spellcheckMinimumWordLength={appSettings.spellcheckMinimumWordLength}
+        spellcheckDebounceMs={appSettings.spellcheckDebounceMs}
+        squiggleOpacity={appSettings.squiggleOpacity}
+        squiggleColor={appSettings.squiggleColor}
+        squiggleStyle={appSettings.squiggleStyle}
+        squiggleSize={appSettings.squiggleSize}
         userScrolled={worldSession.userScrolled}
         transcript={worldSession.transcript}
         outputRevision={worldSession.outputRevision}

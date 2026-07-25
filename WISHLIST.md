@@ -3,11 +3,11 @@
 ## Top TODO
 
 MVP Features:
-- [ ] Session logging. WIP. needs testing. needs better ui!
-- [ ] Style. WIP. See "MUD Text > Appearance"
+- [ ] Session logging. WIP. needs testing. needs better ui?
+- [X] Style. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
-- [ ] scroll virtualization for long sessions? need stress testing to see when we need it?
+- [X] scroll virtualization, render cache, configurable history length
 - [X] Trigger hierarchy
 - [X] Tabs, multiple connections
 - [X] Character Settings
@@ -53,12 +53,13 @@ Release:
   - [X] Multiple Input Boxes
     - [X] UI buttons to spawn or remove more inputs
     - [X] F1 F2 shortcut for first two
-    - [ ] key shortcuts for expand/shrink/new/close?
+    - [X] key shortcuts for expand/shrink
   - [X] Resize input height by lines
   - [X] TAB auto-complete of names/objects seen in MUD text
   - [X] CTRL+Enter to make new line without sending
   - [X] Spellcheck, native from browser
-    - [ ] Better spellcheck?
+    - [X] Better spellcheck - 'spellbook' library
+    - [ ] Better spellcheck - 'hunspell' library
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator
 
@@ -89,7 +90,7 @@ Release:
     - [ ] Pause auto-scroll when selecting
     - [X] END key in input area scrolls main output text to end
     - [X] PAGE UP / PAGE DOWN / CTRL+HOME / CTRL+END keys in input area scroll main output text
-    - [ ] Mouse wheel on input area scrolls main output text
+    - [X] Mouse wheel on input area scrolls input area
     - [ ] Keep current bottom line in view when resizing
     - [ ] Option to NOT auto-scroll when not in focus
     - [ ] Visible counter of lines remaining when scrolled up
@@ -139,13 +140,16 @@ Release:
 Instead of storing world text simply as the contents of the play window, it should be stored locally in an in-memory database. Future file databases or exports should be user-readable such as  JSONL, or structured text.
 
 - [X] Long canonical history store with rich state
-- [X] Short render cache
+- [ ] Smooth sexy 60/120fps scrolling
+  - [X] Short render cache
+  - [X] Scroll DOM virtualization
+  - [ ] smooth scrolling?
+  - [ ] stress testing and optimization
 - [ ] Triggers integration
   - [ ] Triggers configurable to route matches out of logging
 - [ ] Logging options?
   - [ ] Write timestamps an beginning of log chunks, maybe with configurable formatting.
   - Would the user ever want to re-log from history with different settings?
-- [ ] Smooth sexy 60/120fps scrolling
 
 This would support:
   - Virtualized scrolling

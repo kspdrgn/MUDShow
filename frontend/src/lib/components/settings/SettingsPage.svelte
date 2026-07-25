@@ -30,6 +30,138 @@
   export let activeTab: SettingsTabId = 'database';
   export let onTabChange: (tab: SettingsTabId) => void = () => {};
   const appStyleScope = { kind: 'app' as const };
+  const DEFAULT_SQUIGGLE_COLOR = '#ff0000';
+  const SQUIGGLE_PREVIEW_WAVY_PATH =
+    'M 4 13 C 7 6, 11 6, 14 13 S 21 20, 24 13 S 31 6, 34 13 S 41 20, 44 13 S 51 6, 54 13 S 61 20, 64 13 S 71 6, 74 13 S 81 20, 84 13 S 91 6, 94 13 S 101 20, 104 13 S 111 6, 114 13';
+  const SQUIGGLE_STYLE_OPTIONS = [
+    { value: 'wavy', label: 'wavy' },
+    { value: 'dashed', label: 'dashes' },
+    { value: 'dotted', label: 'dots' },
+    { value: 'solid', label: 'solid' },
+  ];
+
+  let squiggleStyleMenuOpen = false;
+  let squiggleStylePickerElement: HTMLDivElement | null = null;
+  const placeholderTabs = new Set<SettingsTabId>(['connections', 'ui']);
+
+  function isHexColor(input: string): boolean {
+    return /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(input.trim());
+  }
+
+  function normalizeHexColor(input: string): string | null {
+    const trimmed = input.trim();
+    const match = trimmed.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+
+    if (!match) {
+      return null;
+    }
+
+    const hex = match[1].toLowerCase();
+    if (hex.length === 3) {
+      return `#${hex
+        .split('')
+        .map((character) => character + character)
+        .join('')}`;
+    }
+
+    return `#${hex}`;
+  }
+
+  function getSquiggleColorPickerValue(value: string): string {
+    const currentValue = value.trim();
+    if (isHexColor(currentValue)) {
+      return currentValue.toLowerCase();
+    }
+
+    return DEFAULT_SQUIGGLE_COLOR;
+  }
+
+  function normalizeSquiggleStyle(value: string): string {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === 'zigzag') {
+      return 'wavy';
+    }
+
+    return SQUIGGLE_STYLE_OPTIONS.some((option) => option.value === trimmed)
+      ? trimmed
+      : 'wavy';
+  }
+
+  function isSelectedSquiggleStyle(value: string): boolean {
+    return normalizeSquiggleStyle(settings.squiggleStyle) === value;
+  }
+
+  function getSquigglePreviewDecorationStyle(value: string): string {
+    switch (value) {
+      case 'dashed':
+      case 'dotted':
+      case 'solid':
+      case 'wavy':
+        return value;
+      default:
+        return 'wavy';
+    }
+  }
+
+  function getSquigglePreviewDasharray(value: string): string | null {
+    switch (value) {
+      case 'dashed':
+        return '12 7';
+      case 'dotted':
+        return '1 6';
+      case 'solid':
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  function openSquiggleStyleMenu(): void {
+    squiggleStyleMenuOpen = true;
+  }
+
+  function closeSquiggleStyleMenu(): void {
+    squiggleStyleMenuOpen = false;
+  }
+
+  function toggleSquiggleStyleMenu(): void {
+    squiggleStyleMenuOpen = !squiggleStyleMenuOpen;
+  }
+
+  function selectSquiggleStyle(value: string): void {
+    onChange({ squiggleStyle: value });
+    closeSquiggleStyleMenu();
+  }
+
+  function handleSquiggleStyleButtonKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      openSquiggleStyleMenu();
+    }
+  }
+
+  function handleWindowPointerDown(event: PointerEvent): void {
+    if (!squiggleStyleMenuOpen) {
+      return;
+    }
+
+    const target = event.target as Node | null;
+    if (target === null || squiggleStylePickerElement === null) {
+      closeSquiggleStyleMenu();
+      return;
+    }
+
+    if (!squiggleStylePickerElement.contains(target)) {
+      closeSquiggleStyleMenu();
+    }
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && squiggleStyleMenuOpen) {
+      event.preventDefault();
+      closeSquiggleStyleMenu();
+    }
+  }
 
   const tabIcons: Record<SettingsTabId, string> = {
     database: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7.5c0 1.66 4.03 3 9 3s9-1.34 9-3-4.03-3-9-3-9 1.34-9 3Z"/><path d="M4.5 7.5v9c0 1.66 4.03 3 9 3s9-1.34 9-3v-9"/><path d="M4.5 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>`,
@@ -72,7 +204,7 @@
             on:click={() => onTabChange(tab.id)}
           >
             {@html tabIcons[tab.id]}
-            <span>{tab.label}</span>
+            <span class:placeholder-tab-label={placeholderTabs.has(tab.id)}>{tab.label}</span>
           </button>
         {/each}
       </nav>
@@ -360,99 +492,294 @@
             <span>enable live spellcheck underlines in editable text fields.</span>
           </label>
           <div class="settings-stack">
-            <label class="field">
-              <span>dictionary language or locale hint</span>
-              <input
-                type="text"
-                value={settings.spellcheckLanguage}
-                spellcheck="false"
-                on:input={(event) =>
-                  onChange({
-                    spellcheckLanguage: (event.currentTarget as HTMLInputElement).value,
-                  })}
-              />
-            </label>
+            <div class="spellcheck-control-grid">
+              <label class="field">
+                <span>squiggle style</span>
+                <div
+                  bind:this={squiggleStylePickerElement}
+                  class="spellcheck-style-picker"
+                  data-open={squiggleStyleMenuOpen}
+                >
+                  <button
+                    type="button"
+                    class="spellcheck-style-picker-button"
+                    aria-label={`spellcheck squiggle style ${normalizeSquiggleStyle(settings.squiggleStyle)}`}
+                    aria-expanded={squiggleStyleMenuOpen}
+                    on:click={toggleSquiggleStyleMenu}
+                    on:keydown={handleSquiggleStyleButtonKeydown}
+                  >
+                    <span
+                      class="spellcheck-style-preview-swatch spellcheck-style-preview-swatch--button"
+                      style:--spellcheck-preview-color={settings.squiggleColor}
+                      style:--spellcheck-preview-opacity={settings.squiggleOpacity}
+                      style:--spellcheck-preview-thickness={settings.squiggleSize}
+                    >
+                      <svg class="spellcheck-style-preview-svg" viewBox="0 0 120 24" aria-hidden="true">
+                        {#if normalizeSquiggleStyle(settings.squiggleStyle) === 'wavy'}
+                          <path d={SQUIGGLE_PREVIEW_WAVY_PATH} />
+                        {:else}
+                          <line
+                            x1="4"
+                            y1="13"
+                            x2="116"
+                            y2="13"
+                            stroke-dasharray={getSquigglePreviewDasharray(normalizeSquiggleStyle(settings.squiggleStyle)) ?? undefined}
+                          />
+                        {/if}
+                      </svg>
+                    </span>
+                    <span class="spellcheck-style-picker-caret" aria-hidden="true">▾</span>
+                  </button>
 
-            <label class="field">
-              <span>ignored words, comma separated</span>
-              <input
-                type="text"
-                value={settings.spellcheckIgnoredWords}
-                spellcheck="false"
-                on:input={(event) =>
-                  onChange({
-                    spellcheckIgnoredWords: (event.currentTarget as HTMLInputElement).value,
-                  })}
-              />
-            </label>
+                  {#if squiggleStyleMenuOpen}
+                    <div class="spellcheck-style-menu" role="menu" aria-label="spellcheck squiggle style options">
+                      {#each SQUIGGLE_STYLE_OPTIONS as option}
+                        {@const optionPreviewStyle = getSquigglePreviewDecorationStyle(option.value)}
+                        <button
+                          type="button"
+                          class="spellcheck-style-menu-item"
+                          class:active={isSelectedSquiggleStyle(option.value)}
+                          role="menuitemradio"
+                          aria-checked={isSelectedSquiggleStyle(option.value)}
+                          aria-label={`spellcheck squiggle style ${option.label}`}
+                          title={option.label}
+                          style:--spellcheck-preview-color={settings.squiggleColor}
+                          style:--spellcheck-preview-opacity={settings.squiggleOpacity}
+                          style:--spellcheck-preview-thickness={settings.squiggleSize}
+                          on:click={() => selectSquiggleStyle(option.value)}
+                        >
+                          <span class="spellcheck-style-preview-swatch spellcheck-style-preview-swatch--menu">
+                            <svg class="spellcheck-style-preview-svg" viewBox="0 0 120 24" aria-hidden="true">
+                              {#if optionPreviewStyle === 'wavy'}
+                                <path d={SQUIGGLE_PREVIEW_WAVY_PATH} />
+                              {:else}
+                                <line
+                                  x1="4"
+                                  y1="13"
+                                  x2="116"
+                                  y2="13"
+                                  stroke-dasharray={getSquigglePreviewDasharray(optionPreviewStyle) ?? undefined}
+                                />
+                              {/if}
+                            </svg>
+                          </span>
+                          <span class="spellcheck-style-menu-label">{option.label}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </label>
 
-            <label class="field">
-              <span>suggestion limit</span>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={settings.spellcheckSuggestionLimit}
-                on:input={(event) =>
-                  onChange({
-                    spellcheckSuggestionLimit: Math.max(
-                      1,
-                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
-                    ),
-                  })}
-              />
-            </label>
+              <label class="field">
+                <span>squiggle color</span>
+                <div class="spellcheck-color-row">
+                  <label class="spellcheck-color-picker" aria-label="spellcheck squiggle color picker">
+                    <input
+                      type="color"
+                      value={getSquiggleColorPickerValue(settings.squiggleColor)}
+                      aria-label="spellcheck squiggle color picker"
+                      on:input={(event) =>
+                        onChange({
+                          squiggleColor:
+                            normalizeHexColor((event.currentTarget as HTMLInputElement).value) ??
+                            (event.currentTarget as HTMLInputElement).value,
+                        })}
+                    />
+                  </label>
+                  <input
+                    class="spellcheck-color-input"
+                    type="text"
+                    value={settings.squiggleColor}
+                    spellcheck="false"
+                    aria-label="spellcheck squiggle color"
+                    on:input={(event) =>
+                      onChange({
+                        squiggleColor: (event.currentTarget as HTMLInputElement).value,
+                      })}
+                    on:paste={(event) => {
+                      const pastedText = event.clipboardData?.getData('text') ?? '';
+                      const normalizedText = normalizeHexColor(pastedText);
 
-            <label class="field">
-              <span>minimum word length</span>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={settings.spellcheckMinimumWordLength}
-                on:input={(event) =>
-                  onChange({
-                    spellcheckMinimumWordLength: Math.max(
-                      1,
-                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
-                    ),
-                  })}
-              />
-            </label>
+                      if (normalizedText !== null) {
+                        event.preventDefault();
+                        onChange({ squiggleColor: normalizedText });
+                      }
+                    }}
+                  />
+                </div>
+              </label>
 
-            <label class="field">
-              <span>typing debounce (ms)</span>
-              <input
-                type="number"
-                min="0"
-                step="25"
-                value={settings.spellcheckDebounceMs}
-                on:input={(event) =>
-                  onChange({
-                    spellcheckDebounceMs: Math.max(
-                      0,
-                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
-                    ),
-                  })}
-              />
-            </label>
+              <label class="field">
+                <span>squiggle opacity</span>
+                <div class="spellcheck-opacity-row">
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.squiggleOpacity}
+                    aria-label="spellcheck squiggle opacity"
+                    on:input={(event) =>
+                      onChange({
+                        squiggleOpacity: Math.min(
+                          1,
+                          Math.max(0, Number((event.currentTarget as HTMLInputElement).value)),
+                        ),
+                      })}
+                  />
+                  <input
+                    class="spellcheck-opacity-input"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={settings.squiggleOpacity}
+                    aria-label="spellcheck squiggle opacity value"
+                    on:input={(event) =>
+                      onChange({
+                        squiggleOpacity: Math.min(
+                          1,
+                          Math.max(0, Number((event.currentTarget as HTMLInputElement).value)),
+                        ),
+                      })}
+                  />
+                </div>
+              </label>
 
-            <label class="field">
-              <span>queue concurrency</span>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={settings.spellcheckQueueConcurrency}
-                on:input={(event) =>
-                  onChange({
-                    spellcheckQueueConcurrency: Math.max(
-                      1,
-                      Math.round(Number((event.currentTarget as HTMLInputElement).value)),
-                    ),
-                  })}
-              />
-            </label>
+              <label class="field">
+                <span>squiggle thickness</span>
+                <div class="spellcheck-size-row">
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="4"
+                    step="0.1"
+                    value={settings.squiggleSize}
+                    aria-label="spellcheck squiggle thickness"
+                    on:input={(event) =>
+                      onChange({
+                        squiggleSize: Math.min(
+                          4,
+                          Math.max(0.5, Number((event.currentTarget as HTMLInputElement).value)),
+                        ),
+                      })}
+                  />
+                  <input
+                    class="spellcheck-size-input"
+                    type="number"
+                    min="0.5"
+                    max="4"
+                    step="0.1"
+                    value={settings.squiggleSize}
+                    aria-label="spellcheck squiggle thickness value"
+                    on:input={(event) =>
+                      onChange({
+                        squiggleSize: Math.min(
+                          4,
+                          Math.max(0.5, Number((event.currentTarget as HTMLInputElement).value)),
+                        ),
+                      })}
+                  />
+                </div>
+              </label>
+
+              <label class="field">
+                <span>suggestion limit</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={settings.spellcheckSuggestionLimit}
+                  on:input={(event) =>
+                    onChange({
+                      spellcheckSuggestionLimit: Math.max(
+                        1,
+                        Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                      ),
+                    })}
+                />
+              </label>
+
+              <label class="field">
+                <span>minimum word length</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={settings.spellcheckMinimumWordLength}
+                  on:input={(event) =>
+                    onChange({
+                      spellcheckMinimumWordLength: Math.max(
+                        1,
+                        Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                      ),
+                    })}
+                />
+              </label>
+
+              <label class="field">
+                <span>typing debounce (ms)</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="25"
+                  value={settings.spellcheckDebounceMs}
+                  on:input={(event) =>
+                    onChange({
+                      spellcheckDebounceMs: Math.max(
+                        0,
+                        Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                      ),
+                    })}
+                />
+              </label>
+
+              <label class="field">
+                <span>queue concurrency</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={settings.spellcheckQueueConcurrency}
+                  on:input={(event) =>
+                    onChange({
+                      spellcheckQueueConcurrency: Math.max(
+                        1,
+                        Math.round(Number((event.currentTarget as HTMLInputElement).value)),
+                      ),
+                    })}
+                />
+              </label>
+            </div>
+
+            <div class="spellcheck-full-width-fields">
+              <label class="field">
+                <span>dictionary language or locale hint</span>
+                <input
+                  type="text"
+                  value={settings.spellcheckLanguage}
+                  spellcheck="false"
+                  on:input={(event) =>
+                    onChange({
+                      spellcheckLanguage: (event.currentTarget as HTMLInputElement).value,
+                    })}
+                />
+              </label>
+
+              <label class="field">
+                <span>ignored words, comma separated</span>
+                <input
+                  type="text"
+                  value={settings.spellcheckIgnoredWords}
+                  spellcheck="false"
+                  on:input={(event) =>
+                    onChange({
+                      spellcheckIgnoredWords: (event.currentTarget as HTMLInputElement).value,
+                    })}
+                />
+              </label>
+            </div>
           </div>
           <p class="settings-note">
             the input context menu stays available even when spellcheck is off, and right-click suggestions use the Rust spell engine with your saved ignore words.

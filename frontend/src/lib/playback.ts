@@ -18,6 +18,7 @@ export interface TranscriptChunkEntry {
   text: string;
   lineCount: number;
   charCount: number;
+  timestamp: number;
 }
 
 /**
@@ -313,6 +314,7 @@ export class PlayTranscript {
       text: chunk,
       lineCount,
       charCount: chunk.length,
+      timestamp: Date.now(),
     });
     this.nextChunkId += 1;
     this.trimChunks();

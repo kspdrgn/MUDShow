@@ -23,6 +23,10 @@ export interface AppSettings {
   spellcheckMinimumWordLength: number;
   spellcheckDebounceMs: number;
   spellcheckQueueConcurrency: number;
+  squiggleOpacity: number;
+  squiggleColor: string;
+  squiggleStyle: string;
+  squiggleSize: number;
   colorScheme: string;
   alwaysOnTop: boolean;
   transparency: number;
@@ -48,6 +52,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   spellcheckMinimumWordLength: 3,
   spellcheckDebounceMs: 250,
   spellcheckQueueConcurrency: 1,
+  squiggleOpacity: 1,
+  squiggleColor: '#ff0000',
+  squiggleStyle: 'wavy',
+  squiggleSize: 1,
   colorScheme: 'midnight',
   alwaysOnTop: false,
   transparency: 100,
@@ -113,6 +121,44 @@ function normalizeNonNegativeIntegerWithFallback(value: unknown, fallback: numbe
   }
 
   return Math.max(0, Math.round(value));
+}
+
+function normalizeUnitInterval(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(1, Math.max(0, value));
+}
+
+function normalizeSpellcheckColor(value: unknown): string {
+  if (typeof value !== 'string') {
+    return DEFAULT_APP_SETTINGS.squiggleColor;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_APP_SETTINGS.squiggleColor;
+}
+
+function normalizeSpellcheckStyle(value: unknown): string {
+  if (typeof value !== 'string') {
+    return DEFAULT_APP_SETTINGS.squiggleStyle;
+  }
+
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === 'zigzag') {
+    return 'wavy';
+  }
+
+  return trimmed.length > 0 ? trimmed : DEFAULT_APP_SETTINGS.squiggleStyle;
+}
+
+function normalizeSpellcheckSize(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_APP_SETTINGS.squiggleSize;
+  }
+
+  return Math.min(4, Math.max(0.5, value));
 }
 
 function normalizeCommaSeparatedWordList(value: unknown): string {
@@ -190,6 +236,13 @@ export function loadAppSettings(): AppSettings {
       raw.spellcheckQueueConcurrency,
       DEFAULT_APP_SETTINGS.spellcheckQueueConcurrency,
     ),
+    squiggleOpacity: normalizeUnitInterval(
+      raw.squiggleOpacity,
+      DEFAULT_APP_SETTINGS.squiggleOpacity,
+    ),
+    squiggleColor: normalizeSpellcheckColor(raw.squiggleColor),
+    squiggleStyle: normalizeSpellcheckStyle(raw.squiggleStyle),
+    squiggleSize: normalizeSpellcheckSize(raw.squiggleSize),
     colorScheme: typeof raw.colorScheme === 'string' && raw.colorScheme.trim()
       ? raw.colorScheme.trim()
       : DEFAULT_APP_SETTINGS.colorScheme,
@@ -247,6 +300,13 @@ export function saveAppSettings(settings: AppSettings): void {
       settings.spellcheckQueueConcurrency,
       DEFAULT_APP_SETTINGS.spellcheckQueueConcurrency,
     ),
+    squiggleOpacity: normalizeUnitInterval(
+      settings.squiggleOpacity,
+      DEFAULT_APP_SETTINGS.squiggleOpacity,
+    ),
+    squiggleColor: normalizeSpellcheckColor(settings.squiggleColor),
+    squiggleStyle: normalizeSpellcheckStyle(settings.squiggleStyle),
+    squiggleSize: normalizeSpellcheckSize(settings.squiggleSize),
     colorScheme: settings.colorScheme.trim() || DEFAULT_APP_SETTINGS.colorScheme,
     alwaysOnTop: settings.alwaysOnTop === true,
     transparency: clampTransparency(settings.transparency),

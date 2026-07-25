@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-spellcheck-suggest"
+description = "Enables the spellcheck_suggest command without any pre-configured scope."
+commands.allow = ["spellcheck_suggest"]
+
+[[permission]]
+identifier = "deny-spellcheck-suggest"
+description = "Denies the spellcheck_suggest command without any pre-configured scope."
+commands.deny = ["spellcheck_suggest"]

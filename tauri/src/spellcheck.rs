@@ -4,7 +4,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use spellbook::Dictionary;
 use tauri::State;
 
-const FALLBACK_AFF: &str = "SET UTF-8\nTRY etaoinshrdlcumwfgypbvkjxqz\n";
+const EN_US_AFF: &str = include_str!(concat!(env!("OUT_DIR"), "/spellbook-en_US.aff"));
+const EN_US_DIC: &str = include_str!(concat!(env!("OUT_DIR"), "/spellbook-en_US.dic"));
 
 static FALLBACK_WORDS: OnceLock<Vec<String>> = OnceLock::new();
 
@@ -132,20 +133,14 @@ fn fallback_word_list() -> &'static [String] {
 }
 
 fn build_dictionary() -> Result<Dictionary, String> {
-    let words = fallback_word_list();
-    if words.is_empty() {
-        return Err(String::from("no spellcheck words were available to build the fallback dictionary"));
+    let mut dictionary = Dictionary::new(EN_US_AFF, EN_US_DIC)
+        .map_err(|error| format!("failed to initialize spellcheck dictionary: {error}"))?;
+
+    for word in fallback_word_list() {
+        let _ = dictionary.add(word);
     }
 
-    let mut dic = String::new();
-    dic.push_str(&words.len().to_string());
-    dic.push('\n');
-    for word in words {
-        dic.push_str(word);
-        dic.push('\n');
-    }
-
-    Dictionary::new(FALLBACK_AFF, &dic).map_err(|error| format!("failed to initialize spellcheck dictionary: {error}"))
+    Ok(dictionary)
 }
 
 async fn ensure_dictionary(state: &State<'_, SpellcheckManager>, language: &str) -> Result<Arc<Dictionary>, String> {

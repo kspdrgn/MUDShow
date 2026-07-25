@@ -3,7 +3,12 @@ import { tick } from 'svelte';
 import { onDestroy, onMount } from 'svelte';
 import StatusDot from './StatusDot.svelte';
 import SpellcheckContextMenu from './SpellcheckContextMenu.svelte';
-import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
+import {
+  getSpellcheckAnnotations,
+  getSpellcheckSuggestions,
+  getWordBounds,
+  renderSpellcheckUnderlayHtml,
+} from '../../spellcheck';
   import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
   import {
     clampInputBarLines,
@@ -36,6 +41,7 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
   export let spellcheckIgnoredWords = '';
   export let spellcheckSuggestionLimit = 5;
   export let spellcheckMinimumWordLength = 3;
+  export let spellcheckDebounceMs = 250;
   export let onIgnoreWord: (word: string) => void;
   export let scope = 'world';
 
@@ -57,6 +63,13 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
   let spellcheckMenuSuggestions: string[] = [];
   let spellcheckMenuLoading = false;
   let spellcheckMenuRequestToken = 0;
+  let liveSpellcheckUnderlays: Record<InputBarId, string> = {};
+  let liveSpellcheckLoading: Record<InputBarId, boolean> = {};
+  let liveSpellcheckSignatures: Record<InputBarId, string> = {};
+  let liveSpellcheckTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
+  let liveSpellcheckRequestTokens: Record<InputBarId, number> = {};
+  let liveSpellcheckScrollX: Record<InputBarId, number> = {};
+  let liveSpellcheckScrollY: Record<InputBarId, number> = {};
   let lastSelectedBar: InputBarId = activeBar;
   const controlTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
 
@@ -113,6 +126,12 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
     let nextValues = values;
     let nextHistoryState = historyState;
     let nextControlsVisible = controlsVisible;
+    let nextLiveSpellcheckUnderlays = liveSpellcheckUnderlays;
+    let nextLiveSpellcheckLoading = liveSpellcheckLoading;
+    let nextLiveSpellcheckSignatures = liveSpellcheckSignatures;
+    let nextLiveSpellcheckRequestTokens = liveSpellcheckRequestTokens;
+    let nextLiveSpellcheckScrollX = liveSpellcheckScrollX;
+    let nextLiveSpellcheckScrollY = liveSpellcheckScrollY;
     let changed = false;
 
     for (const bar of bars) {
@@ -133,6 +152,36 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
         nextControlsVisible = { ...nextControlsVisible, [bar.id]: true };
         changed = true;
         scheduleControlFade(bar.id);
+      }
+
+      if (!(bar.id in nextLiveSpellcheckUnderlays)) {
+        nextLiveSpellcheckUnderlays = { ...nextLiveSpellcheckUnderlays, [bar.id]: '' };
+        changed = true;
+      }
+
+      if (!(bar.id in nextLiveSpellcheckLoading)) {
+        nextLiveSpellcheckLoading = { ...nextLiveSpellcheckLoading, [bar.id]: false };
+        changed = true;
+      }
+
+      if (!(bar.id in nextLiveSpellcheckSignatures)) {
+        nextLiveSpellcheckSignatures = { ...nextLiveSpellcheckSignatures, [bar.id]: '' };
+        changed = true;
+      }
+
+      if (!(bar.id in nextLiveSpellcheckRequestTokens)) {
+        nextLiveSpellcheckRequestTokens = { ...nextLiveSpellcheckRequestTokens, [bar.id]: 0 };
+        changed = true;
+      }
+
+      if (!(bar.id in nextLiveSpellcheckScrollX)) {
+        nextLiveSpellcheckScrollX = { ...nextLiveSpellcheckScrollX, [bar.id]: 0 };
+        changed = true;
+      }
+
+      if (!(bar.id in nextLiveSpellcheckScrollY)) {
+        nextLiveSpellcheckScrollY = { ...nextLiveSpellcheckScrollY, [bar.id]: 0 };
+        changed = true;
       }
     }
 
@@ -164,10 +213,31 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
       }
     }
 
+    for (const key of Object.keys(nextLiveSpellcheckUnderlays)) {
+      const barId = Number(key) as InputBarId;
+
+      if (!barIds.has(barId)) {
+        clearLiveSpellcheckTimer(barId);
+        delete nextLiveSpellcheckUnderlays[barId];
+        delete nextLiveSpellcheckLoading[barId];
+        delete nextLiveSpellcheckSignatures[barId];
+        delete nextLiveSpellcheckRequestTokens[barId];
+        delete nextLiveSpellcheckScrollX[barId];
+        delete nextLiveSpellcheckScrollY[barId];
+        changed = true;
+      }
+    }
+
     if (changed) {
       values = nextValues;
       historyState = nextHistoryState;
       controlsVisible = nextControlsVisible;
+      liveSpellcheckUnderlays = nextLiveSpellcheckUnderlays;
+      liveSpellcheckLoading = nextLiveSpellcheckLoading;
+      liveSpellcheckSignatures = nextLiveSpellcheckSignatures;
+      liveSpellcheckRequestTokens = nextLiveSpellcheckRequestTokens;
+      liveSpellcheckScrollX = nextLiveSpellcheckScrollX;
+      liveSpellcheckScrollY = nextLiveSpellcheckScrollY;
     }
 
     if (bars.length > 0 && !barIds.has(activeBar)) {
@@ -188,6 +258,27 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
     }
   }
 
+  $: {
+    values;
+    spellcheckEnabled;
+    spellcheckLanguage;
+    spellcheckIgnoredWords;
+    spellcheckSuggestionLimit;
+    spellcheckMinimumWordLength;
+    spellcheckDebounceMs;
+
+    for (const bar of bars) {
+      const currentValue = values[bar.id] ?? '';
+      const signature = getLiveSpellcheckSignature(bar.id, currentValue);
+
+      if (liveSpellcheckSignatures[bar.id] === signature) {
+        continue;
+      }
+
+      scheduleLiveSpellcheck(bar.id, currentValue);
+    }
+  }
+
   onMount(() => {
     const initialBar = bars.find((bar) => bar.id === lastSelectedBar) ?? bars[0];
 
@@ -202,6 +293,12 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
     }
 
     controlTimers.clear();
+
+    for (const timer of liveSpellcheckTimers.values()) {
+      clearTimeout(timer);
+    }
+
+    liveSpellcheckTimers.clear();
   });
 
   function getValue(bar: InputBarId): string {
@@ -212,6 +309,135 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
     values = {
       ...values,
       [bar]: value,
+    };
+  }
+
+  function getLiveSpellcheckSignature(bar: InputBarId, value: string): string {
+    return [
+      bar,
+      value,
+      spellcheckEnabled ? '1' : '0',
+      spellcheckLanguage,
+      spellcheckIgnoredWords,
+      spellcheckSuggestionLimit,
+      spellcheckMinimumWordLength,
+    ].join('\u0000');
+  }
+
+  function clearLiveSpellcheckTimer(bar: InputBarId): void {
+    const timer = liveSpellcheckTimers.get(bar);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      liveSpellcheckTimers.delete(bar);
+    }
+  }
+
+  function clearLiveSpellcheck(bar: InputBarId): void {
+    clearLiveSpellcheckTimer(bar);
+    liveSpellcheckUnderlays = {
+      ...liveSpellcheckUnderlays,
+      [bar]: '',
+    };
+    liveSpellcheckLoading = {
+      ...liveSpellcheckLoading,
+      [bar]: false,
+    };
+    liveSpellcheckScrollX = {
+      ...liveSpellcheckScrollX,
+      [bar]: 0,
+    };
+    liveSpellcheckScrollY = {
+      ...liveSpellcheckScrollY,
+      [bar]: 0,
+    };
+  }
+
+  async function refreshLiveSpellcheck(bar: InputBarId, value: string): Promise<void> {
+    const signature = getLiveSpellcheckSignature(bar, value);
+    liveSpellcheckSignatures = {
+      ...liveSpellcheckSignatures,
+      [bar]: signature,
+    };
+
+    if (!spellcheckEnabled) {
+      clearLiveSpellcheck(bar);
+      return;
+    }
+
+    const token = (liveSpellcheckRequestTokens[bar] ?? 0) + 1;
+    liveSpellcheckRequestTokens = {
+      ...liveSpellcheckRequestTokens,
+      [bar]: token,
+    };
+    liveSpellcheckLoading = {
+      ...liveSpellcheckLoading,
+      [bar]: true,
+    };
+
+    try {
+      const annotations = await getSpellcheckAnnotations({
+        text: value,
+        word: '',
+        language: spellcheckLanguage,
+        ignoredWords: spellcheckIgnoredWords,
+        minimumWordLength: spellcheckMinimumWordLength,
+        suggestionLimit: spellcheckSuggestionLimit,
+      });
+
+      if ((liveSpellcheckRequestTokens[bar] ?? 0) !== token) {
+        return;
+      }
+
+      liveSpellcheckUnderlays = {
+        ...liveSpellcheckUnderlays,
+        [bar]: renderSpellcheckUnderlayHtml(value, annotations),
+      };
+    } catch (error) {
+      if ((liveSpellcheckRequestTokens[bar] ?? 0) === token) {
+        console.error('failed to fetch live spellcheck annotations:', error);
+        liveSpellcheckUnderlays = {
+          ...liveSpellcheckUnderlays,
+          [bar]: '',
+        };
+      }
+    } finally {
+      if ((liveSpellcheckRequestTokens[bar] ?? 0) === token) {
+        liveSpellcheckLoading = {
+          ...liveSpellcheckLoading,
+          [bar]: false,
+        };
+      }
+    }
+  }
+
+  function scheduleLiveSpellcheck(bar: InputBarId, value: string): void {
+    clearLiveSpellcheckTimer(bar);
+
+    if (!spellcheckEnabled) {
+      clearLiveSpellcheck(bar);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void refreshLiveSpellcheck(bar, value);
+    }, spellcheckDebounceMs);
+
+    liveSpellcheckTimers.set(bar, timer);
+  }
+
+  function syncLiveSpellcheckScroll(bar: InputBarId, event: Event): void {
+    const input = event.currentTarget as HTMLTextAreaElement | null;
+    if (!input) {
+      return;
+    }
+
+    liveSpellcheckScrollX = {
+      ...liveSpellcheckScrollX,
+      [bar]: input.scrollLeft,
+    };
+    liveSpellcheckScrollY = {
+      ...liveSpellcheckScrollY,
+      [bar]: input.scrollTop,
     };
   }
 
@@ -740,22 +966,38 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
   <div class="input-area-inner">
     {#each bars as bar (bar.id)}
       <div class:focused={activeBar === bar.id} class="input-bar" id={getScopedInputBarContainerId(scope, bar.id)}>
-        <textarea
-          class="mud-input"
-          id={getScopedInputBarInputId(scope, bar.id)}
-          rows={clampInputBarLines(bar.lines)}
-          bind:value={values[bar.id]}
-          autocomplete="off"
-          lang={spellcheckLanguage}
-          spellcheck={spellcheckEnabled}
-          on:focus={() => handleFocus(bar.id)}
-          on:input={(event) => handleInput(bar.id, event)}
-          on:keydown={(event) => handleKeydown(event, bar.id)}
-          on:contextmenu={(event) => {
-            event.preventDefault();
-            openSpellcheckMenu(bar.id, event);
-          }}
-          ></textarea>
+        <div class="input-editor-shell">
+          <div
+            class="spellcheck-underlay"
+            aria-hidden="true"
+            data-loading={liveSpellcheckLoading[bar.id] === true}
+          >
+            <div
+              class="spellcheck-underlay-content"
+              style:transform={`translate(${-((liveSpellcheckScrollX[bar.id] ?? 0))}px, ${-((liveSpellcheckScrollY[bar.id] ?? 0))}px)`}
+            >
+              {@html liveSpellcheckUnderlays[bar.id] ?? ''}
+            </div>
+          </div>
+          <textarea
+            class="mud-input spellcheck-input"
+            id={getScopedInputBarInputId(scope, bar.id)}
+            rows={clampInputBarLines(bar.lines)}
+            bind:value={values[bar.id]}
+            autocomplete="off"
+            lang={spellcheckLanguage}
+            spellcheck="false"
+            on:focus={() => handleFocus(bar.id)}
+            on:input={(event) => handleInput(bar.id, event)}
+            on:keydown={(event) => handleKeydown(event, bar.id)}
+            on:scroll={(event) => syncLiveSpellcheckScroll(bar.id, event)}
+            on:contextmenu={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openSpellcheckMenu(bar.id, event);
+            }}
+            ></textarea>
+        </div>
 
         <div
           class:visible={controlsVisible[bar.id] !== false}
@@ -772,7 +1014,7 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
               class:hidden={bar.lines <= MIN_INPUT_BAR_LINES}
               tabindex={controlsVisible[bar.id] !== false ? 0 : -1}
               aria-label="shrink input bar"
-              title="Shrink input bar"
+              title="Shrink input bar (Ctrl+Alt+Down)"
               on:click={() => void handleResizeBar(bar.id, -1)}
               >
               ↓
@@ -783,7 +1025,7 @@ import { getSpellcheckSuggestions, getWordBounds } from '../../spellcheck';
               class:hidden={bar.lines >= MAX_INPUT_BAR_LINES}
               tabindex={controlsVisible[bar.id] !== false ? 0 : -1}
               aria-label="expand input bar"
-              title="Expand input bar"
+              title="Expand input bar (Ctrl+Alt+Up)"
               on:click={() => void handleResizeBar(bar.id, 1)}
               >
               ↑

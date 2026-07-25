@@ -32,10 +32,11 @@ Keyboard focus should be automatically restored to the last selected input box:
 
 ## [ ] Input Spellcheck
 
-- [X] The input text box should highlight known spelling errors with red underlines.
+- [X] The input text box should highlight known spelling errors with live squiggles using the app's spellcheck backend, and the squiggle appearance should follow the app's spellcheck settings.
 - [X] Indicated typos should offer spelling correction suggestions from the app's spellcheck backend.
 - [X] The spelling check system should allow local overrides, these will be stored app-wide.
 - [X] Right-clicking an input field opens an app-owned text context menu with standard editing actions and spellcheck actions.
+- [X] When input text overflows, mouse wheel scrolling moves the text within the field and keeps the live squiggle overlay aligned with the same scroll position.
 
 ## [X] Input Command History
 - The client keeps a command history queue for each world tab

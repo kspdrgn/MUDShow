@@ -28,6 +28,11 @@
   export let spellcheckIgnoredWords = '';
   export let spellcheckSuggestionLimit = 5;
   export let spellcheckMinimumWordLength = 3;
+  export let spellcheckDebounceMs = 250;
+  export let squiggleOpacity = 1;
+  export let squiggleColor = '#ff0000';
+  export let squiggleStyle = 'wavy';
+  export let squiggleSize = 1;
   export let transcript: PlayTranscript;
   export let outputRevision = 0;
   export let renderCache: RenderCache | null = null;
@@ -119,6 +124,18 @@
     return `${measuredWidth}px`;
   }
 
+  function getSquiggleDecorationStyle(value: string): string {
+    switch (value) {
+      case 'dashed':
+      case 'dotted':
+      case 'solid':
+      case 'wavy':
+        return value;
+      default:
+        return 'wavy';
+    }
+  }
+
   async function updateMeasuredPlayWidth(): Promise<void> {
     const widthInCharacters = normalizeCharacterWidth(characterWidth);
     if (widthInCharacters === null) {
@@ -171,6 +188,10 @@
   style:--world-input-font-size={`${styleValues.input.fontSize}px`}
   style:--world-input-foreground={styleValues.input.foregroundColor}
   style:--world-input-background={styleValues.input.backgroundColor}
+  style:--spellcheck-squiggle-opacity={`${squiggleOpacity}`}
+  style:--spellcheck-squiggle-color={squiggleColor}
+  style:--spellcheck-squiggle-style={getSquiggleDecorationStyle(squiggleStyle)}
+  style:--spellcheck-squiggle-size={`${squiggleSize}`}
 >
   <NotesPanel
     open={notesVisible}
@@ -181,6 +202,7 @@
     {spellcheckIgnoredWords}
     {spellcheckSuggestionLimit}
     {spellcheckMinimumWordLength}
+    {spellcheckDebounceMs}
     onInput={onNotesInput}
     onIgnoreWord={onSpellcheckIgnoreWord}
     onClose={onNotesClose}
@@ -230,6 +252,7 @@
     {spellcheckIgnoredWords}
     {spellcheckSuggestionLimit}
     {spellcheckMinimumWordLength}
+    {spellcheckDebounceMs}
     onIgnoreWord={onSpellcheckIgnoreWord}
     onFocusBar={onInputFocusBar}
     onSubmit={onInputSubmit}

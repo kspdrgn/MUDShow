@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`"
         },
         {
           "description": "Enables the append_session_log command without any pre-configured scope.",
@@ -307,6 +307,24 @@
           "type": "string",
           "const": "allow-set-app-storage-path",
           "markdownDescription": "Enables the set_app_storage_path command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the spellcheck_add command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-spellcheck-add",
+          "markdownDescription": "Enables the spellcheck_add command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the spellcheck_check command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-spellcheck-check",
+          "markdownDescription": "Enables the spellcheck_check command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the spellcheck_suggest command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-spellcheck-suggest",
+          "markdownDescription": "Enables the spellcheck_suggest command without any pre-configured scope."
         },
         {
           "description": "Enables the validate_system_font command without any pre-configured scope.",
@@ -481,6 +499,24 @@
           "type": "string",
           "const": "deny-set-app-storage-path",
           "markdownDescription": "Denies the set_app_storage_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the spellcheck_add command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-spellcheck-add",
+          "markdownDescription": "Denies the spellcheck_add command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the spellcheck_check command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-spellcheck-check",
+          "markdownDescription": "Denies the spellcheck_check command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the spellcheck_suggest command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-spellcheck-suggest",
+          "markdownDescription": "Denies the spellcheck_suggest command without any pre-configured scope."
         },
         {
           "description": "Denies the validate_system_font command without any pre-configured scope.",

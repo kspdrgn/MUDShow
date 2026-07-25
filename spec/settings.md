@@ -68,6 +68,10 @@ While the app settings tab stays open, it remembers the last selected sub-tab. I
 - Minimum word length
 - Typing debounce interval
 - Backend queue concurrency
+- Squiggle opacity, from fully transparent to fully opaque
+- Squiggle color, with a color picker defaulting to red
+- Squiggle style, picked from a dropdown that previews wavy, dashes, dots, and solid using the current squiggle color, opacity, and thickness, with each option labeled by style name
+- Squiggle thickness, which scales the underline thickness
 - The input spellcheck context menu remains available even when spellcheck is disabled, and right-click suggestions use the app's backend spell engine with the saved ignore list
 
 ## Default Style

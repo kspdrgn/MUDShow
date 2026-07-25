@@ -880,6 +880,236 @@ body {
   line-height: 1.2;
 }
 
+.placeholder-tab-label {
+  text-decoration-line: line-through;
+  text-decoration-thickness: from-font;
+  text-decoration-color: rgba(255, 255, 255, 0.55);
+}
+
+.spellcheck-control-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.spellcheck-full-width-fields {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.spellcheck-control-grid .field + .field,
+.spellcheck-full-width-fields .field + .field {
+  margin-top: 0;
+}
+
+@media (min-width: 900px) {
+  .spellcheck-control-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.spellcheck-style-picker {
+  position: relative;
+}
+
+.spellcheck-style-picker-button,
+.spellcheck-style-menu-item {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+  color: var(--text-bright);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    transform 0.12s ease;
+}
+
+.spellcheck-style-picker-button {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 3.1rem;
+  padding: 0.55rem 0.75rem 0.6rem;
+  text-align: left;
+}
+
+.spellcheck-style-picker-button:hover,
+.spellcheck-style-picker-button:focus-visible,
+.spellcheck-style-menu-item:hover,
+.spellcheck-style-menu-item:focus-visible {
+  border-color: rgba(255, 255, 255, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+  transform: translateY(-1px);
+}
+
+.spellcheck-style-picker[data-open='true'] .spellcheck-style-picker-button {
+  border-color: rgba(74, 158, 255, 0.5);
+  background:
+    linear-gradient(180deg, rgba(74, 158, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.spellcheck-style-picker-caret {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.spellcheck-style-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 20;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 8, 10, 0.98);
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.35);
+}
+
+.spellcheck-style-menu-item {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0.35rem 0.65rem 0.4rem;
+  text-align: left;
+}
+
+.spellcheck-style-menu-item.active {
+  border-color: rgba(74, 158, 255, 0.6);
+  background:
+    linear-gradient(180deg, rgba(74, 158, 255, 0.14), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.spellcheck-style-preview-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: var(--spellcheck-preview-color, var(--danger));
+  opacity: var(--spellcheck-preview-opacity, 1);
+  flex: 1 1 auto;
+}
+
+.spellcheck-style-preview-swatch--button {
+  justify-content: center;
+}
+
+.spellcheck-style-preview-swatch--menu {
+  flex: 0 0 5.5rem;
+  max-width: 5.5rem;
+  width: 100%;
+}
+
+.spellcheck-style-preview-svg {
+  width: 100%;
+  height: 1.2rem;
+  display: block;
+  overflow: visible;
+}
+
+.spellcheck-style-preview-svg path,
+.spellcheck-style-preview-svg line {
+  fill: none;
+  stroke: var(--spellcheck-preview-color, var(--danger));
+  stroke-width: calc(1.8px * var(--spellcheck-preview-thickness, 1));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spellcheck-style-menu-label {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-bright);
+  white-space: nowrap;
+}
+
+.spellcheck-color-row {
+  display: grid;
+  grid-template-columns: 2.9rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  min-height: 3.1rem;
+}
+
+.spellcheck-color-picker {
+  width: 2.9rem;
+  height: 2.9rem;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.spellcheck-color-picker input[type='color'] {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.spellcheck-color-picker input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.spellcheck-color-picker input[type='color']::-webkit-color-swatch {
+  border: 0;
+}
+
+.spellcheck-color-picker input[type='color']::-moz-color-swatch {
+  border: 0;
+}
+
+.spellcheck-color-input,
+.spellcheck-opacity-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.spellcheck-opacity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
+  gap: 0.65rem;
+  align-items: center;
+  min-height: 3.1rem;
+}
+
+.spellcheck-opacity-row input[type='range'] {
+  width: 100%;
+}
+
+.spellcheck-size-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
+  gap: 0.65rem;
+  align-items: center;
+  min-height: 3.1rem;
+}
+
+.spellcheck-size-row input[type='range'] {
+  width: 100%;
+}
+
 .settings-tab-icon {
   width: 1.1rem;
   height: 1.1rem;
@@ -1516,6 +1746,10 @@ body {
   display: none;
   flex-direction: column;
   --play-width: none;
+  --spellcheck-squiggle-opacity: 1;
+  --spellcheck-squiggle-color: #ff0000;
+  --spellcheck-squiggle-style: wavy;
+  --spellcheck-squiggle-size: 1;
   --world-output-font-family: var(--font-mono);
   --world-output-font-weight: 400;
   --world-output-font-style: normal;
@@ -2032,6 +2266,115 @@ body {
   scrollbar-color: var(--border-active) transparent;
 }
 
+.input-editor-shell,
+.notes-editor-shell {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  --spellcheck-foreground: var(--world-input-foreground, var(--text-bright));
+  --spellcheck-font-family: var(--world-input-font-family, var(--font-mono));
+  --spellcheck-font-weight: var(--world-input-font-weight, 400);
+  --spellcheck-font-style: var(--world-input-font-style, normal);
+  --spellcheck-font-stretch: var(--world-input-font-stretch, normal);
+  --spellcheck-font-size: var(--world-input-font-size, 13px);
+  --spellcheck-line-height: 1.55;
+  --spellcheck-padding: 0.6rem 0.7rem;
+}
+
+.notes-editor-shell {
+  --spellcheck-foreground: var(--world-output-foreground, var(--text));
+  --spellcheck-font-family: var(--world-output-font-family, var(--font-mono));
+  --spellcheck-font-weight: var(--world-output-font-weight, 400);
+  --spellcheck-font-style: var(--world-output-font-style, normal);
+  --spellcheck-font-stretch: var(--world-output-font-stretch, normal);
+  --spellcheck-font-size: var(--world-output-font-size, 13px);
+  --spellcheck-line-height: 1.55;
+  --spellcheck-padding: 0.5rem 0.7rem;
+}
+
+.spellcheck-underlay,
+.spellcheck-input {
+  font-family: var(--spellcheck-font-family);
+  font-weight: var(--spellcheck-font-weight);
+  font-style: var(--spellcheck-font-style);
+  font-stretch: var(--spellcheck-font-stretch);
+  font-size: var(--spellcheck-font-size);
+  line-height: var(--spellcheck-line-height);
+  font-variant-ligatures: none;
+  font-feature-settings:
+    'liga' 0,
+    'clig' 0,
+    'calt' 0;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-indent: 0;
+  tab-size: 8;
+}
+
+.spellcheck-underlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  color: transparent;
+  padding: var(--spellcheck-padding);
+  box-sizing: border-box;
+}
+
+.spellcheck-underlay-content {
+  min-width: 100%;
+  min-height: 100%;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.spellcheck-underlay-word--error {
+  text-decoration-line: underline;
+  text-decoration-style: var(--spellcheck-squiggle-style, wavy);
+  text-decoration-color: var(--spellcheck-squiggle-color, var(--danger));
+  text-decoration-thickness: calc(1.5px * var(--spellcheck-squiggle-size, 1));
+  text-underline-offset: calc(0.08em * var(--spellcheck-squiggle-size, 1));
+  opacity: var(--spellcheck-squiggle-opacity, 1);
+}
+
+.spellcheck-input {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: var(--spellcheck-foreground);
+  padding: var(--spellcheck-padding);
+  box-sizing: border-box;
+  caret-color: var(--accent);
+  resize: none;
+  width: 100%;
+  display: block;
+  min-height: calc(1.55em + 1.2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.spellcheck-input::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.spellcheck-input::selection {
+  background: rgba(74, 158, 255, 0.35);
+}
+
+.spellcheck-input::-moz-selection {
+  background: rgba(74, 158, 255, 0.35);
+}
+
 .highlights-list {
   flex: 1;
   overflow-y: auto;
@@ -2309,6 +2652,19 @@ body {
   display: block;
   min-height: calc(1.55em + 1.2rem);
   overflow: hidden;
+}
+
+.mud-input.spellcheck-input {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.mud-input.spellcheck-input::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .status-dot-slot {
