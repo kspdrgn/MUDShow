@@ -26,6 +26,13 @@
 - Output racing means the echoed text may not arrive directly after the intended response.
 - Capture sessions should therefore consider multiple signals before deciding they are complete.
 
+## MU Integration
+
+Beyond just reading text, the client can facilitate sending commands or establishing triggers and formatting in hte MU world to aid in parsing.
+- Establishing the `echo` command to use
+- Establishing consistent formatting of incoming page/whisper
+- Sending `echo` command or similar after user inputs (key inputs or any inputs?)
+
 ## Suggested Capture Model
 
 - Open a capture session when the user initiates a look or similar inspect action.

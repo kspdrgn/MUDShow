@@ -7,6 +7,8 @@ MVP Features:
 - [X] Style. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
+- [ ] Keyboard/mousewheel shortcut to change font size on the fly?
+- [ ] New activity indicator (separator line?)
 - [X] scroll virtualization, render cache, configurable history length
 - [X] Trigger hierarchy
 - [X] Tabs, multiple connections
@@ -58,10 +60,13 @@ Release:
   - [X] TAB auto-complete of names/objects seen in MUD text
   - [X] CTRL+Enter to make new line without sending
   - [X] Spellcheck, native from browser
-    - [X] Better spellcheck - 'spellbook' library
-    - [ ] Better spellcheck - 'hunspell' library
+    - [ ] Better spellcheck timing? When done with a word or when moving past it? I think BeipMU is when you move past it. Currently doing it every character for early squiggles, don't like.
+    - [X] Better spellcheck - `spellbook` library
+    - [ ] Better spellcheck - `hunspell-rs` library
   - [ ] Thesaurus
   - [ ] Character count - Buffer indicator
+  - [ ] Duplicate word indicator? Suggest alternates? Search past lines? hmm...
+  - [ ] Automatic fixing of misplaced space or obvious typos? idk.. confidence score for autocorrects?
 
 ## MUD Text
   - Appearance - Fonts/colors customization, not app UI theming.
