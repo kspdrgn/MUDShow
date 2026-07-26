@@ -249,11 +249,13 @@ async fn run_connection(
     session_id: u64,
 ) {
     let mut buffer = [0u8; 8192];
+    let mut line_buffer = LineBuffer::default();
 
     loop {
         tokio::select! {
             biased;
             _ = stop_rx.changed() => {
+                flush_line_buffer(&app, &connection_id, &mut line_buffer);
                 break;
             }
             maybe_bytes = outgoing_rx.recv() => {
@@ -272,6 +274,7 @@ async fn run_connection(
                         }
                     }
                     None => {
+                        flush_line_buffer(&app, &connection_id, &mut line_buffer);
                         break;
                     }
                 }
@@ -279,6 +282,7 @@ async fn run_connection(
             result = stream.read(&mut buffer) => {
                 match result {
                     Ok(0) => {
+                        flush_line_buffer(&app, &connection_id, &mut line_buffer);
                         active.store(false, Ordering::SeqCst);
                         emit_event(
                             &app,
@@ -293,11 +297,12 @@ async fn run_connection(
                         let cleaned = strip_telnet(&buffer[..bytes_read]);
                         if !cleaned.is_empty() {
                             let raw_text = String::from_utf8_lossy(&cleaned).to_string();
-                            emit_event(&app, &connection_id, ConnectionEvent::Raw { text: raw_text.clone() });
-                            emit_event(&app, &connection_id, ConnectionEvent::Data { text: raw_text });
+                            emit_event(&app, &connection_id, ConnectionEvent::Raw { text: raw_text });
+                            line_buffer.push(&app, &connection_id, &cleaned);
                         }
                     }
                     Err(error) => {
+                        flush_line_buffer(&app, &connection_id, &mut line_buffer);
                         active.store(false, Ordering::SeqCst);
                         emit_event(
                             &app,
@@ -315,6 +320,12 @@ async fn run_connection(
 
     active.store(false, Ordering::SeqCst);
     manager.remove_if_match(&connection_id, session_id);
+}
+
+fn flush_line_buffer(app: &AppHandle, connection_id: &str, line_buffer: &mut LineBuffer) {
+    for text in line_buffer.flush() {
+        emit_event(app, connection_id, ConnectionEvent::Data { text });
+    }
 }
 
 fn emit_event(app: &AppHandle, connection_id: &str, event: ConnectionEvent) {
@@ -363,6 +374,44 @@ fn strip_telnet(buf: &[u8]) -> Vec<u8> {
     }
 
     out
+}
+
+#[derive(Default)]
+struct LineBuffer {
+    bytes: Vec<u8>,
+}
+
+impl LineBuffer {
+    fn push(&mut self, app: &AppHandle, connection_id: &str, bytes: &[u8]) {
+        for &byte in bytes {
+            if byte == b'\r' {
+                continue;
+            }
+
+            if byte == b'\n' {
+                self.emit_pending(app, connection_id);
+                continue;
+            }
+
+            self.bytes.push(byte);
+        }
+    }
+
+    fn flush(&mut self) -> Vec<String> {
+        if self.bytes.is_empty() {
+            return Vec::new();
+        }
+
+        let text = String::from_utf8_lossy(&self.bytes).to_string();
+        self.bytes.clear();
+        vec![text]
+    }
+
+    fn emit_pending(&mut self, app: &AppHandle, connection_id: &str) {
+        let text = String::from_utf8_lossy(&self.bytes).to_string();
+        self.bytes.clear();
+        emit_event(app, connection_id, ConnectionEvent::Data { text: format!("{text}\n") });
+    }
 }
 
 struct ConnectionEntry {

@@ -6,7 +6,7 @@ Selecting text will automatically copy to clipboard and return keyboard focus to
 
 HTTP and HTTPS URLs in transcript text are rendered as clickable links. Clicking a link opens it in the user's default browser, while plain text selection and copy behavior still work normally.
 
-Incoming world text is shown in the transcript as it arrives from the server. The transcript and debug console both preserve the raw read stream, so incomplete server output, newline edge cases, and special character handling can be inspected directly.
+Incoming world text is buffered until a newline is received. The transcript only receives complete lines, `\r` characters are discarded, and a trailing partial line is held until it is completed or the connection ends.
 
 The transcript keeps only the visible rows and a small scroll buffer mounted while the history is very large, so scrolling stays responsive even with a lot of saved output.
 
