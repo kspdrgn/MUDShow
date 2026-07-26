@@ -460,6 +460,10 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
       session.activateWorldTab(tabId);
       void session.togglePanel('notes');
     }}
+    onOpenDebugConsoleTab={(tabId) => {
+      session.activateWorldTab(tabId);
+      void session.togglePanel('debugConsole');
+    }}
     onOpenTriggersTab={(worldId, characterId) => session.openTriggersTab(worldId, characterId)}
   />
 
@@ -511,6 +515,8 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
             : []}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
+        debugConsoleEntries={worldSession.debugConsoleEntries}
+        debugConsoleVisible={worldSession.debugConsoleVisible}
         linkImagePreviews={appSettings.linkImagePreviews}
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         spellcheckEnabled={appSettings.spellcheckEnabled}
@@ -544,6 +550,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         onEditWorldTab={() => void session.openWorldEditorFromWorldTab(tab.id)}
         onEditCharacterTab={() => void session.openCharacterEditorFromWorldTab(tab.id)}
         onCloseTab={() => session.closeTab(tab.id, 'shortcut')}
+        onOpenDebugConsole={() => void session.togglePanel('debugConsole')}
         onInputFocusBar={(bar) => session.handleInputFocus(bar)}
         onInputSubmit={(bar, value) => session.handleInputSubmit(bar, value)}
         onInputComplete={(bar, value, selectionStart) => session.completeInput(value, selectionStart)}
@@ -553,6 +560,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         onNotesInput={(notes) => session.saveNotes(notes)}
         onSpellcheckIgnoreWord={handleSpellcheckIgnoreWord}
         onNotesClose={() => void session.togglePanel('notes')}
+        onDebugConsoleClose={() => void session.togglePanel('debugConsole')}
         onOutputScroll={() => session.handleOutputScroll()}
         onOutputScrollKey={(action) => session.handleOutputScrollKey(action)}
         onScrollToBottom={() => session.handleScrollToBottom()}

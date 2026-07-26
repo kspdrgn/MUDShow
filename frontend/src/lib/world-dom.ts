@@ -26,6 +26,10 @@ export function getWorldRulesPanelId(scope: string): string {
   return `${scope}-rules-panel`;
 }
 
+export function getWorldDebugConsolePanelId(scope: string): string {
+  return `${scope}-debug-console-panel`;
+}
+
 export function getWorldRuleInputId(scope: string): string {
   return `${scope}-rule-input`;
 }

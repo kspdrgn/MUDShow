@@ -47,6 +47,7 @@ A modal window will provide options for the current world tab
 - When logging is active, the UI shows a second status indicator dot beneath the connection status dot on the input bar and the tab.
 - The logging indicator is visible whenever the tab is actively recording to a file.
 - The output window displays a status message when logging starts and when logging stops.
+- Those same status messages also appear in the per-world debug console.
 
 ## User Actions
 

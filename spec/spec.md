@@ -23,6 +23,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can save multiple characters so I can return to different worlds or accounts quickly.
 - As a player, I can edit a character’s host, port, and connection options without recreating it.
 - As a player, I can connect to a MU* and read the live transcript in one place.
+- As a player, I can open a per-world debug console to inspect incoming, outgoing, and status messages for that session.
 - As a player, I can type commands in one of two inputs so I can keep a draft while continuing conversation.
 - As a player, I can switch inputs instantly when I need to pause one thought and start another.
 - As a player, I can keep private notes for each character.
@@ -57,6 +58,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Allow configuring a per-character transcript history line limit, with 0 disabling history storage and restore. The default is 0.
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
+- Show incoming world text in the transcript as it arrives from the server, while preserving the raw incoming read stream in the debug console for troubleshooting special characters and edge cases.
 - Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width. Preferred character width is rendered from the active output style: monospace fonts use the measured active glyph width, while proportional fonts use an estimated average glyph width.
 - Provide a modular set of command input bars, starting with one and allowing more to be added.
 - Send entered commands to the active session.
@@ -68,6 +70,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Forward mouse wheel input from the split live transcript pane to the main transcript pane.
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
+- Allow opening a per-world debug console pane that shares space with the active world tab and shows a rolling communication stream.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.

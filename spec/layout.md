@@ -35,6 +35,7 @@ Anchored to the right:
   - Closing a connected or connecting world tab requires confirmation. Clicking the tab X shows a small dropdown anchored to that X, while Ctrl+F4 uses a centered modal confirmation.
   - If the logging reminder is enabled in app settings, closing a disconnected world tab that is not currently being logged also requires confirmation.
   - Tabs can be dragged to re-order them within the tab bar arbitrarily
+  - The world tab context menu can open the Notes pane or the Debug Console pane for that world tab.
 
 ## Quick Connect Menu
 
@@ -121,10 +122,12 @@ The PlayScreen is the main content and interaction space for a single world and 
 PlayScreen
   - HighlightsPanel - Toggle, anchored to top
   - NotesPanel - Toggle, anchored to top
+  - DebugConsolePanel - Toggle, anchored to top, shows the per-world communication stream for troubleshooting.
   - Transcript - Fills most space in the middle. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
   - Logging controls - Start, stop, and rename the active log file for the current world tab.
   - The active input bar shows the same fixed-position vertical status display as the tab: connection status, unread activity, and logging status.
 
+  - Notes, debug console, highlights, and rules share the same top pane area and only one is visible at a time.
   - One PlayScreen instance per world tab.
   - Each PlayScreen instance keeps its own transcript view, scroll position, input bars, panel visibility, and connection status while that tab remains open.

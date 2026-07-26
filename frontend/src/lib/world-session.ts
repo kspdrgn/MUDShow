@@ -1,5 +1,6 @@
 import type { InputBarId } from './input-bars';
 import { createInputBars, type InputBarConfig } from './input-bars';
+import type { DebugConsoleEntry } from './debug-console';
 import { PlayTranscript, type TranscriptHistoryEntry, RenderCache } from './playback';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { ConnectionStatus, DisconnectReason } from './session-state';
@@ -14,6 +15,7 @@ export interface WorldSessionProjection {
   notesVisible: boolean;
   highlightsVisible: boolean;
   rulesVisible: boolean;
+  debugConsoleVisible: boolean;
   connectionStatus: ConnectionStatus;
   disconnectReason: DisconnectReason;
   hasNewActivity: boolean;
@@ -27,6 +29,7 @@ export interface WorldSessionProjection {
 export interface WorldTabSessionState extends WorldSessionProjection {
   transcript: PlayTranscript;
   transcriptHistory: TranscriptHistoryEntry[];
+  debugConsoleEntries: DebugConsoleEntry[];
   renderCache: RenderCache; // Hot render cache for visible output
 }
 
@@ -41,6 +44,7 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     notesVisible: false,
     highlightsVisible: false,
     rulesVisible: false,
+    debugConsoleVisible: false,
     connectionStatus: 'idle',
     disconnectReason: null,
     hasNewActivity: false,
@@ -51,6 +55,7 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     logError: null,
     transcript: new PlayTranscript(transcriptMaxChunks),
     transcriptHistory: [],
+    debugConsoleEntries: [],
     renderCache: new RenderCache(1000), // Cache last 1000 rendered entries
   };
 }
@@ -66,6 +71,7 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     notesVisible: session.notesVisible,
     highlightsVisible: session.highlightsVisible,
     rulesVisible: session.rulesVisible,
+    debugConsoleVisible: session.debugConsoleVisible,
     connectionStatus: session.connectionStatus,
     disconnectReason: session.disconnectReason,
     hasNewActivity: session.hasNewActivity,

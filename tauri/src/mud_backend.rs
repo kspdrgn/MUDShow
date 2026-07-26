@@ -292,8 +292,9 @@ async fn run_connection(
                     Ok(bytes_read) => {
                         let cleaned = strip_telnet(&buffer[..bytes_read]);
                         if !cleaned.is_empty() {
-                            let text = String::from_utf8_lossy(&cleaned).replace("\r\n", "\n");
-                            emit_event(&app, &connection_id, ConnectionEvent::Data { text });
+                            let raw_text = String::from_utf8_lossy(&cleaned).to_string();
+                            emit_event(&app, &connection_id, ConnectionEvent::Raw { text: raw_text.clone() });
+                            emit_event(&app, &connection_id, ConnectionEvent::Data { text: raw_text });
                         }
                     }
                     Err(error) => {
@@ -427,6 +428,7 @@ impl ConnectionStream {
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum ConnectionEvent {
     Opened,
+    Raw { text: String },
     Data { text: String },
     Closed { reason: String },
     Error { message: String },

@@ -2,6 +2,7 @@ import { invoke, listen } from './tauri';
 
 type Handlers = {
   onOpen: () => void;
+  onRawMessage: (text: string) => void;
   onMessage: (text: string) => void;
   onClose: () => void;
   onError: (message: string) => void;
@@ -16,6 +17,7 @@ type ConnectionTarget = {
 
 type ConnectionEvent =
   | { connectionId: string; kind: 'opened' }
+  | { connectionId: string; kind: 'raw'; text: string }
   | { connectionId: string; kind: 'data'; text: string }
   | { connectionId: string; kind: 'closed'; reason: string }
   | { connectionId: string; kind: 'error'; message: string };
@@ -86,6 +88,11 @@ export class MudConnection {
         this.opened = true;
         this.connected = true;
         handlers.onOpen();
+        return;
+      }
+
+      if (payload.kind === 'raw') {
+        handlers.onRawMessage(payload.text);
         return;
       }
 

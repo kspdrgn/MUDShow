@@ -36,6 +36,7 @@
   export let onEditWorldTab: (tabId: string) => void;
   export let onEditCharacterTab: (tabId: string) => void;
   export let onOpenNotesTab: (tabId: string) => void;
+  export let onOpenDebugConsoleTab: (tabId: string) => void;
   export let onOpenTriggersTab: (worldId: string | null, characterId: string | null) => void;
 
   const canOpenInspector = import.meta.env.DEV && isTauriAvailable();
@@ -746,6 +747,7 @@
           handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuTab.id))
         }
         onOpenNotes={() => handleWorldContextMenuAction(() => onOpenNotesTab(worldContextMenuTab.id))}
+        onOpenDebugConsole={() => handleWorldContextMenuAction(() => onOpenDebugConsoleTab(worldContextMenuTab.id))}
         onOpenTriggers={() =>
           handleWorldContextMenuAction(() =>
             onOpenTriggersTab(

@@ -53,6 +53,7 @@
   export let onEditWorld: () => void;
   export let onEditCharacter: () => void;
   export let onOpenNotes: () => void;
+  export let onOpenDebugConsole: () => void;
   export let onOpenTriggers: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   export let onScroll: () => void;
@@ -864,6 +865,10 @@
       onEditCharacter();
     }}
     onOpenNotes={openNotesFromMenu}
+    onOpenDebugConsole={() => {
+      closeContextMenu();
+      onOpenDebugConsole();
+    }}
     onOpenTriggers={openTriggersFromMenu}
     onDismiss={closeContextMenu}
     onCloseRequest={closeTabFromMenu}

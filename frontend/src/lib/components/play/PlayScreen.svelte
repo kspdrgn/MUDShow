@@ -3,6 +3,8 @@
   import { onMount } from 'svelte';
   import type { Trigger } from '../../types';
   import type { PlayTranscript, RenderCache } from '../../playback';
+  import type { DebugConsoleEntry } from '../../debug-console';
+  import DebugConsolePanel from './DebugConsolePanel.svelte';
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
@@ -19,6 +21,8 @@
   export let triggers: Trigger[] = [];
   export let notes = '';
   export let notesVisible = false;
+  export let debugConsoleEntries: DebugConsoleEntry[] = [];
+  export let debugConsoleVisible = false;
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
@@ -46,6 +50,7 @@
   export let onEditCharacterTab: () => void;
   export let onCloseTab: (anchorRect: DOMRect) => void;
   export let onOpenTriggers: () => void;
+  export let onOpenDebugConsole: () => void;
   export let canReconnect = false;
   export let canDisconnect = false;
   export let canQuickLog = false;
@@ -65,6 +70,7 @@
   export let onNotesInput: (notes: string) => void;
   export let onSpellcheckIgnoreWord: (word: string) => void;
   export let onNotesClose: () => void;
+  export let onDebugConsoleClose: () => void;
   export let onOutputScroll: () => void;
   export let onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
   export let onScrollToBottom: () => void;
@@ -208,6 +214,14 @@
     onClose={onNotesClose}
   />
 
+  <DebugConsolePanel
+    open={debugConsoleVisible}
+    entries={debugConsoleEntries}
+    {scope}
+    activeBar={activeBar}
+    onClose={onDebugConsoleClose}
+  />
+
   <Transcript
     {activeBar}
     {transcript}
@@ -234,6 +248,7 @@
     onEditWorld={onEditWorldTab}
     onEditCharacter={onEditCharacterTab}
     onOpenNotes={onNotesClose}
+    onOpenDebugConsole={onOpenDebugConsole}
     onOpenTriggers={onOpenTriggers}
     onCloseRequest={onCloseTab}
     onScroll={onOutputScroll}

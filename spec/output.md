@@ -6,6 +6,8 @@ Selecting text will automatically copy to clipboard and return keyboard focus to
 
 HTTP and HTTPS URLs in transcript text are rendered as clickable links. Clicking a link opens it in the user's default browser, while plain text selection and copy behavior still work normally.
 
+Incoming world text is shown in the transcript as it arrives from the server. The transcript and debug console both preserve the raw read stream, so incomplete server output, newline edge cases, and special character handling can be inspected directly.
+
 The transcript keeps only the visible rows and a small scroll buffer mounted while the history is very large, so scrolling stays responsive even with a lot of saved output.
 
 ## Automatic Scrolling
@@ -46,3 +48,12 @@ When image link previews are enabled in app settings:
 ## Status Messages
 
 The output area shows a short status message for changes in connection or logging state.
+
+## Debug Console
+
+Each world tab can open a separate debug console pane that shares space with the world tab contents.
+
+- The console shows the raw incoming server read stream, outgoing commands, and status messages for that specific world tab.
+- The console keeps about 1000 lines of recent content and drops older entries as new ones arrive.
+- Control characters and special bytes are rendered visibly so command codes and escape sequences can be inspected directly.
+- The console is read-only and is intended for troubleshooting communication rather than replacing the transcript view.

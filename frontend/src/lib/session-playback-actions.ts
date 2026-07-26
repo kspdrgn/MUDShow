@@ -6,6 +6,10 @@ import {
   countTranscriptLines,
 } from './playback';
 import {
+  appendDebugConsoleEntry,
+  type DebugConsoleDirection,
+} from './debug-console';
+import {
   loadNotes,
   loadTranscriptHistory,
   saveNotes as persistNotes,
@@ -171,6 +175,33 @@ export function createPlaybackActions({
     return next;
   }
 
+  function getDebugConsoleSourceLabel(tabId: string): string {
+    const session = getWorldSession(tabId);
+    const worldName = session.currentWorld?.name ?? 'unknown world';
+    const characterName = session.currentCharacter?.name;
+
+    return characterName ? `${worldName} · ${characterName}` : worldName;
+  }
+
+  function appendDebugConsoleMessageToTab(
+    tabId: string,
+    direction: DebugConsoleDirection,
+    text: string,
+  ): void {
+    if (!text) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    updateWorldSession(tabId, {
+      debugConsoleEntries: appendDebugConsoleEntry(session.debugConsoleEntries, {
+        direction,
+        sourceLabel: getDebugConsoleSourceLabel(tabId),
+        text,
+      }),
+    });
+  }
+
   async function appendOutputToTab(tabId: string, rawText: string): Promise<void> {
     const session = getWorldSession(tabId);
     const maxHistoryLines = session.currentCharacter?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
@@ -207,11 +238,40 @@ export function createPlaybackActions({
   }
 
   async function appendSystemMessageToTab(tabId: string, text: string): Promise<void> {
-    await appendOutputToTab(tabId, text);
+    const session = getWorldSession(tabId);
+
+    session.transcript.append(text);
+    appendDebugConsoleMessageToTab(tabId, 'status', text);
+
+    updateWorldSession(tabId, {
+      outputRevision: session.outputRevision + 1,
+    });
+    noteOutputActivity(tabId);
+
+    const logText = stripTranscriptForLog(text);
+    if (isTauriAvailable() && session.loggingActive && session.logFilePath && logText.length > 0) {
+      void enqueueLogWrite(tabId, async () => {
+        await invoke('append_session_log', {
+          path: session.logFilePath,
+          text: logText,
+        });
+      }).catch((error) => {
+        console.error('failed to write session log:', error);
+      });
+    }
+
+    await nextFrame();
+    if (getActiveWorldTabId() === tabId && !session.userScrolled) {
+      scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
+    }
+  }
+
+  function appendIncomingRawMessageToTab(tabId: string, text: string): void {
+    appendDebugConsoleMessageToTab(tabId, 'incoming', text);
   }
 
   async function appendConnectionStatusToTab(tabId: string, rawText: string): Promise<void> {
-    await appendOutputToTab(tabId, rawText);
+    await appendSystemMessageToTab(tabId, rawText);
   }
 
   function buildLogStartMessage(filename: string, appended: boolean): string {
@@ -536,10 +596,14 @@ export function createPlaybackActions({
       {
         onOpen: () => {
           if (character?.connectString && character.connectString.trim()) {
+            appendDebugConsoleMessageToTab(tabId, 'outgoing', `${character.connectString}\r\n`);
             connection.send(`${character.connectString}\r\n`);
           }
           updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });
           void appendConnectionStatusToTab(tabId, `\x1b[90m[connected to ${world.host}:${world.port}]\x1b[0m\n`);
+        },
+        onRawMessage: (text) => {
+          appendIncomingRawMessageToTab(tabId, text);
         },
         onMessage: (text) => {
           const current = getWorldSession(tabId);
@@ -704,6 +768,7 @@ export function createPlaybackActions({
       return;
     }
 
+    appendDebugConsoleMessageToTab(tabId, 'outgoing', `${value}\r\n`);
     getWorldConnection(tabId)?.send(value + '\r\n');
 
     const session = getWorldSession(tabId);
@@ -725,7 +790,7 @@ export function createPlaybackActions({
     session?.transcript.resetCompletion();
   }
 
-  async function togglePanel(panel: 'notes' | 'highlights' | 'rules'): Promise<void> {
+  async function togglePanel(panel: 'notes' | 'highlights' | 'rules' | 'debugConsole'): Promise<void> {
     const tabId = getActiveWorldTabId();
     if (!tabId) {
       return;
@@ -737,7 +802,9 @@ export function createPlaybackActions({
         ? !session.notesVisible
         : panel === 'highlights'
           ? !session.highlightsVisible
-          : !session.rulesVisible;
+          : panel === 'rules'
+            ? !session.rulesVisible
+            : !session.debugConsoleVisible;
     const shouldPreserveBottom = !session.userScrolled;
 
     if (panel === 'notes') {
@@ -745,18 +812,28 @@ export function createPlaybackActions({
         notesVisible: shouldOpen,
         highlightsVisible: false,
         rulesVisible: false,
+        debugConsoleVisible: false,
       });
     } else if (panel === 'highlights') {
       updateWorldSession(tabId, {
         highlightsVisible: shouldOpen,
         notesVisible: false,
         rulesVisible: false,
+        debugConsoleVisible: false,
       });
-    } else {
+    } else if (panel === 'rules') {
       updateWorldSession(tabId, {
         rulesVisible: shouldOpen,
         notesVisible: false,
         highlightsVisible: false,
+        debugConsoleVisible: false,
+      });
+    } else {
+      updateWorldSession(tabId, {
+        debugConsoleVisible: shouldOpen,
+        notesVisible: false,
+        highlightsVisible: false,
+        rulesVisible: false,
       });
     }
 

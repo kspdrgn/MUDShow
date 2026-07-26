@@ -19,6 +19,7 @@
   export let onEditWorld: () => void;
   export let onEditCharacter: () => void;
   export let onOpenNotes: () => void;
+  export let onOpenDebugConsole: () => void;
   export let onOpenTriggers: () => void;
   export let onDismiss: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
@@ -212,6 +213,9 @@
     >
       <span class="titlebar-context-menu-item-label">notes</span>
       <span class="titlebar-context-menu-shortcut" aria-hidden="true">F3</span>
+    </button>
+    <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" on:click={onOpenDebugConsole}>
+      debug console
     </button>
     <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" on:click={onOpenTriggers}>
       triggers
