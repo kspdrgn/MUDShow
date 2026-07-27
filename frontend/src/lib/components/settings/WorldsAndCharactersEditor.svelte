@@ -283,12 +283,13 @@
 </div>
 
 {#if menuTarget}
+  {@const target = menuTarget}
   <div
     bind:this={menuElement}
     class="titlebar-dropdown titlebar-context-menu characters-context-menu"
     role="menu"
     tabindex="-1"
-    aria-label={`${menuTarget.kind === 'world' ? menuTarget.world.name : menuTarget.character.name} actions`}
+    aria-label={`${target.kind === 'world' ? target.world.name : target.character.name} actions`}
     style={`left: ${renderedMenuPosition.x}px; top: ${renderedMenuPosition.y}px;`}
     on:click|stopPropagation
     on:contextmenu|preventDefault
@@ -298,12 +299,12 @@
       }
     }}
   >
-    {#if menuTarget.kind === 'world'}
+    {#if target.kind === 'world'}
       <button
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item"
         role="menuitem"
-        on:click={() => handleMenuAction(() => onConnectWorld(menuTarget.world.id))}
+        on:click={() => handleMenuAction(() => onConnectWorld(target.world.id))}
       >
         connect
       </button>
@@ -311,7 +312,7 @@
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item"
         role="menuitem"
-        on:click={() => handleMenuAction(() => onEditWorld(menuTarget.index))}
+        on:click={() => handleMenuAction(() => onEditWorld(target.index))}
       >
         edit world
       </button>
@@ -319,7 +320,7 @@
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item"
         role="menuitem"
-        on:click={() => handleMenuAction(() => onOpenCharacter(menuTarget.world.id, null))}
+        on:click={() => handleMenuAction(() => onOpenCharacter(target.world.id, null))}
       >
         new character
       </button>
@@ -328,7 +329,7 @@
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item danger"
         role="menuitem"
-        on:click={() => handleMenuAction(() => requestDeleteWorld(menuTarget.index))}
+        on:click={() => handleMenuAction(() => requestDeleteWorld(target.index))}
       >
         delete world
       </button>
@@ -337,7 +338,7 @@
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item"
         role="menuitem"
-        on:click={() => handleMenuAction(() => onConnectCharacter(menuTarget.index))}
+        on:click={() => handleMenuAction(() => onConnectCharacter(target.index))}
       >
         connect
       </button>
@@ -345,7 +346,7 @@
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item"
         role="menuitem"
-        on:click={() => handleMenuAction(() => onEditCharacter(menuTarget.index))}
+        on:click={() => handleMenuAction(() => onEditCharacter(target.index))}
       >
         edit character
       </button>
@@ -354,7 +355,7 @@
         type="button"
         class="titlebar-menu-item titlebar-context-menu-item danger"
         role="menuitem"
-        on:click={() => handleMenuAction(() => requestDeleteCharacter(menuTarget.index))}
+        on:click={() => handleMenuAction(() => requestDeleteCharacter(target.index))}
       >
         delete character
       </button>
@@ -363,6 +364,7 @@
 {/if}
 
 {#if pendingDelete}
+  {@const deleteTarget = pendingDelete}
   <div
     id="modal-overlay"
     class="open"
@@ -374,14 +376,14 @@
   >
     <div id="modal">
       <h2>
-        {#if pendingDelete.kind === 'world'}
-          delete {pendingDelete.worldName}?
+        {#if deleteTarget.kind === 'world'}
+          delete {deleteTarget.worldName}?
         {:else}
           confirm delete
         {/if}
       </h2>
-      {#if pendingDelete.kind === 'world'}
-        {@const world = worlds[pendingDelete.index] ?? null}
+      {#if deleteTarget.kind === 'world'}
+        {@const world = worlds[deleteTarget.index] ?? null}
         {#if world}
           <p class="settings-note">
             {world.host}:{world.port}
