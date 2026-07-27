@@ -6,11 +6,12 @@
     getStyleScopeLabel,
     getStyleScopePath,
     getStyleScopeSummary,
+    describePreview,
+    getPreviewBlockStyle,
     resolveAppStyleEditor,
     type AppStyleEditor,
     type StyleSectionEditor,
     type StyleSectionScope,
-    type StyleSectionValue,
     type StyleScope,
     DEFAULT_APP_STYLE_VALUES,
   } from './style-settings';
@@ -30,43 +31,6 @@
       [sectionScope]: nextSection,
     });
   }
-
-  function getPreviewBlockStyle(section: StyleSectionValue): string {
-    const parts = [
-      `font-family:${section.fontFamily}`,
-      `font-weight:${section.fontWeight}`,
-      `font-style:${section.fontStyle}`,
-      `font-stretch:${section.fontStretch}`,
-      `font-size:${section.fontSize}px`,
-      `color:${section.foregroundColor}`,
-      `background:${section.backgroundColor}`,
-    ];
-
-    if (section.backgroundImage.path.trim()) {
-      parts.push(`background-image:url("${section.backgroundImage.path.replaceAll('"', '\\"')}")`);
-      parts.push(`background-repeat:${section.backgroundImage.fit === 'repeat' ? 'repeat' : 'no-repeat'}`);
-      parts.push(`background-size:${section.backgroundImage.fit === 'repeat' ? 'auto' : section.backgroundImage.fit}`);
-    }
-
-    return parts.join(';');
-  }
-
-  function describePreview(section: StyleSectionValue): string {
-    const pieces = [
-      section.fontFamily,
-      `${section.fontWeight}`,
-      section.fontStyle,
-      `${section.fontSize}px`,
-      section.foregroundColor,
-      section.backgroundColor,
-    ];
-
-    if (section.backgroundImage.path.trim()) {
-      pieces.push(`image ${section.backgroundImage.fit} ${section.backgroundImage.opacity}%`);
-    }
-
-    return pieces.join(' · ');
-  }
 </script>
 
 <section class="style-settings" aria-label={getStyleScopeLabel(storageScope)}>
@@ -77,6 +41,7 @@
           <div>
             <p class="style-eyebrow">style settings</p>
             <h3>Scope: {getStyleScopeLabel(storageScope)}</h3>
+            <p class="style-path">{getStyleScopePath(storageScope)}</p>
             <p class="style-summary">{getStyleScopeSummary(storageScope)}</p>
           </div>
         </div>
@@ -182,6 +147,15 @@
     max-width: 42rem;
     color: var(--text-bright);
     line-height: 1.45;
+  }
+
+  .style-path {
+    margin-top: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
   }
 
   .style-layout {

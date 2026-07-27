@@ -9,6 +9,11 @@
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
   import type { AppStyleValues } from '../styles/style-settings';
+  import { getSquiggleDecorationStyle } from '../../spellcheck-style';
+  import {
+    measureCharacterWidth,
+    normalizeCharacterWidth,
+  } from './play-width';
 
   export let scope = 'world';
   export let visible = true;
@@ -79,69 +84,6 @@
   let measuredPlayWidth = 'none';
   let measurementToken = 0;
 
-  function normalizeCharacterWidth(value: number | undefined): number | null {
-    if (value === undefined || !Number.isFinite(value) || value <= 0) {
-      return null;
-    }
-
-    return Math.max(1, Math.round(value));
-  }
-
-  function measureTextWidth(text: string): number {
-    if (!screenElement) {
-      return 0;
-    }
-
-    const probe = document.createElement('span');
-    probe.textContent = text;
-    probe.style.position = 'absolute';
-    probe.style.visibility = 'hidden';
-    probe.style.pointerEvents = 'none';
-    probe.style.whiteSpace = 'pre';
-    probe.style.fontFamily = 'var(--world-output-font-family, var(--font-mono))';
-    probe.style.fontWeight = 'var(--world-output-font-weight, 400)';
-    probe.style.fontStyle = 'var(--world-output-font-style, normal)';
-    probe.style.fontStretch = 'var(--world-output-font-stretch, normal)';
-    probe.style.fontSize = 'var(--world-output-font-size, 13px)';
-    probe.style.fontVariantLigatures = 'none';
-    probe.style.fontFeatureSettings = '"liga" 0, "clig" 0, "calt" 0';
-
-    screenElement.appendChild(probe);
-    const width = probe.getBoundingClientRect().width;
-    probe.remove();
-
-    return width;
-  }
-
-  function measureCharacterWidth(widthInCharacters: number): string {
-    const sampleSize = 80;
-    const narrowWidth = measureTextWidth('i'.repeat(sampleSize));
-    const wideWidth = measureTextWidth('W'.repeat(sampleSize));
-    const monoTolerance = 0.02 * sampleSize;
-    const isMonospace = narrowWidth > 0 && wideWidth > 0 && Math.abs(narrowWidth - wideWidth) <= monoTolerance;
-    const measuredWidth = isMonospace
-      ? measureTextWidth('0'.repeat(widthInCharacters))
-      : (measureTextWidth('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '.repeat(2)) / 126) * widthInCharacters;
-
-    if (!Number.isFinite(measuredWidth) || measuredWidth <= 0) {
-      return `${widthInCharacters}ch`;
-    }
-
-    return `${measuredWidth}px`;
-  }
-
-  function getSquiggleDecorationStyle(value: string): string {
-    switch (value) {
-      case 'dashed':
-      case 'dotted':
-      case 'solid':
-      case 'wavy':
-        return value;
-      default:
-        return 'wavy';
-    }
-  }
-
   async function updateMeasuredPlayWidth(): Promise<void> {
     const widthInCharacters = normalizeCharacterWidth(characterWidth);
     if (widthInCharacters === null) {
@@ -160,7 +102,7 @@
       return;
     }
 
-    measuredPlayWidth = measureCharacterWidth(widthInCharacters);
+    measuredPlayWidth = measureCharacterWidth(screenElement, widthInCharacters);
   }
 
   $: {

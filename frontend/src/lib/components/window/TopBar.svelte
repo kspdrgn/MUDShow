@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { isTauriAvailable, invoke } from '../../tauri';
+  import { isTauriAvailable } from '../../tauri';
   import {
     CHARACTERS_TAB_ID,
     SETTINGS_TAB_ID,
@@ -11,6 +11,25 @@
   import WorldContextMenu from '../play/WorldContextMenu.svelte';
   import type { WorldTabSessionState } from '../../world-session';
   import QuickConnectPanel from './QuickConnectPanel.svelte';
+  import {
+    getCloseConfirmState,
+    getQuickConnectSide,
+    getWorldContextMenuState,
+  } from './topbar-state';
+  import {
+    TAB_DRAG_THRESHOLD,
+    calculateTabDragPosition,
+    createSuppressedTabClickScheduler,
+    createTabDragState,
+    type TabDragState,
+  } from './topbar-drag';
+  import {
+    closeWindow,
+    minimizeWindow,
+    openInspector,
+    startTitlebarDrag,
+    toggleMaximizeWindow,
+  } from './window-actions';
 
   export let tabs: AppTab[] = [];
   export let activeTabId: string | null = null;
@@ -54,104 +73,37 @@
   let worldTabsElement: HTMLDivElement | null = null;
   let worldContextMenuDropdown: HTMLDivElement | null = null;
   let worldContextMenuPosition = { x: 0, y: 0 };
-  let worldContextMenuTab: AppTab | null = null;
-  let worldContextMenuSession: WorldTabSessionState | null = null;
-  let worldContextMenuCanReconnect = false;
-  let worldContextMenuCanDisconnect = false;
-  let worldContextMenuCanQuickLog = false;
-  let worldContextMenuCanStopLogging = false;
-  let worldContextMenuCanEditWorld = false;
-  let worldContextMenuCanEditCharacter = false;
   let closeConfirmDropdown: HTMLDivElement | null = null;
   let closeConfirmPosition = { x: 0, y: 0 };
   let closeConfirmAnchorPoint: { x: number; y: number } | null = null;
-  let closeConfirmTab: AppTab | null = null;
-  let closeConfirmSession: WorldTabSessionState | null = null;
-  let closeConfirmWorldName = '';
-  let closeConfirmMessage = '';
-  let closeConfirmActionLabel = 'disconnect and close';
   const tabCloseButtons: Record<string, HTMLButtonElement | null> = {};
   const tabGroupElements: Record<string, HTMLDivElement | null> = {};
-  const TAB_DRAG_THRESHOLD = 6;
-
-  type TabDragState = {
-    tabId: string;
-    pointerId: number;
-    pointerTarget: HTMLElement | null;
-    startX: number;
-    startY: number;
-    clientX: number;
-    clientY: number;
-    isDragging: boolean;
-    dropIndex: number;
-    indicatorLeft: number;
-  };
 
   let tabDragState: TabDragState | null = null;
-  let suppressTabClickId: string | null = null;
-  let suppressTabClickTimeout: ReturnType<typeof setTimeout> | null = null;
+  const tabClickScheduler = createSuppressedTabClickScheduler();
 
-  $: worldContextMenuTab = worldContextMenuTabId
-    ? tabs.find((tab) => tab.id === worldContextMenuTabId) ?? null
-    : null;
-  $: worldContextMenuSession =
-    worldContextMenuTab?.kind === 'world'
-      ? worldSessions[worldContextMenuTab.id] ?? null
-      : null;
-  $: worldContextMenuCanReconnect =
-    worldContextMenuTab?.kind === 'world' &&
-    worldContextMenuSession !== null &&
-    worldContextMenuSession.connectionStatus === 'disconnected' &&
-    worldContextMenuSession.currentWorld !== null;
-  $: worldContextMenuCanDisconnect =
-    worldContextMenuTab?.kind === 'world' &&
-    worldContextMenuSession !== null &&
-    (worldContextMenuSession.connectionStatus === 'connecting' ||
-      worldContextMenuSession.connectionStatus === 'connected');
-  $: worldContextMenuCanQuickLog =
-    worldContextMenuTab?.kind === 'world' &&
-    worldContextMenuSession !== null &&
-    !worldContextMenuSession.loggingActive;
-  $: worldContextMenuCanStopLogging =
-    worldContextMenuTab?.kind === 'world' &&
-    worldContextMenuSession !== null &&
-    worldContextMenuSession.loggingActive;
-  $: worldContextMenuCanEditWorld =
-    worldContextMenuTab?.kind === 'world' &&
-    worldContextMenuSession !== null &&
-    worldContextMenuSession.currentWorld !== null;
-  $: worldContextMenuCanEditCharacter =
-    worldContextMenuTab?.kind === 'world' &&
-    worldContextMenuSession !== null &&
-    worldContextMenuSession.currentCharacter !== null;
-  $: closeConfirmTab = closeConfirmTabId ? tabs.find((tab) => tab.id === closeConfirmTabId) ?? null : null;
-  $: closeConfirmSession =
-    closeConfirmTabId && closeConfirmTab?.kind === 'world'
-      ? worldSessions[closeConfirmTabId] ?? null
-      : null;
-  $: closeConfirmWorldName = closeConfirmTabId
-    ? closeConfirmSession?.currentWorld?.name ??
-      closeConfirmSession?.currentCharacter?.name ??
-      closeConfirmTab?.title ??
-      'this world'
-    : '';
-  $: closeConfirmMessage =
-    closeConfirmSession?.connectionStatus === 'connected' ||
-    closeConfirmSession?.connectionStatus === 'connecting'
-      ? `World ${closeConfirmWorldName} is connected. Disconnect and close?`
-      : confirmUnloggedTabClose && closeConfirmSession !== null
-        ? `World ${closeConfirmWorldName} is not being logged. Close anyway?`
-        : '';
-  $: closeConfirmActionLabel =
-    closeConfirmSession?.connectionStatus === 'connected' ||
-    closeConfirmSession?.connectionStatus === 'connecting'
-      ? 'disconnect and close'
-      : confirmUnloggedTabClose && closeConfirmSession !== null
-        ? 'close anyway'
-        : 'disconnect and close';
+  let worldContextMenuState = getWorldContextMenuState(worldContextMenuTabId, tabs, worldSessions);
+
+  let closeConfirmState = getCloseConfirmState(
+    closeConfirmTabId,
+    closeConfirmMode,
+    tabs,
+    worldSessions,
+    confirmUnloggedTabClose,
+  );
+
+  $: worldContextMenuState = getWorldContextMenuState(worldContextMenuTabId, tabs, worldSessions);
+
+  $: closeConfirmState = getCloseConfirmState(
+    closeConfirmTabId,
+    closeConfirmMode,
+    tabs,
+    worldSessions,
+    confirmUnloggedTabClose,
+  );
 
   function isCloseConfirmDropdownOpen(): boolean {
-    return closeConfirmMode === 'dropdown' && closeConfirmTab !== null;
+    return closeConfirmState.isOpen;
   }
 
   function toggleMenu(event: MouseEvent): void {
@@ -195,90 +147,24 @@
     tabDragState = null;
   }
 
-  function clearSuppressedTabClick(): void {
-    if (suppressTabClickTimeout !== null) {
-      clearTimeout(suppressTabClickTimeout);
-      suppressTabClickTimeout = null;
-    }
-
-    suppressTabClickId = null;
-  }
-
-  function scheduleSuppressedTabClick(tabId: string): void {
-    clearSuppressedTabClick();
-    suppressTabClickId = tabId;
-    suppressTabClickTimeout = setTimeout(() => {
-      if (suppressTabClickId === tabId) {
-        suppressTabClickId = null;
-      }
-
-      suppressTabClickTimeout = null;
-    }, 0);
-  }
-
   function updateTabDragIndicator(clientX: number): void {
     const drag = tabDragState;
     if (!drag) {
       return;
     }
-
-    const draggedTabId = drag.tabId;
-    const otherTabs = tabs.filter((tab) => tab.id !== draggedTabId);
-    const containerRect = titlebarTabsElement?.getBoundingClientRect();
-
-    if (!containerRect) {
-      tabDragState = {
-        ...drag,
-        dropIndex: otherTabs.length,
-        indicatorLeft: 0,
-        clientX,
-        clientY: drag.clientY,
-      };
-      return;
-    }
-
-    let dropIndex = otherTabs.length;
-    let indicatorLeft = containerRect.width;
-
-    for (let index = 0; index < otherTabs.length; index += 1) {
-      const tab = otherTabs[index];
-      const element = tabGroupElements[tab.id];
-      const rect = element?.getBoundingClientRect();
-
-      if (!rect) {
-        continue;
-      }
-
-      const midpoint = rect.left + rect.width / 2;
-      if (clientX < midpoint) {
-        dropIndex = index;
-        indicatorLeft = rect.left - containerRect.left - 2;
-        break;
-      }
-    }
-
-    if (dropIndex === otherTabs.length) {
-      const quickConnectRect = quickConnectContainer?.getBoundingClientRect() ?? null;
-      const lastTab = otherTabs[otherTabs.length - 1];
-      const rect = lastTab ? tabGroupElements[lastTab.id]?.getBoundingClientRect() ?? null : null;
-      indicatorLeft = quickConnectRect
-        ? quickConnectRect.left - containerRect.left - 3
-        : rect
-          ? rect.right - containerRect.left + 3
-          : containerRect.width;
-    }
-
     tabDragState = {
       ...drag,
-      dropIndex,
-      indicatorLeft: Math.max(0, indicatorLeft),
-      clientX,
-      clientY: drag.clientY,
+      ...calculateTabDragPosition(drag, clientX, {
+        tabs,
+        tabGroupElements,
+        titlebarTabsElement,
+        quickConnectContainer,
+      }),
     };
   }
 
   function beginTabDrag(event: PointerEvent, tab: AppTab): void {
-    if (tabDragState !== null || event.button !== 0 || !event.isPrimary || suppressTabClickId === tab.id) {
+    if (tabDragState !== null || event.button !== 0 || !event.isPrimary || tabClickScheduler.suppressTabClickId === tab.id) {
       return;
     }
 
@@ -290,18 +176,7 @@
     menuOpen = false;
     quickConnectOpen = false;
 
-    tabDragState = {
-      tabId: tab.id,
-      pointerId: event.pointerId,
-      pointerTarget: event.currentTarget,
-      startX: event.clientX,
-      startY: event.clientY,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      isDragging: false,
-      dropIndex: Math.max(0, tabs.filter((item) => item.id !== tab.id).length),
-      indicatorLeft: 0,
-    };
+    tabDragState = createTabDragState(tab, event, tabs);
 
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -344,7 +219,7 @@
 
     if (shouldCommit) {
       onReorderTab(tabId, targetIndex);
-      scheduleSuppressedTabClick(tabId);
+      tabClickScheduler.scheduleSuppressedTabClick(tabId);
     }
   }
 
@@ -353,7 +228,7 @@
   }
 
   function handleTabClick(event: MouseEvent, tab: AppTab): void {
-    if (suppressTabClickId === tab.id) {
+    if (tabClickScheduler.suppressTabClickId === tab.id) {
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -397,7 +272,7 @@
     const dropdownWidth = quickConnectDropdown?.offsetWidth ?? 420;
     const buttonRect = quickConnectButton.getBoundingClientRect();
     const availableRight = window.innerWidth - buttonRect.left;
-    quickConnectSide = availableRight >= dropdownWidth + 12 ? 'right' : 'left';
+    quickConnectSide = getQuickConnectSide(availableRight, dropdownWidth);
   }
 
   function updateWorldContextMenuPosition(): void {
@@ -528,67 +403,10 @@
       titlebarElement?.removeEventListener('mousedown', startTitlebarDrag);
       window.removeEventListener('keydown', handleEscape);
       window.removeEventListener('resize', handleResize);
-      clearSuppressedTabClick();
+      tabClickScheduler.clearSuppressedTabClick();
       closeTabDrag();
     };
   });
-
-  async function minimizeWindow(): Promise<void> {
-    if (!isTauriAvailable()) {
-      return;
-    }
-
-    await invoke('window_minimize');
-  }
-
-  async function toggleMaximizeWindow(): Promise<void> {
-    if (!isTauriAvailable()) {
-      return;
-    }
-
-    await invoke('window_toggle_maximize');
-  }
-
-  async function closeWindow(): Promise<void> {
-    if (!isTauriAvailable()) {
-      return;
-    }
-
-    await invoke('window_close');
-  }
-
-  async function openInspector(): Promise<void> {
-    if (!isTauriAvailable()) {
-      return;
-    }
-
-    try {
-      await invoke('window_open_devtools');
-    } catch (error) {
-      console.error('failed to open the web inspector', error);
-    }
-  }
-
-  function shouldStartTitlebarDrag(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) {
-      return false;
-    }
-
-    return target.closest(
-      '.world-tab-group, .titlebar-quick-connect, .titlebar-dropdown, #titlebar-actions, button, input, textarea, select, a',
-    ) === null;
-  }
-
-  function startTitlebarDrag(event: MouseEvent): void {
-    if (event.button !== 0 || !shouldStartTitlebarDrag(event.target)) {
-      return;
-    }
-
-    event.preventDefault();
-    void invoke('window_start_dragging').catch((error) => {
-      console.error('failed to start window drag', error);
-    });
-  }
 
 </script>
 
@@ -660,7 +478,7 @@
       ></div>
     {/if}
 
-    {#if isCloseConfirmDropdownOpen() && closeConfirmTab}
+    {#if isCloseConfirmDropdownOpen() && closeConfirmState.tab}
       <div
         bind:this={closeConfirmDropdown}
         class="titlebar-dropdown titlebar-close-confirm-dropdown"
@@ -668,7 +486,7 @@
         aria-label="close tab confirmation"
         style={`left: ${closeConfirmPosition.x}px; top: ${closeConfirmPosition.y}px;`}
       >
-        <p class="titlebar-close-confirm-copy">{closeConfirmMessage}</p>
+        <p class="titlebar-close-confirm-copy">{closeConfirmState.message}</p>
         <div class="titlebar-close-confirm-actions">
           <button
             type="button"
@@ -676,7 +494,7 @@
             role="menuitem"
             on:click={() => onConfirmCloseTab()}
           >
-            {closeConfirmActionLabel}
+            {closeConfirmState.actionLabel}
           </button>
         </div>
       </div>
@@ -723,36 +541,53 @@
     </div>
   </div>
 
-  {#if worldContextMenuOpen && worldContextMenuTab}
+  {#if worldContextMenuOpen && worldContextMenuState.tab}
     <div bind:this={worldContextMenuDropdown}>
       <WorldContextMenu
         open={worldContextMenuOpen}
         position={worldContextMenuPosition}
-        ariaLabel={`tab menu for ${worldContextMenuTab.title}`}
+        ariaLabel={`tab menu for ${worldContextMenuState.tab.title}`}
         source="titlebar"
-        canReconnect={worldContextMenuCanReconnect}
-        canDisconnect={worldContextMenuCanDisconnect}
-        canQuickLog={worldContextMenuCanQuickLog}
-        canStopLogging={worldContextMenuCanStopLogging}
-        canEditWorld={worldContextMenuCanEditWorld}
-        canEditCharacter={worldContextMenuCanEditCharacter}
-        onReconnect={() => worldContextMenuCanReconnect && handleWorldContextMenuAction(() => onReconnectTab(worldContextMenuTab.id))}
-        onDisconnect={() => worldContextMenuCanDisconnect && handleWorldContextMenuAction(() => onDisconnectTab(worldContextMenuTab.id))}
-        onQuickLog={() => worldContextMenuCanQuickLog && handleWorldContextMenuAction(() => onQuickLogTab(worldContextMenuTab.id))}
-        onStopLogging={() => worldContextMenuCanStopLogging && handleWorldContextMenuAction(() => onStopLoggingTab(worldContextMenuTab.id))}
-        onOpenLogging={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuTab.id))}
-        onEditWorld={() => worldContextMenuCanEditWorld && handleWorldContextMenuAction(() => onEditWorldTab(worldContextMenuTab.id))}
-        onEditCharacter={() =>
-          worldContextMenuCanEditCharacter &&
-          handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuTab.id))
+        canReconnect={worldContextMenuState.canReconnect}
+        canDisconnect={worldContextMenuState.canDisconnect}
+        canQuickLog={worldContextMenuState.canQuickLog}
+        canStopLogging={worldContextMenuState.canStopLogging}
+        canEditWorld={worldContextMenuState.canEditWorld}
+        canEditCharacter={worldContextMenuState.canEditCharacter}
+        onReconnect={() =>
+          worldContextMenuState.canReconnect &&
+          handleWorldContextMenuAction(() => onReconnectTab(worldContextMenuState.tab.id))
         }
-        onOpenNotes={() => handleWorldContextMenuAction(() => onOpenNotesTab(worldContextMenuTab.id))}
-        onOpenDebugConsole={() => handleWorldContextMenuAction(() => onOpenDebugConsoleTab(worldContextMenuTab.id))}
+        onDisconnect={() =>
+          worldContextMenuState.canDisconnect &&
+          handleWorldContextMenuAction(() => onDisconnectTab(worldContextMenuState.tab.id))
+        }
+        onQuickLog={() =>
+          worldContextMenuState.canQuickLog &&
+          handleWorldContextMenuAction(() => onQuickLogTab(worldContextMenuState.tab.id))
+        }
+        onStopLogging={() =>
+          worldContextMenuState.canStopLogging &&
+          handleWorldContextMenuAction(() => onStopLoggingTab(worldContextMenuState.tab.id))
+        }
+        onOpenLogging={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuState.tab.id))}
+        onEditWorld={() =>
+          worldContextMenuState.canEditWorld &&
+          handleWorldContextMenuAction(() => onEditWorldTab(worldContextMenuState.tab.id))
+        }
+        onEditCharacter={() =>
+          worldContextMenuState.canEditCharacter &&
+          handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuState.tab.id))
+        }
+        onOpenNotes={() => handleWorldContextMenuAction(() => onOpenNotesTab(worldContextMenuState.tab.id))}
+        onOpenDebugConsole={() =>
+          handleWorldContextMenuAction(() => onOpenDebugConsoleTab(worldContextMenuState.tab.id))
+        }
         onOpenTriggers={() =>
           handleWorldContextMenuAction(() =>
             onOpenTriggersTab(
-              worldContextMenuSession?.currentWorld?.id ?? null,
-              worldContextMenuSession?.currentCharacter?.id ?? null,
+              worldContextMenuState.session?.currentWorld?.id ?? null,
+              worldContextMenuState.session?.currentCharacter?.id ?? null,
             ),
           )
         }
@@ -763,7 +598,7 @@
               clientX: rect.left + rect.width / 2,
               clientY: rect.bottom,
             }),
-            worldContextMenuTab,
+            worldContextMenuState.tab,
           )}
       />
     </div>

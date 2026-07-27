@@ -3,16 +3,22 @@
   import type { FontShelfEntry } from '../../fonts';
   import type { AppStyleEditor } from '../styles/style-settings';
   import StyleSettingsPane from '../styles/StyleSettingsPane.svelte';
-
-  export type SettingsTabId =
-    | 'database'
-    | 'window'
-    | 'transcript'
-    | 'logging'
-    | 'connections'
-    | 'spellcheck'
-    | 'style'
-    | 'ui';
+  import {
+    SETTINGS_PAGE_PLACEHOLDER_TABS,
+    SETTINGS_PAGE_TAB_ICONS,
+    SETTINGS_PAGE_TABS,
+    type SettingsTabId,
+  } from './settings-page-tabs';
+  import {
+    DEFAULT_SQUIGGLE_COLOR,
+    SQUIGGLE_PREVIEW_WAVY_PATH,
+    SQUIGGLE_STYLE_OPTIONS,
+    getSquiggleColorPickerValue,
+    getSquigglePreviewDasharray,
+    getSquigglePreviewDecorationStyle,
+    normalizeHexColor,
+    normalizeSquiggleStyle,
+  } from '../../spellcheck-style';
 
   export let settings: AppSettings;
   export let onChange: (patch: Partial<AppSettings>) => void;
@@ -30,160 +36,10 @@
   export let activeTab: SettingsTabId = 'database';
   export let onTabChange: (tab: SettingsTabId) => void = () => {};
   const appStyleScope = { kind: 'app' as const };
-  const DEFAULT_SQUIGGLE_COLOR = '#ff0000';
-  const SQUIGGLE_PREVIEW_WAVY_PATH =
-    'M 4 13 C 7 6, 11 6, 14 13 S 21 20, 24 13 S 31 6, 34 13 S 41 20, 44 13 S 51 6, 54 13 S 61 20, 64 13 S 71 6, 74 13 S 81 20, 84 13 S 91 6, 94 13 S 101 20, 104 13 S 111 6, 114 13';
-  const SQUIGGLE_STYLE_OPTIONS = [
-    { value: 'wavy', label: 'wavy' },
-    { value: 'dashed', label: 'dashes' },
-    { value: 'dotted', label: 'dots' },
-    { value: 'solid', label: 'solid' },
-  ];
 
   let squiggleStyleMenuOpen = false;
-  let squiggleStylePickerElement: HTMLDivElement | null = null;
-  const placeholderTabs = new Set<SettingsTabId>(['connections', 'ui']);
+  $: currentSquiggleStyle = normalizeSquiggleStyle(settings.squiggleStyle);
 
-  function isHexColor(input: string): boolean {
-    return /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(input.trim());
-  }
-
-  function normalizeHexColor(input: string): string | null {
-    const trimmed = input.trim();
-    const match = trimmed.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
-
-    if (!match) {
-      return null;
-    }
-
-    const hex = match[1].toLowerCase();
-    if (hex.length === 3) {
-      return `#${hex
-        .split('')
-        .map((character) => character + character)
-        .join('')}`;
-    }
-
-    return `#${hex}`;
-  }
-
-  function getSquiggleColorPickerValue(value: string): string {
-    const currentValue = value.trim();
-    if (isHexColor(currentValue)) {
-      return currentValue.toLowerCase();
-    }
-
-    return DEFAULT_SQUIGGLE_COLOR;
-  }
-
-  function normalizeSquiggleStyle(value: string): string {
-    const trimmed = value.trim().toLowerCase();
-    if (trimmed === 'zigzag') {
-      return 'wavy';
-    }
-
-    return SQUIGGLE_STYLE_OPTIONS.some((option) => option.value === trimmed)
-      ? trimmed
-      : 'wavy';
-  }
-
-  function isSelectedSquiggleStyle(value: string): boolean {
-    return normalizeSquiggleStyle(settings.squiggleStyle) === value;
-  }
-
-  function getSquigglePreviewDecorationStyle(value: string): string {
-    switch (value) {
-      case 'dashed':
-      case 'dotted':
-      case 'solid':
-      case 'wavy':
-        return value;
-      default:
-        return 'wavy';
-    }
-  }
-
-  function getSquigglePreviewDasharray(value: string): string | null {
-    switch (value) {
-      case 'dashed':
-        return '12 7';
-      case 'dotted':
-        return '1 6';
-      case 'solid':
-        return null;
-      default:
-        return null;
-    }
-  }
-
-  function openSquiggleStyleMenu(): void {
-    squiggleStyleMenuOpen = true;
-  }
-
-  function closeSquiggleStyleMenu(): void {
-    squiggleStyleMenuOpen = false;
-  }
-
-  function toggleSquiggleStyleMenu(): void {
-    squiggleStyleMenuOpen = !squiggleStyleMenuOpen;
-  }
-
-  function selectSquiggleStyle(value: string): void {
-    onChange({ squiggleStyle: value });
-    closeSquiggleStyleMenu();
-  }
-
-  function handleSquiggleStyleButtonKeydown(event: KeyboardEvent): void {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      openSquiggleStyleMenu();
-    }
-  }
-
-  function handleWindowPointerDown(event: PointerEvent): void {
-    if (!squiggleStyleMenuOpen) {
-      return;
-    }
-
-    const target = event.target as Node | null;
-    if (target === null || squiggleStylePickerElement === null) {
-      closeSquiggleStyleMenu();
-      return;
-    }
-
-    if (!squiggleStylePickerElement.contains(target)) {
-      closeSquiggleStyleMenu();
-    }
-  }
-
-  function handleWindowKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && squiggleStyleMenuOpen) {
-      event.preventDefault();
-      closeSquiggleStyleMenu();
-    }
-  }
-
-  const tabIcons: Record<SettingsTabId, string> = {
-    database: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7.5c0 1.66 4.03 3 9 3s9-1.34 9-3-4.03-3-9-3-9 1.34-9 3Z"/><path d="M4.5 7.5v9c0 1.66 4.03 3 9 3s9-1.34 9-3v-9"/><path d="M4.5 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>`,
-    window: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="5" width="15" height="14" rx="2"/><path d="M4.5 9h15"/><path d="M8 5v14"/></svg>`,
-    transcript: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5.5h12"/><path d="M6 10h12"/><path d="M6 14.5h8"/><path d="M6 19h12"/><path d="M4.5 4.5v15h15"/></svg>`,
-    logging: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5.5h11l2 3v10a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1Z"/><path d="M8 12h8"/><path d="M8 15.5h5"/></svg>`,
-    connections: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14.5a4 4 0 0 1 6.7-2.9"/><path d="M4.5 12a7.5 7.5 0 0 1 12.6-5.5"/><path d="M15.5 12a3.5 3.5 0 0 1 5.5 2.8"/><path d="M11 17.5h2"/><path d="M12 17.5v3"/></svg>`,
-    spellcheck: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5h6"/><path d="M5 11h4"/><path d="M5 15.5h8"/><path d="M14.5 7.5l2.25 2.75L21 5.75"/><path d="M15 16l2.5 2.5 4-4"/></svg>`,
-    style: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5c4.4 0 8 3.1 8 7 0 2.2-1.1 4.2-3 5.5V20l-3.5-2h-1.5c-4.4 0-8-3.1-8-7s3.6-7.5 8-7.5Z"/><path d="M9 11.5h6"/><path d="M12 8.5v6"/></svg>`,
-    ui: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="4.5" width="15" height="15" rx="2"/><path d="M8 8h8"/><path d="M8 12h5"/><path d="M8 16h3"/></svg>`,
-  };
-
-  const tabs: Array<{ id: SettingsTabId; label: string }> = [
-    { id: 'database', label: 'Database' },
-    { id: 'window', label: 'Window' },
-    { id: 'transcript', label: 'Transcript' },
-    { id: 'logging', label: 'Logging' },
-    { id: 'connections', label: 'Connections' },
-    { id: 'spellcheck', label: 'Spellcheck' },
-    { id: 'style', label: 'Default Style' },
-    { id: 'ui', label: 'UI' },
-  ];
 </script>
 
 <section id="screen-settings" class="screen-panel">
@@ -196,15 +52,15 @@
       </div>
 
       <nav class="settings-tab-list">
-        {#each tabs as tab}
+        {#each SETTINGS_PAGE_TABS as tab}
           <button
             type="button"
             class:active={activeTab === tab.id}
             class="settings-tab"
             on:click={() => onTabChange(tab.id)}
           >
-            {@html tabIcons[tab.id]}
-            <span class:placeholder-tab-label={placeholderTabs.has(tab.id)}>{tab.label}</span>
+            {@html SETTINGS_PAGE_TAB_ICONS[tab.id]}
+            <span class:placeholder-tab-label={SETTINGS_PAGE_PLACEHOLDER_TABS.has(tab.id)}>{tab.label}</span>
           </button>
         {/each}
       </nav>
@@ -495,18 +351,19 @@
             <div class="spellcheck-control-grid">
               <label class="field">
                 <span>squiggle style</span>
-                <div
-                  bind:this={squiggleStylePickerElement}
-                  class="spellcheck-style-picker"
-                  data-open={squiggleStyleMenuOpen}
-                >
+                <div class="spellcheck-style-picker" data-open={squiggleStyleMenuOpen}>
                   <button
                     type="button"
                     class="spellcheck-style-picker-button"
-                    aria-label={`spellcheck squiggle style ${normalizeSquiggleStyle(settings.squiggleStyle)}`}
+                    aria-label={`spellcheck squiggle style ${currentSquiggleStyle}`}
                     aria-expanded={squiggleStyleMenuOpen}
-                    on:click={toggleSquiggleStyleMenu}
-                    on:keydown={handleSquiggleStyleButtonKeydown}
+                    on:click={() => (squiggleStyleMenuOpen = !squiggleStyleMenuOpen)}
+                    on:keydown={(event) => {
+                      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        squiggleStyleMenuOpen = true;
+                      }
+                    }}
                   >
                     <span
                       class="spellcheck-style-preview-swatch spellcheck-style-preview-swatch--button"
@@ -515,7 +372,7 @@
                       style:--spellcheck-preview-thickness={settings.squiggleSize}
                     >
                       <svg class="spellcheck-style-preview-svg" viewBox="0 0 120 24" aria-hidden="true">
-                        {#if normalizeSquiggleStyle(settings.squiggleStyle) === 'wavy'}
+                        {#if currentSquiggleStyle === 'wavy'}
                           <path d={SQUIGGLE_PREVIEW_WAVY_PATH} />
                         {:else}
                           <line
@@ -523,7 +380,7 @@
                             y1="13"
                             x2="116"
                             y2="13"
-                            stroke-dasharray={getSquigglePreviewDasharray(normalizeSquiggleStyle(settings.squiggleStyle)) ?? undefined}
+                            stroke-dasharray={getSquigglePreviewDasharray(currentSquiggleStyle) ?? undefined}
                           />
                         {/if}
                       </svg>
@@ -538,15 +395,18 @@
                         <button
                           type="button"
                           class="spellcheck-style-menu-item"
-                          class:active={isSelectedSquiggleStyle(option.value)}
+                          class:active={currentSquiggleStyle === option.value}
                           role="menuitemradio"
-                          aria-checked={isSelectedSquiggleStyle(option.value)}
+                          aria-checked={currentSquiggleStyle === option.value}
                           aria-label={`spellcheck squiggle style ${option.label}`}
                           title={option.label}
                           style:--spellcheck-preview-color={settings.squiggleColor}
                           style:--spellcheck-preview-opacity={settings.squiggleOpacity}
                           style:--spellcheck-preview-thickness={settings.squiggleSize}
-                          on:click={() => selectSquiggleStyle(option.value)}
+                          on:click={() => {
+                            onChange({ squiggleStyle: option.value });
+                            squiggleStyleMenuOpen = false;
+                          }}
                         >
                           <span class="spellcheck-style-preview-swatch spellcheck-style-preview-swatch--menu">
                             <svg class="spellcheck-style-preview-svg" viewBox="0 0 120 24" aria-hidden="true">

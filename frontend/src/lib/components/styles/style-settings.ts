@@ -91,15 +91,6 @@ function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function normalizeColorValue(value: unknown, fallback: string): string {
-  const text = normalizeText(value);
-  return text.length > 0 ? text : fallback;
-}
-
-function normalizeFitValue(value: unknown): StyleImageFit {
-  return value === 'contain' || value === 'repeat' ? value : 'cover';
-}
-
 function normalizeFontWeight(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return DEFAULT_FONT_WEIGHT;
@@ -170,23 +161,6 @@ function createSectionEditorFromValue(value: StyleSectionValue): StyleSectionEdi
     backgroundImageFit: value.backgroundImage.fit,
     backgroundImageOpacity: value.backgroundImage.opacity,
     backgroundImageEnabled: false,
-  };
-}
-
-function createSectionValueFromEditor(editor: StyleSectionEditor): StyleSectionValue {
-  return {
-    fontFamily: editor.fontFamily,
-    fontWeight: editor.fontWeight,
-    fontStyle: editor.fontStyle,
-    fontStretch: editor.fontStretch,
-    fontSize: editor.fontSize,
-    foregroundColor: editor.foregroundColor,
-    backgroundColor: editor.backgroundColor,
-    backgroundImage: {
-      path: editor.backgroundImagePath,
-      fit: editor.backgroundImageFit,
-      opacity: editor.backgroundImageOpacity,
-    },
   };
 }
 
@@ -535,4 +509,41 @@ export function resolveAppStyleEditor(editor: AppStyleEditor): AppStyleValues {
 export function isAppStyleEditorDirty(editor: AppStyleEditor): boolean {
   const serialized = serializeAppStyleEditor(editor);
   return Boolean(serialized.output || serialized.input);
+}
+
+export function getPreviewBlockStyle(section: StyleSectionValue): string {
+  const parts = [
+    `font-family:${section.fontFamily}`,
+    `font-weight:${section.fontWeight}`,
+    `font-style:${section.fontStyle}`,
+    `font-stretch:${section.fontStretch}`,
+    `font-size:${section.fontSize}px`,
+    `color:${section.foregroundColor}`,
+    `background:${section.backgroundColor}`,
+  ];
+
+  if (section.backgroundImage.path.trim()) {
+    parts.push(`background-image:url("${section.backgroundImage.path.replaceAll('"', '\\"')}")`);
+    parts.push(`background-repeat:${section.backgroundImage.fit === 'repeat' ? 'repeat' : 'no-repeat'}`);
+    parts.push(`background-size:${section.backgroundImage.fit === 'repeat' ? 'auto' : section.backgroundImage.fit}`);
+  }
+
+  return parts.join(';');
+}
+
+export function describePreview(section: StyleSectionValue): string {
+  const pieces = [
+    section.fontFamily,
+    `${section.fontWeight}`,
+    section.fontStyle,
+    `${section.fontSize}px`,
+    section.foregroundColor,
+    section.backgroundColor,
+  ];
+
+  if (section.backgroundImage.path.trim()) {
+    pieces.push(`image ${section.backgroundImage.fit} ${section.backgroundImage.opacity}%`);
+  }
+
+  return pieces.join(' · ');
 }
