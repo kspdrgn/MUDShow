@@ -793,6 +793,7 @@
               onSelectTab(CHARACTERS_TAB_ID);
             }}
           >
+            <span class="titlebar-menu-item-icon" aria-hidden="true">🌐</span>
             worlds and characters
           </button>
           <button
@@ -804,6 +805,7 @@
               onSelectTab(SETTINGS_TAB_ID);
             }}
           >
+            <span class="titlebar-menu-item-icon" aria-hidden="true">⚙️</span>
             app settings
           </button>
           <button
@@ -815,6 +817,7 @@
               onOpenTriggersTab(null, null);
             }}
           >
+            <span class="titlebar-menu-item-icon" aria-hidden="true">⏱</span>
             triggers
           </button>
           <button
@@ -827,6 +830,7 @@
               void openInspector();
             }}
           >
+            <span class="titlebar-menu-item-icon" aria-hidden="true">🔧</span>
             dev tools
           </button>
         </div>

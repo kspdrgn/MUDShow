@@ -564,6 +564,9 @@ body {
   background: transparent;
   color: var(--text);
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   text-align: left;
   padding: 8px 10px;
   cursor: pointer;
@@ -591,6 +594,13 @@ body {
   color: var(--text-dim);
   background: transparent;
   border-color: transparent;
+}
+
+.titlebar-menu-item-icon {
+  flex: 0 0 1.25em;
+  width: 1.25em;
+  text-align: center;
+  line-height: 1;
 }
 
 .titlebar-context-menu-item {

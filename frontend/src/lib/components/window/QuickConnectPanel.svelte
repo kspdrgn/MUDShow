@@ -61,7 +61,7 @@
       class="titlebar-menu-item titlebar-quick-connect-action-item"
       on:click={onOpenWorldsAndCharacters}
     >
-      ⚙ Edit Worlds and Characters
+      🌐 Edit Worlds and Characters
     </button>
   </div>
 </section>

@@ -277,7 +277,7 @@
   <div id="list-footer">
     <button class="btn primary" on:click={() => onOpenWorld(null)}>+ add world</button>
     <button type="button" class="btn" on:click={onOpenSettings}>
-      ⚙ open app settings
+      ⚙️ open app settings
     </button>
   </div>
 </div>
