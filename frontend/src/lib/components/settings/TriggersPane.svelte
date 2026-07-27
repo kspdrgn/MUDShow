@@ -1,13 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
   import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, TriggerOwner, WorldRecord } from '../../types';
   import { APP_TRIGGER_OWNER } from '../../triggers';
   import HighlightsPanel from './HighlightsPanel.svelte';
   import RuleEditorPanel from './RuleEditorPanel.svelte';
   import { createDefaultRuleDraft, createRuleDraft as createRuleEditorDraft } from './rule-editor';
   import { createDefaultHighlightDraft, createHighlightDraft as createHighlightEditorDraft } from './highlight-editor';
-  import { buildCopyPayload as buildTriggerCopyPayload, normalizePastedTriggerPayload } from './trigger-paste';
+  import { copySelectedTriggersAsJson, pasteTriggersFromClipboard } from './trigger-pane-clipboard';
   import {
     confirmDiscardDirtyEditor as confirmTriggerEditorDiscard,
     getClearPasteOwner,
@@ -38,10 +37,6 @@
     type FlatTreeItem,
     type TreeSelection,
   } from './triggers-tree';
-
-  type ValidPastedTrigger =
-    | { kind: 'highlight'; draft: HighlightDraft }
-    | { kind: 'rule'; draft: RuleDraft };
 
   export let worlds: WorldRecord[] = [];
   export let characters: CharacterRecord[] = [];
@@ -343,79 +338,6 @@
     }
   }
 
-  async function copySelectedAsJson(): Promise<void> {
-    const payload = buildTriggerCopyPayload(getSelectedTriggerItems().map((item) => item.trigger));
-    const json = JSON.stringify(payload, null, 2);
-
-    if (payload.length === 0) {
-      copiedStatus = 'nothing to copy';
-      contextMenuOpen = false;
-      return;
-    }
-
-    try {
-      await copyTextToClipboard(json);
-      copiedStatus = payload.length === 1 ? 'copied 1 trigger' : `copied ${payload.length} triggers`;
-      contextMenuOpen = false;
-    } catch (error) {
-      console.error('failed to copy triggers as JSON:', error);
-      copiedStatus = 'copy failed';
-      contextMenuOpen = false;
-    }
-  }
-
-  async function pasteFromJson(): Promise<void> {
-    try {
-      const owner = getClearPasteOwner(selectedKeys, flatTreeItems);
-      if (!owner) {
-        copiedStatus = 'paste needs one target owner';
-        contextMenuOpen = false;
-        return;
-      }
-
-      const clipboardText = await readTextFromClipboard();
-      const parsed = JSON.parse(clipboardText) as unknown;
-      const normalized = normalizePastedTriggerPayload(parsed);
-
-      if (!normalized) {
-        copiedStatus = 'paste failed: expected trigger JSON';
-        contextMenuOpen = false;
-        return;
-      }
-
-      if (normalized.triggers.length === 0) {
-        copiedStatus = normalized.skipped > 0 ? `paste skipped ${normalized.skipped} invalid` : 'paste found no triggers';
-        contextMenuOpen = false;
-        return;
-      }
-
-      let addedHighlights = 0;
-      let addedRules = 0;
-
-      for (const trigger of normalized.triggers) {
-        if (trigger.kind === 'highlight') {
-          onHighlightSave(null, owner, trigger.draft);
-          addedHighlights += 1;
-        } else {
-          onRuleSave(null, owner, trigger.draft);
-          addedRules += 1;
-        }
-      }
-
-      refreshTree();
-      const added = addedHighlights + addedRules;
-      copiedStatus =
-        normalized.skipped > 0
-          ? `pasted ${added}; skipped ${normalized.skipped} invalid`
-          : `pasted ${added} ${added === 1 ? 'trigger' : 'triggers'}`;
-      contextMenuOpen = false;
-    } catch (error) {
-      console.error('failed to paste triggers from JSON:', error);
-      copiedStatus = 'paste failed';
-      contextMenuOpen = false;
-    }
-  }
-
   function closeContextMenu(): void {
     contextMenuOpen = false;
   }
@@ -583,7 +505,12 @@
         type="button"
         class="triggers-context-menu-item"
         role="menuitem"
-        on:click={() => void copySelectedAsJson()}
+        on:click={() => {
+          void copySelectedTriggersAsJson(getSelectedTriggerItems().map((item) => item.trigger)).then((status) => {
+            copiedStatus = status;
+            contextMenuOpen = false;
+          });
+        }}
       >
         copy as JSON
       </button>
@@ -591,7 +518,17 @@
         type="button"
         class="triggers-context-menu-item"
         role="menuitem"
-        on:click={() => void pasteFromJson()}
+        on:click={() => {
+          void pasteTriggersFromClipboard({
+            getOwner: () => getClearPasteOwner(selectedKeys, flatTreeItems),
+            onHighlightSave,
+            onRuleSave,
+          }).then((status) => {
+            copiedStatus = status;
+            refreshTree();
+            contextMenuOpen = false;
+          });
+        }}
       >
         paste JSON
       </button>
