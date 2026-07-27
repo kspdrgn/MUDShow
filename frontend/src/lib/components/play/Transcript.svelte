@@ -1,32 +1,40 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import {
-    applyHighlights,
-    applyRulesWithResult,
     buildHighlightRegexes,
     buildRuleRegexes,
-    renderTranscriptHtml,
   } from '../../formatting';
-  import type { PlayTranscript, RenderCache, TranscriptChunkEntry } from '../../playback';
+  import type { PlayTranscript, RenderCache } from '../../playback';
   import {
     copyTextToClipboard,
     focusElement,
     nextFrame,
     scrollElementBy,
-    scrollElementToBottom,
   } from '../../session-dom';
   import { openExternalUrl } from '../../tauri';
   import { getScopedInputBarInputId, type InputBarId } from '../../input-bars';
   import type { HighlightRule, Rule, Trigger } from '../../types';
   import WorldContextMenu from './WorldContextMenu.svelte';
+  import {
+    HISTORY_OVERSCAN_PX,
+    LIVE_OVERSCAN_PX,
+    getTranscriptWheelDelta,
+  } from './transcript-viewport';
+  import {
+    buildTranscriptChunkTitle,
+    buildTranscriptRenderDependencyKey,
+    buildTranscriptVisibleRange,
+    renderTranscriptChunk,
+  } from './transcript-render';
+  import { getTranscriptContextMenuPosition } from './transcript-context-menu';
+  import {
+    getTranscriptHistoryMetrics,
+    getTranscriptScrollMetrics,
+    scrollTranscriptToBottomIfFollowing,
+  } from './transcript-scroll';
+  import { setupTranscriptObservers } from './transcript-observers';
 
   const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
-  const HISTORY_OVERSCAN_PX = 900;
-  const LIVE_OVERSCAN_PX = 500;
-  const ESTIMATED_LINE_HEIGHT_PX = 20;
-  const ESTIMATED_CHUNK_PADDING_PX = 6;
-  const ESTIMATED_CHARS_PER_LINE = 84;
-  const ESTIMATED_IMAGE_PREVIEW_HEIGHT_PX = 180;
 
   export let activeBar: InputBarId = 1;
   export let transcript: PlayTranscript;
@@ -81,8 +89,6 @@
   let transcriptLiveElement: HTMLDivElement | null = null;
   let contextMenuOpen = false;
   let contextMenuPosition = { x: 0, y: 0 };
-  let contentResizeObserver: ResizeObserver | null = null;
-  let shellResizeObserver: ResizeObserver | null = null;
   let userScrollIntent = false;
   let lastSyncedTranscript: PlayTranscript | null = null;
   let lastSyncedRevision = -1;
@@ -110,7 +116,12 @@
     imagePreviewCacheVersion;
     hiddenPreviewUrls;
 
-    const nextRenderDependencyKey = buildRenderDependencyKey();
+    const nextRenderDependencyKey = buildTranscriptRenderDependencyKey(
+      triggers,
+      linkImagePreviews,
+      imagePreviewCacheVersion,
+      hiddenPreviewUrls,
+    );
     if (nextRenderDependencyKey !== renderDependencyKey) {
       renderDependencyKey = nextRenderDependencyKey;
       renderCache?.clear();
@@ -132,206 +143,6 @@
     imagePreviewCacheVersion;
     renderCache;
     syncTranscriptRenderState();
-  }
-
-  function buildRenderDependencyKey(): string {
-    const triggerKey = triggers
-      .map((trigger) => {
-        if (trigger.type === 'highlight') {
-          return [
-            'h',
-            trigger.id,
-            trigger.owner.kind,
-            trigger.owner.kind === 'world'
-              ? trigger.owner.worldId
-              : trigger.owner.kind === 'character'
-                ? trigger.owner.characterId
-                : '',
-            trigger.pattern,
-            trigger.caseSensitive ? '1' : '0',
-            trigger.wordBoundary ? '1' : '0',
-            trigger.foregroundColor ?? '',
-            trigger.backgroundColor ?? '',
-          ].join(':');
-        }
-
-        return [
-          'r',
-          trigger.id,
-          trigger.owner.kind,
-          trigger.owner.kind === 'world'
-            ? trigger.owner.worldId
-            : trigger.owner.kind === 'character'
-              ? trigger.owner.characterId
-              : '',
-          trigger.label,
-          trigger.pattern,
-          trigger.caseSensitive ? '1' : '0',
-          trigger.wholeLine ? '1' : '0',
-          trigger.stopOtherRules ? '1' : '0',
-          trigger.stopHighlights ? '1' : '0',
-          trigger.foregroundColor ?? '',
-          trigger.backgroundColor ?? '',
-          trigger.opacity ?? '',
-          trigger.sampleText,
-        ].join(':');
-      })
-      .join('|');
-
-    const hiddenPreviewKey = [...hiddenPreviewUrls].sort().join('|');
-    return [
-      linkImagePreviews ? '1' : '0',
-      String(imagePreviewCacheVersion),
-      triggerKey,
-      hiddenPreviewKey,
-    ].join('|');
-  }
-
-  function renderChunkHtml(chunk: TranscriptChunkEntry, includePreviews: boolean): string {
-    const ruleResult = applyRulesWithResult(
-      renderTranscriptHtml(
-        chunk.text,
-        includePreviews ? linkImagePreviews : false,
-        hiddenPreviewUrls,
-        includePreviews ? imagePreviewCacheVersion : 0,
-      ),
-      ruleRegexes,
-    );
-
-    return ruleResult.stopHighlights ? ruleResult.html : applyHighlights(ruleResult.html, highlightRegexes);
-  }
-
-  function buildChunkTitle(chunk: TranscriptChunkEntry): string {
-    const timestamp = new Date(chunk.timestamp).toLocaleString();
-    const lineLabel = chunk.lineCount === 1 ? 'line' : 'lines';
-    const charLabel = chunk.charCount === 1 ? 'char' : 'chars';
-    const newlineLabel = chunk.text.endsWith('\n') ? 'ends with newline' : 'no trailing newline';
-
-    return `Timestamp: ${timestamp}\nChunk #${chunk.id}\n${chunk.lineCount} ${lineLabel}\n${chunk.charCount} ${charLabel}\n${newlineLabel}`;
-  }
-
-  function renderChunk(chunk: TranscriptChunkEntry, includePreviews: boolean): string {
-    const cacheKey = `${includePreviews ? 'live' : 'history'}:${renderDependencyKey}:${chunk.id}`;
-    if (renderCache) {
-      return renderCache.getOrSet(cacheKey, () => renderChunkHtml(chunk, includePreviews));
-    }
-
-    return renderChunkHtml(chunk, includePreviews);
-  }
-
-  function estimateChunkHeight(chunk: TranscriptChunkEntry, includePreviews: boolean): number {
-    const measuredWidth = width.endsWith('px') ? Number.parseFloat(width) : Number.NaN;
-    const charsPerLine = Number.isFinite(measuredWidth) && measuredWidth > 0
-      ? Math.max(24, Math.floor(measuredWidth / 8.25))
-      : ESTIMATED_CHARS_PER_LINE;
-    const wrappedLines = Math.max(chunk.lineCount, Math.ceil(chunk.charCount / charsPerLine));
-    const previewMatches = includePreviews
-      ? chunk.text.match(/https?:\/\/[^\s<>"']+/giu)?.filter((candidate) => /\.(?:avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#].*)?$/iu.test(candidate)).length ?? 0
-      : 0;
-
-    return Math.max(
-      ESTIMATED_LINE_HEIGHT_PX + ESTIMATED_CHUNK_PADDING_PX,
-      wrappedLines * ESTIMATED_LINE_HEIGHT_PX + ESTIMATED_CHUNK_PADDING_PX + previewMatches * ESTIMATED_IMAGE_PREVIEW_HEIGHT_PX,
-    );
-  }
-
-  function findHistoryScrollMetrics(): { scrollTop: number; clientHeight: number } {
-    const outputEl = transcriptHistoryScrollerElement ?? document.getElementById(`${scope}-output-area`);
-    if (!(outputEl instanceof HTMLElement)) {
-      return { scrollTop: historyScrollTop, clientHeight: historyViewportHeight };
-    }
-
-    return {
-      scrollTop: outputEl.scrollTop,
-      clientHeight: outputEl.clientHeight,
-    };
-  }
-
-  function buildVisibleRange(
-    startOffset: number,
-    viewportHeight: number,
-    overscanPx: number,
-    includePreviews: boolean,
-    anchorBottom = false,
-  ): {
-    startIndex: number;
-    endIndex: number;
-    topSpacer: number;
-    bottomSpacer: number;
-    rendered: RenderedChunk[];
-  } {
-    const count = transcript.getChunkCount();
-    if (count === 0) {
-      return {
-        startIndex: 0,
-        endIndex: 0,
-        topSpacer: 0,
-        bottomSpacer: 0,
-        rendered: [],
-      };
-    }
-
-    const chunks: TranscriptChunkEntry[] = [];
-    let totalHeight = 0;
-    for (let index = 0; index < count; index += 1) {
-      const chunk = transcript.getChunk(index);
-      if (!chunk) {
-        continue;
-      }
-
-      chunks.push(chunk);
-      totalHeight += estimateChunkHeight(chunk, includePreviews);
-    }
-
-    const targetTop = anchorBottom ? Math.max(0, totalHeight - viewportHeight) : startOffset;
-    const visibleStart = Math.max(0, targetTop - overscanPx);
-    const visibleEnd = Math.max(0, targetTop + viewportHeight + overscanPx);
-
-    let cursor = 0;
-    let startIndex = chunks.length;
-    let endIndex = chunks.length;
-    let topSpacer = 0;
-    let bottomSpacer = totalHeight;
-    const rendered: RenderedChunk[] = [];
-
-    for (let index = 0; index < chunks.length; index += 1) {
-      const chunk = chunks[index];
-      const height = estimateChunkHeight(chunk, includePreviews);
-      const nextCursor = cursor + height;
-
-      if (nextCursor <= visibleStart) {
-        topSpacer = nextCursor;
-        cursor = nextCursor;
-        continue;
-      }
-
-      if (cursor >= visibleEnd) {
-        endIndex = index;
-        bottomSpacer = Math.max(0, totalHeight - cursor);
-        break;
-      }
-
-      if (startIndex === chunks.length) {
-        startIndex = index;
-      }
-
-      rendered.push({
-        id: chunk.id,
-        html: renderChunk(chunk, includePreviews),
-        title: buildChunkTitle(chunk),
-      });
-      cursor = nextCursor;
-      endIndex = index + 1;
-      bottomSpacer = Math.max(0, totalHeight - cursor);
-    }
-
-    return {
-      startIndex,
-      endIndex,
-      topSpacer,
-      bottomSpacer,
-      rendered,
-    };
   }
 
   function syncTranscriptRenderState(): void {
@@ -368,7 +179,11 @@
       lastSyncedLiveHeight = -1;
     }
 
-    const historyMetrics = findHistoryScrollMetrics();
+    const historyMetrics = getTranscriptHistoryMetrics(
+      transcriptHistoryScrollerElement ?? document.getElementById(`${scope}-output-area`),
+      historyScrollTop,
+      historyViewportHeight,
+    );
     const liveHeight = splitView && transcriptLiveElement instanceof HTMLElement ? transcriptLiveElement.clientHeight : 0;
 
     if (
@@ -384,12 +199,23 @@
     historyScrollTop = historyMetrics.scrollTop;
     historyViewportHeight = historyMetrics.clientHeight;
     const anchorHistoryToBottom = !userScrolled;
-    const historyRange = buildVisibleRange(
+    const historyRange = buildTranscriptVisibleRange(
+      transcript,
       historyScrollTop,
       historyViewportHeight,
       HISTORY_OVERSCAN_PX,
       true,
       anchorHistoryToBottom,
+      {
+        width,
+        renderDependencyKey,
+        renderCache,
+        linkImagePreviews,
+        hiddenPreviewUrls,
+        imagePreviewCacheVersion,
+        ruleRegexes,
+        highlightRegexes,
+      },
     );
     renderedChunks = historyRange.rendered;
     renderedTopSpacer = historyRange.topSpacer;
@@ -397,7 +223,24 @@
 
     if (splitView) {
       liveViewportHeight = liveHeight;
-      const liveRange = buildVisibleRange(0, liveViewportHeight, LIVE_OVERSCAN_PX, false, true);
+      const liveRange = buildTranscriptVisibleRange(
+        transcript,
+        0,
+        liveViewportHeight,
+        LIVE_OVERSCAN_PX,
+        false,
+        true,
+        {
+          width,
+          renderDependencyKey,
+          renderCache,
+          linkImagePreviews,
+          hiddenPreviewUrls,
+          imagePreviewCacheVersion,
+          ruleRegexes,
+          highlightRegexes,
+        },
+      );
       liveRenderedChunks = liveRange.rendered;
       liveTopSpacer = liveRange.topSpacer;
       liveBottomSpacer = liveRange.bottomSpacer;
@@ -412,8 +255,18 @@
       if (lastChunk) {
         renderedChunks = [{
           id: lastChunk.id,
-          html: renderChunk(lastChunk, true),
-          title: buildChunkTitle(lastChunk),
+          html: renderTranscriptChunk(
+            lastChunk,
+            true,
+            renderDependencyKey,
+            renderCache,
+            linkImagePreviews,
+            hiddenPreviewUrls,
+            imagePreviewCacheVersion,
+            ruleRegexes,
+            highlightRegexes,
+          ),
+          title: buildTranscriptChunkTitle(lastChunk),
         }];
         renderedTopSpacer = Math.max(0, renderedTopSpacer);
         renderedBottomSpacer = 0;
@@ -427,31 +280,13 @@
 
   }
 
-  function scrollTranscriptToBottomIfFollowing(): void {
-    if (userScrolled) {
-      return;
-    }
-
-    scrollElementToBottom(`${scope}-output-area`);
-  }
-
   function getScrollMetrics(): {
     scrollTop: number;
     scrollHeight: number;
     clientHeight: number;
     distanceFromBottom: number;
   } | null {
-    const outputEl = document.getElementById(`${scope}-output-area`);
-    if (!(outputEl instanceof HTMLElement)) {
-      return null;
-    }
-
-    return {
-      scrollTop: outputEl.scrollTop,
-      scrollHeight: outputEl.scrollHeight,
-      clientHeight: outputEl.clientHeight,
-      distanceFromBottom: outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight,
-    };
+    return getTranscriptScrollMetrics(document.getElementById(`${scope}-output-area`) as HTMLElement | null);
   }
 
   async function handleMouseUp(): Promise<void> {
@@ -580,7 +415,7 @@
           userScrolled,
         });
       }
-      scrollTranscriptToBottomIfFollowing();
+      scrollTranscriptToBottomIfFollowing(scope, userScrolled);
     });
   }
 
@@ -679,15 +514,7 @@
     window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'transcript' } }));
 
     const shellRect = transcriptShellElement?.getBoundingClientRect();
-    contextMenuPosition = shellRect
-      ? {
-          x: Math.max(8, Math.min(event.clientX - shellRect.left, shellRect.width - 8)),
-          y: Math.max(8, Math.min(event.clientY - shellRect.top, shellRect.height - 8)),
-        }
-      : {
-          x: event.clientX,
-          y: event.clientY,
-        };
+    contextMenuPosition = getTranscriptContextMenuPosition(shellRect, event.clientX, event.clientY);
     contextMenuOpen = true;
   }
 
@@ -710,15 +537,11 @@
     const mainOutputId = `${scope}-output-area`;
     const mainOutput = document.getElementById(mainOutputId);
 
-    if (!mainOutput) {
+    if (!(mainOutput instanceof HTMLElement)) {
       return;
     }
 
-    const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE
-      ? event.deltaY * 16
-      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
-        ? event.deltaY * mainOutput.clientHeight
-        : event.deltaY;
+    const delta = getTranscriptWheelDelta(event, mainOutput);
 
     if (delta === 0) {
       return;
@@ -728,33 +551,22 @@
   }
 
   onMount(() => {
-    if (transcriptContentElement) {
-      contentResizeObserver = new ResizeObserver(() => {
+    return setupTranscriptObservers({
+      contentElement: transcriptContentElement,
+      historyElement: transcriptHistoryScrollerElement,
+      onContentResize: () => {
         if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
           console.debug('[MUDShow] transcript resized', {
             scrollState: getScrollMetrics(),
             userScrolled,
           });
         }
-        scrollTranscriptToBottomIfFollowing();
-      });
-      contentResizeObserver.observe(transcriptContentElement);
-    }
-
-    if (transcriptHistoryScrollerElement) {
-      shellResizeObserver = new ResizeObserver(() => {
+        scrollTranscriptToBottomIfFollowing(scope, userScrolled);
+      },
+      onHistoryResize: () => {
         syncTranscriptRenderState();
-      });
-      shellResizeObserver.observe(transcriptHistoryScrollerElement);
-    }
-  });
-
-  onDestroy(() => {
-    contentResizeObserver?.disconnect();
-    contentResizeObserver = null;
-
-    shellResizeObserver?.disconnect();
-    shellResizeObserver = null;
+      },
+    });
   });
 </script>
 
