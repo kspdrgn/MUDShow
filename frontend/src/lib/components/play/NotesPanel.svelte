@@ -9,6 +9,11 @@
     getWordBounds,
     renderSpellcheckUnderlayHtml,
   } from '../../spellcheck';
+  import {
+    getSelectedSpellcheckWord,
+    getTextSelectionInfo,
+    replaceSelectedText,
+  } from './spellcheck-editor';
 
   export let open = false;
   export let notes = '';
@@ -203,66 +208,64 @@
   }
 
   function applyReplacement(replacement: string): void {
-    if (!notesEditor) {
-      return;
-    }
-
-    const selectionStart = notesEditor.selectionStart ?? 0;
-    const selectionEnd = notesEditor.selectionEnd ?? selectionStart;
-    notesEditor.setRangeText(replacement, selectionStart, selectionEnd, 'end');
-    notesEditor.dispatchEvent(new Event('input', { bubbles: true }));
-    notesEditor.focus();
+    replaceSelectedText(notesEditor, replacement);
   }
 
   function openMenu(event: MouseEvent): void {
-    if (!notesEditor) {
+    const editor = notesEditor;
+    if (!editor) {
       return;
     }
 
-    const selectionStart = notesEditor.selectionStart ?? 0;
-    const selectionEnd = notesEditor.selectionEnd ?? selectionStart;
-    const selectedText = notesEditor.value.slice(selectionStart, selectionEnd).trim();
-    const word = getWordBounds(notesEditor.value, selectionStart, selectionEnd);
+    const selection = getTextSelectionInfo(editor);
+    if (!selection) {
+      return;
+    }
+
+    const { selectedText, word } = getSelectedSpellcheckWord(
+      editor.value,
+      selection.selectionStart,
+      selection.selectionEnd,
+      getWordBounds,
+    );
 
     window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'spellcheck' } }));
     menuOpen = true;
     menuPosition = { x: event.clientX, y: event.clientY };
-    menuWord = selectedText || word?.word || '';
+    menuWord = selectedText || word;
     menuSuggestions = [];
     void loadMenuSuggestions(menuWord);
   }
 
   async function copySelection(): Promise<void> {
-    if (!notesEditor) {
+    const selection = getTextSelectionInfo(notesEditor);
+    if (!selection) {
       return;
     }
 
-    const selectionStart = notesEditor.selectionStart ?? 0;
-    const selectionEnd = notesEditor.selectionEnd ?? selectionStart;
-    const selectedText = notesEditor.value.slice(selectionStart, selectionEnd);
-    if (selectedText) {
-      try {
-        await copyTextToClipboard(selectedText);
-      } catch (error) {
-        console.error('failed to copy notes selection:', error);
-      }
-    }
-  }
-
-  async function cutSelection(): Promise<void> {
-    if (!notesEditor) {
-      return;
-    }
-
-    const selectionStart = notesEditor.selectionStart ?? 0;
-    const selectionEnd = notesEditor.selectionEnd ?? selectionStart;
-    const selectedText = notesEditor.value.slice(selectionStart, selectionEnd);
-    if (!selectedText) {
+    if (!selection.selectedText) {
       return;
     }
 
     try {
-      await copyTextToClipboard(selectedText);
+      await copyTextToClipboard(selection.selectedText);
+    } catch (error) {
+      console.error('failed to copy notes selection:', error);
+    }
+  }
+
+  async function cutSelection(): Promise<void> {
+    const selection = getTextSelectionInfo(notesEditor);
+    if (!selection) {
+      return;
+    }
+
+    if (!selection.selectedText) {
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(selection.selectedText);
       applyReplacement('');
     } catch (error) {
       console.error('failed to cut notes selection:', error);

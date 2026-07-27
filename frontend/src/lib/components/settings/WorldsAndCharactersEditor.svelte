@@ -1,6 +1,15 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import type { CharacterRecord, WorldRecord } from '../../types';
+  import {
+    buildWorldRows,
+    clampMenuPosition,
+    createCharacterDeleteTarget,
+    createWorldDeleteTarget,
+    type DeleteTarget,
+    type MenuTarget,
+    type WorldRowModel,
+  } from './worlds-and-characters-editor';
 
   export let worlds: WorldRecord[] = [];
   export let characters: CharacterRecord[] = [];
@@ -14,19 +23,15 @@
   export let onConnectCharacter: (index: number) => void;
   export let onOpenSettings: () => void;
 
-  type DeleteTarget =
-    | { kind: 'world'; index: number; worldName: string }
-    | { kind: 'character'; index: number; characterName: string };
-  type MenuTarget =
-    | { kind: 'world'; index: number; world: WorldRecord }
-    | { kind: 'character'; index: number; character: CharacterRecord };
-
   let pendingDelete: DeleteTarget | null = null;
   let menuTarget: MenuTarget | null = null;
   let menuElement: HTMLDivElement | null = null;
   let menuPosition = { x: 0, y: 0 };
   let renderedMenuPosition = menuPosition;
   let repositionToken = 0;
+  let worldRows: WorldRowModel[] = [];
+
+  $: worldRows = buildWorldRows(worlds, characters);
 
   function openContextMenu(target: MenuTarget, position: { x: number; y: number }): void {
     window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'characters-editor' } }));
@@ -63,29 +68,11 @@
   }
 
   function requestDeleteWorld(index: number): void {
-    const world = worlds[index];
-    if (!world) {
-      return;
-    }
-
-    pendingDelete = {
-      kind: 'world',
-      index,
-      worldName: world.name,
-    };
+    pendingDelete = createWorldDeleteTarget(index, worlds[index]);
   }
 
   function requestDeleteCharacter(index: number): void {
-    const character = characters[index];
-    if (!character) {
-      return;
-    }
-
-    pendingDelete = {
-      kind: 'character',
-      index,
-      characterName: character.name,
-    };
+    pendingDelete = createCharacterDeleteTarget(index, characters[index]);
   }
 
   function closeDeleteConfirm(): void {
@@ -180,15 +167,11 @@
         return;
       }
 
-      const margin = 8;
-      const rect = menuElement.getBoundingClientRect();
-      const maxX = window.innerWidth - rect.width - margin;
-      const maxY = window.innerHeight - rect.height - margin;
-
-      renderedMenuPosition = {
-        x: Math.max(margin, Math.min(menuPosition.x, maxX)),
-        y: Math.max(margin, Math.min(menuPosition.y, maxY)),
-      };
+      renderedMenuPosition = clampMenuPosition(
+        menuPosition,
+        menuElement,
+        { width: window.innerWidth, height: window.innerHeight },
+      );
     });
   } else {
     repositionToken += 1;
@@ -203,13 +186,14 @@
   {/if}
 
   <div id="char-list">
-    {#each worlds as world, worldIndex}
-      {@const worldCharacters = characters.filter((character) => character.worldId === world.id)}
+    {#each worldRows as row (row.world.id)}
+      {@const world = row.world}
+      {@const worldCharacters = row.characters}
       <div
         class="char-row"
         role="group"
         aria-label={`${world.name} row`}
-        on:contextmenu={(event) => openContextMenuFromRow(event, { kind: 'world', index: worldIndex, world })}
+        on:contextmenu={(event) => openContextMenuFromRow(event, { kind: 'world', index: row.worldIndex, world })}
       >
         <div>
           <div class="char-name">{world.name}</div>
@@ -226,7 +210,7 @@
             class="btn char-menu-button"
             aria-label={`open actions for ${world.name}`}
             title="More actions"
-            on:click={(event) => openContextMenuFromButton(event, { kind: 'world', index: worldIndex, world })}
+            on:click={(event) => openContextMenuFromButton(event, { kind: 'world', index: row.worldIndex, world })}
           >
             ...
           </button>
@@ -243,14 +227,14 @@
         </div>
       {/if}
 
-      {#each worldCharacters as character}
-        {@const characterIndex = characters.indexOf(character)}
+      {#each worldCharacters as rowCharacter (rowCharacter.character.id)}
+        {@const character = rowCharacter.character}
         <div
           class="char-row"
           role="group"
           aria-label={`${character.name} row`}
           style="margin-left: 1rem;"
-          on:contextmenu={(event) => openContextMenuFromRow(event, { kind: 'character', index: characterIndex, character })}
+          on:contextmenu={(event) => openContextMenuFromRow(event, { kind: 'character', index: rowCharacter.characterIndex, character })}
         >
           <div>
             <div class="char-name">{character.name}</div>
@@ -259,12 +243,12 @@
             </div>
           </div>
           <div class="char-actions">
-            <button class="btn primary" on:click|stopPropagation={() => onConnectCharacter(characterIndex)}>connect</button>
+            <button class="btn primary" on:click|stopPropagation={() => onConnectCharacter(rowCharacter.characterIndex)}>connect</button>
             <button
               class="btn char-menu-button"
               aria-label={`open actions for ${character.name}`}
               title="More actions"
-              on:click={(event) => openContextMenuFromButton(event, { kind: 'character', index: characterIndex, character })}
+              on:click={(event) => openContextMenuFromButton(event, { kind: 'character', index: rowCharacter.characterIndex, character })}
             >
               ...
             </button>

@@ -4,21 +4,28 @@ import { onDestroy, onMount } from 'svelte';
 import StatusDot from './StatusDot.svelte';
 import SpellcheckContextMenu from './SpellcheckContextMenu.svelte';
 import {
-  getSpellcheckAnnotations,
-  getSpellcheckSuggestions,
-  getWordBounds,
-  renderSpellcheckUnderlayHtml,
-} from '../../spellcheck';
-  import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
-  import {
-    clampInputBarLines,
-    getScopedInputBarContainerId,
-    getScopedInputBarInputId,
-    MAX_INPUT_BAR_LINES,
-    MIN_INPUT_BAR_LINES,
-    type InputBarConfig,
-    type InputBarId,
-  } from '../../input-bars';
+  clampInputBarLines,
+  getScopedInputBarContainerId,
+  getScopedInputBarInputId,
+  MAX_INPUT_BAR_LINES,
+  MIN_INPUT_BAR_LINES,
+  type InputBarConfig,
+  type InputBarId,
+} from '../../input-bars';
+import {
+  appendHistoryValue,
+  createHistoryBrowseState,
+  getHistoryBrowseState,
+  resetHistoryBrowseState,
+  setHistoryBrowseState,
+  updateHistoryValue,
+  type HistoryBrowseState,
+} from './input-bars-history';
+import {
+  createInputBarsSpellcheckController,
+  createInputBarsSpellcheckState,
+  type InputBarsSpellcheckState,
+} from './input-bars-spellcheck';
 
   export let bars: InputBarConfig[] = [];
   export let activeBar: InputBarId = 1;
@@ -48,30 +55,26 @@ import {
   const HISTORY_LIMIT = 50;
   const CONTROL_FADE_DELAY = 1400;
 
-  interface HistoryBrowseState {
-    cursor: number | null;
-    editIndex: number | null;
-  }
-
   let values: Record<InputBarId, string> = {};
   let history: string[] = [];
   let historyState: Record<InputBarId, HistoryBrowseState> = {};
   let controlsVisible: Record<InputBarId, boolean> = {};
-  let spellcheckMenuBar: InputBarId | null = null;
-  let spellcheckMenuPosition = { x: 0, y: 0 };
-  let spellcheckMenuWord = '';
-  let spellcheckMenuSuggestions: string[] = [];
-  let spellcheckMenuLoading = false;
-  let spellcheckMenuRequestToken = 0;
-  let liveSpellcheckUnderlays: Record<InputBarId, string> = {};
-  let liveSpellcheckLoading: Record<InputBarId, boolean> = {};
-  let liveSpellcheckSignatures: Record<InputBarId, string> = {};
-  let liveSpellcheckTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
-  let liveSpellcheckRequestTokens: Record<InputBarId, number> = {};
-  let liveSpellcheckScrollX: Record<InputBarId, number> = {};
-  let liveSpellcheckScrollY: Record<InputBarId, number> = {};
+  let spellcheck: InputBarsSpellcheckState = createInputBarsSpellcheckState();
   let lastSelectedBar: InputBarId = activeBar;
   const controlTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
+  const spellcheckController = createInputBarsSpellcheckController({
+    getInput,
+    onIgnoreWord,
+    spellcheckEnabled: () => spellcheckEnabled,
+    spellcheckLanguage: () => spellcheckLanguage,
+    spellcheckIgnoredWords: () => spellcheckIgnoredWords,
+    spellcheckSuggestionLimit: () => spellcheckSuggestionLimit,
+    spellcheckMinimumWordLength: () => spellcheckMinimumWordLength,
+    spellcheckDebounceMs: () => spellcheckDebounceMs,
+    updateState: (updater) => {
+      spellcheck = updater(spellcheck);
+    },
+  });
 
   $: lastSelectedBar = activeBar;
 
@@ -126,12 +129,6 @@ import {
     let nextValues = values;
     let nextHistoryState = historyState;
     let nextControlsVisible = controlsVisible;
-    let nextLiveSpellcheckUnderlays = liveSpellcheckUnderlays;
-    let nextLiveSpellcheckLoading = liveSpellcheckLoading;
-    let nextLiveSpellcheckSignatures = liveSpellcheckSignatures;
-    let nextLiveSpellcheckRequestTokens = liveSpellcheckRequestTokens;
-    let nextLiveSpellcheckScrollX = liveSpellcheckScrollX;
-    let nextLiveSpellcheckScrollY = liveSpellcheckScrollY;
     let changed = false;
 
     for (const bar of bars) {
@@ -152,36 +149,6 @@ import {
         nextControlsVisible = { ...nextControlsVisible, [bar.id]: true };
         changed = true;
         scheduleControlFade(bar.id);
-      }
-
-      if (!(bar.id in nextLiveSpellcheckUnderlays)) {
-        nextLiveSpellcheckUnderlays = { ...nextLiveSpellcheckUnderlays, [bar.id]: '' };
-        changed = true;
-      }
-
-      if (!(bar.id in nextLiveSpellcheckLoading)) {
-        nextLiveSpellcheckLoading = { ...nextLiveSpellcheckLoading, [bar.id]: false };
-        changed = true;
-      }
-
-      if (!(bar.id in nextLiveSpellcheckSignatures)) {
-        nextLiveSpellcheckSignatures = { ...nextLiveSpellcheckSignatures, [bar.id]: '' };
-        changed = true;
-      }
-
-      if (!(bar.id in nextLiveSpellcheckRequestTokens)) {
-        nextLiveSpellcheckRequestTokens = { ...nextLiveSpellcheckRequestTokens, [bar.id]: 0 };
-        changed = true;
-      }
-
-      if (!(bar.id in nextLiveSpellcheckScrollX)) {
-        nextLiveSpellcheckScrollX = { ...nextLiveSpellcheckScrollX, [bar.id]: 0 };
-        changed = true;
-      }
-
-      if (!(bar.id in nextLiveSpellcheckScrollY)) {
-        nextLiveSpellcheckScrollY = { ...nextLiveSpellcheckScrollY, [bar.id]: 0 };
-        changed = true;
       }
     }
 
@@ -213,32 +180,13 @@ import {
       }
     }
 
-    for (const key of Object.keys(nextLiveSpellcheckUnderlays)) {
-      const barId = Number(key) as InputBarId;
-
-      if (!barIds.has(barId)) {
-        clearLiveSpellcheckTimer(barId);
-        delete nextLiveSpellcheckUnderlays[barId];
-        delete nextLiveSpellcheckLoading[barId];
-        delete nextLiveSpellcheckSignatures[barId];
-        delete nextLiveSpellcheckRequestTokens[barId];
-        delete nextLiveSpellcheckScrollX[barId];
-        delete nextLiveSpellcheckScrollY[barId];
-        changed = true;
-      }
-    }
-
     if (changed) {
       values = nextValues;
       historyState = nextHistoryState;
       controlsVisible = nextControlsVisible;
-      liveSpellcheckUnderlays = nextLiveSpellcheckUnderlays;
-      liveSpellcheckLoading = nextLiveSpellcheckLoading;
-      liveSpellcheckSignatures = nextLiveSpellcheckSignatures;
-      liveSpellcheckRequestTokens = nextLiveSpellcheckRequestTokens;
-      liveSpellcheckScrollX = nextLiveSpellcheckScrollX;
-      liveSpellcheckScrollY = nextLiveSpellcheckScrollY;
     }
+
+    spellcheckController.syncBars(bars);
 
     if (bars.length > 0 && !barIds.has(activeBar)) {
       const nextBar = bars[0];
@@ -268,14 +216,7 @@ import {
     spellcheckDebounceMs;
 
     for (const bar of bars) {
-      const currentValue = values[bar.id] ?? '';
-      const signature = getLiveSpellcheckSignature(bar.id, currentValue);
-
-      if (liveSpellcheckSignatures[bar.id] === signature) {
-        continue;
-      }
-
-      scheduleLiveSpellcheck(bar.id, currentValue);
+      spellcheckController.scheduleLiveSpellcheck(bar.id, values[bar.id] ?? '');
     }
   }
 
@@ -293,12 +234,7 @@ import {
     }
 
     controlTimers.clear();
-
-    for (const timer of liveSpellcheckTimers.values()) {
-      clearTimeout(timer);
-    }
-
-    liveSpellcheckTimers.clear();
+    spellcheckController.destroy();
   });
 
   function getValue(bar: InputBarId): string {
@@ -312,197 +248,27 @@ import {
     };
   }
 
-  function getLiveSpellcheckSignature(bar: InputBarId, value: string): string {
-    return [
-      bar,
-      value,
-      spellcheckEnabled ? '1' : '0',
-      spellcheckLanguage,
-      spellcheckIgnoredWords,
-      spellcheckSuggestionLimit,
-      spellcheckMinimumWordLength,
-    ].join('\u0000');
-  }
-
-  function clearLiveSpellcheckTimer(bar: InputBarId): void {
-    const timer = liveSpellcheckTimers.get(bar);
-    if (timer !== undefined) {
-      clearTimeout(timer);
-      liveSpellcheckTimers.delete(bar);
-    }
-  }
-
-  function clearLiveSpellcheck(bar: InputBarId): void {
-    clearLiveSpellcheckTimer(bar);
-    liveSpellcheckUnderlays = {
-      ...liveSpellcheckUnderlays,
-      [bar]: '',
-    };
-    liveSpellcheckLoading = {
-      ...liveSpellcheckLoading,
-      [bar]: false,
-    };
-    liveSpellcheckScrollX = {
-      ...liveSpellcheckScrollX,
-      [bar]: 0,
-    };
-    liveSpellcheckScrollY = {
-      ...liveSpellcheckScrollY,
-      [bar]: 0,
-    };
-  }
-
-  async function refreshLiveSpellcheck(bar: InputBarId, value: string): Promise<void> {
-    const signature = getLiveSpellcheckSignature(bar, value);
-    liveSpellcheckSignatures = {
-      ...liveSpellcheckSignatures,
-      [bar]: signature,
-    };
-
-    if (!spellcheckEnabled) {
-      clearLiveSpellcheck(bar);
-      return;
-    }
-
-    const token = (liveSpellcheckRequestTokens[bar] ?? 0) + 1;
-    liveSpellcheckRequestTokens = {
-      ...liveSpellcheckRequestTokens,
-      [bar]: token,
-    };
-    liveSpellcheckLoading = {
-      ...liveSpellcheckLoading,
-      [bar]: true,
-    };
-
-    try {
-      const annotations = await getSpellcheckAnnotations({
-        text: value,
-        word: '',
-        language: spellcheckLanguage,
-        ignoredWords: spellcheckIgnoredWords,
-        minimumWordLength: spellcheckMinimumWordLength,
-        suggestionLimit: spellcheckSuggestionLimit,
-      });
-
-      if ((liveSpellcheckRequestTokens[bar] ?? 0) !== token) {
-        return;
-      }
-
-      liveSpellcheckUnderlays = {
-        ...liveSpellcheckUnderlays,
-        [bar]: renderSpellcheckUnderlayHtml(value, annotations),
-      };
-    } catch (error) {
-      if ((liveSpellcheckRequestTokens[bar] ?? 0) === token) {
-        console.error('failed to fetch live spellcheck annotations:', error);
-        liveSpellcheckUnderlays = {
-          ...liveSpellcheckUnderlays,
-          [bar]: '',
-        };
-      }
-    } finally {
-      if ((liveSpellcheckRequestTokens[bar] ?? 0) === token) {
-        liveSpellcheckLoading = {
-          ...liveSpellcheckLoading,
-          [bar]: false,
-        };
-      }
-    }
-  }
-
-  function scheduleLiveSpellcheck(bar: InputBarId, value: string): void {
-    clearLiveSpellcheckTimer(bar);
-
-    if (!spellcheckEnabled) {
-      clearLiveSpellcheck(bar);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void refreshLiveSpellcheck(bar, value);
-    }, spellcheckDebounceMs);
-
-    liveSpellcheckTimers.set(bar, timer);
-  }
-
-  function syncLiveSpellcheckScroll(bar: InputBarId, event: Event): void {
-    const input = event.currentTarget as HTMLTextAreaElement | null;
-    if (!input) {
-      return;
-    }
-
-    liveSpellcheckScrollX = {
-      ...liveSpellcheckScrollX,
-      [bar]: input.scrollLeft,
-    };
-    liveSpellcheckScrollY = {
-      ...liveSpellcheckScrollY,
-      [bar]: input.scrollTop,
-    };
-  }
-
   function getEntry(bar: InputBarId): HistoryBrowseState {
-    return historyState[bar] ?? { cursor: null, editIndex: null };
+    return getHistoryBrowseState(historyState, bar);
   }
 
   function setEntry(bar: InputBarId, next: HistoryBrowseState): void {
-    historyState = {
-      ...historyState,
-      [bar]: next,
-    };
+    historyState = setHistoryBrowseState(historyState, bar, next);
   }
 
   function resetEntry(bar: InputBarId): void {
-    setEntry(bar, { cursor: null, editIndex: null });
-  }
-
-  function shiftState(removed: number): void {
-    if (removed <= 0) {
-      return;
-    }
-
-    const shift = (value: number | null): number | null => {
-      if (value === null) {
-        return null;
-      }
-
-      return Math.max(0, value - removed);
-    };
-
-    const nextHistoryState: Record<InputBarId, HistoryBrowseState> = {};
-
-    for (const [key, entry] of Object.entries(historyState)) {
-      const bar = Number(key) as InputBarId;
-      nextHistoryState[bar] = {
-        cursor: shift(entry.cursor),
-        editIndex: shift(entry.editIndex),
-      };
-    }
-
-    historyState = nextHistoryState;
+    historyState = resetHistoryBrowseState(historyState, bar);
   }
 
   function appendHistory(value: string): number {
-    history = [...history, value];
-
-    if (history.length <= HISTORY_LIMIT) {
-      return history.length - 1;
-    }
-
-    const removed = history.length - HISTORY_LIMIT;
-    history = history.slice(removed);
-    shiftState(removed);
-    return history.length - 1;
+    const next = appendHistoryValue(history, historyState, value, HISTORY_LIMIT);
+    history = next.history;
+    historyState = next.historyState;
+    return next.index;
   }
 
   function updateHistory(index: number, value: string): void {
-    if (index < 0 || index >= history.length) {
-      return;
-    }
-
-    const next = [...history];
-    next[index] = value;
-    history = next;
+    history = updateHistoryValue(history, index, value);
   }
 
   function setCursorValue(bar: InputBarId, cursor: number): void {
@@ -536,7 +302,7 @@ import {
       return false;
     }
 
-    setEntry(bar, { cursor, editIndex: null });
+    setEntry(bar, createHistoryBrowseState());
     setCursorValue(bar, cursor);
     return true;
   }
@@ -573,10 +339,10 @@ import {
     }
 
     const cursor = entry.cursor + 1;
-    setEntry(bar, {
-      cursor,
-      editIndex: entry.editIndex === cursor ? entry.editIndex : null,
-    });
+      setEntry(bar, {
+        cursor,
+        editIndex: entry.editIndex === cursor ? entry.editIndex : null,
+      });
     setCursorValue(bar, cursor);
     return true;
   }
@@ -795,171 +561,6 @@ import {
 
     return `${getConnectionStatusTitle()} - Activity - ${loggingLabel}`;
   }
-
-  function closeSpellcheckMenu(): void {
-    spellcheckMenuRequestToken += 1;
-    spellcheckMenuLoading = false;
-    spellcheckMenuSuggestions = [];
-    spellcheckMenuBar = null;
-    spellcheckMenuWord = '';
-  }
-
-  async function loadSpellcheckMenuSuggestions(bar: InputBarId, word: string): Promise<void> {
-    const token = ++spellcheckMenuRequestToken;
-    const normalizedWord = word.trim();
-
-    if (!normalizedWord || normalizedWord.length < spellcheckMinimumWordLength) {
-      if (spellcheckMenuRequestToken === token) {
-        spellcheckMenuSuggestions = [];
-        spellcheckMenuLoading = false;
-      }
-      return;
-    }
-
-    spellcheckMenuLoading = true;
-
-    try {
-      const suggestions = await getSpellcheckSuggestions({
-        word: normalizedWord,
-        language: spellcheckLanguage,
-        ignoredWords: spellcheckIgnoredWords,
-        minimumWordLength: spellcheckMinimumWordLength,
-        suggestionLimit: spellcheckSuggestionLimit,
-      });
-
-      if (spellcheckMenuRequestToken !== token || spellcheckMenuBar !== bar) {
-        return;
-      }
-
-      spellcheckMenuSuggestions = suggestions;
-    } catch (error) {
-      if (spellcheckMenuRequestToken === token) {
-        spellcheckMenuSuggestions = [];
-        console.error('failed to fetch spellcheck suggestions:', error);
-      }
-    } finally {
-      if (spellcheckMenuRequestToken === token) {
-        spellcheckMenuLoading = false;
-      }
-    }
-  }
-
-  function openSpellcheckMenu(bar: InputBarId, event: MouseEvent): void {
-    const input = getInput(bar);
-    if (!input) {
-      return;
-    }
-
-    const selectionStart = input.selectionStart ?? 0;
-    const selectionEnd = input.selectionEnd ?? selectionStart;
-    const selectedText = input.value.slice(selectionStart, selectionEnd).trim();
-    const word = getWordBounds(input.value, selectionStart, selectionEnd);
-
-    window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'spellcheck' } }));
-    spellcheckMenuBar = bar;
-    spellcheckMenuPosition = {
-      x: event.clientX,
-      y: event.clientY,
-    };
-    spellcheckMenuWord = selectedText || word?.word || '';
-    spellcheckMenuSuggestions = [];
-    void loadSpellcheckMenuSuggestions(bar, spellcheckMenuWord);
-  }
-
-  function getSpellcheckInput(bar: InputBarId): HTMLTextAreaElement | null {
-    return getInput(bar);
-  }
-
-  function applyReplacement(bar: InputBarId, replacement: string, start?: number, end?: number): void {
-    const input = getSpellcheckInput(bar);
-    if (!input) {
-      return;
-    }
-
-    const selectionStart = start ?? input.selectionStart ?? 0;
-    const selectionEnd = end ?? input.selectionEnd ?? selectionStart;
-    input.setRangeText(replacement, selectionStart, selectionEnd, 'end');
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.focus();
-  }
-
-  async function handleCopySpellcheck(bar: InputBarId): Promise<void> {
-    const input = getSpellcheckInput(bar);
-    if (!input) {
-      return;
-    }
-
-    const selectionStart = input.selectionStart ?? 0;
-    const selectionEnd = input.selectionEnd ?? selectionStart;
-    const selectedText = input.value.slice(selectionStart, selectionEnd);
-    if (!selectedText) {
-      return;
-    }
-
-    try {
-      await copyTextToClipboard(selectedText);
-    } catch (error) {
-      console.error('failed to copy spellcheck selection:', error);
-    }
-  }
-
-  async function handleCutSpellcheck(bar: InputBarId): Promise<void> {
-    const input = getSpellcheckInput(bar);
-    if (!input) {
-      return;
-    }
-
-    const selectionStart = input.selectionStart ?? 0;
-    const selectionEnd = input.selectionEnd ?? selectionStart;
-    const selectedText = input.value.slice(selectionStart, selectionEnd);
-    if (!selectedText) {
-      return;
-    }
-
-    try {
-      await copyTextToClipboard(selectedText);
-      applyReplacement(bar, '', selectionStart, selectionEnd);
-    } catch (error) {
-      console.error('failed to cut spellcheck selection:', error);
-    }
-  }
-
-  async function handlePasteSpellcheck(bar: InputBarId): Promise<void> {
-    const input = getSpellcheckInput(bar);
-    if (!input) {
-      return;
-    }
-
-    try {
-      const pastedText = await readTextFromClipboard();
-      const selectionStart = input.selectionStart ?? 0;
-      const selectionEnd = input.selectionEnd ?? selectionStart;
-      applyReplacement(bar, pastedText, selectionStart, selectionEnd);
-    } catch (error) {
-      console.error('failed to paste spellcheck text:', error);
-    }
-  }
-
-  function handleSelectAllSpellcheck(bar: InputBarId): void {
-    const input = getSpellcheckInput(bar);
-    if (!input) {
-      return;
-    }
-
-    input.focus();
-    input.setSelectionRange(0, input.value.length);
-  }
-
-  function handleIgnoreOnce(): void {
-    closeSpellcheckMenu();
-  }
-
-  function handleIgnoreAlways(): void {
-    if (spellcheckMenuWord) {
-      onIgnoreWord(spellcheckMenuWord);
-    }
-    closeSpellcheckMenu();
-  }
 </script>
 
 <div class="input-area">
@@ -970,13 +571,13 @@ import {
           <div
             class="spellcheck-underlay"
             aria-hidden="true"
-            data-loading={liveSpellcheckLoading[bar.id] === true}
+            data-loading={spellcheck.liveLoading[bar.id] === true}
           >
             <div
               class="spellcheck-underlay-content"
-              style:transform={`translate(${-((liveSpellcheckScrollX[bar.id] ?? 0))}px, ${-((liveSpellcheckScrollY[bar.id] ?? 0))}px)`}
+              style:transform={`translate(${-((spellcheck.liveScrollX[bar.id] ?? 0))}px, ${-((spellcheck.liveScrollY[bar.id] ?? 0))}px)`}
             >
-              {@html liveSpellcheckUnderlays[bar.id] ?? ''}
+              {@html spellcheck.liveUnderlays[bar.id] ?? ''}
             </div>
           </div>
           <textarea
@@ -990,11 +591,11 @@ import {
             on:focus={() => handleFocus(bar.id)}
             on:input={(event) => handleInput(bar.id, event)}
             on:keydown={(event) => handleKeydown(event, bar.id)}
-            on:scroll={(event) => syncLiveSpellcheckScroll(bar.id, event)}
+            on:scroll={(event) => spellcheckController.syncLiveSpellcheckScroll(bar.id, event)}
             on:contextmenu={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              openSpellcheckMenu(bar.id, event);
+              spellcheckController.openSpellcheckMenu(bar.id, event);
             }}
             ></textarea>
         </div>
@@ -1067,24 +668,23 @@ import {
 </div>
 
 <SpellcheckContextMenu
-  open={spellcheckMenuBar !== null}
-  position={spellcheckMenuPosition}
+  open={spellcheck.menuBar !== null}
+  position={spellcheck.menuPosition}
   ariaLabel="input spellcheck context menu"
-  suggestions={spellcheckMenuSuggestions}
-  loading={spellcheckMenuLoading}
-  onDismiss={closeSpellcheckMenu}
-  onCopy={() => void (spellcheckMenuBar !== null && handleCopySpellcheck(spellcheckMenuBar))}
-  onCut={() => void (spellcheckMenuBar !== null && handleCutSpellcheck(spellcheckMenuBar))}
-  onPaste={() => void (spellcheckMenuBar !== null && handlePasteSpellcheck(spellcheckMenuBar))}
-  onSelectAll={() => spellcheckMenuBar !== null && handleSelectAllSpellcheck(spellcheckMenuBar)}
-  onIgnoreOnce={handleIgnoreOnce}
-  onIgnoreAlways={handleIgnoreAlways}
+  suggestions={spellcheck.menuSuggestions}
+  loading={spellcheck.menuLoading}
+  onDismiss={spellcheckController.clearSpellcheckMenu}
+  onCopy={() => void (spellcheck.menuBar !== null && spellcheckController.handleCopySpellcheck(spellcheck.menuBar))}
+  onCut={() => void (spellcheck.menuBar !== null && spellcheckController.handleCutSpellcheck(spellcheck.menuBar))}
+  onPaste={() => void (spellcheck.menuBar !== null && spellcheckController.handlePasteSpellcheck(spellcheck.menuBar))}
+  onSelectAll={() => spellcheck.menuBar !== null && spellcheckController.handleSelectAllSpellcheck(spellcheck.menuBar)}
+  onIgnoreOnce={spellcheckController.handleIgnoreOnce}
+  onIgnoreAlways={spellcheckController.handleIgnoreAlways}
   onChooseSuggestion={(suggestion) => {
-    if (spellcheckMenuBar === null) {
+    if (spellcheck.menuBar === null) {
       return;
     }
 
-    applyReplacement(spellcheckMenuBar, suggestion);
-    closeSpellcheckMenu();
+    spellcheckController.handleChooseSuggestion(spellcheck.menuBar, suggestion);
   }}
 />
