@@ -2,34 +2,42 @@
   import { onMount, tick } from 'svelte';
   import { copyTextToClipboard, readTextFromClipboard } from '../../session-dom';
   import type { CharacterRecord, HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, TriggerOwner, WorldRecord } from '../../types';
-  import { APP_TRIGGER_OWNER, getOwnerTriggers, triggerOwnerEquals } from '../../triggers';
+  import { APP_TRIGGER_OWNER } from '../../triggers';
   import HighlightsPanel from './HighlightsPanel.svelte';
   import RuleEditorPanel from './RuleEditorPanel.svelte';
-
-  type TreeSelection =
-    | { kind: 'app' }
-    | { kind: 'highlight'; id: string }
-    | { kind: 'new-highlight' }
-    | { kind: 'rule'; id: string }
-    | { kind: 'new-rule' }
-    | { kind: 'world'; worldId: string }
-    | { kind: 'character'; characterId: string };
-
-  type FlatTreeItem =
-    | { kind: 'app'; key: string; owner: TriggerOwner; label: string; depth: number; draggable: false; droppable: true }
-    | { kind: 'highlight'; key: string; trigger: HighlightRule; owner: TriggerOwner; label: string; depth: number; draggable: true; droppable: true }
-    | { kind: 'rule'; key: string; trigger: Rule; owner: TriggerOwner; label: string; depth: number; draggable: true; droppable: true }
-    | { kind: 'world'; key: string; world: WorldRecord; owner: TriggerOwner; label: string; depth: number; draggable: false; droppable: true }
-    | { kind: 'character'; key: string; character: CharacterRecord; owner: TriggerOwner; label: string; depth: number; draggable: false; droppable: true };
-
-  type PointerDragState = {
-    pointerId: number;
-    sourceNodeKey: string;
-    triggerId: string;
-    startX: number;
-    startY: number;
-    active: boolean;
-  };
+  import { createDefaultRuleDraft, createRuleDraft as createRuleEditorDraft } from './rule-editor';
+  import { createDefaultHighlightDraft, createHighlightDraft as createHighlightEditorDraft } from './highlight-editor';
+  import { buildCopyPayload as buildTriggerCopyPayload, normalizePastedTriggerPayload } from './trigger-paste';
+  import {
+    confirmDiscardDirtyEditor as confirmTriggerEditorDiscard,
+    getClearPasteOwner,
+    getPreferredNewOwner,
+    getSelectionFromFlatItem,
+    getSelectionRangeKeys,
+    toggleSelectionKeySet,
+  } from './trigger-selection';
+  import {
+    createPointerDragState,
+    getDropIndicatorIndexFromPoint,
+    getDropPlanForIndicator,
+    type PointerDragState,
+  } from './triggers-drag';
+  import {
+    getClampedContextMenuPosition,
+    isTriggerSelectionValid,
+    resolvePendingNewSelection,
+  } from './trigger-pane-state';
+  import {
+    buildFlatTreeItems,
+    getCharacterSelectionKey,
+    getNodeClasses,
+    getNodeIcon,
+    getNodeSelection,
+    getSelectionKey,
+    type SelectableTreeSelection,
+    type FlatTreeItem,
+    type TreeSelection,
+  } from './triggers-tree';
 
   type ValidPastedTrigger =
     | { kind: 'highlight'; draft: HighlightDraft }
@@ -66,143 +74,11 @@
   $: highlights = triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
   $: rules = triggers.filter((trigger): trigger is Rule => trigger.type === 'rule');
   $: visibleCharacters = characters;
-  $: flatTreeItems = buildFlatTreeItems(triggers, worlds, visibleCharacters, treeRefreshToken);
+  $: flatTreeItems = buildFlatTreeItems(triggers, worlds, visibleCharacters);
   $: selectedTriggerCount = getSelectedTriggerItems().length;
 
-  function buildFlatTreeItems(
-    nextTriggers: Trigger[],
-    nextWorlds: WorldRecord[],
-    nextCharacters: CharacterRecord[],
-    _refreshToken = 0,
-  ): FlatTreeItem[] {
-    const nextItems: FlatTreeItem[] = [{
-      kind: 'app',
-      key: 'app',
-      owner: APP_TRIGGER_OWNER,
-      label: 'app',
-      depth: 0,
-      draggable: false,
-      droppable: true,
-    }];
-    nextItems.push(...getFlatTriggerItemsForOwner(nextTriggers, APP_TRIGGER_OWNER, 1));
-
-    for (const world of nextWorlds) {
-      const worldOwner: TriggerOwner = { kind: 'world', worldId: world.id };
-      nextItems.push({
-        kind: 'world',
-        key: getSelectionKey({ kind: 'world', worldId: world.id }),
-        world,
-        owner: worldOwner,
-        label: world.name,
-        depth: 1,
-        draggable: false,
-        droppable: true,
-      });
-      nextItems.push(...getFlatTriggerItemsForOwner(nextTriggers, worldOwner, 2));
-
-      for (const character of nextCharacters.filter((entry) => entry.worldId === world.id)) {
-        const characterOwner: TriggerOwner = { kind: 'character', characterId: character.id };
-        nextItems.push({
-          kind: 'character',
-          key: getCharacterSelectionKey(character.id),
-          character,
-          owner: characterOwner,
-          label: character.name,
-          depth: 2,
-          draggable: false,
-          droppable: true,
-        });
-        nextItems.push(...getFlatTriggerItemsForOwner(nextTriggers, characterOwner, 3));
-      }
-    }
-
-    return nextItems;
-  }
-
-  function getFlatTriggerItemsForOwner(nextTriggers: Trigger[], owner: TriggerOwner, depth: number): FlatTreeItem[] {
-    return [
-      ...getOwnerTriggers(nextTriggers, owner).filter((trigger): trigger is HighlightRule => trigger.type === 'highlight'),
-      ...getOwnerTriggers(nextTriggers, owner).filter((trigger): trigger is Rule => trigger.type === 'rule'),
-    ].map((trigger) => {
-      if (trigger.type === 'highlight') {
-        return {
-          kind: 'highlight',
-          key: getTriggerSelectionKey(trigger.id),
-          trigger,
-          owner,
-          label: trigger.pattern || 'highlight',
-          depth,
-          draggable: true,
-          droppable: true,
-        };
-      }
-
-      return {
-        kind: 'rule',
-        key: getTriggerSelectionKey(trigger.id),
-        trigger,
-        owner,
-        label: trigger.label || trigger.pattern || 'rule',
-        depth,
-        draggable: true,
-        droppable: true,
-      };
-    });
-  }
-
-  const DEFAULT_HIGHLIGHT_DRAFT: HighlightDraft = {
-    pattern: '',
-    foregroundColor: '#ffffff',
-    foregroundColorEnabled: true,
-    backgroundColor: '#000000',
-    backgroundColorEnabled: true,
-    caseSensitive: false,
-    wordBoundary: true,
-  };
-
-  const DEFAULT_RULE_DRAFT: RuleDraft = {
-    label: '',
-    pattern: '',
-    foregroundColor: '#ffffff',
-    foregroundColorEnabled: true,
-    backgroundColor: '#000000',
-    backgroundColorEnabled: true,
-    opacity: 1,
-    opacityEnabled: true,
-    wholeLine: false,
-    caseSensitive: false,
-    stopOtherRules: false,
-    stopHighlights: false,
-    sampleText: 'sample text to test the rule',
-  };
-
-  function getCharacterSelectionKey(characterId: string): string {
-    return `character-${characterId}`;
-  }
-
-  function getTriggerSelectionKey(id: string): string {
-    return `trigger-${id}`;
-  }
-
-  function getSelectionKey(item: Exclude<TreeSelection, { kind: 'new-highlight' } | { kind: 'new-rule' }>): string {
-    if (item.kind === 'app') {
-      return 'app';
-    }
-
-    if (item.kind === 'highlight') {
-      return getTriggerSelectionKey(item.id);
-    }
-
-    if (item.kind === 'rule') {
-      return getTriggerSelectionKey(item.id);
-    }
-
-    if (item.kind === 'world') {
-      return `world-${item.worldId}`;
-    }
-
-    return getCharacterSelectionKey(item.characterId);
-  }
+  const NEW_HIGHLIGHT_DRAFT: HighlightDraft = createDefaultHighlightDraft();
+  const NEW_RULE_DRAFT: RuleDraft = createDefaultRuleDraft();
 
   function findFlatTreeItem(key: string): FlatTreeItem | null {
     return flatTreeItems.find((item) => item.key === key) ?? null;
@@ -212,7 +88,7 @@
     return selectedKeys.has(getSelectionKey(item));
   }
 
-  function setSingleSelection(selection: TreeSelection): void {
+  function setSingleSelection(selection: SelectableTreeSelection): void {
     const key = getSelectionKey(selection);
     selectedItem = selection;
     selectedKeys = new Set([key]);
@@ -236,20 +112,19 @@
     selectTreeItem(event, { kind: 'character', characterId });
   }
 
-  function selectTreeItem(event: MouseEvent, selection: TreeSelection): void {
-    if (!confirmDiscardDirtyEditor()) {
+  function selectTreeItem(event: MouseEvent, selection: SelectableTreeSelection): void {
+    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+    editorDirty = dirtyCheck.dirty;
+    if (!dirtyCheck.accepted) {
       return;
     }
 
     const key = getSelectionKey(selection);
 
     if (event.shiftKey && selectionAnchorKey) {
-      const anchorIndex = flatTreeItems.findIndex((item) => item.key === selectionAnchorKey);
-      const targetIndex = flatTreeItems.findIndex((item) => item.key === key);
-
-      if (anchorIndex !== -1 && targetIndex !== -1) {
-        const [start, end] = anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
-        selectedKeys = new Set(flatTreeItems.slice(start, end + 1).map((item) => item.key));
+      const rangeKeys = getSelectionRangeKeys(flatTreeItems, selectionAnchorKey, key);
+      if (rangeKeys) {
+        selectedKeys = new Set(rangeKeys);
         selectedItem = selectedKeys.size === 1 ? selection : null;
         copiedStatus = '';
         return;
@@ -257,46 +132,14 @@
     }
 
     if (event.ctrlKey || event.metaKey) {
-      const nextKeys = new Set(selectedKeys);
-
-      if (nextKeys.has(key)) {
-        nextKeys.delete(key);
-      } else {
-        nextKeys.add(key);
-      }
-
-      selectedKeys = nextKeys;
-      selectedItem = selectedKeys.size === 1 ? selectionFromFlatItem(findFlatTreeItem([...selectedKeys][0])) : null;
+      selectedKeys = toggleSelectionKeySet(selectedKeys, key);
+      selectedItem = selectedKeys.size === 1 ? getSelectionFromFlatItem(findFlatTreeItem([...selectedKeys][0])) : null;
       selectionAnchorKey = key;
       copiedStatus = '';
       return;
     }
 
     setSingleSelection(selection);
-  }
-
-  function selectionFromFlatItem(item: FlatTreeItem | null): TreeSelection | null {
-    if (!item) {
-      return null;
-    }
-
-    if (item.kind === 'app') {
-      return { kind: 'app' };
-    }
-
-    if (item.kind === 'highlight') {
-      return { kind: 'highlight', id: item.trigger.id };
-    }
-
-    if (item.kind === 'rule') {
-      return { kind: 'rule', id: item.trigger.id };
-    }
-
-    if (item.kind === 'world') {
-      return { kind: 'world', worldId: item.world.id };
-    }
-
-    return { kind: 'character', characterId: item.character.id };
   }
 
   function refreshTree(): void {
@@ -327,32 +170,21 @@
     return null;
   }
 
-  function getPreferredNewOwner(): TriggerOwner {
-    const selectedOwner = getClearPasteOwner();
-    if (selectedOwner) {
-      return selectedOwner;
-    }
-
-    const contextCharacter = contextCharacterId
-      ? visibleCharacters.find((character) => character.id === contextCharacterId) ?? null
-      : null;
-    if (contextCharacter) {
-      return { kind: 'character', characterId: contextCharacter.id };
-    }
-
-    if (contextWorldId && worlds.some((world) => world.id === contextWorldId)) {
-      return { kind: 'world', worldId: contextWorldId };
-    }
-
-    return APP_TRIGGER_OWNER;
-  }
-
   function addHighlight(): void {
-    if (!confirmDiscardDirtyEditor()) {
+    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+    editorDirty = dirtyCheck.dirty;
+    if (!dirtyCheck.accepted) {
       return;
     }
 
-    const owner = getPreferredNewOwner();
+    const owner = getPreferredNewOwner({
+      selectedKeys,
+      items: flatTreeItems,
+      contextWorldId,
+      contextCharacterId,
+      worlds,
+      characters: visibleCharacters,
+    });
     selectedKeys = new Set();
     selectionAnchorKey = null;
     selectedItem = { kind: 'new-highlight' };
@@ -361,32 +193,25 @@
   }
 
   function addRule(): void {
-    if (!confirmDiscardDirtyEditor()) {
+    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+    editorDirty = dirtyCheck.dirty;
+    if (!dirtyCheck.accepted) {
       return;
     }
 
-    const owner = getPreferredNewOwner();
+    const owner = getPreferredNewOwner({
+      selectedKeys,
+      items: flatTreeItems,
+      contextWorldId,
+      contextCharacterId,
+      worlds,
+      characters: visibleCharacters,
+    });
     selectedKeys = new Set();
     selectionAnchorKey = null;
     selectedItem = { kind: 'new-rule' };
     pendingNewSelection = null;
     pendingDraftOwner = owner;
-  }
-
-  function createHighlightDraft(highlight: HighlightRule | null | undefined): HighlightDraft {
-    if (!highlight) {
-      return DEFAULT_HIGHLIGHT_DRAFT;
-    }
-
-    return {
-      pattern: highlight.pattern,
-      foregroundColor: highlight.foregroundColor ?? '#ffffff',
-      foregroundColorEnabled: highlight.foregroundColor !== undefined,
-      backgroundColor: highlight.backgroundColor ?? '#000000',
-      backgroundColorEnabled: highlight.backgroundColor !== undefined,
-      caseSensitive: highlight.caseSensitive,
-      wordBoundary: highlight.wordBoundary,
-    };
   }
 
   function findTrigger(id: string | null): Trigger | null {
@@ -414,230 +239,15 @@
   }
 
   function createRuleDraft(rule: Rule | null | undefined): RuleDraft {
-    if (!rule) {
-      return DEFAULT_RULE_DRAFT;
-    }
-
-    return {
-      label: rule.label,
-      pattern: rule.pattern,
-      foregroundColor: rule.foregroundColor ?? '#ffffff',
-      foregroundColorEnabled: rule.foregroundColor !== undefined,
-      backgroundColor: rule.backgroundColor ?? '#000000',
-      backgroundColorEnabled: rule.backgroundColor !== undefined,
-      opacity: rule.opacity ?? 1,
-      opacityEnabled: rule.opacity !== undefined,
-      wholeLine: rule.wholeLine,
-      caseSensitive: rule.caseSensitive,
-      stopOtherRules: rule.stopOtherRules,
-      stopHighlights: rule.stopHighlights,
-      sampleText: rule.sampleText,
-    };
+    return createRuleEditorDraft(rule);
   }
 
-  function getSelectedTriggerItems(): FlatTreeItem[] {
-    return flatTreeItems.filter((item) => selectedKeys.has(item.key) && (item.kind === 'highlight' || item.kind === 'rule'));
-  }
+  type SelectedTriggerItem = Extract<FlatTreeItem, { kind: 'highlight' } | { kind: 'rule' }>;
 
-  function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-  }
-
-  function isOptionalString(value: unknown): value is string | undefined {
-    return value === undefined || typeof value === 'string';
-  }
-
-  function getOptionalColor(value: unknown): { value: string; enabled: boolean } | null {
-    if (value === undefined) {
-      return { value: '#000000', enabled: false };
-    }
-
-    if (typeof value !== 'string') {
-      return null;
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    return { value: trimmed, enabled: true };
-  }
-
-  function normalizePastedHighlight(value: Record<string, unknown>): HighlightDraft | null {
-    if (value.type !== 'highlight' || typeof value.pattern !== 'string') {
-      return null;
-    }
-
-    if (typeof value.caseSensitive !== 'boolean' || typeof value.wordBoundary !== 'boolean') {
-      return null;
-    }
-
-    const pattern = value.pattern.trim();
-    if (!pattern) {
-      return null;
-    }
-
-    const foregroundColor = getOptionalColor(value.foregroundColor);
-    const backgroundColor = getOptionalColor(value.backgroundColor);
-    if (!foregroundColor || !backgroundColor) {
-      return null;
-    }
-
-    return {
-      pattern,
-      foregroundColor: foregroundColor.enabled ? foregroundColor.value : '#ffffff',
-      foregroundColorEnabled: foregroundColor.enabled,
-      backgroundColor: backgroundColor.enabled ? backgroundColor.value : '#000000',
-      backgroundColorEnabled: backgroundColor.enabled,
-      caseSensitive: value.caseSensitive,
-      wordBoundary: value.wordBoundary,
-    };
-  }
-
-  function normalizePastedRule(value: Record<string, unknown>): RuleDraft | null {
-    if (value.type !== 'rule' || typeof value.pattern !== 'string') {
-      return null;
-    }
-
-    if (
-      !isOptionalString(value.label) ||
-      typeof value.wholeLine !== 'boolean' ||
-      typeof value.caseSensitive !== 'boolean' ||
-      (value.stopOtherRules !== undefined && typeof value.stopOtherRules !== 'boolean') ||
-      (value.stopHighlights !== undefined && typeof value.stopHighlights !== 'boolean') ||
-      !isOptionalString(value.sampleText)
-    ) {
-      return null;
-    }
-
-    const pattern = value.pattern.trim();
-    if (!pattern) {
-      return null;
-    }
-
-    try {
-      new RegExp(pattern, value.caseSensitive ? 'gdm' : 'gdim');
-    } catch {
-      return null;
-    }
-
-    const foregroundColor = getOptionalColor(value.foregroundColor);
-    const backgroundColor = getOptionalColor(value.backgroundColor);
-    if (!foregroundColor || !backgroundColor) {
-      return null;
-    }
-
-    let opacity = 1;
-    let opacityEnabled = false;
-    if (value.opacity !== undefined) {
-      if (typeof value.opacity !== 'number' || !Number.isFinite(value.opacity) || value.opacity < 0 || value.opacity > 1) {
-        return null;
-      }
-
-      opacity = value.opacity;
-      opacityEnabled = true;
-    }
-
-    return {
-      label: value.label?.trim() ?? '',
-      pattern,
-      foregroundColor: foregroundColor.enabled ? foregroundColor.value : '#ffffff',
-      foregroundColorEnabled: foregroundColor.enabled,
-      backgroundColor: backgroundColor.enabled ? backgroundColor.value : '#000000',
-      backgroundColorEnabled: backgroundColor.enabled,
-      opacity,
-      opacityEnabled,
-      wholeLine: value.wholeLine,
-      caseSensitive: value.caseSensitive,
-      stopOtherRules: value.stopOtherRules === true,
-      stopHighlights: value.stopHighlights === true,
-      sampleText: value.sampleText?.trim() || 'sample text to test the rule',
-    };
-  }
-
-  function normalizePastedTrigger(value: unknown): ValidPastedTrigger | null {
-    if (!isRecord(value)) {
-      return null;
-    }
-
-    if (value.type === 'highlight') {
-      const draft = normalizePastedHighlight(value);
-      return draft ? { kind: 'highlight', draft } : null;
-    }
-
-    if (value.type === 'rule') {
-      const draft = normalizePastedRule(value);
-      return draft ? { kind: 'rule', draft } : null;
-    }
-
-    return null;
-  }
-
-  function normalizePastedTriggerPayload(raw: unknown): { triggers: ValidPastedTrigger[]; skipped: number } | null {
-    const entries = Array.isArray(raw) ? raw : isRecord(raw) ? [raw] : null;
-    if (!entries) {
-      return null;
-    }
-
-    const triggers: ValidPastedTrigger[] = [];
-    let skipped = 0;
-
-    for (const entry of entries) {
-      const normalized = normalizePastedTrigger(entry);
-      if (normalized) {
-        triggers.push(normalized);
-      } else {
-        skipped += 1;
-      }
-    }
-
-    return { triggers, skipped };
-  }
-
-  function getOwnerFromFlatItem(item: FlatTreeItem | null): TriggerOwner | null {
-    if (!item) {
-      return null;
-    }
-
-    if (item.kind === 'app') {
-      return APP_TRIGGER_OWNER;
-    }
-
-    if (item.kind === 'world') {
-      return { kind: 'world', worldId: item.world.id };
-    }
-
-    if (item.kind === 'character') {
-      return { kind: 'character', characterId: item.character.id };
-    }
-
-    return item.owner;
-  }
-
-  function getClearPasteOwner(): TriggerOwner | null {
-    if (selectedKeys.size === 0) {
-      return APP_TRIGGER_OWNER;
-    }
-
-    let owner: TriggerOwner | null = null;
-    for (const key of selectedKeys) {
-      const itemOwner = getOwnerFromFlatItem(findFlatTreeItem(key));
-      if (!itemOwner) {
-        continue;
-      }
-
-      if (!owner) {
-        owner = itemOwner;
-        continue;
-      }
-
-      if (!triggerOwnerEquals(owner, itemOwner)) {
-        return null;
-      }
-    }
-
-    return owner;
+  function getSelectedTriggerItems(): SelectedTriggerItem[] {
+    return flatTreeItems.filter(
+      (item): item is SelectedTriggerItem => selectedKeys.has(item.key) && (item.kind === 'highlight' || item.kind === 'rule'),
+    );
   }
 
   function handleTriggerKeydown(event: KeyboardEvent, id: string, type: Trigger['type']): void {
@@ -647,58 +257,6 @@
 
     event.preventDefault();
     setSingleSelection({ kind: type, id });
-  }
-
-  function getNodeSelection(item: FlatTreeItem): Exclude<TreeSelection, { kind: 'new-highlight' } | { kind: 'new-rule' }> {
-    if (item.kind === 'app') {
-      return { kind: 'app' };
-    }
-
-    if (item.kind === 'world') {
-      return { kind: 'world', worldId: item.world.id };
-    }
-
-    if (item.kind === 'character') {
-      return { kind: 'character', characterId: item.character.id };
-    }
-
-    if (item.kind === 'highlight') {
-      return { kind: 'highlight', id: item.trigger.id };
-    }
-
-    return { kind: 'rule', id: item.trigger.id };
-  }
-
-  function getNodeIcon(item: FlatTreeItem): string {
-    if (item.kind === 'app') {
-      return 'a';
-    }
-
-    if (item.kind === 'world') {
-      return '▸';
-    }
-
-    if (item.kind === 'character') {
-      return '•';
-    }
-
-    return item.kind === 'highlight' ? 'w' : 'r';
-  }
-
-  function getNodeClasses(item: FlatTreeItem): string {
-    const classes = ['triggers-tree-item'];
-    if (item.draggable) {
-      classes.push('triggers-tree-item--draggable');
-    }
-    if (item.kind === 'app') {
-      classes.push('triggers-tree-item--app');
-    } else if (item.kind === 'world') {
-      classes.push('triggers-tree-item--world');
-    } else if (item.kind === 'character') {
-      classes.push('triggers-tree-item--character');
-    }
-
-    return classes.join(' ');
   }
 
   function handleNodeClick(event: MouseEvent, item: FlatTreeItem): void {
@@ -724,121 +282,12 @@
   }
 
   function handleNodePointerDown(event: PointerEvent, item: FlatTreeItem): void {
-    if (!item.draggable || (item.kind !== 'highlight' && item.kind !== 'rule') || event.button !== 0) {
+    const dragState = createPointerDragState(item, event);
+    if (!dragState) {
       return;
     }
 
-    pointerDragState = {
-      pointerId: event.pointerId,
-      sourceNodeKey: item.key,
-      triggerId: item.trigger.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      active: false,
-    };
-  }
-
-  function getDropIndicatorIndexFromPoint(_x: number, y: number): number {
-    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-trigger-tree-node-key]'));
-    if (rows.length === 0) {
-      return 0;
-    }
-
-    for (let index = 0; index < rows.length; index += 1) {
-      const rect = rows[index].getBoundingClientRect();
-      if (y < rect.top + rect.height / 2) {
-        return index;
-      }
-    }
-
-    return rows.length;
-  }
-
-  function getFirstTriggerIdForOwnerAndType(
-    items: FlatTreeItem[],
-    owner: TriggerOwner,
-    type: Trigger['type'],
-  ): string | null {
-    const first = items.find(
-      (item) =>
-        (item.kind === 'highlight' || item.kind === 'rule') &&
-        item.trigger.type === type &&
-        triggerOwnerEquals(item.owner, owner),
-    );
-
-    return first && (first.kind === 'highlight' || first.kind === 'rule') ? first.trigger.id : null;
-  }
-
-  function getFirstFollowingTriggerIdForOwnerAndType(
-    items: FlatTreeItem[],
-    startIndex: number,
-    owner: TriggerOwner,
-    type: Trigger['type'],
-  ): string | null {
-    const following = items.slice(Math.max(0, startIndex)).find(
-      (item) =>
-        (item.kind === 'highlight' || item.kind === 'rule') &&
-        item.trigger.type === type &&
-        triggerOwnerEquals(item.owner, owner),
-    );
-
-    return following && (following.kind === 'highlight' || following.kind === 'rule') ? following.trigger.id : null;
-  }
-
-  function getDropPlanForIndicator(
-    source: Trigger,
-    sourceNodeKey: string,
-    indicatorIndex: number,
-  ): { owner: TriggerOwner; beforeTriggerId: string | null } | null {
-    const sourceIndex = flatTreeItems.findIndex((item) => item.key === sourceNodeKey);
-    const itemsWithoutSource = flatTreeItems.filter((item) => item.key !== sourceNodeKey);
-    const insertionIndex = sourceIndex >= 0 && sourceIndex < indicatorIndex
-      ? indicatorIndex - 1
-      : indicatorIndex;
-    const beforeItem = itemsWithoutSource[insertionIndex] ?? null;
-    const previousItem = insertionIndex > 0 ? itemsWithoutSource[insertionIndex - 1] ?? null : null;
-    const beforeItemIsSameTypeTrigger =
-      beforeItem !== null &&
-      (beforeItem.kind === 'highlight' || beforeItem.kind === 'rule') &&
-      beforeItem.trigger.type === source.type;
-    const ownerSource = beforeItemIsSameTypeTrigger
-      ? beforeItem
-      : previousItem ?? beforeItem;
-    const owner = ownerSource ? getOwnerFromFlatItem(ownerSource) : APP_TRIGGER_OWNER;
-
-    if (!owner) {
-      return null;
-    }
-
-    if (
-      beforeItemIsSameTypeTrigger &&
-      triggerOwnerEquals(beforeItem.owner, owner)
-    ) {
-      return { owner, beforeTriggerId: beforeItem.trigger.id };
-    }
-
-    const firstFollowingSameTypeTriggerId = getFirstFollowingTriggerIdForOwnerAndType(
-      itemsWithoutSource,
-      insertionIndex,
-      owner,
-      source.type,
-    );
-    if (firstFollowingSameTypeTriggerId) {
-      return { owner, beforeTriggerId: firstFollowingSameTypeTriggerId };
-    }
-
-    if (
-      beforeItem &&
-      ownerSource === beforeItem &&
-      (beforeItem.kind === 'app' || beforeItem.kind === 'world' || beforeItem.kind === 'character')
-    ) {
-      return {
-        owner,
-        beforeTriggerId: getFirstTriggerIdForOwnerAndType(itemsWithoutSource, owner, source.type),
-      };
-    }
-
-    return { owner, beforeTriggerId: null };
+    pointerDragState = dragState;
   }
 
   function handlePointerMove(event: PointerEvent): void {
@@ -854,7 +303,7 @@
 
     pointerDragState = { ...dragState, active: true };
     event.preventDefault();
-    dropIndicatorIndex = getDropIndicatorIndexFromPoint(event.clientX, event.clientY);
+    dropIndicatorIndex = getDropIndicatorIndexFromPoint(event.clientY);
   }
 
   function handlePointerUp(event: PointerEvent): void {
@@ -874,12 +323,14 @@
     suppressNextClick = true;
     event.preventDefault();
 
-    if (!confirmDiscardDirtyEditor()) {
+    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+    editorDirty = dirtyCheck.dirty;
+    if (!dirtyCheck.accepted) {
       return;
     }
 
     const moved = triggers.find((trigger) => trigger.id === dragState.triggerId);
-    const dropPlan = moved ? getDropPlanForIndicator(moved, dragState.sourceNodeKey, indicatorIndex) : null;
+    const dropPlan = moved ? getDropPlanForIndicator(moved, dragState.sourceNodeKey, indicatorIndex, flatTreeItems) : null;
     if (!moved || !dropPlan) {
       return;
     }
@@ -892,53 +343,8 @@
     }
   }
 
-  function buildCopyPayload(): Array<Record<string, unknown>> {
-    return getSelectedTriggerItems().flatMap((item) => {
-      if (item.kind === 'highlight') {
-        const highlight = item.trigger;
-
-        return highlight
-          ? [
-              {
-                type: 'highlight',
-                pattern: highlight.pattern,
-                foregroundColor: highlight.foregroundColor,
-                backgroundColor: highlight.backgroundColor,
-                caseSensitive: highlight.caseSensitive,
-                wordBoundary: highlight.wordBoundary,
-              },
-            ]
-          : [];
-      }
-
-      if (item.kind === 'rule') {
-        const rule = item.trigger;
-
-        return rule
-          ? [
-              {
-                type: 'rule',
-                label: rule.label,
-                pattern: rule.pattern,
-                foregroundColor: rule.foregroundColor,
-                backgroundColor: rule.backgroundColor,
-                opacity: rule.opacity,
-                wholeLine: rule.wholeLine,
-                caseSensitive: rule.caseSensitive,
-                stopOtherRules: rule.stopOtherRules,
-                stopHighlights: rule.stopHighlights,
-                sampleText: rule.sampleText,
-              },
-            ]
-          : [];
-      }
-
-      return [];
-    });
-  }
-
   async function copySelectedAsJson(): Promise<void> {
-    const payload = buildCopyPayload();
+    const payload = buildTriggerCopyPayload(getSelectedTriggerItems().map((item) => item.trigger));
     const json = JSON.stringify(payload, null, 2);
 
     if (payload.length === 0) {
@@ -960,7 +366,7 @@
 
   async function pasteFromJson(): Promise<void> {
     try {
-      const owner = getClearPasteOwner();
+      const owner = getClearPasteOwner(selectedKeys, flatTreeItems);
       if (!owner) {
         copiedStatus = 'paste needs one target owner';
         contextMenuOpen = false;
@@ -1014,25 +420,15 @@
     contextMenuOpen = false;
   }
 
-  function confirmDiscardDirtyEditor(): boolean {
-    if (!editorDirty) {
-      return true;
-    }
-
-    const confirmed = window.confirm('Discard unsaved trigger changes?');
-    if (confirmed) {
-      editorDirty = false;
-    }
-    return confirmed;
-  }
-
-  async function openContextMenu(event: MouseEvent, selection: TreeSelection): Promise<void> {
+  async function openContextMenu(event: MouseEvent, selection: SelectableTreeSelection): Promise<void> {
     event.preventDefault();
     event.stopPropagation();
 
     const key = getSelectionKey(selection);
     if (!selectedKeys.has(key)) {
-      if (!confirmDiscardDirtyEditor()) {
+      const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+      editorDirty = dirtyCheck.dirty;
+      if (!dirtyCheck.accepted) {
         return;
       }
       setSingleSelection(selection);
@@ -1048,12 +444,12 @@
       return;
     }
 
-    const margin = 8;
-    const rect = contextMenuElement.getBoundingClientRect();
-    contextMenuPosition = {
-      x: Math.min(event.clientX, window.innerWidth - rect.width - margin),
-      y: Math.min(event.clientY, window.innerHeight - rect.height - margin),
-    };
+    contextMenuPosition = getClampedContextMenuPosition(
+      event.clientX,
+      event.clientY,
+      contextMenuElement,
+      { width: window.innerWidth, height: window.innerHeight },
+    );
   }
 
   onMount(() => {
@@ -1114,31 +510,11 @@
   });
 
   $: {
-    if (pendingNewSelection) {
-      const candidates = triggers.filter(
-        (trigger) => trigger.type === pendingNewSelection?.type && triggerOwnerEquals(trigger.owner, pendingNewSelection.owner),
-      );
-      const created = candidates[candidates.length - 1] ?? null;
-      if (created?.type === 'highlight') {
-        setSingleSelection({ kind: 'highlight', id: created.id });
-        pendingNewSelection = null;
-      } else if (created?.type === 'rule') {
-        setSingleSelection({ kind: 'rule', id: created.id });
-        pendingNewSelection = null;
-      }
-    } else if (selectedItem?.kind === 'highlight' && !triggers.some((trigger) => trigger.id === selectedItem.id)) {
-      selectedItem = null;
-      selectedKeys = new Set();
-    } else if (selectedItem?.kind === 'rule' && !triggers.some((trigger) => trigger.id === selectedItem.id)) {
-      selectedItem = null;
-      selectedKeys = new Set();
-    } else if (selectedItem?.kind === 'world' && !worlds.some((world) => world.id === selectedItem.worldId)) {
-      selectedItem = null;
-      selectedKeys = new Set();
-    } else if (
-      selectedItem?.kind === 'character' &&
-      !visibleCharacters.some((character) => character.id === selectedItem.characterId)
-    ) {
+    const resolvedSelection = resolvePendingNewSelection(triggers, pendingNewSelection);
+    if (resolvedSelection) {
+      setSingleSelection(resolvedSelection);
+      pendingNewSelection = null;
+    } else if (!isTriggerSelectionValid(selectedItem, triggers, worlds, visibleCharacters)) {
       selectedItem = null;
       selectedKeys = new Set();
     }
@@ -1236,20 +612,23 @@
         {/if}
       </div>
     {:else if selectedItem?.kind === 'highlight'}
-      {@const selectedHighlight = findTrigger(selectedItem.id) as HighlightRule | null}
+      {@const selectedHighlightId = selectedItem.id}
+      {@const selectedHighlight = findTrigger(selectedHighlightId) as HighlightRule | null}
       <HighlightsPanel
         open={true}
         title={selectedHighlight?.pattern || 'highlight'}
-        draft={createHighlightDraft(selectedHighlight)}
+          draft={createHighlightEditorDraft(selectedHighlight)}
         scope="triggers"
         onCancel={() => {
           editorDirty = false;
           selectedItem = null;
         }}
-        onSave={(draft) => saveHighlight(selectedItem.id, selectedHighlight?.owner ?? APP_TRIGGER_OWNER, draft)}
+        onSave={(draft) => saveHighlight(selectedHighlightId, selectedHighlight?.owner ?? APP_TRIGGER_OWNER, draft)}
         onDelete={() => {
-          if (confirmDiscardDirtyEditor()) {
-            onHighlightDelete(selectedItem.id);
+          const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+          editorDirty = dirtyCheck.dirty;
+          if (dirtyCheck.accepted) {
+            onHighlightDelete(selectedHighlightId);
           }
         }}
         onDirtyChange={(dirty) => {
@@ -1260,7 +639,7 @@
       <HighlightsPanel
         open={true}
         title="new highlight"
-        draft={DEFAULT_HIGHLIGHT_DRAFT}
+        draft={NEW_HIGHLIGHT_DRAFT}
         scope="triggers"
         onCancel={() => {
           editorDirty = false;
@@ -1272,7 +651,8 @@
         }}
       />
     {:else if selectedItem?.kind === 'rule'}
-      {@const selectedRule = findTrigger(selectedItem.id) as Rule | null}
+      {@const selectedRuleId = selectedItem.id}
+      {@const selectedRule = findTrigger(selectedRuleId) as Rule | null}
       <RuleEditorPanel
         title={selectedRule?.label || selectedRule?.pattern || 'rule'}
         draft={createRuleDraft(selectedRule)}
@@ -1280,10 +660,12 @@
           editorDirty = false;
           selectedItem = null;
         }}
-        onSave={(draft) => saveRule(selectedItem.id, selectedRule?.owner ?? APP_TRIGGER_OWNER, draft)}
+        onSave={(draft) => saveRule(selectedRuleId, selectedRule?.owner ?? APP_TRIGGER_OWNER, draft)}
         onDelete={() => {
-          if (confirmDiscardDirtyEditor()) {
-            onRuleDelete(selectedItem.id);
+          const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+          editorDirty = dirtyCheck.dirty;
+          if (dirtyCheck.accepted) {
+            onRuleDelete(selectedRuleId);
           }
         }}
         onDirtyChange={(dirty) => {
@@ -1293,7 +675,7 @@
     {:else if selectedItem?.kind === 'new-rule'}
       <RuleEditorPanel
         title="new rule"
-        draft={DEFAULT_RULE_DRAFT}
+        draft={NEW_RULE_DRAFT}
         onCancel={() => {
           editorDirty = false;
           selectedItem = null;

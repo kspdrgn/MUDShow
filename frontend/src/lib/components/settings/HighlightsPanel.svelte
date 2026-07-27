@@ -2,18 +2,15 @@
   import StyleSlideToggle from '../styles/StyleSlideToggle.svelte';
   import type { HighlightDraft } from '../../types';
   import { getWorldHighlightsPanelId } from '../../world-dom';
+  import {
+    createDefaultHighlightDraft,
+    normalizeHighlightDraftForSave,
+    serializeHighlightDraft,
+  } from './highlight-editor';
 
   export let open = false;
   export let title = 'highlight editor';
-  export let draft: HighlightDraft = {
-    pattern: '',
-    foregroundColor: '#ffffff',
-    foregroundColorEnabled: true,
-    backgroundColor: '#000000',
-    backgroundColorEnabled: true,
-    caseSensitive: false,
-    wordBoundary: true,
-  };
+  export let draft: HighlightDraft = createDefaultHighlightDraft();
   export let scope = 'world';
   export let onCancel: () => void;
   export let onSave: (draft: HighlightDraft) => void;
@@ -32,7 +29,7 @@
   let lastDirty = false;
 
   $: {
-    const snapshot = JSON.stringify(draft);
+    const snapshot = serializeHighlightDraft(draft);
     if (snapshot !== lastSnapshot || !lastOpen) {
       pattern = draft.pattern;
       foregroundColor = draft.foregroundColor;
@@ -48,7 +45,7 @@
   }
 
   $: {
-    const currentSnapshot = JSON.stringify({
+    const currentSnapshot = serializeHighlightDraft({
       pattern,
       foregroundColor,
       foregroundColorEnabled,
@@ -65,13 +62,8 @@
   }
 
   function handleSave(): void {
-    const trimmedPattern = pattern.trim();
-    if (!trimmedPattern) {
-      return;
-    }
-
-    onSave({
-      pattern: trimmedPattern,
+    const normalized = normalizeHighlightDraftForSave({
+      pattern,
       foregroundColor,
       foregroundColorEnabled,
       backgroundColor,
@@ -79,6 +71,12 @@
       caseSensitive,
       wordBoundary,
     });
+
+    if (!normalized.pattern) {
+      return;
+    }
+
+    onSave(normalized);
   }
 
   function activateForegroundColor(): void {

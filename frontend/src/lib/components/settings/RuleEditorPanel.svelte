@@ -1,8 +1,12 @@
 <script lang="ts">
   import StyleSlideToggle from '../styles/StyleSlideToggle.svelte';
   import type { RuleDraft } from '../../types';
-
-  const DEFAULT_SAMPLE_TEXT = 'sample text to test the rule\ntry adding anchors like ^ and $';
+  import {
+    buildRuleSamplePreview,
+    normalizeRuleDraftForSave,
+    serializeRuleDraft,
+    DEFAULT_SAMPLE_TEXT,
+  } from './rule-editor';
 
   export let title = 'rule editor';
   export let draft: RuleDraft = {
@@ -46,144 +50,15 @@
   let saveDisabled = true;
   let lastDirty = false;
 
-  type MatchIndices = Array<[number, number] | undefined>;
-  type MatchWithIndices = RegExpMatchArray & {
-    indices?: MatchIndices;
-  };
-
-  function escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  function compilePattern(): RegExp | null {
-    const trimmed = pattern.trim();
-    if (!trimmed) {
-      validationError = 'enter a regexp pattern';
-      return null;
-    }
-
-    try {
-      return new RegExp(trimmed, caseSensitive ? 'gdm' : 'gdim');
-    } catch (error) {
-      validationError = error instanceof Error ? error.message : 'invalid regexp';
-      return null;
-    }
-  }
-
-  function getLineRange(index: number): { start: number; end: number } {
-    const lineStart = sampleText.lastIndexOf('\n', Math.max(0, index - 1)) + 1;
-    const nextLineBreak = sampleText.indexOf('\n', index);
-    return {
-      start: lineStart,
-      end: nextLineBreak >= 0 ? nextLineBreak : sampleText.length,
-    };
-  }
-
-  function collectSampleRanges(regex: RegExp): Array<{ start: number; end: number; zeroWidth?: boolean }> {
-    const ranges: Array<{ start: number; end: number; zeroWidth?: boolean }> = [];
-
-    for (const match of sampleText.matchAll(regex) as Iterable<MatchWithIndices>) {
-      const index = match.index ?? 0;
-      const matched = match[0];
-      const matchEnd = index + matched.length;
-
-      if (wholeLine) {
-        ranges.push(getLineRange(index));
-        continue;
-      }
-
-      if (match.length > 1) {
-        for (let groupIndex = 1; groupIndex < match.length; groupIndex += 1) {
-          const group = match[groupIndex];
-          if (!group) {
-            continue;
-          }
-
-          const indexedGroup = match.indices?.[groupIndex];
-          if (indexedGroup && indexedGroup[1] > indexedGroup[0]) {
-            ranges.push({ start: indexedGroup[0], end: indexedGroup[1] });
-            continue;
-          }
-
-          const searchFrom = ranges.length > 0 ? ranges[ranges.length - 1].end : index;
-          const fallbackStart = sampleText.indexOf(group, searchFrom);
-          if (fallbackStart >= index && fallbackStart < matchEnd) {
-            ranges.push({ start: fallbackStart, end: fallbackStart + group.length });
-          }
-        }
-        continue;
-      }
-
-      if (matched.length === 0) {
-        ranges.push({ start: index, end: index, zeroWidth: true });
-        continue;
-      }
-
-      ranges.push({ start: index, end: matchEnd });
-    }
-
-    return ranges
-      .sort((left, right) => left.start - right.start || left.end - right.end)
-      .reduce<Array<{ start: number; end: number; zeroWidth?: boolean }>>((merged, range) => {
-        const previous = merged[merged.length - 1];
-        if (previous && !previous.zeroWidth && !range.zeroWidth && range.start <= previous.end) {
-          previous.end = Math.max(previous.end, range.end);
-          return merged;
-        }
-
-        merged.push({ ...range });
-        return merged;
-      }, []);
-  }
-
-  function buildSampleMirror(regex: RegExp): void {
-    let result = '';
-    let lastIndex = 0;
-    let matchCount = 0;
-
-    for (const range of collectSampleRanges(regex)) {
-      if (range.start < lastIndex) {
-        continue;
-      }
-
-      result += escapeHtml(sampleText.slice(lastIndex, range.start));
-      if (range.zeroWidth) {
-        result += '<span class="rule-preview-zero-width">∅</span>';
-        lastIndex = range.start;
-        matchCount += 1;
-        continue;
-      }
-
-      result += `<span class="rule-preview-hit">${escapeHtml(sampleText.slice(range.start, range.end))}</span>`;
-      lastIndex = range.end;
-      matchCount += 1;
-    }
-
-    result += escapeHtml(sampleText.slice(lastIndex));
-    sampleMirrorHtml = result.replace(/\n/g, '<br>');
-  }
-
   function refreshSampleMirror(): void {
-    validationError = '';
-    sampleMirrorHtml = '';
-
-    const regex = compilePattern();
-    saveDisabled = regex === null;
-    if (!regex) {
-      sampleMirrorHtml = escapeHtml(sampleText).replace(/\n/g, '<br>');
-      return;
-    }
-
-    buildSampleMirror(regex);
-    saveDisabled = false;
+    const preview = buildRuleSamplePreview(pattern, sampleText, wholeLine, caseSensitive);
+    validationError = preview.validationError;
+    sampleMirrorHtml = preview.html;
+    saveDisabled = preview.saveDisabled;
   }
 
   $: {
-    const snapshot = JSON.stringify(draft);
+    const snapshot = serializeRuleDraft(draft);
     if (snapshot !== lastSnapshot || !lastOpen) {
       pattern = draft.pattern;
       foregroundColor = draft.foregroundColor;
@@ -206,7 +81,7 @@
   }
 
   $: {
-    const currentSnapshot = JSON.stringify({
+    const currentSnapshot = serializeRuleDraft({
       label,
       pattern,
       foregroundColor,
@@ -229,26 +104,27 @@
   }
 
   function handleSave(): void {
-    const trimmedPattern = pattern.trim();
-    if (!trimmedPattern || saveDisabled) {
+    if (saveDisabled) {
       return;
     }
 
-    onSave({
-      label: label.trim(),
-      pattern: trimmedPattern,
-      foregroundColor,
-      foregroundColorEnabled,
-      backgroundColor,
-      backgroundColorEnabled,
-      opacity,
-      opacityEnabled,
-      wholeLine,
-      caseSensitive,
-      stopOtherRules,
-      stopHighlights,
-      sampleText,
-    });
+    onSave(
+      normalizeRuleDraftForSave({
+        label,
+        pattern,
+        foregroundColor,
+        foregroundColorEnabled,
+        backgroundColor,
+        backgroundColorEnabled,
+        opacity,
+        opacityEnabled,
+        wholeLine,
+        caseSensitive,
+        stopOtherRules,
+        stopHighlights,
+        sampleText,
+      }),
+    );
   }
 
   function activateForegroundColor(): void {
