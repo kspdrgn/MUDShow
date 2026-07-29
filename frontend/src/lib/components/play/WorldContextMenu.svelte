@@ -11,6 +11,7 @@
   export let canStopLogging = false;
   export let canEditWorld = false;
   export let canEditCharacter = false;
+  export let transcriptZoom = 1;
   export let onReconnect: () => void;
   export let onDisconnect: () => void;
   export let onQuickLog: () => void;
@@ -21,6 +22,9 @@
   export let onOpenNotes: () => void;
   export let onOpenDebugConsole: () => void;
   export let onOpenTriggers: () => void;
+  export let onZoomIn: () => void = () => {};
+  export let onZoomOut: () => void = () => {};
+  export let onZoomReset: () => void = () => {};
   export let onDismiss: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   let menuElement: HTMLDivElement | null = null;
@@ -221,7 +225,45 @@
       triggers
     </button>
 
-    <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
+    {#if source === 'transcript'}
+      <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
+
+      <div class="titlebar-context-menu-zoom-row" role="none" aria-label="zoom controls">
+        <span class="titlebar-context-menu-zoom-label">zoom</span>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-zoom-button"
+          role="menuitem"
+          aria-label="zoom out"
+          title="Zoom out - CTRL+'-' or CTRL+Mousewheel Down"
+          on:click={onZoomOut}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-zoom-button titlebar-context-menu-zoom-value"
+          role="menuitem"
+          aria-label="reset zoom"
+          title="Reset zoom level"
+          on:click={onZoomReset}
+        >
+          {Math.round(transcriptZoom * 100)}%
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-zoom-button"
+          role="menuitem"
+          aria-label="zoom in"
+          title="Zoom in - CTRL+'+' or CTRL+Mousewheel Up"
+          on:click={onZoomIn}
+        >
+          +
+        </button>
+      </div>
+
+      <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
+    {/if}
 
     <button
       type="button"

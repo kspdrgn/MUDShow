@@ -46,6 +46,7 @@
   export let outputRevision = 0;
   export let renderCache: RenderCache | null = null;
   export let characterWidth: number | undefined = undefined;
+  export let outputFontSize = 13;
   export let onReconnectTab: () => void;
   export let onDisconnectTab: () => void;
   export let onQuickLogTab: () => void;
@@ -169,7 +170,9 @@
     {transcript}
     {outputRevision}
     width={measuredPlayWidth}
+    {outputFontSize}
     {scope}
+    {visible}
     {triggers}
     {linkImagePreviews}
     {imagePreviewCacheVersion}

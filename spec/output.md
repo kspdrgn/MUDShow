@@ -10,6 +10,8 @@ Incoming world text is buffered until a newline is received. The transcript only
 
 The transcript keeps only the visible rows and a small scroll buffer mounted while the history is very large, so scrolling stays responsive even with a lot of saved output.
 
+Holding `Ctrl` while using the mouse wheel over the transcript temporarily zooms the transcript text in or out without changing saved style settings. `Ctrl+-`, `Ctrl+=`, and `Ctrl+0` provide the same temporary zoom out, zoom in, and reset behavior. The transcript context menu also includes a compact zoom row with minus, percent reset, and plus controls.
+
 ## Automatic Scrolling
 
 When new transcript content arrives, the output panel scrolls down to keep the most recent content in view.

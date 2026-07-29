@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import {
     buildHighlightRegexes,
     buildRuleRegexes,
@@ -40,7 +40,9 @@
   export let transcript: PlayTranscript;
   export let outputRevision = 0;
   export let width = 'none';
+  export let outputFontSize = 13;
   export let scope = 'world';
+  export let visible = true;
   export let triggers: Trigger[] = [];
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
@@ -89,6 +91,8 @@
   let transcriptLiveElement: HTMLDivElement | null = null;
   let contextMenuOpen = false;
   let contextMenuPosition = { x: 0, y: 0 };
+  let transcriptZoom = 1;
+  let removeZoomKeydownListener: (() => void) | null = null;
   let userScrollIntent = false;
   let lastSyncedTranscript: PlayTranscript | null = null;
   let lastSyncedRevision = -1;
@@ -98,9 +102,81 @@
   let lastSyncedWidth = width;
   let renderDependencyKey = '';
   let lastRenderDependencyKey = '';
+  const MIN_TRANSCRIPT_ZOOM = 0.6;
+  const MAX_TRANSCRIPT_ZOOM = 2;
+  const TRANSCRIPT_ZOOM_STEP = 0.1;
 
   function closeContextMenu(): void {
     contextMenuOpen = false;
+  }
+
+  function clampTranscriptZoom(value: number): number {
+    return Math.min(MAX_TRANSCRIPT_ZOOM, Math.max(MIN_TRANSCRIPT_ZOOM, Math.round(value * 10) / 10));
+  }
+
+  function setTranscriptZoom(nextZoom: number): void {
+    transcriptZoom = clampTranscriptZoom(nextZoom);
+  }
+
+  function zoomTranscriptIn(): void {
+    setTranscriptZoom(transcriptZoom + TRANSCRIPT_ZOOM_STEP);
+  }
+
+  function zoomTranscriptOut(): void {
+    setTranscriptZoom(transcriptZoom - TRANSCRIPT_ZOOM_STEP);
+  }
+
+  function resetTranscriptZoom(): void {
+    setTranscriptZoom(1);
+  }
+
+  function handleTranscriptZoomKeydown(event: KeyboardEvent): void {
+    if (!visible || event.defaultPrevented) {
+      return;
+    }
+
+    if (!(event.ctrlKey || event.metaKey)) {
+      return;
+    }
+
+    const key = event.key;
+    const isZoomIn = key === '+' || key === '=' || event.code === 'NumpadAdd';
+    const isZoomOut = key === '-' || key === '_' || event.code === 'NumpadSubtract';
+    const isZoomReset = key === '0' || event.code === 'Digit0' || event.code === 'Numpad0';
+
+    if (!isZoomIn && !isZoomOut && !isZoomReset) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (isZoomReset) {
+      resetTranscriptZoom();
+      return;
+    }
+
+    if (isZoomIn) {
+      zoomTranscriptIn();
+      return;
+    }
+
+    zoomTranscriptOut();
+  }
+
+  function syncTranscriptZoomListener(): void {
+    if (visible) {
+      if (removeZoomKeydownListener) {
+        return;
+      }
+
+      window.addEventListener('keydown', handleTranscriptZoomKeydown, true);
+      removeZoomKeydownListener = () => window.removeEventListener('keydown', handleTranscriptZoomKeydown, true);
+      return;
+    }
+
+    removeZoomKeydownListener?.();
+    removeZoomKeydownListener = null;
   }
 
   $: highlights = triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
@@ -136,6 +212,7 @@
     transcript;
     outputRevision;
     width;
+    visible;
     splitView;
     hiddenPreviewUrls;
     triggers;
@@ -143,6 +220,11 @@
     imagePreviewCacheVersion;
     renderCache;
     syncTranscriptRenderState();
+  }
+
+  $: {
+    visible;
+    syncTranscriptZoomListener();
   }
 
   function syncTranscriptRenderState(): void {
@@ -478,6 +560,17 @@
       return;
     }
 
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.deltaY < 0) {
+        zoomTranscriptIn();
+      } else {
+        zoomTranscriptOut();
+      }
+      return;
+    }
+
     const isScrollingUp = event.deltaY < 0;
     const isAtTop = outputEl.scrollTop <= 0;
     const isScrollingDown = event.deltaY > 0;
@@ -541,6 +634,17 @@
       return;
     }
 
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.deltaY < 0) {
+        zoomTranscriptIn();
+      } else {
+        zoomTranscriptOut();
+      }
+      return;
+    }
+
     const delta = getTranscriptWheelDelta(event, mainOutput);
 
     if (delta === 0) {
@@ -551,6 +655,8 @@
   }
 
   onMount(() => {
+    syncTranscriptZoomListener();
+
     return setupTranscriptObservers({
       contentElement: transcriptContentElement,
       historyElement: transcriptHistoryScrollerElement,
@@ -568,12 +674,18 @@
       },
     });
   });
+
+  onDestroy(() => {
+    removeZoomKeydownListener?.();
+    removeZoomKeydownListener = null;
+  });
 </script>
 
 <div
   bind:this={transcriptShellElement}
   class={`output-transcript-shell${splitView ? ' output-transcript-shell--split' : ''}`}
   style={`--play-width: ${width};`}
+  style:--world-output-font-size={`${outputFontSize * transcriptZoom}px`}
 >
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -588,7 +700,7 @@
       on:click={handleClick}
       on:contextmenu={handleContextMenu}
       on:mousedown={handleMouseDown}
-      on:wheel|passive={handleWheel}
+      on:wheel|nonpassive={handleWheel}
       on:scroll={handleScroll}
       on:load|capture={handlePreviewLoad}
       on:error|capture={handlePreviewError}
@@ -625,7 +737,7 @@
       on:mouseup={handleMouseUp}
       on:click={handleClick}
       on:contextmenu={handleContextMenu}
-      on:wheel|passive={handleLiveWheel}
+      on:wheel|nonpassive={handleLiveWheel}
     >
       <div class="output-area-content output-area-content--live">
         <div class="output-spacer" aria-hidden="true" style={`height: ${liveTopSpacer}px;`}></div>
@@ -642,6 +754,7 @@
     position={contextMenuPosition}
     ariaLabel="transcript context menu"
     source="transcript"
+    {transcriptZoom}
     {canReconnect}
     {canDisconnect}
     {canQuickLog}
@@ -682,6 +795,15 @@
       onOpenDebugConsole();
     }}
     onOpenTriggers={openTriggersFromMenu}
+    onZoomIn={() => {
+      zoomTranscriptIn();
+    }}
+    onZoomOut={() => {
+      zoomTranscriptOut();
+    }}
+    onZoomReset={() => {
+      resetTranscriptZoom();
+    }}
     onDismiss={closeContextMenu}
     onCloseRequest={closeTabFromMenu}
   />

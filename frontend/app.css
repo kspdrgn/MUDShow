@@ -613,6 +613,35 @@ body {
   gap: 12px;
 }
 
+.titlebar-context-menu-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 0;
+}
+
+.titlebar-context-menu-zoom-label {
+  flex: 0 0 auto;
+  min-width: 2.6rem;
+  padding: 0 0.25rem 0 0.1rem;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.titlebar-context-menu-zoom-button {
+  min-width: 2.6rem;
+  height: 2rem;
+  justify-content: center;
+  padding: 0 0.45rem;
+}
+
+.titlebar-context-menu-zoom-value {
+  min-width: 4.7rem;
+}
+
 .titlebar-context-menu-item-label {
   flex: 1 1 auto;
   min-width: 0;

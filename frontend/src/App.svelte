@@ -534,6 +534,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         outputRevision={worldSession.outputRevision}
         renderCache={worldSession.renderCache}
         characterWidth={worldSession.currentCharacter?.width}
+        outputFontSize={resolvedAppStyle.output.fontSize}
         loggingActive={worldSession.loggingActive}
         imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
         canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentWorld !== null}
