@@ -65,6 +65,7 @@
   export let onOpenNotes: () => void;
   export let onOpenDebugConsole: () => void;
   export let onOpenTriggers: () => void;
+  export let onOpenStyles: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   export let onScroll: () => void;
   export let onScrollToBottom: () => void;
@@ -795,6 +796,10 @@
       onOpenDebugConsole();
     }}
     onOpenTriggers={openTriggersFromMenu}
+    onOpenStyles={() => {
+      closeContextMenu();
+      onOpenStyles();
+    }}
     onZoomIn={() => {
       zoomTranscriptIn();
     }}

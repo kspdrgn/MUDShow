@@ -607,6 +607,24 @@ body {
   justify-content: flex-start;
 }
 
+.titlebar-context-menu-settings-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.titlebar-context-menu-settings-button {
+  margin-bottom: 2px;
+}
+
+.titlebar-context-menu-submenu-panel {
+  min-width: 200px;
+  z-index: 121;
+}
+
+.titlebar-context-menu-submenu-panel .titlebar-context-menu-item {
+  min-width: 0;
+}
+
 .titlebar-context-menu-item-shortcut {
   display: flex;
   align-items: center;

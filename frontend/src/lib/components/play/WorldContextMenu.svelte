@@ -22,14 +22,65 @@
   export let onOpenNotes: () => void;
   export let onOpenDebugConsole: () => void;
   export let onOpenTriggers: () => void;
+  export let onOpenStyles: () => void;
   export let onZoomIn: () => void = () => {};
   export let onZoomOut: () => void = () => {};
   export let onZoomReset: () => void = () => {};
   export let onDismiss: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   let menuElement: HTMLDivElement | null = null;
+  let settingsButtonElement: HTMLButtonElement | null = null;
+  let settingsSubmenuElement: HTMLDivElement | null = null;
+  let settingsSubmenuOpen = false;
+  let settingsSubmenuPosition = { x: 0, y: 0 };
+  let settingsSubmenuSide: 'left' | 'right' = 'right';
+  let settingsSubmenuCloseTimeout: ReturnType<typeof setTimeout> | null = null;
   let renderedPosition = position;
   let repositionToken = 0;
+
+  function dismissMenu(): void {
+    settingsSubmenuOpen = false;
+    clearSettingsSubmenuCloseTimeout();
+    onDismiss();
+  }
+
+  function clearSettingsSubmenuCloseTimeout(): void {
+    if (settingsSubmenuCloseTimeout !== null) {
+      clearTimeout(settingsSubmenuCloseTimeout);
+      settingsSubmenuCloseTimeout = null;
+    }
+  }
+
+  function scheduleCloseSettingsSubmenu(): void {
+    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuCloseTimeout = setTimeout(() => {
+      settingsSubmenuOpen = false;
+      settingsSubmenuCloseTimeout = null;
+    }, 160);
+  }
+
+  function updateSettingsSubmenuPosition(): void {
+    if (!settingsSubmenuOpen || !settingsButtonElement || !settingsSubmenuElement) {
+      return;
+    }
+
+    const margin = 8;
+    const gap = 8;
+    const buttonRect = settingsButtonElement.getBoundingClientRect();
+    const submenuRect = settingsSubmenuElement.getBoundingClientRect();
+
+    const preferRight = buttonRect.right + gap + submenuRect.width <= window.innerWidth - margin;
+    const rawX = preferRight
+      ? buttonRect.right + gap
+      : buttonRect.left - gap - submenuRect.width;
+    const rawY = buttonRect.top;
+
+    settingsSubmenuSide = preferRight ? 'right' : 'left';
+    settingsSubmenuPosition = {
+      x: Math.max(margin, Math.min(rawX, window.innerWidth - submenuRect.width - margin)),
+      y: Math.max(margin, Math.min(rawY, window.innerHeight - submenuRect.height - margin)),
+    };
+  }
 
   onMount(() => {
     const handleMenuOpen = (event: Event) => {
@@ -38,7 +89,7 @@
         return;
       }
 
-      onDismiss();
+      dismissMenu();
     };
 
     const handleDocumentClick = (event: MouseEvent) => {
@@ -47,15 +98,15 @@
       }
 
       if (!(event.target instanceof Node)) {
-        onDismiss();
+        dismissMenu();
         return;
       }
 
-      if (menuElement?.contains(event.target)) {
+      if (menuElement?.contains(event.target) || settingsSubmenuElement?.contains(event.target)) {
         return;
       }
 
-      onDismiss();
+      dismissMenu();
     };
 
     const handleDocumentContextMenu = (event: MouseEvent) => {
@@ -64,20 +115,20 @@
       }
 
       if (!(event.target instanceof Node)) {
-        onDismiss();
+        dismissMenu();
         return;
       }
 
-      if (menuElement?.contains(event.target)) {
+      if (menuElement?.contains(event.target) || settingsSubmenuElement?.contains(event.target)) {
         return;
       }
 
-      onDismiss();
+      dismissMenu();
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && open) {
-        onDismiss();
+        dismissMenu();
       }
     };
 
@@ -116,6 +167,15 @@
   } else {
     repositionToken += 1;
     renderedPosition = position;
+    settingsSubmenuOpen = false;
+    clearSettingsSubmenuCloseTimeout();
+  }
+
+  $: if (settingsSubmenuOpen) {
+    clearSettingsSubmenuCloseTimeout();
+    void tick().then(() => updateSettingsSubmenuPosition());
+  } else {
+    clearSettingsSubmenuCloseTimeout();
   }
 
   function handleCloseClick(event: MouseEvent): void {
@@ -124,7 +184,24 @@
       return;
     }
 
+    settingsSubmenuOpen = false;
+    clearSettingsSubmenuCloseTimeout();
     onCloseRequest(target.getBoundingClientRect());
+  }
+
+  function openSettingsSubmenu(): void {
+    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuOpen = true;
+  }
+
+  function closeSettingsSubmenu(): void {
+    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuOpen = false;
+  }
+
+  function runMenuAction(action: () => void): void {
+    dismissMenu();
+    action();
   }
 </script>
 
@@ -140,7 +217,7 @@
     on:contextmenu|preventDefault
     on:keydown={(event) => {
       if (event.key === 'Escape') {
-        onDismiss();
+        dismissMenu();
       }
     }}
   >
@@ -181,49 +258,121 @@
       type="button"
       class="titlebar-menu-item titlebar-context-menu-item"
       role="menuitem"
-      on:click={onOpenLogging}
+      on:click={() => runMenuAction(onOpenLogging)}
     >
       logging...
     </button>
-
-    <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
-
-    <button
-      type="button"
-      class="titlebar-menu-item titlebar-context-menu-item"
-      role="menuitem"
-      disabled={!canEditWorld}
-      on:click={() => canEditWorld && onEditWorld()}
-    >
-      edit world
-    </button>
-    <button
-      type="button"
-      class="titlebar-menu-item titlebar-context-menu-item"
-      role="menuitem"
-      disabled={!canEditCharacter}
-      on:click={() => canEditCharacter && onEditCharacter()}
-    >
-      edit character
-    </button>
-
-    <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
-
     <button
       type="button"
       class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-item-shortcut"
       role="menuitem"
-      on:click={onOpenNotes}
+      on:click={() => runMenuAction(onOpenNotes)}
     >
       <span class="titlebar-context-menu-item-label">notes</span>
       <span class="titlebar-context-menu-shortcut" aria-hidden="true">F3</span>
     </button>
-    <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" on:click={onOpenDebugConsole}>
-      debug console
+    <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
+
+    <div
+      class="titlebar-context-menu-settings-group"
+      on:mouseenter={openSettingsSubmenu}
+      on:mouseleave={scheduleCloseSettingsSubmenu}
+      on:focusin={openSettingsSubmenu}
+      on:focusout={(event) => {
+        const relatedTarget = event.relatedTarget;
+        const currentTarget = event.currentTarget;
+        if (!(currentTarget instanceof HTMLElement)) {
+          closeSettingsSubmenu();
+          return;
+        }
+
+        if (
+          !(relatedTarget instanceof Node) ||
+          (!currentTarget.contains(relatedTarget) && !settingsSubmenuElement?.contains(relatedTarget))
+        ) {
+          scheduleCloseSettingsSubmenu();
+        }
+      }}
+    >
+    <button
+      type="button"
+      class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-settings-button"
+      bind:this={settingsButtonElement}
+      role="menuitem"
+      aria-haspopup="menu"
+      aria-expanded={settingsSubmenuOpen}
+      on:click={openSettingsSubmenu}
+      on:mouseenter={openSettingsSubmenu}
+      on:mouseleave={scheduleCloseSettingsSubmenu}
+      on:focus={openSettingsSubmenu}
+    >
+      <span class="titlebar-context-menu-item-label">settings</span>
+      <span class="titlebar-context-menu-shortcut" aria-hidden="true">▶</span>
     </button>
-    <button type="button" class="titlebar-menu-item titlebar-context-menu-item" role="menuitem" on:click={onOpenTriggers}>
-      triggers
-    </button>
+    </div>
+
+    {#if settingsSubmenuOpen}
+      <div
+        bind:this={settingsSubmenuElement}
+        class="titlebar-dropdown titlebar-context-menu titlebar-context-menu-submenu-panel"
+        role="menu"
+        aria-label="world settings shortcuts"
+        data-side={settingsSubmenuSide}
+        style={`left: ${settingsSubmenuPosition.x}px; top: ${settingsSubmenuPosition.y}px;`}
+        on:mouseenter={openSettingsSubmenu}
+        on:mouseleave={scheduleCloseSettingsSubmenu}
+        on:contextmenu|preventDefault
+        on:click|stopPropagation
+        on:keydown={(event) => {
+          if (event.key === 'Escape') {
+            dismissMenu();
+          }
+        }}
+      >
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          disabled={!canEditWorld}
+          on:click={() => canEditWorld && runMenuAction(onEditWorld)}
+        >
+          edit world
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          disabled={!canEditCharacter}
+          on:click={() => canEditCharacter && runMenuAction(onEditCharacter)}
+        >
+          edit character
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item titlebar-context-menu-item-shortcut"
+          role="menuitem"
+          on:click={() => runMenuAction(onOpenStyles)}
+        >
+          <span class="titlebar-context-menu-item-label">edit styles</span>
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          on:click={() => runMenuAction(onOpenTriggers)}
+        >
+          edit triggers
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-context-menu-item"
+          role="menuitem"
+          on:click={() => runMenuAction(onOpenDebugConsole)}
+        >
+          debug console
+        </button>
+      </div>
+    {/if}
 
     {#if source === 'transcript'}
       <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
@@ -269,7 +418,10 @@
       type="button"
       class="titlebar-menu-item titlebar-context-menu-item"
       role="menuitem"
-      on:click={handleCloseClick}
+      on:click={(event) => {
+        closeSettingsSubmenu();
+        handleCloseClick(event);
+      }}
     >
       close
     </button>

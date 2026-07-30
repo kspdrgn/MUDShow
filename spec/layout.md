@@ -35,7 +35,7 @@ Anchored to the right:
   - Closing a connected or connecting world tab requires confirmation. Clicking the tab X shows a small dropdown anchored to that X, while Ctrl+F4 uses a centered modal confirmation.
   - If the logging reminder is enabled in app settings, closing a disconnected world tab that is not currently being logged also requires confirmation.
   - Tabs can be dragged to re-order them within the tab bar arbitrarily
-  - The world tab context menu can open the Notes pane or the Debug Console pane for that world tab.
+  - The world tab context menu, whether opened from the top tab bar or the transcript, keeps logging and notes on the main menu and exposes a nested Settings submenu as its own side panel for world-specific shortcuts such as edit world, edit character, edit styles, edit triggers, and debug console. The Settings submenu opens on hover or keyboard focus, stays accessible from a click, uses a short close delay so the pointer can cross between panels, and clamps to the app window like the main menu.
 
 ## Quick Connect Menu
 

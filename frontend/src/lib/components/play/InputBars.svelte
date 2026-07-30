@@ -385,7 +385,7 @@ import {
     const selectionStart = input?.selectionStart ?? currentValue.length;
     const selectionEnd = input?.selectionEnd ?? selectionStart;
 
-    if (event.key === 'Enter' && (event.ctrlKey || event.shiftKey)) {
+    if (event.key === 'Enter' && event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
 
       const nextValue = `${currentValue.slice(0, selectionStart)}\n${currentValue.slice(selectionEnd)}`;

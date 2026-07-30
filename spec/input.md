@@ -28,6 +28,8 @@ Keyboard focus should be automatically restored to the last selected input box:
 - `Alt+Shift+Up` and `Alt+Shift+Down` move keyboard focus to the previous or next input box when more than one input box exists.
 - `Ctrl+Alt+Up` and `Ctrl+Alt+Down` resize the current input box larger or smaller by one row.
 - `Ctrl+Up` and `Ctrl+Down` browse the shared input history queue.
+- `Ctrl+Enter` inserts a newline in the current input without sending.
+- `Shift+Enter` behaves like a normal Enter and sends the current input.
 - Mixed modifier combinations like `Ctrl+Alt+Shift+Up` and `Ctrl+Alt+Shift+Down` are ignored by the custom hotkey handling.
 
 ## [ ] Input Spellcheck

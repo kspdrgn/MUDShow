@@ -142,6 +142,11 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     loggingModalTabId = tabId;
   }
 
+  function openDefaultStyleSettings(): void {
+    session.selectTab('settings');
+    session.setSettingsActiveTab('style');
+  }
+
   function closeLoggingModal(): void {
     loggingModalTabId = null;
   }
@@ -465,6 +470,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
       void session.togglePanel('debugConsole');
     }}
     onOpenTriggersTab={(worldId, characterId) => session.openTriggersTab(worldId, characterId)}
+    onOpenStylesTab={openDefaultStyleSettings}
   />
 
   <main id="app-main">
@@ -550,6 +556,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         onStopLoggingTab={() => void session.stopLogging(tab.id)}
         onEditWorldTab={() => void session.openWorldEditorFromWorldTab(tab.id)}
         onEditCharacterTab={() => void session.openCharacterEditorFromWorldTab(tab.id)}
+        onOpenStyles={() => openDefaultStyleSettings()}
         onCloseTab={() => session.closeTab(tab.id, 'shortcut')}
         onOpenDebugConsole={() => void session.togglePanel('debugConsole')}
         onInputFocusBar={(bar) => session.handleInputFocus(bar)}

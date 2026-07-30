@@ -57,6 +57,7 @@
   export let onCloseTab: (anchorRect: DOMRect) => void;
   export let onOpenTriggers: () => void;
   export let onOpenDebugConsole: () => void;
+  export let onOpenStyles: () => void;
   export let canReconnect = false;
   export let canDisconnect = false;
   export let canQuickLog = false;
@@ -195,6 +196,7 @@
     onOpenNotes={onNotesClose}
     onOpenDebugConsole={onOpenDebugConsole}
     onOpenTriggers={onOpenTriggers}
+    onOpenStyles={onOpenStyles}
     onCloseRequest={onCloseTab}
     onScroll={onOutputScroll}
     onScrollToBottom={onScrollToBottom}

@@ -57,6 +57,7 @@
   export let onOpenNotesTab: (tabId: string) => void;
   export let onOpenDebugConsoleTab: (tabId: string) => void;
   export let onOpenTriggersTab: (worldId: string | null, characterId: string | null) => void;
+  export let onOpenStylesTab: () => void;
 
   const canOpenInspector = import.meta.env.DEV && isTauriAvailable();
   let menuOpen = false;
@@ -591,6 +592,7 @@
             ),
           )
         }
+        onOpenStyles={() => handleWorldContextMenuAction(() => onOpenStylesTab())}
         onDismiss={closeWorldContextMenu}
         onCloseRequest={(rect) =>
           beginWorldTabClose(

@@ -7,8 +7,10 @@ MVP Features:
 - [X] Style. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
-- [ ] Keyboard/mousewheel shortcut to change font size on the fly?
 - [ ] New activity indicator (separator line?)
+- [ ] app activity indicator settings, constant blinking? other possibilities?
+- [X] Consolidate world context menu settings shortcuts into settings submenu, to shrink menu and allow adding more
+- [X] Keyboard/mousewheel shortcut to change zoom on the fly
 - [X] scroll virtualization, render cache, configurable history length
 - [X] Trigger hierarchy
 - [X] Tabs, multiple connections
@@ -33,7 +35,7 @@ Bugs:
 - [X] fix console window opening when running app
 - [ ] fix autoscroll to bottom not working if tab is not active? should scroll down when switching back? related to activity indicator line?
 - [X] Fix image previews not triggering scroll-to-bottom consistently
-- [ ] Fix extra blank line after Taps "Somewhere on the muck, * has connected." Maybe related to PD blank lines at end of +watch and other places.
+- [X] Fix extra blank line after Taps "Somewhere on the muck, * has connected." Maybe related to PD blank lines at end of +watch and other places. Now gathers lines until a newline character.
 - [X] Fix window not flashing on activity
 - [X] Fix unmodified home/end keys not working in input window, the passthru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
 - [X] Linux: Fix resize frame, can't see while mousing over
@@ -74,11 +76,12 @@ Release:
     - [X] Pick font colors
     - [ ] Customize ANSI colors
     - [X] Pick font sizes
-      - [ ] Keyboard/mousewheel shortcut to change font size on the fly?
+    - [X] Keyboard/mousewheel shortcut to zoom transcript on the fly
     - [X] App default styles
     - [X] App override styles
     - [X] System fonts picking, see `PLAN_FONTS.md`
     - [ ] Background images
+    - [ ] World styles, overriding app styles, overriding default styles
 
   - Contents
     - [X] Clickable links
