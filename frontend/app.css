@@ -582,6 +582,48 @@ body {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+.titlebar-menu-item.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.titlebar-menu-item.active:hover {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.titlebar-menu-item-submenu {
+  justify-content: space-between;
+}
+
+.titlebar-menu-submenu-arrow {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
+.titlebar-menu-submenu-panel {
+  position: fixed;
+  top: auto;
+  right: auto;
+  min-width: 240px;
+  z-index: 121;
+}
+
+.titlebar-menu-submenu-panel[data-side='left'] {
+  transform-origin: right top;
+}
+
+.titlebar-menu-submenu-panel[data-side='right'] {
+  transform-origin: left top;
+}
+
+.titlebar-menu-submenu-item {
+  justify-content: flex-start;
+}
+
 .titlebar-menu-item:disabled {
   color: var(--text-dim);
   background: transparent;

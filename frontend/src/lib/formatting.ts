@@ -33,7 +33,15 @@ type MatchWithIndices = RegExpMatchArray & {
 const ANSI_SEQUENCE_RE = /\x1b\[[0-9;?]*[ -\/]*[@-~]/g;
 const URL_RE = /https?:\/\/[^\s<>"'`]+/gi;
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif', '.svg']);
-const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
+let transcriptDiagnosticsEnabled = false;
+
+export function setTranscriptDiagnosticsEnabled(enabled: boolean): void {
+  transcriptDiagnosticsEnabled = enabled;
+}
+
+export function isTranscriptDiagnosticsEnabled(): boolean {
+  return transcriptDiagnosticsEnabled;
+}
 
 const ANSI_PALETTE = [
   '#000000',
@@ -327,7 +335,7 @@ function renderLinkedText(
 
     result += escapeAndPreserveLayout(text.slice(lastIndex, index));
 
-    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+    if (transcriptDiagnosticsEnabled) {
       console.info('[MUDShow] transcript URL match', {
         rawUrl,
         url,
@@ -348,7 +356,7 @@ function renderLinkedText(
 
       if (linkImagePreviews && previewEligible && !hiddenPreviewUrls.has(href)) {
         const previewSrc = appendPreviewCacheVersion(href, imagePreviewCacheVersion);
-        if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+        if (transcriptDiagnosticsEnabled) {
           console.info('[MUDShow] image preview queued', {
             url: href,
             previewSrc,
@@ -357,7 +365,7 @@ function renderLinkedText(
         }
         previews.push(renderImagePreview(href, previewSrc));
       } else if (linkImagePreviews) {
-        if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+        if (transcriptDiagnosticsEnabled) {
           console.info('[MUDShow] image preview skipped', {
             url: href,
             sourceText: url,

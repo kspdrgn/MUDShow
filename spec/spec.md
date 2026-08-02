@@ -33,6 +33,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can complete recently seen words to speed up typing names.
 - As a player, I can tell at a glance whether the session is connected, disconnected, or had a connection error.
 - As a player, I can start, stop, and rename a session log for a world tab.
+- As a player, I can temporarily enable transcript diagnostics from the app menu's dev tools submenu so I can capture extra troubleshooting detail only when needed.
 - As a player, I can notice new activity even when I am away from the app.
 - As a player, I can restore a recent per-character transcript history when I reconnect after an interruption.
 - As a player, I can keep the interface simple and focused on play rather than automation.
@@ -74,6 +75,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Forward mouse wheel input from the split live transcript pane to the main transcript pane.
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
+- Allow a transient transcript diagnostics toggle from the app menu's dev tools submenu that writes extra console debug output while enabled.
 - Allow opening a per-world debug console pane that shares space with the active world tab and shows a rolling communication stream.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and triggers locally on the user’s device.

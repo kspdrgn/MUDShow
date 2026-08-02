@@ -99,6 +99,10 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     }
   }
 
+  function toggleTranscriptDiagnostics(): void {
+    session.toggleTranscriptDiagnosticsEnabled();
+  }
+
   async function handleSpellcheckIgnoreWord(word: string): Promise<void> {
     if (!word.trim()) {
       return;
@@ -444,6 +448,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     closeConfirmTabId={$session.closeConfirmTabId}
     closeConfirmMode={$session.closeConfirmMode}
     confirmUnloggedTabClose={appSettings.confirmUnloggedTabClose}
+    transcriptDiagnosticsEnabled={$session.transcriptDiagnosticsEnabled}
     worlds={$session.worlds}
     characters={$session.characters}
     onSelectTab={(tabId) => session.selectTab(tabId)}
@@ -471,6 +476,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     }}
     onOpenTriggersTab={(worldId, characterId) => session.openTriggersTab(worldId, characterId)}
     onOpenStylesTab={openDefaultStyleSettings}
+    onToggleTranscriptDiagnostics={toggleTranscriptDiagnostics}
   />
 
   <main id="app-main">
@@ -541,6 +547,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         renderCache={worldSession.renderCache}
         characterWidth={worldSession.currentCharacter?.width}
         outputFontSize={resolvedAppStyle.output.fontSize}
+        transcriptDiagnosticsEnabled={$session.transcriptDiagnosticsEnabled}
         loggingActive={worldSession.loggingActive}
         imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
         canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentWorld !== null}

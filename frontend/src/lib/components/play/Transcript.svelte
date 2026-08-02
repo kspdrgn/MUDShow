@@ -4,6 +4,10 @@
     buildHighlightRegexes,
     buildRuleRegexes,
   } from '../../formatting';
+  import {
+    isTranscriptDiagnosticsEnabled,
+    setTranscriptDiagnosticsEnabled,
+  } from '../../formatting';
   import type { PlayTranscript, RenderCache } from '../../playback';
   import {
     copyTextToClipboard,
@@ -34,8 +38,6 @@
   } from './transcript-scroll';
   import { setupTranscriptObservers } from './transcript-observers';
 
-  const IMAGE_PREVIEW_DIAGNOSTICS_ENABLED = false;
-
   export let activeBar: InputBarId = 1;
   export let transcript: PlayTranscript;
   export let outputRevision = 0;
@@ -48,6 +50,7 @@
   export let imagePreviewCacheVersion = 0;
   export let renderCache: RenderCache | null = null;
   export let showCurrentOutputWhenScrollingUp = true;
+  export let transcriptDiagnosticsEnabled = false;
   export let userScrolled = false;
   export let canReconnect = false;
   export let canDisconnect = false;
@@ -109,6 +112,14 @@
 
   function closeContextMenu(): void {
     contextMenuOpen = false;
+  }
+
+  function logTranscriptDiagnostics(event: string, details: Record<string, unknown>): void {
+    if (!isTranscriptDiagnosticsEnabled()) {
+      return;
+    }
+
+    console.debug(`[MUDShow] transcript ${event}`, details);
   }
 
   function clampTranscriptZoom(value: number): number {
@@ -185,6 +196,7 @@
   $: highlightRegexes = buildHighlightRegexes(highlights);
   $: ruleRegexes = buildRuleRegexes(rules);
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
+  $: setTranscriptDiagnosticsEnabled(transcriptDiagnosticsEnabled);
 
   $: {
     // Touch the inputs directly so Svelte reruns this block when they change.
@@ -333,6 +345,31 @@
       liveBottomSpacer = 0;
     }
 
+    logTranscriptDiagnostics('render state', {
+      scope,
+      outputRevision,
+      splitView,
+      userScrolled,
+      width,
+      historyMetrics,
+      liveHeight,
+      historyRange: {
+        startIndex: historyRange.startIndex,
+        endIndex: historyRange.endIndex,
+        topSpacer: historyRange.topSpacer,
+        bottomSpacer: historyRange.bottomSpacer,
+        renderedCount: historyRange.rendered.length,
+      },
+      liveRange: splitView
+        ? {
+            topSpacer: liveTopSpacer,
+            bottomSpacer: liveBottomSpacer,
+            renderedCount: liveRenderedChunks.length,
+            viewportHeight: liveViewportHeight,
+          }
+        : null,
+    });
+
     if (renderedChunks.length === 0 && transcript.getChunkCount() > 0) {
       const lastChunk = transcript.getChunk(transcript.getChunkCount() - 1);
       if (lastChunk) {
@@ -457,14 +494,14 @@
     const placeholder = previewItem?.querySelector<HTMLElement>('.output-link-preview-tombstone');
     const placeholderHeight = placeholder?.getBoundingClientRect().height ?? null;
     const imageHeightBeforeReveal = target.getBoundingClientRect().height;
-    const scrollBefore = IMAGE_PREVIEW_DIAGNOSTICS_ENABLED ? getScrollMetrics() : null;
+    const scrollBefore = isTranscriptDiagnosticsEnabled() ? getScrollMetrics() : null;
 
     if (previewItem) {
       previewItem.dataset.previewLoaded = 'true';
     }
 
     const previewUrl = target.getAttribute('data-preview-url') ?? target.currentSrc ?? target.src;
-    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+    if (isTranscriptDiagnosticsEnabled()) {
       console.info('[MUDShow] image preview loaded', {
         url: previewUrl,
         naturalWidth: target.naturalWidth,
@@ -474,7 +511,7 @@
       });
     }
 
-    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+    if (isTranscriptDiagnosticsEnabled()) {
       console.debug('[MUDShow] image preview load', {
         url: previewUrl,
         placeholderHeight,
@@ -489,7 +526,7 @@
     }
 
     void nextFrame().then(() => {
-      if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+      if (isTranscriptDiagnosticsEnabled()) {
         console.debug('[MUDShow] image preview post-load', {
           url: previewUrl,
           imageHeightAfterReveal: target.getBoundingClientRect().height,
@@ -514,7 +551,7 @@
     }
 
     const previewUrl = target.getAttribute('data-preview-url') ?? target.currentSrc ?? target.src;
-    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+    if (isTranscriptDiagnosticsEnabled()) {
       console.warn('[MUDShow] image preview failed to load', {
         url: previewUrl,
         currentSrc: target.currentSrc || target.src,
@@ -524,7 +561,7 @@
       });
     }
 
-    if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
+    if (isTranscriptDiagnosticsEnabled()) {
       console.debug('[MUDShow] image preview error', {
         url: previewUrl,
         previewHeight: previewItem?.getBoundingClientRect().height ?? null,
@@ -540,6 +577,15 @@
       historyScrollTop = outputEl.scrollTop;
       historyViewportHeight = outputEl.clientHeight;
     }
+
+    logTranscriptDiagnostics('scroll', {
+      scope,
+      scrollTop: outputEl instanceof HTMLElement ? outputEl.scrollTop : null,
+      scrollHeight: outputEl instanceof HTMLElement ? outputEl.scrollHeight : null,
+      clientHeight: outputEl instanceof HTMLElement ? outputEl.clientHeight : null,
+      userScrolled,
+      splitView,
+    });
 
     syncTranscriptRenderState();
 
@@ -564,6 +610,11 @@
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
       event.stopPropagation();
+      logTranscriptDiagnostics('wheel zoom', {
+        scope,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+      });
       if (event.deltaY < 0) {
         zoomTranscriptIn();
       } else {
@@ -581,6 +632,15 @@
       return;
     }
 
+    logTranscriptDiagnostics('wheel scroll intent', {
+      scope,
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
+      isScrollingUp,
+      isScrollingDown,
+      isAtTop,
+      isAtBottom,
+    });
     userScrollIntent = true;
   }
 
@@ -638,6 +698,11 @@
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
       event.stopPropagation();
+      logTranscriptDiagnostics('live wheel zoom', {
+        scope,
+        deltaY: event.deltaY,
+        deltaMode: event.deltaMode,
+      });
       if (event.deltaY < 0) {
         zoomTranscriptIn();
       } else {
@@ -652,6 +717,13 @@
       return;
     }
 
+    logTranscriptDiagnostics('live wheel forward', {
+      scope,
+      delta,
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
+    });
+
     scrollElementBy(mainOutputId, delta);
   }
 
@@ -662,15 +734,20 @@
       contentElement: transcriptContentElement,
       historyElement: transcriptHistoryScrollerElement,
       onContentResize: () => {
-        if (IMAGE_PREVIEW_DIAGNOSTICS_ENABLED) {
-          console.debug('[MUDShow] transcript resized', {
-            scrollState: getScrollMetrics(),
-            userScrolled,
-          });
-        }
+        logTranscriptDiagnostics('content resize', {
+          scope,
+          scrollState: getScrollMetrics(),
+          userScrolled,
+        });
         scrollTranscriptToBottomIfFollowing(scope, userScrolled);
       },
       onHistoryResize: () => {
+        logTranscriptDiagnostics('history resize', {
+          scope,
+          scrollState: getScrollMetrics(),
+          historyScrollTop,
+          historyViewportHeight,
+        });
         syncTranscriptRenderState();
       },
     });

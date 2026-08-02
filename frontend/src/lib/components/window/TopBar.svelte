@@ -37,6 +37,7 @@
   export let closeConfirmTabId: string | null = null;
   export let closeConfirmMode: 'modal' | 'dropdown' | null = null;
   export let confirmUnloggedTabClose = false;
+  export let transcriptDiagnosticsEnabled = false;
   export let worlds: WorldRecord[] = [];
   export let characters: CharacterRecord[] = [];
   export let onSelectTab: (tabId: string) => void;
@@ -58,6 +59,7 @@
   export let onOpenDebugConsoleTab: (tabId: string) => void;
   export let onOpenTriggersTab: (worldId: string | null, characterId: string | null) => void;
   export let onOpenStylesTab: () => void;
+  export let onToggleTranscriptDiagnostics: () => void;
 
   const canOpenInspector = import.meta.env.DEV && isTauriAvailable();
   let menuOpen = false;
@@ -71,12 +73,18 @@
   let quickConnectContainer: HTMLDivElement | null = null;
   let quickConnectButton: HTMLButtonElement | null = null;
   let quickConnectDropdown: HTMLDivElement | null = null;
+  let devToolsButton: HTMLButtonElement | null = null;
+  let devToolsSubmenu: HTMLDivElement | null = null;
   let worldTabsElement: HTMLDivElement | null = null;
   let worldContextMenuDropdown: HTMLDivElement | null = null;
   let worldContextMenuPosition = { x: 0, y: 0 };
+  let devToolsSubmenuPosition = { x: 0, y: 0 };
+  let devToolsSubmenuSide: 'left' | 'right' = 'right';
   let closeConfirmDropdown: HTMLDivElement | null = null;
   let closeConfirmPosition = { x: 0, y: 0 };
   let closeConfirmAnchorPoint: { x: number; y: number } | null = null;
+  let devToolsSubmenuOpen = false;
+  let devToolsSubmenuCloseTimeout: ReturnType<typeof setTimeout> | null = null;
   const tabCloseButtons: Record<string, HTMLButtonElement | null> = {};
   const tabGroupElements: Record<string, HTMLDivElement | null> = {};
 
@@ -113,6 +121,7 @@
     if (menuOpen) {
       quickConnectOpen = false;
       closeWorldContextMenu();
+      closeDevToolsSubmenu();
     }
   }
 
@@ -128,10 +137,58 @@
 
   function closeMenu(): void {
     menuOpen = false;
+    closeDevToolsSubmenu();
   }
 
   function closeQuickConnect(): void {
     quickConnectOpen = false;
+  }
+
+  function clearDevToolsSubmenuCloseTimeout(): void {
+    if (devToolsSubmenuCloseTimeout !== null) {
+      clearTimeout(devToolsSubmenuCloseTimeout);
+      devToolsSubmenuCloseTimeout = null;
+    }
+  }
+
+  function openDevToolsSubmenu(): void {
+    clearDevToolsSubmenuCloseTimeout();
+    devToolsSubmenuOpen = true;
+  }
+
+  function scheduleCloseDevToolsSubmenu(): void {
+    clearDevToolsSubmenuCloseTimeout();
+    devToolsSubmenuCloseTimeout = setTimeout(() => {
+      devToolsSubmenuOpen = false;
+      devToolsSubmenuCloseTimeout = null;
+    }, 160);
+  }
+
+  function closeDevToolsSubmenu(): void {
+    devToolsSubmenuOpen = false;
+    clearDevToolsSubmenuCloseTimeout();
+  }
+
+  function updateDevToolsSubmenuPosition(): void {
+    if (!devToolsSubmenuOpen || !devToolsButton || !devToolsSubmenu) {
+      return;
+    }
+
+    const margin = 8;
+    const gap = 8;
+    const buttonRect = devToolsButton.getBoundingClientRect();
+    const submenuRect = devToolsSubmenu.getBoundingClientRect();
+    const preferRight = buttonRect.right + gap + submenuRect.width <= window.innerWidth - margin;
+    const rawX = preferRight
+      ? buttonRect.right + gap
+      : buttonRect.left - gap - submenuRect.width;
+    const rawY = buttonRect.top;
+
+    devToolsSubmenuSide = preferRight ? 'right' : 'left';
+    devToolsSubmenuPosition = {
+      x: Math.max(margin, Math.min(rawX, window.innerWidth - submenuRect.width - margin)),
+      y: Math.max(margin, Math.min(rawY, window.innerHeight - submenuRect.height - margin)),
+    };
   }
 
   function closeWorldContextMenu(): void {
@@ -176,6 +233,7 @@
     closeWorldContextMenu();
     menuOpen = false;
     quickConnectOpen = false;
+    closeDevToolsSubmenu();
 
     tabDragState = createTabDragState(tab, event, tabs);
 
@@ -265,6 +323,12 @@
     void tick().then(updateCloseConfirmPosition);
   }
 
+  $: if (devToolsSubmenuOpen) {
+    void tick().then(updateDevToolsSubmenuPosition);
+  } else {
+    clearDevToolsSubmenuCloseTimeout();
+  }
+
   function updateQuickConnectSide(): void {
     if (!quickConnectOpen || !quickConnectButton) {
       return;
@@ -335,6 +399,7 @@
     const handleDocumentClick = (event: MouseEvent) => {
       if (menuContainer && !menuContainer.contains(event.target as Node)) {
         menuOpen = false;
+        closeDevToolsSubmenu();
       }
 
       if (quickConnectContainer && !quickConnectContainer.contains(event.target as Node)) {
@@ -350,6 +415,10 @@
           closeConfirmAnchorPoint = null;
           onCancelCloseConfirm();
         }
+      }
+
+      if (devToolsSubmenu && !devToolsSubmenu.contains(event.target as Node)) {
+        closeDevToolsSubmenu();
       }
     };
 
@@ -368,6 +437,7 @@
 
         menuOpen = false;
         quickConnectOpen = false;
+        closeDevToolsSubmenu();
         closeWorldContextMenu();
         closeConfirmAnchorPoint = null;
         onCancelCloseConfirm();
@@ -381,6 +451,10 @@
 
       if (worldContextMenuOpen) {
         updateWorldContextMenuPosition();
+      }
+
+      if (devToolsSubmenuOpen) {
+        updateDevToolsSubmenuPosition();
       }
 
       if (isCloseConfirmDropdownOpen()) {
@@ -406,6 +480,7 @@
       window.removeEventListener('resize', handleResize);
       tabClickScheduler.clearSuppressedTabClick();
       closeTabDrag();
+      closeDevToolsSubmenu();
     };
   });
 
@@ -653,23 +728,81 @@
               closeMenu();
               onOpenTriggersTab(null, null);
             }}
-          >
+            >
             <span class="titlebar-menu-item-icon" aria-hidden="true">⏱</span>
             triggers
           </button>
           <button
             type="button"
-            class="titlebar-menu-item"
+            class="titlebar-menu-item titlebar-menu-item-submenu"
+            bind:this={devToolsButton}
             role="menuitem"
-            disabled={!canOpenInspector}
+            aria-haspopup="menu"
+            aria-expanded={devToolsSubmenuOpen}
             on:click={() => {
-              closeMenu();
-              void openInspector();
+              if (devToolsSubmenuOpen) {
+                closeDevToolsSubmenu();
+              } else {
+                openDevToolsSubmenu();
+              }
             }}
+            on:mouseenter={openDevToolsSubmenu}
+            on:mouseleave={scheduleCloseDevToolsSubmenu}
+            on:focus={openDevToolsSubmenu}
           >
             <span class="titlebar-menu-item-icon" aria-hidden="true">🔧</span>
-            dev tools
+            <span>dev tools</span>
+            <span class="titlebar-menu-submenu-arrow" aria-hidden="true">▶</span>
           </button>
+          {#if devToolsSubmenuOpen}
+            <div
+              bind:this={devToolsSubmenu}
+              class="titlebar-dropdown titlebar-menu-submenu-panel"
+              role="menu"
+              aria-label="dev tools submenu"
+              data-side={devToolsSubmenuSide}
+              style={`left: ${devToolsSubmenuPosition.x}px; top: ${devToolsSubmenuPosition.y}px;`}
+              on:mouseenter={openDevToolsSubmenu}
+              on:mouseleave={scheduleCloseDevToolsSubmenu}
+              on:click|stopPropagation
+              on:contextmenu|preventDefault
+              on:keydown={(event) => {
+                if (event.key === 'Escape') {
+                  closeMenu();
+                }
+              }}
+            >
+              <button
+                type="button"
+                class="titlebar-menu-item titlebar-menu-submenu-item"
+                role="menuitem"
+                disabled={!canOpenInspector}
+                on:click={() => {
+                  closeMenu();
+                  if (canOpenInspector) {
+                    void openInspector();
+                  }
+                }}
+              >
+                <span class="titlebar-menu-item-icon" aria-hidden="true">🪟</span>
+                webview inspector
+              </button>
+              <button
+                type="button"
+                class="titlebar-menu-item titlebar-menu-submenu-item"
+                class:active={transcriptDiagnosticsEnabled}
+                role="menuitemcheckbox"
+                aria-checked={transcriptDiagnosticsEnabled}
+                on:click={() => {
+                  closeMenu();
+                  onToggleTranscriptDiagnostics();
+                }}
+              >
+                <span class="titlebar-menu-item-icon" aria-hidden="true">🪲</span>
+                {transcriptDiagnosticsEnabled ? 'disable transcript diagnostics' : 'enable transcript diagnostics'}
+              </button>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>

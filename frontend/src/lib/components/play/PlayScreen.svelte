@@ -31,6 +31,7 @@
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
+  export let transcriptDiagnosticsEnabled = false;
   export let userScrolled = false;
   export let spellcheckEnabled = true;
   export let spellcheckLanguage = 'en-US';
@@ -176,6 +177,7 @@
     {visible}
     {triggers}
     {linkImagePreviews}
+    {transcriptDiagnosticsEnabled}
     {imagePreviewCacheVersion}
     {renderCache}
     {showCurrentOutputWhenScrollingUp}

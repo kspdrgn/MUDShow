@@ -18,6 +18,7 @@ export interface SessionState {
   triggers: Trigger[];
   tabs: AppTab[];
   activeTabId: string | null;
+  transcriptDiagnosticsEnabled: boolean;
   worldSessions: Record<string, WorldTabSessionState>;
   modalOpen: boolean;
   modalKind: 'world' | 'character' | null;
@@ -58,6 +59,7 @@ export function createInitialState(): SessionState {
     triggers: [],
     tabs: [],
     activeTabId: null,
+    transcriptDiagnosticsEnabled: false,
     worldSessions: {},
     modalOpen: false,
     modalKind: null,

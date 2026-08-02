@@ -175,6 +175,14 @@ function createSession() {
     patch({ settingsActiveTab: tab });
   }
 
+  function setTranscriptDiagnosticsEnabled(enabled: boolean): void {
+    patch({ transcriptDiagnosticsEnabled: enabled });
+  }
+
+  function toggleTranscriptDiagnosticsEnabled(): void {
+    patch({ transcriptDiagnosticsEnabled: !getState().transcriptDiagnosticsEnabled });
+  }
+
   function setConfirmUnloggedTabClose(confirmUnloggedTabClose: boolean): void {
     patch({ confirmUnloggedTabClose });
   }
@@ -704,6 +712,8 @@ function createSession() {
     selectTab,
     setTranscriptScrollbackChunks,
     setSettingsActiveTab,
+    setTranscriptDiagnosticsEnabled,
+    toggleTranscriptDiagnosticsEnabled,
     setConfirmUnloggedTabClose,
     openTriggersTab,
     selectNextTab,
