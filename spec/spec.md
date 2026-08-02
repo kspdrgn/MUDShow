@@ -10,7 +10,7 @@
 - spec/fonts.md - Built-in and system font discovery, shelf persistence, validation, fallback, and fontdb behavior
 - spec/style.md - Style settings for fonts and colors used by input and output area, can be stored at three levels: app, world, character
 - spec/triggers.md - Simple word highlights and complex regexp triggers
-- spec/svelte.md - Svelte-specific code organization guidance for component-local logic and helper module placement
+- spec/svelte.md - Svelte-specific code organization guidance for component-local logic, shared helper modules, and service boundaries
 
 ## Purpose
 Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with just enough features to support roleplay and day-to-day play.

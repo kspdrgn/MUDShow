@@ -103,6 +103,44 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     session.toggleTranscriptDiagnosticsEnabled();
   }
 
+  function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState) {
+    return {
+      onReconnectTab: () => void session.reconnectWorldTab(tab.id),
+      onDisconnectTab: () => void session.disconnectWorldTab(tab.id),
+      onQuickLogTab: () =>
+        void session.startLogging(
+          tab.id,
+          resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null,
+          null,
+        ),
+      onOpenLoggingTab: () => openLoggingModal(tab.id),
+      onStopLoggingTab: () => void session.stopLogging(tab.id),
+      onEditWorldTab: () => void session.openWorldEditorFromWorldTab(tab.id),
+      onEditCharacterTab: () => void session.openCharacterEditorFromWorldTab(tab.id),
+      onCloseTab: () => session.closeTab(tab.id, 'shortcut'),
+      onOpenNotes: () => void session.togglePanel('notes'),
+      onOpenTriggers: () =>
+        session.openTriggersTab(worldSession.currentWorld?.id ?? null, worldSession.currentCharacter?.id ?? null),
+      onOpenDebugConsole: () => void session.togglePanel('debugConsole'),
+      onOpenStyles: () => openDefaultStyleSettings(),
+      onInputFocusBar: (bar: number) => session.handleInputFocus(bar),
+      onInputSubmit: (bar: number, value: string) => session.handleInputSubmit(bar, value),
+      onInputComplete: (_bar: number, value: string, selectionStart: number) =>
+        session.completeInput(value, selectionStart),
+      onInputAddBar: (bar: number) => void session.addInputBarAfter(bar),
+      onInputRemoveBar: (bar: number) => void session.removeInputBar(bar),
+      onInputResizeBar: (bar: number, delta: -1 | 1) => session.resizeInputBar(bar, delta),
+      onNotesInput: (notes: string) => session.saveNotes(notes),
+      onSpellcheckIgnoreWord: handleSpellcheckIgnoreWord,
+      onNotesClose: () => void session.togglePanel('notes'),
+      onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
+      onOutputScroll: () => session.handleOutputScroll(),
+      onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') =>
+        session.handleOutputScrollKey(action),
+      onScrollToBottom: () => session.handleScrollToBottom(),
+    };
+  }
+
   async function handleSpellcheckIgnoreWord(word: string): Promise<void> {
     if (!word.trim()) {
       return;
@@ -512,6 +550,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
 
     {#each $session.tabs.filter((tab) => tab.kind === 'world') as tab (tab.id)}
       {@const worldSession = $session.worldSessions[tab.id] ?? session.getWorldSession(tab.id)}
+      {@const playScreenActions = createPlayScreenActions(tab, worldSession)}
       <PlayScreen
         scope={tab.id}
         visible={tab.id === $session.activeTabId}
@@ -556,31 +595,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         canStopLogging={worldSession.loggingActive}
         canEditWorld={worldSession.currentWorld !== null}
         canEditCharacter={worldSession.currentCharacter !== null}
-        onReconnectTab={() => void session.reconnectWorldTab(tab.id)}
-        onDisconnectTab={() => void session.disconnectWorldTab(tab.id)}
-        onQuickLogTab={() => void session.startLogging(tab.id, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null)}
-        onOpenLoggingTab={() => openLoggingModal(tab.id)}
-        onStopLoggingTab={() => void session.stopLogging(tab.id)}
-        onEditWorldTab={() => void session.openWorldEditorFromWorldTab(tab.id)}
-        onEditCharacterTab={() => void session.openCharacterEditorFromWorldTab(tab.id)}
-        onOpenStyles={() => openDefaultStyleSettings()}
-        onCloseTab={() => session.closeTab(tab.id, 'shortcut')}
-        onOpenNotes={() => void session.togglePanel('notes')}
-        onOpenDebugConsole={() => void session.togglePanel('debugConsole')}
-        onInputFocusBar={(bar) => session.handleInputFocus(bar)}
-        onInputSubmit={(bar, value) => session.handleInputSubmit(bar, value)}
-        onInputComplete={(bar, value, selectionStart) => session.completeInput(value, selectionStart)}
-        onInputAddBar={(bar) => void session.addInputBarAfter(bar)}
-        onInputRemoveBar={(bar) => void session.removeInputBar(bar)}
-        onInputResizeBar={(bar, delta) => session.resizeInputBar(bar, delta)}
-        onNotesInput={(notes) => session.saveNotes(notes)}
-        onSpellcheckIgnoreWord={handleSpellcheckIgnoreWord}
-        onNotesClose={() => void session.togglePanel('notes')}
-        onDebugConsoleClose={() => void session.togglePanel('debugConsole')}
-        onOutputScroll={() => session.handleOutputScroll()}
-        onOutputScrollKey={(action) => session.handleOutputScrollKey(action)}
-        onScrollToBottom={() => session.handleScrollToBottom()}
-        onOpenTriggers={() => session.openTriggersTab(worldSession.currentWorld?.id ?? null, worldSession.currentCharacter?.id ?? null)}
+        actions={playScreenActions}
       />
     {/each}
 

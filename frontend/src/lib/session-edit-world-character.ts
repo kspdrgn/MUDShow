@@ -1,8 +1,9 @@
 import type { Writable } from 'svelte/store';
-import type { CharacterDraft, CharacterRecord, Trigger, WorldDraft, WorldRecord } from './types';
+import type { CharacterDraft, CharacterRecord, WorldDraft, WorldRecord } from './types';
 import { saveConnectionData, saveTriggers } from './storage';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { focusElement, nextFrame } from './session-dom';
+import { removeTriggersForCharacter, removeTriggersForWorld } from './session-triggers';
 
 interface CharacterActionContext {
   state: Writable<SessionState>;
@@ -93,25 +94,6 @@ export function createCharacterActions({
   onWorldDeleted,
   onCharacterDeleted,
 }: CharacterActionContext) {
-  function removeTriggersForWorld(triggers: Trigger[], worldId: string, removedCharacters: CharacterRecord[]): Trigger[] {
-    const removedCharacterIds = new Set(removedCharacters.map((character) => character.id));
-    return triggers.filter((trigger) => {
-      if (trigger.owner.kind === 'world') {
-        return trigger.owner.worldId !== worldId;
-      }
-
-      if (trigger.owner.kind === 'character') {
-        return !removedCharacterIds.has(trigger.owner.characterId);
-      }
-
-      return true;
-    });
-  }
-
-  function removeTriggersForCharacter(triggers: Trigger[], characterId: string): Trigger[] {
-    return triggers.filter((trigger) => trigger.owner.kind !== 'character' || trigger.owner.characterId !== characterId);
-  }
-
   async function openWorldModal(index: number | null = null): Promise<void> {
     const state = getState();
     const selected = index === null ? null : state.worlds[index] ?? null;

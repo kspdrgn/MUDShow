@@ -19,6 +19,38 @@
   } from './play-width';
   import { type ChannelTabVM, type ChannelTabId } from './channel';
 
+  type PlayScreenActions = {
+    onReconnectTab: () => void;
+    onDisconnectTab: () => void;
+    onQuickLogTab: () => void;
+    onOpenLoggingTab: () => void;
+    onStopLoggingTab: () => void;
+    onEditWorldTab: () => void;
+    onEditCharacterTab: () => void;
+    onCloseTab: (anchorRect: DOMRect) => void;
+    onOpenNotes: () => void;
+    onOpenTriggers: () => void;
+    onOpenDebugConsole: () => void;
+    onOpenStyles: () => void;
+    onInputFocusBar: (bar: InputBarId) => void;
+    onInputSubmit: (bar: InputBarId, value: string) => void;
+    onInputComplete: (
+      bar: InputBarId,
+      value: string,
+      selectionStart: number,
+    ) => { value: string; cursor: number } | null;
+    onInputAddBar: (bar: InputBarId) => void;
+    onInputRemoveBar: (bar: InputBarId) => void;
+    onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
+    onNotesInput: (notes: string) => void;
+    onSpellcheckIgnoreWord: (word: string) => void;
+    onNotesClose: () => void;
+    onDebugConsoleClose: () => void;
+    onOutputScroll: () => void;
+    onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
+    onScrollToBottom: () => void;
+  };
+
   export let scope = 'world';
   export let visible = true;
   export let styleValues: AppStyleValues;
@@ -52,41 +84,13 @@
   export let renderCache: RenderCache | null = null;
   export let characterWidth: number | undefined = undefined;
   export let outputFontSize = 13;
-  export let onReconnectTab: () => void;
-  export let onDisconnectTab: () => void;
-  export let onQuickLogTab: () => void;
-  export let onOpenLoggingTab: () => void;
-  export let onStopLoggingTab: () => void;
-  export let onEditWorldTab: () => void;
-  export let onEditCharacterTab: () => void;
-  export let onCloseTab: (anchorRect: DOMRect) => void;
-  export let onOpenNotes: () => void;
-  export let onOpenTriggers: () => void;
-  export let onOpenDebugConsole: () => void;
-  export let onOpenStyles: () => void;
+  export let actions: PlayScreenActions;
   export let canReconnect = false;
   export let canDisconnect = false;
   export let canQuickLog = false;
   export let canStopLogging = false;
   export let canEditWorld = false;
   export let canEditCharacter = false;
-  export let onInputFocusBar: (bar: InputBarId) => void;
-  export let onInputSubmit: (bar: InputBarId, value: string) => void;
-  export let onInputComplete: (
-    bar: InputBarId,
-    value: string,
-    selectionStart: number,
-  ) => { value: string; cursor: number } | null;
-  export let onInputAddBar: (bar: InputBarId) => void;
-  export let onInputRemoveBar: (bar: InputBarId) => void;
-  export let onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
-  export let onNotesInput: (notes: string) => void;
-  export let onSpellcheckIgnoreWord: (word: string) => void;
-  export let onNotesClose: () => void;
-  export let onDebugConsoleClose: () => void;
-  export let onOutputScroll: () => void;
-  export let onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
-  export let onScrollToBottom: () => void;
 
   let screenElement: HTMLDivElement | null = null;
   let measuredPlayWidth = 'none';
@@ -283,9 +287,9 @@
     {spellcheckSuggestionLimit}
     {spellcheckMinimumWordLength}
     {spellcheckDebounceMs}
-    onInput={onNotesInput}
-    onIgnoreWord={onSpellcheckIgnoreWord}
-    onClose={onNotesClose}
+    onInput={actions.onNotesInput}
+    onIgnoreWord={actions.onSpellcheckIgnoreWord}
+    onClose={actions.onNotesClose}
   />
 
   <DebugConsolePanel
@@ -293,7 +297,7 @@
     entries={debugConsoleEntries}
     {scope}
     activeBar={activeBar}
-    onClose={onDebugConsoleClose}
+    onClose={actions.onDebugConsoleClose}
   />
 
   <Transcript
@@ -317,20 +321,20 @@
     {canStopLogging}
     {canEditWorld}
     {canEditCharacter}
-    onReconnect={onReconnectTab}
-    onDisconnect={onDisconnectTab}
-    onQuickLog={onQuickLogTab}
-    onStopLogging={onStopLoggingTab}
-    onOpenLogging={onOpenLoggingTab}
-    onEditWorld={onEditWorldTab}
-    onEditCharacter={onEditCharacterTab}
-    onOpenNotes={onOpenNotes}
-    onOpenDebugConsole={onOpenDebugConsole}
-    onOpenTriggers={onOpenTriggers}
-    onOpenStyles={onOpenStyles}
-    onCloseRequest={onCloseTab}
-    onScroll={onOutputScroll}
-    onScrollToBottom={onScrollToBottom}
+    onReconnect={actions.onReconnectTab}
+    onDisconnect={actions.onDisconnectTab}
+    onQuickLog={actions.onQuickLogTab}
+    onStopLogging={actions.onStopLoggingTab}
+    onOpenLogging={actions.onOpenLoggingTab}
+    onEditWorld={actions.onEditWorldTab}
+    onEditCharacter={actions.onEditCharacterTab}
+    onOpenNotes={actions.onOpenNotes}
+    onOpenDebugConsole={actions.onOpenDebugConsole}
+    onOpenTriggers={actions.onOpenTriggers}
+    onOpenStyles={actions.onOpenStyles}
+    onCloseRequest={actions.onCloseTab}
+    onScroll={actions.onOutputScroll}
+    onScrollToBottom={actions.onScrollToBottom}
   />
 
   <InputBars
@@ -346,13 +350,13 @@
     {spellcheckSuggestionLimit}
     {spellcheckMinimumWordLength}
     {spellcheckDebounceMs}
-    onIgnoreWord={onSpellcheckIgnoreWord}
-    onFocusBar={onInputFocusBar}
-    onSubmit={onInputSubmit}
-    onComplete={onInputComplete}
-    onAddBar={onInputAddBar}
-    onRemoveBar={onInputRemoveBar}
-    onResizeBar={onInputResizeBar}
-    onOutputScrollKey={onOutputScrollKey}
+    onIgnoreWord={actions.onSpellcheckIgnoreWord}
+    onFocusBar={actions.onInputFocusBar}
+    onSubmit={actions.onInputSubmit}
+    onComplete={actions.onInputComplete}
+    onAddBar={actions.onInputAddBar}
+    onRemoveBar={actions.onInputRemoveBar}
+    onResizeBar={actions.onInputResizeBar}
+    onOutputScrollKey={actions.onOutputScrollKey}
   />
 </div>

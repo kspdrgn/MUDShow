@@ -1,20 +1,10 @@
-import { get, writable } from 'svelte/store';
+import type { Writable } from 'svelte/store';
 import { MudConnection } from './connection';
 import { buildHighlightRegexes } from './formatting';
 import { DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS } from './playback';
-import { createSessionTabsActions } from './session-tabs';
-import { createCharacterActions } from './session-edit-world-character';
-import { createInitialState, type SessionState } from './session-state';
-import { createAppShortcutActions } from './session-app-shortcuts';
-import { createWorldConnectionActions } from './session-world-connection';
-import { createWorldInputActions } from './session-world-input';
-import { createWorldPanelActions } from './session-world-panels';
-import { createWorldShortcutActions } from './session-world-shortcuts';
-import { createTriggerActions } from './session-triggers';
-import { createWorldTranscriptActions } from './session-world-transcript';
 import { focusElement, nextFrame } from './session-dom';
 import { loadSessionData } from './storage';
-import type { CharacterRecord, HighlightRule, Trigger, WorldRecord } from './types';
+import type { HighlightRule, WorldRecord, CharacterRecord } from './types';
 import {
   CHARACTERS_TAB_ID,
   SETTINGS_TAB_ID,
@@ -25,7 +15,6 @@ import {
   createWorldTab,
   type AppTab,
   type WorldTab,
-  type SettingsTabId,
 } from './tabs';
 import {
   applyWorldProjection,
@@ -33,25 +22,27 @@ import {
   type WorldTabSessionState,
 } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
+import { createInitialState, type SessionState } from './session-state';
 
-function createSession() {
-  const state = writable<SessionState>(createInitialState());
-  const getHighlightTriggers = (triggers: Trigger[]): HighlightRule[] =>
-    triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
-  let highlightRegexes = buildHighlightRegexes(getHighlightTriggers(get(state).triggers));
+interface SessionTabsActionContext {
+  state: Writable<SessionState>;
+  getState: () => SessionState;
+  patch: (patch: Partial<SessionState>) => void;
+  setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
+  clearLoggingQueue: (tabId: string) => void;
+}
+
+export function createSessionTabsActions({
+  state,
+  getState,
+  patch,
+  setHighlightRegexes,
+  clearLoggingQueue,
+}: SessionTabsActionContext) {
+  const worldConnections = new Map<string, MudConnection>();
   let nextWorldTabId = 1;
   let nextConnectionId = 1;
   let transcriptScrollbackChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS;
-  const worldConnections = new Map<string, MudConnection>();
-  let clearLoggingQueue = (_tabId: string): void => {};
-
-  const getState = () => get(state);
-  const patch = (partial: Partial<SessionState>) => {
-    state.update((current) => ({
-      ...current,
-      ...partial,
-    }));
-  };
 
   function getTab(tabId: string): AppTab | null {
     return getState().tabs.find((tab) => tab.id === tabId) ?? null;
@@ -76,44 +67,6 @@ function createSession() {
 
   function getWorldSession(tabId: string): WorldTabSessionState {
     return getWorldSessions()[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
-  }
-
-  function resetPersistentView(): void {
-    const current = getState();
-    const nextTabs = current.tabs.filter((tab) => tab.kind !== 'world');
-    const activeTabStillExists = current.activeTabId !== null && nextTabs.some((tab) => tab.id === current.activeTabId);
-
-    for (const tab of current.tabs) {
-      if (tab.kind === 'world') {
-        releaseWorldConnection(tab.id);
-        clearLoggingQueue(tab.id);
-      }
-    }
-
-    state.set({
-      ...current,
-      worlds: [],
-      characters: [],
-      triggers: [],
-      tabs: nextTabs,
-      activeTabId: activeTabStillExists ? current.activeTabId : nextTabs[0]?.id ?? null,
-      worldSessions: {},
-      modalOpen: false,
-      modalKind: null,
-      modalTitle: 'add character',
-      closeConfirmTabId: null,
-      closeConfirmMode: null,
-      worldEditingId: null,
-      worldModalDraft: { ...createInitialState().worldModalDraft },
-      editingIndex: null,
-      modalDraft: { ...createInitialState().modalDraft },
-      characterWorldId: null,
-      triggersContextWorldId: null,
-      triggersContextCharacterId: null,
-    });
-    highlightRegexes = buildHighlightRegexes([]);
-    nextWorldTabId = 1;
-    nextConnectionId = 1;
   }
 
   function ensureWorldSession(tabId: string): WorldTabSessionState {
@@ -177,32 +130,6 @@ function createSession() {
 
     return tab;
   }
-
-  function setSettingsActiveTab(tab: SettingsTabId): void {
-    patch({ settingsActiveTab: tab });
-  }
-
-  function setTranscriptDiagnosticsEnabled(enabled: boolean): void {
-    patch({ transcriptDiagnosticsEnabled: enabled });
-  }
-
-  function toggleTranscriptDiagnosticsEnabled(): void {
-    patch({ transcriptDiagnosticsEnabled: !getState().transcriptDiagnosticsEnabled });
-  }
-
-  function setConfirmUnloggedTabClose(confirmUnloggedTabClose: boolean): void {
-    patch({ confirmUnloggedTabClose });
-  }
-
-  const tabsActions = createSessionTabsActions({
-    state,
-    getState,
-    patch,
-    setHighlightRegexes: (regexes) => {
-      highlightRegexes = regexes;
-    },
-    clearLoggingQueue,
-  });
 
   function getWorldConnection(tabId: string): MudConnection | null {
     const tab = getTab(tabId);
@@ -405,11 +332,6 @@ function createSession() {
     }
 
     selectTab(previousTab.id);
-  }
-
-  async function openCharactersTab(): Promise<void> {
-    selectTab(CHARACTERS_TAB_ID);
-    await nextFrame();
   }
 
   function reorderTab(tabId: string, targetIndex: number): void {
@@ -617,169 +539,112 @@ function createSession() {
     });
   }
 
-  const load = async () => {
-    await tabsActions.load();
-  };
+  function resetPersistentView(): void {
+    const current = getState();
+    const nextTabs = current.tabs.filter((tab) => tab.kind !== 'world');
+    const activeTabStillExists = current.activeTabId !== null && nextTabs.some((tab) => tab.id === current.activeTabId);
+
+    for (const tab of current.tabs) {
+      if (tab.kind === 'world') {
+        releaseWorldConnection(tab.id);
+        clearLoggingQueue(tab.id);
+      }
+    }
+
+    state.set({
+      ...current,
+      worlds: [],
+      characters: [],
+      triggers: [],
+      tabs: nextTabs,
+      activeTabId: activeTabStillExists ? current.activeTabId : nextTabs[0]?.id ?? null,
+      worldSessions: {},
+      modalOpen: false,
+      modalKind: null,
+      modalTitle: 'add character',
+      closeConfirmTabId: null,
+      closeConfirmMode: null,
+      worldEditingId: null,
+      worldModalDraft: { ...createInitialState().worldModalDraft },
+      editingIndex: null,
+      modalDraft: { ...createInitialState().modalDraft },
+      characterWorldId: null,
+      triggersContextWorldId: null,
+      triggersContextCharacterId: null,
+    });
+    setHighlightRegexes(buildHighlightRegexes([]));
+    nextWorldTabId = 1;
+    nextConnectionId = 1;
+  }
 
   function setTranscriptScrollbackChunks(maxChunks: number): void {
-    tabsActions.setTranscriptScrollbackChunks(maxChunks);
+    transcriptScrollbackChunks = Math.max(1, Math.round(maxChunks));
+
+    state.update((current) => {
+      const worldSessions: Record<string, WorldTabSessionState> = {};
+
+      for (const [tabId, worldSession] of Object.entries(current.worldSessions)) {
+        const previousChunkCount = worldSession.transcript.getChunkCount();
+        worldSession.transcript.setMaxChunks(transcriptScrollbackChunks);
+        const nextChunkCount = worldSession.transcript.getChunkCount();
+
+        worldSessions[tabId] = {
+          ...worldSession,
+          outputRevision:
+            nextChunkCount === previousChunkCount
+              ? worldSession.outputRevision
+              : worldSession.outputRevision + 1,
+        };
+      }
+
+      return {
+        ...current,
+        worldSessions,
+      };
+    });
   }
 
-  const transcriptActions = createWorldTranscriptActions({
-    getState,
-    patch,
-    getActiveWorldTabId: tabsActions.getActiveWorldTabId,
-    getActiveWorldScope: () => {
-      const tabId = tabsActions.getActiveWorldTabId();
-      return tabId ? getWorldDomScope(tabId) : null;
-    },
-    getWorldSession: tabsActions.getWorldSession,
-    updateWorldSession: tabsActions.updateWorldSession,
-  });
-
-  const characterActions = createCharacterActions({
-    state,
-    getState,
-    patch,
-    onRecordsChanged: tabsActions.refreshWorldTabs,
-    onWorldDeleted: tabsActions.deleteWorldTabsForWorld,
-    onCharacterDeleted: tabsActions.deleteWorldTabsForCharacter,
-  });
-
-  const triggerActions = createTriggerActions({
-    getState,
-    patch,
-    setHighlightRegexes: (regexes) => {
-      highlightRegexes = regexes;
-    },
-  });
-
-  const connectionActions = createWorldConnectionActions({
-    getState,
-    getWorldSession: tabsActions.getWorldSession,
-    ensureWorldSession: tabsActions.ensureWorldSession,
-    updateWorldSession: tabsActions.updateWorldSession,
-    activateWorldTab: tabsActions.activateWorldTab,
-    getWorldConnection: tabsActions.getWorldConnection,
-    closeWorldTabConnection: tabsActions.closeWorldTabConnection,
-    ensureWorldTab: tabsActions.ensureWorldTab,
-    appendOutputToTab: transcriptActions.appendOutputToTab,
-    appendIncomingRawMessageToTab: transcriptActions.appendIncomingRawMessageToTab,
-    appendDebugConsoleMessageToTab: transcriptActions.appendDebugConsoleMessageToTab,
-    appendConnectionStatusToTab: transcriptActions.appendConnectionStatusToTab,
-    setHighlightRegexes: (regexes) => {
-      highlightRegexes = regexes;
-    },
-  });
-
-  const inputActions = createWorldInputActions({
-    getActiveWorldTabId: tabsActions.getActiveWorldTabId,
-    resolveActiveWorldScope: () => {
-      const tabId = tabsActions.getActiveWorldTabId();
-      return tabId ? getWorldDomScope(tabId) : null;
-    },
-    getWorldSession: tabsActions.getWorldSession,
-    updateWorldSession: tabsActions.updateWorldSession,
-    appendDebugConsoleMessageToTab: transcriptActions.appendDebugConsoleMessageToTab,
-    getWorldConnection: tabsActions.getWorldConnection,
-  });
-
-  const panelActions = createWorldPanelActions({
-    getActiveWorldTabId: tabsActions.getActiveWorldTabId,
-    resolveActiveWorldScope: () => {
-      const tabId = tabsActions.getActiveWorldTabId();
-      return tabId ? getWorldDomScope(tabId) : null;
-    },
-    getWorldSession: tabsActions.getWorldSession,
-    updateWorldSession: tabsActions.updateWorldSession,
-  });
-
-  const shortcutActions = createWorldShortcutActions({
-    getActiveWorldTabId: tabsActions.getActiveWorldTabId,
-    getWorldSession: tabsActions.getWorldSession,
-    updateWorldSession: tabsActions.updateWorldSession,
-    addInputBarAfter: inputActions.addInputBarAfter,
-    togglePanel: panelActions.togglePanel,
-  });
-
-  const appShortcutActions = createAppShortcutActions({
-    getState,
-    patch,
-    getActiveWorldTabId: tabsActions.getActiveWorldTabId,
-    closeTab: tabsActions.closeTab,
-    handleWorldShortcutKeyDown: shortcutActions.handleWorldShortcutKeyDown,
-  });
-
-  clearLoggingQueue = transcriptActions.clearLoggingQueue;
-
-  async function openWorldEditorFromWorldTab(tabId: string): Promise<void> {
-    const session = tabsActions.getWorldSession(tabId);
-    const world = session.currentWorld;
-    if (!world) {
-      return;
+  const load = async () => {
+    try {
+      resetPersistentView();
+      const { worlds, characters, triggers } = await loadSessionData();
+      patch({ worlds, characters, triggers });
+      setHighlightRegexes(buildHighlightRegexes(triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight')));
+      refreshWorldTabs();
+    } catch (error) {
+      console.error('failed to load persisted session data:', error);
     }
+  };
 
-    const worldIndex = getState().worlds.findIndex((entry) => entry.id === world.id);
-    if (worldIndex < 0) {
-      return;
+  function dispose(): void {
+    for (const tabId of [...worldConnections.keys()]) {
+      releaseWorldConnection(tabId);
     }
-
-    tabsActions.selectTab(CHARACTERS_TAB_ID);
-    await nextFrame();
-    await characterActions.openWorldModal(worldIndex);
-  }
-
-  async function openCharacterEditorFromWorldTab(tabId: string): Promise<void> {
-    const session = tabsActions.getWorldSession(tabId);
-    const character = session.currentCharacter;
-    if (!character) {
-      return;
-    }
-
-    const characterIndex = getState().characters.findIndex((entry) => entry.id === character.id);
-    if (characterIndex < 0) {
-      return;
-    }
-
-    tabsActions.selectTab(CHARACTERS_TAB_ID);
-    await nextFrame();
-    await characterActions.openCharacterModal(character.worldId, characterIndex);
   }
 
   return {
-    subscribe: state.subscribe,
-    load: tabsActions.load,
-    dispose: tabsActions.dispose,
-    selectTab: tabsActions.selectTab,
-    setTranscriptScrollbackChunks: tabsActions.setTranscriptScrollbackChunks,
-    setSettingsActiveTab,
-    setTranscriptDiagnosticsEnabled,
-    toggleTranscriptDiagnosticsEnabled,
-    setConfirmUnloggedTabClose,
-    openTriggersTab: tabsActions.openTriggersTab,
-    selectNextTab: tabsActions.selectNextTab,
-    selectPreviousTab: tabsActions.selectPreviousTab,
-    reorderTab: tabsActions.reorderTab,
-    closeTab: tabsActions.closeTab,
-    cancelCloseConfirm: tabsActions.cancelCloseConfirm,
-    confirmCloseTab: tabsActions.confirmCloseTab,
-    ensureWorldTab: tabsActions.ensureWorldTab,
-    getWorldSession: tabsActions.getWorldSession,
-    getWorldConnection: tabsActions.getWorldConnection,
-    refreshWorldTabs: tabsActions.refreshWorldTabs,
-    deleteWorldTabsForCharacter: tabsActions.deleteWorldTabsForCharacter,
-    deleteWorldTabsForWorld: tabsActions.deleteWorldTabsForWorld,
-    openWorldEditorFromWorldTab,
-    openCharacterEditorFromWorldTab,
-    ...connectionActions,
-    ...inputActions,
-    ...panelActions,
-    ...shortcutActions,
-    ...appShortcutActions,
-    ...transcriptActions,
-    ...characterActions,
-    ...triggerActions,
+    getActiveWorldTabId,
+    getWorldSession,
+    getWorldConnection,
+    ensureWorldSession,
+    updateWorldSession,
+    activateWorldTab,
+    closeWorldTabConnection,
+    ensureWorldTab,
+    refreshWorldTabs,
+    selectTab,
+    selectNextTab,
+    selectPreviousTab,
+    openTriggersTab,
+    reorderTab,
+    closeTab,
+    cancelCloseConfirm,
+    confirmCloseTab,
+    deleteWorldTabsForCharacter,
+    deleteWorldTabsForWorld,
+    resetPersistentView,
+    setTranscriptScrollbackChunks,
+    load,
+    dispose,
   };
 }
-
-export const session = createSession();

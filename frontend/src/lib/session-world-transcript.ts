@@ -1,0 +1,377 @@
+import { appendTranscriptHistory } from './playback';
+import {
+  appendDebugConsoleEntry,
+  type DebugConsoleDirection,
+} from './debug-console';
+import {
+  loadNotes,
+  loadTranscriptHistory,
+  saveNotes as persistNotes,
+  saveTranscriptHistory,
+} from './storage';
+import { generateLogFilename, getLogFileName, stripTranscriptForLog } from './logging';
+import { isTauriAvailable, invoke } from './tauri';
+import { nextFrame, scrollElementToBottom } from './session-dom';
+import type { SessionState } from './session-state';
+import type { WorldTabSessionState } from './world-session';
+import { getWorldDomScope, getWorldOutputAreaId } from './world-dom';
+
+interface WorldTranscriptActionContext {
+  getState: () => SessionState;
+  patch: (patch: Partial<SessionState>) => void;
+  getActiveWorldTabId: () => string | null;
+  getActiveWorldScope: () => string | null;
+  getWorldSession: (tabId: string) => WorldTabSessionState;
+  updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
+}
+
+interface CreateSessionLogResult {
+  path: string;
+  appended: boolean;
+}
+
+export function createWorldTranscriptActions({
+  getState,
+  patch,
+  getActiveWorldTabId,
+  getActiveWorldScope,
+  getWorldSession,
+  updateWorldSession,
+}: WorldTranscriptActionContext) {
+  const logWriteQueues = new Map<string, Promise<void>>();
+
+  function clearLoggingQueue(tabId: string): void {
+    logWriteQueues.delete(tabId);
+  }
+
+  function isAppFocused(): boolean {
+    return typeof document !== 'undefined' && !document.hidden && document.hasFocus();
+  }
+
+  function setWindowAttention(enabled: boolean): void {
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    void invoke('window_request_attention', { enabled }).catch((error) => {
+      console.error('failed to update window attention:', error);
+    });
+  }
+
+  function clearActiveTabActivity(): void {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    updateWorldSession(tabId, { hasNewActivity: false });
+
+    const scope = getActiveWorldScope();
+    if (scope && !session.userScrolled) {
+      scrollElementToBottom(getWorldOutputAreaId(scope));
+    }
+  }
+
+  function noteOutputActivity(tabId: string): void {
+    const activeTabId = getActiveWorldTabId();
+    const appFocused = isAppFocused();
+
+    if (activeTabId !== tabId || !appFocused) {
+      const current = getWorldSession(tabId);
+      if (!current.hasNewActivity) {
+        updateWorldSession(tabId, { hasNewActivity: true });
+      }
+    }
+
+    if (!appFocused) {
+      setWindowAttention(true);
+    }
+  }
+
+  function enqueueLogWrite(tabId: string, work: () => Promise<void>): Promise<void> {
+    const previous = logWriteQueues.get(tabId) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(work);
+
+    logWriteQueues.set(tabId, next.catch(() => undefined));
+    return next;
+  }
+
+  function getDebugConsoleSourceLabel(tabId: string): string {
+    const session = getWorldSession(tabId);
+    const worldName = session.currentWorld?.name ?? 'unknown world';
+    const characterName = session.currentCharacter?.name;
+
+    return characterName ? `${worldName} · ${characterName}` : worldName;
+  }
+
+  function appendDebugConsoleMessageToTab(
+    tabId: string,
+    direction: DebugConsoleDirection,
+    text: string,
+  ): void {
+    if (!text) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    updateWorldSession(tabId, {
+      debugConsoleEntries: appendDebugConsoleEntry(session.debugConsoleEntries, {
+        direction,
+        sourceLabel: getDebugConsoleSourceLabel(tabId),
+        text,
+      }),
+    });
+  }
+
+  async function appendOutputToTab(tabId: string, rawText: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    const maxHistoryLines = session.currentCharacter?.outputHistoryLines ?? 0;
+
+    session.transcript.append(rawText);
+
+    if (session.currentCharacter && maxHistoryLines > 0) {
+      const transcriptHistory = appendTranscriptHistory(session.transcriptHistory, rawText, maxHistoryLines);
+      updateWorldSession(tabId, { transcriptHistory });
+      void saveTranscriptHistory(session.currentCharacter.id, transcriptHistory, maxHistoryLines);
+    }
+
+    updateWorldSession(tabId, {
+      outputRevision: session.outputRevision + 1,
+    });
+    noteOutputActivity(tabId);
+
+    const logText = stripTranscriptForLog(rawText);
+    if (isTauriAvailable() && session.loggingActive && session.logFilePath && logText.length > 0) {
+      void enqueueLogWrite(tabId, async () => {
+        await invoke('append_session_log', {
+          path: session.logFilePath,
+          text: logText,
+        });
+      }).catch((error) => {
+        console.error('failed to write session log:', error);
+      });
+    }
+
+    await nextFrame();
+    if (getActiveWorldTabId() === tabId && !session.userScrolled) {
+      scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
+    }
+  }
+
+  async function appendSystemMessageToTab(tabId: string, text: string): Promise<void> {
+    const session = getWorldSession(tabId);
+
+    session.transcript.append(text);
+    appendDebugConsoleMessageToTab(tabId, 'status', text);
+
+    updateWorldSession(tabId, {
+      outputRevision: session.outputRevision + 1,
+    });
+    noteOutputActivity(tabId);
+
+    const logText = stripTranscriptForLog(text);
+    if (isTauriAvailable() && session.loggingActive && session.logFilePath && logText.length > 0) {
+      void enqueueLogWrite(tabId, async () => {
+        await invoke('append_session_log', {
+          path: session.logFilePath,
+          text: logText,
+        });
+      }).catch((error) => {
+        console.error('failed to write session log:', error);
+      });
+    }
+
+    await nextFrame();
+    if (getActiveWorldTabId() === tabId && !session.userScrolled) {
+      scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
+    }
+  }
+
+  function appendIncomingRawMessageToTab(tabId: string, text: string): void {
+    appendDebugConsoleMessageToTab(tabId, 'incoming', text);
+  }
+
+  function appendDebugConsoleMessageToTabPublic(
+    tabId: string,
+    direction: DebugConsoleDirection,
+    text: string,
+  ): void {
+    appendDebugConsoleMessageToTab(tabId, direction, text);
+  }
+
+  async function appendConnectionStatusToTab(tabId: string, rawText: string): Promise<void> {
+    await appendSystemMessageToTab(tabId, rawText);
+  }
+
+  function buildLogStartMessage(filename: string, appended: boolean): string {
+    return `\x1b[90m[logging started] ${filename}${appended ? ' [appending]' : ''}\x1b[0m\n`;
+  }
+
+  function buildLogStopMessage(): string {
+    return '\x1b[90m[logging stopped]\x1b[0m\n';
+  }
+
+  function buildLogRenameMessage(filename: string): string {
+    return `\x1b[90m[logging renamed] ${filename}\x1b[0m\n`;
+  }
+
+  async function startLogging(tabId: string, defaultLogFolder: string | null, requestedName: string | null = null): Promise<void> {
+    const session = getWorldSession(tabId);
+    if (!session.currentWorld || session.loggingActive) {
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    const fileName = requestedName && requestedName.trim()
+      ? requestedName.trim()
+      : generateLogFilename(session.currentWorld.name, session.currentCharacter?.name ?? 'world');
+    const initialText = stripTranscriptForLog(session.transcript.getText());
+
+    try {
+      const result = await invoke<CreateSessionLogResult>('create_session_log', {
+        folder: defaultLogFolder,
+        fileName,
+        initialText,
+      });
+
+      updateWorldSession(tabId, {
+        loggingActive: true,
+        logFilePath: result.path,
+        logFolderPath: result.path.replace(/[\\/][^\\/]*$/, ''),
+        logError: null,
+      });
+
+      console.debug('[logging] started', {
+        tabId,
+        path: result.path,
+        appended: result.appended,
+      });
+
+      await appendSystemMessageToTab(tabId, buildLogStartMessage(getLogFileName(result.path), result.appended));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[logging failed] ${message}\x1b[0m\n`);
+    }
+  }
+
+  async function stopLogging(tabId: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    if (!session.loggingActive) {
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      updateWorldSession(tabId, {
+        loggingActive: false,
+        logError: null,
+      });
+      return;
+    }
+
+    await appendSystemMessageToTab(tabId, buildLogStopMessage());
+    updateWorldSession(tabId, {
+      loggingActive: false,
+      logError: null,
+    });
+  }
+
+  async function renameLogging(tabId: string, nextName: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    const currentPath = session.logFilePath;
+    const trimmedName = nextName.trim();
+
+    if (!session.loggingActive || !currentPath) {
+      return;
+    }
+
+    if (!trimmedName) {
+      const message = 'a new log file name is required';
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[log rename failed] ${message}\x1b[0m\n`);
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    try {
+      await enqueueLogWrite(tabId, async () => {
+        const path = await invoke<string>('rename_session_log', {
+          path: currentPath,
+          nextPath: trimmedName,
+        });
+
+        updateWorldSession(tabId, {
+          logFilePath: path,
+          logFolderPath: path.replace(/[\\/][^\\/]*$/, ''),
+          logError: null,
+        });
+
+        console.debug('[logging] renamed', {
+          tabId,
+          path,
+          fromPath: currentPath,
+          nextName: trimmedName,
+        });
+
+        await appendSystemMessageToTab(tabId, buildLogRenameMessage(getLogFileName(path)));
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[log rename failed] ${message}\x1b[0m\n`);
+    }
+  }
+
+  async function revealLoggingFile(tabId: string): Promise<void> {
+    const session = getWorldSession(tabId);
+    if (!session.logFilePath) {
+      return;
+    }
+
+    if (!isTauriAvailable()) {
+      return;
+    }
+
+    try {
+      await invoke('reveal_session_log_file', { path: session.logFilePath });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateWorldSession(tabId, { logError: message });
+      await appendSystemMessageToTab(tabId, `\x1b[31m[failed to reveal log file] ${message}\x1b[0m\n`);
+    }
+  }
+
+  function handleVisibilityChange(): void {
+    if (!document.hidden) {
+      setWindowAttention(false);
+      clearActiveTabActivity();
+    }
+  }
+
+  function handleWindowFocus(): void {
+    setWindowAttention(false);
+    clearActiveTabActivity();
+  }
+
+  return {
+    clearLoggingQueue,
+    handleVisibilityChange,
+    handleWindowFocus,
+    appendOutputToTab,
+    appendSystemMessageToTab,
+    appendIncomingRawMessageToTab,
+    appendDebugConsoleMessageToTab: appendDebugConsoleMessageToTabPublic,
+    appendConnectionStatusToTab,
+    startLogging,
+    stopLogging,
+    renameLogging,
+    revealLoggingFile,
+  };
+}
