@@ -1,0 +1,130 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { type ChannelTabVM } from './channel';
+
+  export let tabs: ChannelTabVM[] = [];
+
+  const MIN_PANEL_HEIGHT = 80;
+  const DEFAULT_PANEL_HEIGHT = 280;
+  const PANEL_HEIGHT_RATIO = 0.35;
+  const MAX_PANEL_HEIGHT_RATIO = 0.7;
+
+  let panelHeight = DEFAULT_PANEL_HEIGHT;
+  let panelElement: HTMLElement | null = null;
+  let dragState:
+    | {
+        pointerId: number;
+        startY: number;
+        startHeight: number;
+      }
+    | null = null;
+
+  $: activeTab = tabs.find((tab) => tab.open) ?? null;
+  $: open = activeTab !== null;
+
+  function getMaxPanelHeight(): number {
+    if (typeof window === 'undefined') {
+      return DEFAULT_PANEL_HEIGHT;
+    }
+
+    return Math.max(
+      MIN_PANEL_HEIGHT,
+      Math.floor(window.innerHeight * MAX_PANEL_HEIGHT_RATIO),
+    );
+  }
+
+  function clampPanelHeight(value: number): number {
+    return Math.max(MIN_PANEL_HEIGHT, Math.min(getMaxPanelHeight(), Math.round(value)));
+  }
+
+  function syncPanelHeight(): void {
+    const preferredHeight = Math.floor(
+      typeof window === 'undefined' ? DEFAULT_PANEL_HEIGHT : window.innerHeight * PANEL_HEIGHT_RATIO,
+    );
+    panelHeight = clampPanelHeight(panelHeight || preferredHeight);
+  }
+
+  function startResize(event: PointerEvent): void {
+    if (event.button !== 0 || !event.isPrimary || !panelElement || !open) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    dragState = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startHeight: panelElement.getBoundingClientRect().height,
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  }
+
+  function endResize(): void {
+    dragState = null;
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', handlePointerUp);
+    window.removeEventListener('pointercancel', handlePointerUp);
+  }
+
+  function handlePointerMove(event: PointerEvent): void {
+    if (!dragState || event.pointerId !== dragState.pointerId) {
+      return;
+    }
+
+    panelHeight = clampPanelHeight(dragState.startHeight + (event.clientY - dragState.startY));
+  }
+
+  function handlePointerUp(event: PointerEvent): void {
+    if (dragState && event.pointerId !== dragState.pointerId) {
+      return;
+    }
+
+    endResize();
+  }
+
+  onMount(() => {
+    syncPanelHeight();
+
+    const handleResize = () => {
+      panelHeight = clampPanelHeight(panelHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      endResize();
+    };
+  });
+</script>
+
+<section
+  bind:this={panelElement}
+  class="world-channels-panel"
+  class:open={open}
+  aria-hidden={!open}
+  aria-label="World channels"
+  style:height={`${open ? panelHeight : 0}px`}
+  style:opacity={open ? 1 : 0}
+  style:transform={`translateY(${open ? 0 : -10}px)`}
+>
+  <div class="world-channels-panel-shell">
+    <div class="world-channels-panel-body">
+      {#if activeTab?.panelComponent}
+        {@const Panel = activeTab.panelComponent}
+        <Panel />
+      {/if}
+    </div>
+  </div>
+
+  <button
+    type="button"
+    class="world-channels-resize-handle"
+    aria-label="Resize channels panel"
+    title="Resize channels panel"
+    on:pointerdown={startResize}
+  ></button>
+</section>

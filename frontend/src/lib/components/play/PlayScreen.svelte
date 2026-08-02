@@ -8,12 +8,16 @@
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
+  import DummyChannelPanel from './DummyChannelPanel.svelte';
+  import WorldChannelsBar from './WorldChannelsBar.svelte';
+  import WorldChannelsPanel from './WorldChannelsPanel.svelte';
   import type { AppStyleValues } from '../styles/style-settings';
   import { getSquiggleDecorationStyle } from '../../spellcheck-style';
   import {
     measureCharacterWidth,
     normalizeCharacterWidth,
   } from './play-width';
+  import { type ChannelTabVM, type ChannelTabId } from './channel';
 
   export let scope = 'world';
   export let visible = true;
@@ -56,6 +60,7 @@
   export let onEditWorldTab: () => void;
   export let onEditCharacterTab: () => void;
   export let onCloseTab: (anchorRect: DOMRect) => void;
+  export let onOpenNotes: () => void;
   export let onOpenTriggers: () => void;
   export let onOpenDebugConsole: () => void;
   export let onOpenStyles: () => void;
@@ -86,6 +91,89 @@
   let screenElement: HTMLDivElement | null = null;
   let measuredPlayWidth = 'none';
   let measurementToken = 0;
+  let channelBarHovered = false;
+  let channelBarAwake = false;
+  let channelBarHideTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastVisible = visible;
+  let channelTabs: ChannelTabVM[] = [
+    {
+      id: 'dummy',
+      label: 'dummy 1',
+      open: false,
+      panelComponent: DummyChannelPanel,
+    },
+    {
+      id: 'dummy-2',
+      label: 'dummy 2',
+      open: false,
+      panelComponent: DummyChannelPanel,
+    },
+  ];
+
+  function hasOpenChannels(): boolean {
+    return channelTabs.some((tab) => tab.open);
+  }
+
+  $: channelPanelOpen = hasOpenChannels();
+  $: channelBarPinned = channelPanelOpen;
+  $: channelBarVisible = channelBarPinned || channelBarHovered || channelBarAwake;
+
+  function clearChannelBarTimer(): void {
+    if (channelBarHideTimer !== null) {
+      clearTimeout(channelBarHideTimer);
+      channelBarHideTimer = null;
+    }
+  }
+
+  function showChannelBar(): void {
+    channelBarHovered = true;
+    channelBarAwake = true;
+    clearChannelBarTimer();
+  }
+
+  function scheduleChannelBarHide(): void {
+    if (hasOpenChannels() || channelBarHovered) {
+      return;
+    }
+
+    clearChannelBarTimer();
+    channelBarHideTimer = setTimeout(() => {
+      if (!hasOpenChannels() && !channelBarHovered) {
+        channelBarAwake = false;
+      }
+    }, 1000);
+  }
+
+  function hideChannelBar(): void {
+    channelBarHovered = false;
+    scheduleChannelBarHide();
+  }
+
+  function toggleChannel(tabId: ChannelTabId): void {
+    const channel = channelTabs.find((tab) => tab.id === tabId);
+
+    if (!channel) {
+      return;
+    }
+
+    if (channel.open) {
+      closeAllChannels();
+      return;
+    }
+
+    channelTabs = channelTabs.map((tab) => ({
+      ...tab,
+      open: tab.id === tabId,
+    }));
+    scheduleChannelBarHide();
+  }
+
+  function closeAllChannels(): void {
+    channelTabs = channelTabs.map((tab) =>
+      tab.open ? { ...tab, open: false } : tab,
+    );
+    scheduleChannelBarHide();
+  }
 
   async function updateMeasuredPlayWidth(): Promise<void> {
     const widthInCharacters = normalizeCharacterWidth(characterWidth);
@@ -115,8 +203,31 @@
     void updateMeasuredPlayWidth();
   }
 
+  $: {
+    if (visible && !lastVisible) {
+      channelBarAwake = true;
+      clearChannelBarTimer();
+      hideChannelBar();
+    } else if (!visible && lastVisible) {
+      channelBarHovered = false;
+      channelBarAwake = false;
+      clearChannelBarTimer();
+    }
+
+    lastVisible = visible;
+  }
+
   onMount(() => {
     void updateMeasuredPlayWidth();
+
+    if (visible) {
+      channelBarAwake = true;
+      hideChannelBar();
+    }
+
+    return () => {
+      clearChannelBarTimer();
+    };
   });
 </script>
 
@@ -144,6 +255,24 @@
   style:--spellcheck-squiggle-style={getSquiggleDecorationStyle(squiggleStyle)}
   style:--spellcheck-squiggle-size={`${squiggleSize}`}
 >
+  <div
+    class="world-channels-hover-zone"
+    aria-hidden="true"
+    on:mouseenter={showChannelBar}
+    on:mouseleave={hideChannelBar}
+  ></div>
+
+  <WorldChannelsBar
+    visible={channelBarVisible}
+    tabs={channelTabs}
+    onHide={closeAllChannels}
+    onToggleChannel={toggleChannel}
+  />
+
+  <WorldChannelsPanel
+    tabs={channelTabs}
+  />
+
   <NotesPanel
     open={notesVisible}
     {notes}
@@ -195,7 +324,7 @@
     onOpenLogging={onOpenLoggingTab}
     onEditWorld={onEditWorldTab}
     onEditCharacter={onEditCharacterTab}
-    onOpenNotes={onNotesClose}
+    onOpenNotes={onOpenNotes}
     onOpenDebugConsole={onOpenDebugConsole}
     onOpenTriggers={onOpenTriggers}
     onOpenStyles={onOpenStyles}

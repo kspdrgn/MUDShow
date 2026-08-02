@@ -565,6 +565,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         onEditCharacterTab={() => void session.openCharacterEditorFromWorldTab(tab.id)}
         onOpenStyles={() => openDefaultStyleSettings()}
         onCloseTab={() => session.closeTab(tab.id, 'shortcut')}
+        onOpenNotes={() => void session.togglePanel('notes')}
         onOpenDebugConsole={() => void session.togglePanel('debugConsole')}
         onInputFocusBar={(bar) => session.handleInputFocus(bar)}
         onInputSubmit={(bar, value) => session.handleInputSubmit(bar, value)}

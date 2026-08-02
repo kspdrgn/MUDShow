@@ -3,6 +3,7 @@
 ## Feature specification documents:
 - spec/input.md - Primary user input area and features
 - spec/layout.md - App and world UI/UX structure and rules
+- spec/channels.md - World channels bar and panel behavior
 - spec/output.md - Primary display window and features
 - spec/logging.md - Session logging behavior and file handling
 - spec/settings.md - App and world settings
@@ -25,6 +26,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can edit a character’s host, port, and connection options without recreating it.
 - As a player, I can connect to a MU* and read the live transcript in one place.
 - As a player, I can open a per-world debug console to inspect incoming, outgoing, and status messages for that session.
+- As a player, I can use a world channels bar and panel in the play screen as a small layout test harness.
 - As a player, I can type commands in one of two inputs so I can keep a draft while continuing conversation.
 - As a player, I can switch inputs instantly when I need to pause one thought and start another.
 - As a player, I can keep private notes for each character.
@@ -61,7 +63,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
 - Buffer incoming world text until newline boundaries before showing it in the transcript, discarding carriage returns.
-- Preserving the raw incoming read stream in the debug console for troubleshooting special characters, command codes, and edge cases.
+- Preserving the raw incoming session stream in the debug console for troubleshooting special characters, command codes, and edge cases, even when the panel is hidden.
 - Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width. Preferred character width is rendered from the active output style: monospace fonts use the measured active glyph width, while proportional fonts use an estimated average glyph width.
 - Provide a modular set of command input bars, starting with one and allowing more to be added.
 - Send entered commands to the active session.
@@ -77,6 +79,8 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Allow session logging for an active world tab.
 - Allow a transient transcript diagnostics toggle from the app menu's dev tools submenu that writes extra console debug output while enabled.
 - Allow opening a per-world debug console pane that shares space with the active world tab and shows a rolling communication stream.
+- Show a host-managed world channels bar above a separate dummy channels panel in the PlayScreen, with Hide collapsing the panel back into the main play view.
+- Keep an explicitly opened channel panel pinned open until the user chooses Hide.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.

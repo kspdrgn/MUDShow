@@ -18,7 +18,7 @@ import {
   createWorldTab,
   type AppTab,
   type WorldTab,
-  type SettingsSubTabId,
+  type SettingsTabId,
 } from './tabs';
 import {
   applyWorldProjection,
@@ -171,7 +171,7 @@ function createSession() {
     return tab;
   }
 
-  function setSettingsActiveTab(tab: SettingsSubTabId): void {
+  function setSettingsActiveTab(tab: SettingsTabId): void {
     patch({ settingsActiveTab: tab });
   }
 

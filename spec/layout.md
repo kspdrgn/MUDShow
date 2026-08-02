@@ -134,14 +134,37 @@ Deleting a world or a character will not be allowed if there is an open tab on t
 The PlayScreen is the main content and interaction space for a single world and character.
 
 PlayScreen
+  - Channels - Anchored to the top, shows tabs within each world
   - HighlightsPanel - Toggle, anchored to top
   - NotesPanel - Toggle, anchored to top
   - DebugConsolePanel - Toggle, anchored to top, shows the per-world communication stream for troubleshooting.
-  - Transcript - Fills most space in the middle. Shows all connection output.
+  - Transcript - Fills most space below the channels surface. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
   - Logging controls - Start, stop, and rename the active log file for the current world tab.
   - The active input bar shows the same fixed-position vertical status display as the tab: connection status, unread activity, and logging status.
 
-  - Notes, debug console, highlights, and rules share the same top pane area and only one is visible at a time.
   - One PlayScreen instance per world tab.
   - Each PlayScreen instance keeps its own transcript view, scroll position, input bars, panel visibility, and connection status while that tab remains open.
+
+## Channels
+
+World channels live inside the PlayScreen and provide a host-managed surface for reusable world-specific panels.
+
+Channel bar
+  - Host-managed row that stays visible above the play view and provides Hide and Dummy controls.
+  - Hides automatically when no channel panel is open, but a thin hover area below the topbar can reveal it again.
+  - When the user explicitly opens the dummy channel, the channels panel stays open until they click Hide.
+
+Channel panel
+  - Host-managed dummy surface shown beneath the bar when the dummy channel is open.
+  - Includes a bottom-edge resize handle so the user can adjust its height.
+  - The first implementation of world channels is a host-managed dummy panel inside PlayScreen, intended to validate bar reveal, hide, and resize behavior before any real integrations are added.
+
+Channel scope
+  - Notes, debug console, highlights, and rules stay in their dedicated panel locations outside the channels harness for now.
+  - The channel model should be generic enough to support future world-specific panels and routed output surfaces.
+
+Channel component references
+  - `PlayScreen.svelte` owns the channel hover zone, show/hide timing, and the active channel/panel state.
+  - `WorldChannelsBar.svelte` renders the current channel bar UI.
+  - `WorldChannelsPanel.svelte` renders the current channel panel UI and resize handle.

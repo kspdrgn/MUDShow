@@ -1,5 +1,5 @@
 export type AppTabKind = 'characters' | 'settings' | 'triggers' | 'world';
-export type SettingsSubTabId =
+export type SettingsTabId =
   | 'database'
   | 'window'
   | 'transcript'

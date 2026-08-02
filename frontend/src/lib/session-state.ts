@@ -5,7 +5,7 @@ import type {
   WorldDraft,
   WorldRecord,
 } from './types';
-import type { AppTab, SettingsSubTabId } from './tabs';
+import type { AppTab, SettingsTabId } from './tabs';
 import type { WorldTabSessionState } from './world-session';
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected';
@@ -31,7 +31,7 @@ export interface SessionState {
   editingIndex: number | null;
   modalDraft: CharacterDraft;
   characterWorldId: string | null;
-  settingsActiveTab: SettingsSubTabId;
+  settingsActiveTab: SettingsTabId;
   triggersContextWorldId: string | null;
   triggersContextCharacterId: string | null;
 }
