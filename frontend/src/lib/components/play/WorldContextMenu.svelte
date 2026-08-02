@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
+  import ContextMenuShell from '../context-menu/ContextMenuShell.svelte';
+  import { createDelayedCloseController, positionSubmenu } from '../context-menu/context-menu';
 
   export let open = false;
   export let position = { x: 0, y: 0 };
@@ -28,35 +30,24 @@
   export let onZoomReset: () => void = () => {};
   export let onDismiss: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
-  let menuElement: HTMLDivElement | null = null;
   let settingsButtonElement: HTMLButtonElement | null = null;
   let settingsSubmenuElement: HTMLDivElement | null = null;
   let settingsSubmenuOpen = false;
   let settingsSubmenuPosition = { x: 0, y: 0 };
   let settingsSubmenuSide: 'left' | 'right' = 'right';
-  let settingsSubmenuCloseTimeout: ReturnType<typeof setTimeout> | null = null;
-  let renderedPosition = position;
-  let repositionToken = 0;
+  let settingsSubmenuPositionToken = 0;
+  const settingsSubmenuCloseController = createDelayedCloseController(() => {
+    settingsSubmenuOpen = false;
+  });
 
   function dismissMenu(): void {
     settingsSubmenuOpen = false;
-    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuCloseController.clear();
     onDismiss();
   }
 
-  function clearSettingsSubmenuCloseTimeout(): void {
-    if (settingsSubmenuCloseTimeout !== null) {
-      clearTimeout(settingsSubmenuCloseTimeout);
-      settingsSubmenuCloseTimeout = null;
-    }
-  }
-
   function scheduleCloseSettingsSubmenu(): void {
-    clearSettingsSubmenuCloseTimeout();
-    settingsSubmenuCloseTimeout = setTimeout(() => {
-      settingsSubmenuOpen = false;
-      settingsSubmenuCloseTimeout = null;
-    }, 160);
+    settingsSubmenuCloseController.scheduleClose();
   }
 
   function updateSettingsSubmenuPosition(): void {
@@ -64,118 +55,36 @@
       return;
     }
 
-    const margin = 8;
-    const gap = 8;
     const buttonRect = settingsButtonElement.getBoundingClientRect();
     const submenuRect = settingsSubmenuElement.getBoundingClientRect();
+    const next = positionSubmenu(
+      buttonRect,
+      { width: submenuRect.width, height: submenuRect.height },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
 
-    const preferRight = buttonRect.right + gap + submenuRect.width <= window.innerWidth - margin;
-    const rawX = preferRight
-      ? buttonRect.right + gap
-      : buttonRect.left - gap - submenuRect.width;
-    const rawY = buttonRect.top;
-
-    settingsSubmenuSide = preferRight ? 'right' : 'left';
-    settingsSubmenuPosition = {
-      x: Math.max(margin, Math.min(rawX, window.innerWidth - submenuRect.width - margin)),
-      y: Math.max(margin, Math.min(rawY, window.innerHeight - submenuRect.height - margin)),
-    };
+    settingsSubmenuSide = next.side;
+    settingsSubmenuPosition = next.position;
   }
 
-  onMount(() => {
-    const handleMenuOpen = (event: Event) => {
-      const detail = event instanceof CustomEvent ? event.detail as { source?: string } : null;
-      if (!open || detail?.source === source) {
-        return;
-      }
-
-      dismissMenu();
-    };
-
-    const handleDocumentClick = (event: MouseEvent) => {
-      if (!open) {
-        return;
-      }
-
-      if (!(event.target instanceof Node)) {
-        dismissMenu();
-        return;
-      }
-
-      if (menuElement?.contains(event.target) || settingsSubmenuElement?.contains(event.target)) {
-        return;
-      }
-
-      dismissMenu();
-    };
-
-    const handleDocumentContextMenu = (event: MouseEvent) => {
-      if (!open) {
-        return;
-      }
-
-      if (!(event.target instanceof Node)) {
-        dismissMenu();
-        return;
-      }
-
-      if (menuElement?.contains(event.target) || settingsSubmenuElement?.contains(event.target)) {
-        return;
-      }
-
-      dismissMenu();
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && open) {
-        dismissMenu();
-      }
-    };
-
-    document.addEventListener('click', handleDocumentClick);
-    document.addEventListener('contextmenu', handleDocumentContextMenu);
-    window.addEventListener('mudshow-context-menu-open', handleMenuOpen as EventListener);
-    window.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('click', handleDocumentClick);
-      document.removeEventListener('contextmenu', handleDocumentContextMenu);
-      window.removeEventListener('mudshow-context-menu-open', handleMenuOpen as EventListener);
-      window.removeEventListener('keydown', handleEscape);
-    };
-  });
-
-  $: if (open) {
-    renderedPosition = position;
-    const token = ++repositionToken;
-
-    void tick().then(() => {
-      if (!open || token !== repositionToken || !menuElement) {
-        return;
-      }
-
-      const margin = 8;
-      const rect = menuElement.getBoundingClientRect();
-      const maxX = window.innerWidth - rect.width - margin;
-      const maxY = window.innerHeight - rect.height - margin;
-
-      renderedPosition = {
-        x: position.x > maxX ? Math.max(margin, maxX) : position.x,
-        y: position.y > maxY ? Math.max(margin, maxY) : position.y,
-      };
-    });
-  } else {
-    repositionToken += 1;
-    renderedPosition = position;
+  $: if (!open) {
     settingsSubmenuOpen = false;
-    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuPositionToken += 1;
+    settingsSubmenuCloseController.clear();
   }
 
   $: if (settingsSubmenuOpen) {
-    clearSettingsSubmenuCloseTimeout();
-    void tick().then(() => updateSettingsSubmenuPosition());
+    settingsSubmenuCloseController.clear();
+    const token = ++settingsSubmenuPositionToken;
+    void tick().then(() => {
+      if (!settingsSubmenuOpen || token !== settingsSubmenuPositionToken) {
+        return;
+      }
+
+      updateSettingsSubmenuPosition();
+    });
   } else {
-    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuCloseController.clear();
   }
 
   function handleCloseClick(event: MouseEvent): void {
@@ -185,17 +94,17 @@
     }
 
     settingsSubmenuOpen = false;
-    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuCloseController.clear();
     onCloseRequest(target.getBoundingClientRect());
   }
 
   function openSettingsSubmenu(): void {
-    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuCloseController.clear();
     settingsSubmenuOpen = true;
   }
 
   function closeSettingsSubmenu(): void {
-    clearSettingsSubmenuCloseTimeout();
+    settingsSubmenuCloseController.clear();
     settingsSubmenuOpen = false;
   }
 
@@ -203,24 +112,20 @@
     dismissMenu();
     action();
   }
+
+  onDestroy(() => {
+    settingsSubmenuCloseController.dispose();
+  });
 </script>
 
-{#if open}
-  <div
-    bind:this={menuElement}
-    class="titlebar-dropdown titlebar-context-menu"
-    role="menu"
-    tabindex="-1"
-    aria-label={ariaLabel}
-    style={`left: ${renderedPosition.x}px; top: ${renderedPosition.y}px;`}
-    on:click|stopPropagation
-    on:contextmenu|preventDefault
-    on:keydown={(event) => {
-      if (event.key === 'Escape') {
-        dismissMenu();
-      }
-    }}
-  >
+<ContextMenuShell
+  {open}
+  {position}
+  {ariaLabel}
+  {source}
+  className="titlebar-context-menu"
+  onDismiss={dismissMenu}
+>
     <button
       type="button"
       class="titlebar-menu-item titlebar-context-menu-item"
@@ -275,6 +180,8 @@
 
     <div
       class="titlebar-context-menu-settings-group"
+      role="group"
+      aria-label="settings submenu trigger"
       on:mouseenter={openSettingsSubmenu}
       on:mouseleave={scheduleCloseSettingsSubmenu}
       on:focusin={openSettingsSubmenu}
@@ -305,10 +212,10 @@
       on:mouseenter={openSettingsSubmenu}
       on:mouseleave={scheduleCloseSettingsSubmenu}
       on:focus={openSettingsSubmenu}
-    >
-      <span class="titlebar-context-menu-item-label">settings</span>
-      <span class="titlebar-context-menu-shortcut" aria-hidden="true">▶</span>
-    </button>
+      >
+        <span class="titlebar-context-menu-item-label">settings</span>
+        <span class="titlebar-context-menu-shortcut" aria-hidden="true">▶</span>
+      </button>
     </div>
 
     {#if settingsSubmenuOpen}
@@ -316,9 +223,10 @@
         bind:this={settingsSubmenuElement}
         class="titlebar-dropdown titlebar-context-menu titlebar-context-menu-submenu-panel"
         role="menu"
+        tabindex="-1"
         aria-label="world settings shortcuts"
         data-side={settingsSubmenuSide}
-        style={`left: ${settingsSubmenuPosition.x}px; top: ${settingsSubmenuPosition.y}px;`}
+        style={`position: fixed; right: auto; left: ${settingsSubmenuPosition.x}px; top: ${settingsSubmenuPosition.y}px;`}
         on:mouseenter={openSettingsSubmenu}
         on:mouseleave={scheduleCloseSettingsSubmenu}
         on:contextmenu|preventDefault
@@ -377,7 +285,7 @@
     {#if source === 'transcript'}
       <div class="titlebar-context-menu-separator" aria-hidden="true"></div>
 
-      <div class="titlebar-context-menu-zoom-row" role="none" aria-label="zoom controls">
+      <div class="titlebar-context-menu-zoom-row" role="group" aria-label="zoom controls">
         <span class="titlebar-context-menu-zoom-label">zoom</span>
         <button
           type="button"
@@ -425,5 +333,4 @@
     >
       close
     </button>
-  </div>
-{/if}
+</ContextMenuShell>

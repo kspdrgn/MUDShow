@@ -19,6 +19,20 @@ Anchored to the right:
   - App hamburger menu
   - OS window controls: minimize, maximize, close
 
+## Shared Context Menus
+
+The app uses one shared context menu shell for the app menu, the tab-bar world context menu, the transcript context menu, and any nested submenu panels they expose.
+
+The shared shell:
+- opens from an anchor position supplied by the owning component
+- clamps menu panels to the visible window bounds
+- repositions on window resize
+- closes on outside click or Escape
+- supports submenu panels that open to the left or right depending on available space
+- uses a short close delay so the pointer can move between a parent menu row and its submenu panel
+
+Menu content stays in the owning component so each feature can keep its own actions and labels.
+
 ## Tab Bar
   - Every connected world or world character will have its own tab.
   - Tabs can be closed.

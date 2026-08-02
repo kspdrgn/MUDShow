@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import ContextMenuShell from '../context-menu/ContextMenuShell.svelte';
+  import { createDelayedCloseController, positionSubmenu } from '../context-menu/context-menu';
   import { isTauriAvailable } from '../../tauri';
   import {
     CHARACTERS_TAB_ID,
@@ -69,10 +71,12 @@
   let quickConnectSide: 'left' | 'right' = 'right';
   let titlebarElement: HTMLElement | null = null;
   let titlebarTabsElement: HTMLDivElement | null = null;
-  let menuContainer: HTMLDivElement | null = null;
   let quickConnectContainer: HTMLDivElement | null = null;
   let quickConnectButton: HTMLButtonElement | null = null;
   let quickConnectDropdown: HTMLDivElement | null = null;
+  let appMenuButton: HTMLButtonElement | null = null;
+  let appMenuPosition = { x: 0, y: 0 };
+  let appMenuPositionToken = 0;
   let devToolsButton: HTMLButtonElement | null = null;
   let devToolsSubmenu: HTMLDivElement | null = null;
   let worldTabsElement: HTMLDivElement | null = null;
@@ -80,11 +84,14 @@
   let worldContextMenuPosition = { x: 0, y: 0 };
   let devToolsSubmenuPosition = { x: 0, y: 0 };
   let devToolsSubmenuSide: 'left' | 'right' = 'right';
+  let devToolsSubmenuPositionToken = 0;
+  const devToolsSubmenuCloseController = createDelayedCloseController(() => {
+    devToolsSubmenuOpen = false;
+  });
   let closeConfirmDropdown: HTMLDivElement | null = null;
   let closeConfirmPosition = { x: 0, y: 0 };
   let closeConfirmAnchorPoint: { x: number; y: number } | null = null;
   let devToolsSubmenuOpen = false;
-  let devToolsSubmenuCloseTimeout: ReturnType<typeof setTimeout> | null = null;
   const tabCloseButtons: Record<string, HTMLButtonElement | null> = {};
   const tabGroupElements: Record<string, HTMLDivElement | null> = {};
 
@@ -117,12 +124,17 @@
 
   function toggleMenu(event: MouseEvent): void {
     event.stopPropagation();
-    menuOpen = !menuOpen;
     if (menuOpen) {
-      quickConnectOpen = false;
-      closeWorldContextMenu();
-      closeDevToolsSubmenu();
+      closeMenu();
+      return;
     }
+
+    window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'titlebar' } }));
+    menuOpen = true;
+    quickConnectOpen = false;
+    closeWorldContextMenu();
+    closeDevToolsSubmenu();
+    void tick().then(updateAppMenuPosition);
   }
 
   function toggleQuickConnect(event: MouseEvent): void {
@@ -144,29 +156,18 @@
     quickConnectOpen = false;
   }
 
-  function clearDevToolsSubmenuCloseTimeout(): void {
-    if (devToolsSubmenuCloseTimeout !== null) {
-      clearTimeout(devToolsSubmenuCloseTimeout);
-      devToolsSubmenuCloseTimeout = null;
-    }
-  }
-
   function openDevToolsSubmenu(): void {
-    clearDevToolsSubmenuCloseTimeout();
+    devToolsSubmenuCloseController.clear();
     devToolsSubmenuOpen = true;
   }
 
   function scheduleCloseDevToolsSubmenu(): void {
-    clearDevToolsSubmenuCloseTimeout();
-    devToolsSubmenuCloseTimeout = setTimeout(() => {
-      devToolsSubmenuOpen = false;
-      devToolsSubmenuCloseTimeout = null;
-    }, 160);
+    devToolsSubmenuCloseController.scheduleClose();
   }
 
   function closeDevToolsSubmenu(): void {
     devToolsSubmenuOpen = false;
-    clearDevToolsSubmenuCloseTimeout();
+    devToolsSubmenuCloseController.clear();
   }
 
   function updateDevToolsSubmenuPosition(): void {
@@ -174,20 +175,27 @@
       return;
     }
 
-    const margin = 8;
-    const gap = 8;
     const buttonRect = devToolsButton.getBoundingClientRect();
     const submenuRect = devToolsSubmenu.getBoundingClientRect();
-    const preferRight = buttonRect.right + gap + submenuRect.width <= window.innerWidth - margin;
-    const rawX = preferRight
-      ? buttonRect.right + gap
-      : buttonRect.left - gap - submenuRect.width;
-    const rawY = buttonRect.top;
+    const next = positionSubmenu(
+      buttonRect,
+      { width: submenuRect.width, height: submenuRect.height },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
 
-    devToolsSubmenuSide = preferRight ? 'right' : 'left';
-    devToolsSubmenuPosition = {
-      x: Math.max(margin, Math.min(rawX, window.innerWidth - submenuRect.width - margin)),
-      y: Math.max(margin, Math.min(rawY, window.innerHeight - submenuRect.height - margin)),
+    devToolsSubmenuSide = next.side;
+    devToolsSubmenuPosition = next.position;
+  }
+
+  function updateAppMenuPosition(): void {
+    if (!menuOpen || !appMenuButton) {
+      return;
+    }
+
+    const buttonRect = appMenuButton.getBoundingClientRect();
+    appMenuPosition = {
+      x: buttonRect.right - 300,
+      y: buttonRect.bottom + 8,
     };
   }
 
@@ -323,10 +331,31 @@
     void tick().then(updateCloseConfirmPosition);
   }
 
-  $: if (devToolsSubmenuOpen) {
-    void tick().then(updateDevToolsSubmenuPosition);
+  $: if (menuOpen) {
+    const token = ++appMenuPositionToken;
+    void tick().then(() => {
+      if (!menuOpen || token !== appMenuPositionToken) {
+        return;
+      }
+
+      updateAppMenuPosition();
+    });
   } else {
-    clearDevToolsSubmenuCloseTimeout();
+    appMenuPositionToken += 1;
+  }
+
+  $: if (devToolsSubmenuOpen) {
+    const token = ++devToolsSubmenuPositionToken;
+    void tick().then(() => {
+      if (!devToolsSubmenuOpen || token !== devToolsSubmenuPositionToken) {
+        return;
+      }
+
+      updateDevToolsSubmenuPosition();
+    });
+  } else {
+    devToolsSubmenuPositionToken += 1;
+    devToolsSubmenuCloseController.clear();
   }
 
   function updateQuickConnectSide(): void {
@@ -397,17 +426,8 @@
 
   onMount(() => {
     const handleDocumentClick = (event: MouseEvent) => {
-      if (menuContainer && !menuContainer.contains(event.target as Node)) {
-        menuOpen = false;
-        closeDevToolsSubmenu();
-      }
-
       if (quickConnectContainer && !quickConnectContainer.contains(event.target as Node)) {
         quickConnectOpen = false;
-      }
-
-      if (worldContextMenuDropdown && !worldContextMenuDropdown.contains(event.target as Node)) {
-        worldContextMenuOpen = false;
       }
 
       if (closeConfirmDropdown && !closeConfirmDropdown.contains(event.target as Node)) {
@@ -417,7 +437,7 @@
         }
       }
 
-      if (devToolsSubmenu && !devToolsSubmenu.contains(event.target as Node)) {
+      if (devToolsButton && devToolsSubmenu && !devToolsButton.contains(event.target as Node) && !devToolsSubmenu.contains(event.target as Node)) {
         closeDevToolsSubmenu();
       }
     };
@@ -433,24 +453,22 @@
         if (tabDragState?.isDragging) {
           event.preventDefault();
           closeTabDrag();
+          return;
         }
 
-        menuOpen = false;
         quickConnectOpen = false;
-        closeDevToolsSubmenu();
-        closeWorldContextMenu();
         closeConfirmAnchorPoint = null;
         onCancelCloseConfirm();
       }
     };
 
     const handleResize = () => {
-      if (quickConnectOpen) {
-        updateQuickConnectSide();
+      if (menuOpen) {
+        updateAppMenuPosition();
       }
 
-      if (worldContextMenuOpen) {
-        updateWorldContextMenuPosition();
+      if (quickConnectOpen) {
+        updateQuickConnectSide();
       }
 
       if (devToolsSubmenuOpen) {
@@ -481,6 +499,7 @@
       tabClickScheduler.clearSuppressedTabClick();
       closeTabDrag();
       closeDevToolsSubmenu();
+      devToolsSubmenuCloseController.dispose();
     };
   });
 
@@ -681,7 +700,7 @@
     </div>
   {/if}
 
-  <div id="titlebar-actions" bind:this={menuContainer}>
+  <div id="titlebar-actions">
     <div class="titlebar-menu">
       <button
         type="button"
@@ -689,122 +708,129 @@
         title="app menu"
         aria-label="app menu"
         aria-expanded={menuOpen}
+        bind:this={appMenuButton}
         on:click={toggleMenu}
       >
         ☰
       </button>
 
-      {#if menuOpen}
-        <div class="titlebar-menu-dropdown" role="menu" aria-label="app menu">
-          <button
-            type="button"
-            class="titlebar-menu-item"
-            role="menuitem"
-            on:click={() => {
-              closeMenu();
-              onSelectTab(CHARACTERS_TAB_ID);
-            }}
-          >
-            <span class="titlebar-menu-item-icon" aria-hidden="true">🌐</span>
-            worlds and characters
-          </button>
-          <button
-            type="button"
-            class="titlebar-menu-item"
-            role="menuitem"
-            on:click={() => {
-              closeMenu();
-              onSelectTab(SETTINGS_TAB_ID);
-            }}
-          >
-            <span class="titlebar-menu-item-icon" aria-hidden="true">⚙️</span>
-            app settings
-          </button>
-          <button
-            type="button"
-            class="titlebar-menu-item"
-            role="menuitem"
-            on:click={() => {
-              closeMenu();
-              onOpenTriggersTab(null, null);
-            }}
-            >
-            <span class="titlebar-menu-item-icon" aria-hidden="true">⏱</span>
-            triggers
-          </button>
-          <button
-            type="button"
-            class="titlebar-menu-item titlebar-menu-item-submenu"
-            bind:this={devToolsButton}
-            role="menuitem"
-            aria-haspopup="menu"
-            aria-expanded={devToolsSubmenuOpen}
-            on:click={() => {
-              if (devToolsSubmenuOpen) {
-                closeDevToolsSubmenu();
-              } else {
-                openDevToolsSubmenu();
-              }
-            }}
+      <ContextMenuShell
+        open={menuOpen}
+        position={appMenuPosition}
+        ariaLabel="app menu"
+        source="titlebar"
+        className="titlebar-menu-dropdown"
+        onDismiss={closeMenu}
+      >
+        <button
+          type="button"
+          class="titlebar-menu-item"
+          role="menuitem"
+          on:click={() => {
+            closeMenu();
+            onSelectTab(CHARACTERS_TAB_ID);
+          }}
+        >
+          <span class="titlebar-menu-item-icon" aria-hidden="true">🌐</span>
+          worlds and characters
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item"
+          role="menuitem"
+          on:click={() => {
+            closeMenu();
+            onSelectTab(SETTINGS_TAB_ID);
+          }}
+        >
+          <span class="titlebar-menu-item-icon" aria-hidden="true">⚙️</span>
+          app settings
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item"
+          role="menuitem"
+          on:click={() => {
+            closeMenu();
+            onOpenTriggersTab(null, null);
+          }}
+        >
+          <span class="titlebar-menu-item-icon" aria-hidden="true">⏱</span>
+          triggers
+        </button>
+        <button
+          type="button"
+          class="titlebar-menu-item titlebar-menu-item-submenu"
+          bind:this={devToolsButton}
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={devToolsSubmenuOpen}
+          on:click={() => {
+            if (devToolsSubmenuOpen) {
+              closeDevToolsSubmenu();
+            } else {
+              openDevToolsSubmenu();
+            }
+          }}
+          on:mouseenter={openDevToolsSubmenu}
+          on:mouseleave={scheduleCloseDevToolsSubmenu}
+          on:focus={openDevToolsSubmenu}
+        >
+          <span class="titlebar-menu-item-icon" aria-hidden="true">🔧</span>
+          <span>dev tools</span>
+          <span class="titlebar-menu-submenu-arrow" aria-hidden="true">▶</span>
+        </button>
+        {#if devToolsSubmenuOpen}
+          <div
+            bind:this={devToolsSubmenu}
+            class="titlebar-dropdown titlebar-menu-submenu-panel"
+            role="menu"
+            tabindex="-1"
+            aria-label="dev tools submenu"
+            data-side={devToolsSubmenuSide}
+            style={`position: fixed; right: auto; left: ${devToolsSubmenuPosition.x}px; top: ${devToolsSubmenuPosition.y}px;`}
             on:mouseenter={openDevToolsSubmenu}
             on:mouseleave={scheduleCloseDevToolsSubmenu}
-            on:focus={openDevToolsSubmenu}
+            on:click|stopPropagation
+            on:contextmenu|preventDefault
+            on:keydown={(event) => {
+              if (event.key === 'Escape') {
+                closeMenu();
+              }
+            }}
           >
-            <span class="titlebar-menu-item-icon" aria-hidden="true">🔧</span>
-            <span>dev tools</span>
-            <span class="titlebar-menu-submenu-arrow" aria-hidden="true">▶</span>
-          </button>
-          {#if devToolsSubmenuOpen}
-            <div
-              bind:this={devToolsSubmenu}
-              class="titlebar-dropdown titlebar-menu-submenu-panel"
-              role="menu"
-              aria-label="dev tools submenu"
-              data-side={devToolsSubmenuSide}
-              style={`left: ${devToolsSubmenuPosition.x}px; top: ${devToolsSubmenuPosition.y}px;`}
-              on:mouseenter={openDevToolsSubmenu}
-              on:mouseleave={scheduleCloseDevToolsSubmenu}
-              on:click|stopPropagation
-              on:contextmenu|preventDefault
-              on:keydown={(event) => {
-                if (event.key === 'Escape') {
-                  closeMenu();
+            <button
+              type="button"
+              class="titlebar-menu-item titlebar-menu-submenu-item"
+              role="menuitem"
+              disabled={!canOpenInspector}
+              on:click={() => {
+                closeMenu();
+                if (canOpenInspector) {
+                  void openInspector();
                 }
               }}
             >
-              <button
-                type="button"
-                class="titlebar-menu-item titlebar-menu-submenu-item"
-                role="menuitem"
-                disabled={!canOpenInspector}
-                on:click={() => {
-                  closeMenu();
-                  if (canOpenInspector) {
-                    void openInspector();
-                  }
-                }}
-              >
-                <span class="titlebar-menu-item-icon" aria-hidden="true">🪟</span>
-                webview inspector
-              </button>
-              <button
-                type="button"
-                class="titlebar-menu-item titlebar-menu-submenu-item"
-                class:active={transcriptDiagnosticsEnabled}
-                role="menuitemcheckbox"
-                aria-checked={transcriptDiagnosticsEnabled}
-                on:click={() => {
-                  closeMenu();
-                  onToggleTranscriptDiagnostics();
-                }}
-              >
-                <span class="titlebar-menu-item-icon" aria-hidden="true">🪲</span>
-                {transcriptDiagnosticsEnabled ? 'disable transcript diagnostics' : 'enable transcript diagnostics'}
-              </button>
-            </div>
-          {/if}
-        </div>
-      {/if}
+              <span class="titlebar-menu-item-icon" aria-hidden="true">🪟</span>
+              webview inspector
+            </button>
+            <button
+              type="button"
+              class="titlebar-menu-item titlebar-menu-submenu-item"
+              class:active={transcriptDiagnosticsEnabled}
+              role="menuitemcheckbox"
+              aria-checked={transcriptDiagnosticsEnabled}
+              on:click={() => {
+                closeMenu();
+                onToggleTranscriptDiagnostics();
+              }}
+            >
+              <span class="titlebar-menu-item-icon" aria-hidden="true">🪲</span>
+              {transcriptDiagnosticsEnabled ? 'disable transcript diagnostics' : 'enable transcript diagnostics'}
+            </button>
+          </div>
+        {/if}
+      </ContextMenuShell>
     </div>
 
     <div class="window-controls" aria-label="window controls">
