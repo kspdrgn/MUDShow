@@ -2473,7 +2473,6 @@ body {
 
 .notes-panel.embedded,
 .debug-console-panel.embedded {
-  display: flex;
   flex: 1 1 auto;
   height: 100%;
   border-bottom: none;
@@ -2484,6 +2483,11 @@ body {
 .highlights-panel.open,
 .rules-panel.open,
 .debug-console-panel.open {
+  display: flex;
+}
+
+.notes-panel.embedded.open,
+.debug-console-panel.embedded.open {
   display: flex;
 }
 

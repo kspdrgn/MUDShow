@@ -8,7 +8,6 @@
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
-  import DummyChannelPanel from './DummyChannelPanel.svelte';
   import WorldChannelsBar from './WorldChannelsBar.svelte';
   import WorldChannelsPanel from './WorldChannelsPanel.svelte';
   import type { AppStyleValues } from '../styles/style-settings';
@@ -99,26 +98,25 @@
   let channelBarAwake = false;
   let channelBarHideTimer: ReturnType<typeof setTimeout> | null = null;
   let lastVisible = visible;
-  let channelTabs: ChannelTabVM[] = [
-    {
-      id: 'dummy',
-      label: 'dummy 1',
-      open: false,
-      panelComponent: DummyChannelPanel,
-    },
-    {
-      id: 'dummy-2',
-      label: 'dummy 2',
-      open: false,
-      panelComponent: DummyChannelPanel,
-    },
-  ];
+  const debugConsoleChannelId = 'debug-console';
 
-  function hasOpenChannels(): boolean {
-    return channelTabs.some((tab) => tab.open);
-  }
+  $: channelTabs = [
+    {
+      id: debugConsoleChannelId,
+      label: 'debug console',
+      open: debugConsoleVisible,
+      panelComponent: DebugConsolePanel,
+      panelProps: {
+        embedded: true,
+        entries: debugConsoleEntries,
+        scope,
+        activeBar,
+        onClose: actions.onDebugConsoleClose,
+      },
+    },
+  ] satisfies ChannelTabVM[];
 
-  $: channelPanelOpen = hasOpenChannels();
+  $: channelPanelOpen = debugConsoleVisible;
   $: channelBarPinned = channelPanelOpen;
   $: channelBarVisible = channelBarPinned || channelBarHovered || channelBarAwake;
 
@@ -136,13 +134,9 @@
   }
 
   function scheduleChannelBarHide(): void {
-    if (hasOpenChannels() || channelBarHovered) {
-      return;
-    }
-
     clearChannelBarTimer();
     channelBarHideTimer = setTimeout(() => {
-      if (!hasOpenChannels() && !channelBarHovered) {
+      if (!debugConsoleVisible && !channelBarHovered) {
         channelBarAwake = false;
       }
     }, 1000);
@@ -154,28 +148,24 @@
   }
 
   function toggleChannel(tabId: ChannelTabId): void {
-    const channel = channelTabs.find((tab) => tab.id === tabId);
-
-    if (!channel) {
+    if (tabId !== debugConsoleChannelId) {
       return;
     }
 
-    if (channel.open) {
+    if (debugConsoleVisible) {
       closeAllChannels();
       return;
     }
 
-    channelTabs = channelTabs.map((tab) => ({
-      ...tab,
-      open: tab.id === tabId,
-    }));
-    scheduleChannelBarHide();
+    channelBarAwake = true;
+    clearChannelBarTimer();
+    actions.onOpenDebugConsole();
   }
 
   function closeAllChannels(): void {
-    channelTabs = channelTabs.map((tab) =>
-      tab.open ? { ...tab, open: false } : tab,
-    );
+    if (debugConsoleVisible) {
+      actions.onDebugConsoleClose();
+    }
     scheduleChannelBarHide();
   }
 
@@ -290,14 +280,6 @@
     onInput={actions.onNotesInput}
     onIgnoreWord={actions.onSpellcheckIgnoreWord}
     onClose={actions.onNotesClose}
-  />
-
-  <DebugConsolePanel
-    open={debugConsoleVisible}
-    entries={debugConsoleEntries}
-    {scope}
-    activeBar={activeBar}
-    onClose={actions.onDebugConsoleClose}
   />
 
   <Transcript

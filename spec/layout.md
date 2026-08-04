@@ -49,7 +49,7 @@ Menu content stays in the owning component so each feature can keep its own acti
   - Closing a connected or connecting world tab requires confirmation. Clicking the tab X shows a small dropdown anchored to that X, while Ctrl+F4 uses a centered modal confirmation.
   - If the logging reminder is enabled in app settings, closing a disconnected world tab that is not currently being logged also requires confirmation.
   - Tabs can be dragged to re-order them within the tab bar arbitrarily
-  - The world tab context menu, whether opened from the top tab bar or the transcript, keeps logging and notes on the main menu and exposes a nested Settings submenu as its own side panel for world-specific shortcuts such as edit world, edit character, edit styles, edit triggers, and debug console. The Settings submenu opens on hover or keyboard focus, stays accessible from a click, uses a short close delay so the pointer can cross between panels, and clamps to the app window like the main menu.
+  - The world tab context menu, whether opened from the top tab bar or the transcript, keeps logging and notes on the main menu and exposes a nested Settings submenu as its own side panel for world-specific shortcuts such as edit world, edit character, edit styles, and edit triggers. The Settings submenu opens on hover or keyboard focus, stays accessible from a click, uses a short close delay so the pointer can cross between panels, and clamps to the app window like the main menu.
 
 ## Quick Connect Menu
 
@@ -137,7 +137,7 @@ PlayScreen
   - Channels - Anchored to the top, shows tabs within each world
   - HighlightsPanel - Toggle, anchored to top
   - NotesPanel - Toggle, anchored to top
-  - DebugConsolePanel - Toggle, anchored to top, shows the per-world communication stream for troubleshooting.
+  - DebugConsole channel - A host-managed world channel that shows the per-world communication stream for troubleshooting and stays mounted while hidden.
   - Transcript - Fills most space below the channels surface. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
   - Logging controls - Start, stop, and rename the active log file for the current world tab.
@@ -161,7 +161,8 @@ Channel panel
   - The first implementation of world channels is a host-managed dummy panel inside PlayScreen, intended to validate bar reveal, hide, and resize behavior before any real integrations are added.
 
 Channel scope
-  - Notes, debug console, highlights, and rules stay in their dedicated panel locations outside the channels harness for now.
+  - Notes, highlights, and rules stay in their dedicated panel locations outside the channels harness for now.
+  - The debug console has moved into the channels harness as the first real world channel.
   - The channel model should be generic enough to support future world-specific panels and routed output surfaces.
 
 Channel component references

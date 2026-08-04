@@ -9,6 +9,7 @@
   import type { InputBarId } from '../../input-bars';
 
   export let open = false;
+  export let embedded = false;
   export let entries: DebugConsoleEntry[] = [];
   export let scope = 'world';
   export let activeBar: InputBarId = 1;
@@ -141,7 +142,12 @@
   }
 </script>
 
-<div class="debug-console-panel" id={getWorldDebugConsolePanelId(scope)} class:open={open}>
+<div
+  class="debug-console-panel"
+  class:embedded={embedded}
+  id={getWorldDebugConsolePanelId(scope)}
+  class:open={open}
+>
   <div class="panel-header">
     <div class="panel-header-group">
       <div class="debug-console-label">debug console</div>

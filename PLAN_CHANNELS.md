@@ -50,9 +50,9 @@
 
 ### Debug Console
 
-- A selectable debug console channel should replace the current debug console toggle panel.
-- The console should continue to show raw incoming data, outgoing commands, and status messages.
-- The user should be able to open it directly from the channel strip.
+- A selectable debug console channel replaces the current debug console toggle panel.
+- The console continues to show raw incoming data, outgoing commands, and status messages.
+- The user can open it directly from the channel strip.
 
 ### Images
 
@@ -117,10 +117,9 @@
 
 ## Debug Console Migration
 
-- The debug console currently lives in a panel that is toggled by shortcut or menu.
-- The plan is to relocate it into a channel while preserving the same rolling debug stream.
-- Existing debug shortcuts may remain as a way to focus the console channel.
-- The debug console should still show the same data categories, just through the new subwindow structure.
+- The debug console now lives in the world channel area as the first built-in channel.
+- The migration keeps the same rolling debug stream and existing debug shortcuts.
+- The console still shows the same data categories, just through the channel shell instead of the old standalone panel.
 
 ## Plugin Surface
 
@@ -159,3 +158,4 @@
 - Identify the host events that can route to a channel.
 - Draft the minimal PlayScreen UI changes needed to show the channel strip.
 - Clarify how plugin controls will be injected into the channel header area.
+- Move Notes into the new channel system if and when we want it to follow the same pattern.

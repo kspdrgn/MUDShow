@@ -173,7 +173,9 @@ export function createWorldPanelActions({
               ? getWorldNotesEditorId(scope)
               : panel === 'highlights'
                 ? getWorldHighlightInputId(scope)
-                : getWorldRuleInputId(scope),
+                : panel === 'rules'
+                  ? getWorldRuleInputId(scope)
+                  : getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar),
             true,
           );
         }

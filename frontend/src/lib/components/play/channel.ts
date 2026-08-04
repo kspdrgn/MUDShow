@@ -10,4 +10,5 @@ export type ChannelTab = {
 
 export type ChannelTabVM = ChannelTab & {
   panelComponent?: Component;
+  panelProps?: Record<string, unknown>;
 };

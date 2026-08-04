@@ -55,9 +55,9 @@ The output area shows a short status message for changes in connection or loggin
 
 ## Debug Console
 
-Each world tab can open a separate debug console pane that shares space with the world tab contents.
+Each world tab can open a separate debug console channel inside the PlayScreen.
 
-- The console shows the live incoming server stream, outgoing commands, and status messages for that specific world tab, and it keeps collecting session traffic even while the panel is hidden.
+- The console shows the live incoming server stream, outgoing commands, and status messages for that specific world tab, and it keeps collecting session traffic even while the channel is hidden.
 - The console keeps about 1000 lines of recent content and drops older entries as new ones arrive.
 - Control characters and special bytes are rendered visibly so command codes and escape sequences can be inspected directly.
 - The console is read-only and is intended for troubleshooting communication rather than replacing the transcript view.
