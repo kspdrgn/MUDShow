@@ -3,6 +3,13 @@
 ## Top TODO
 
 MVP Features:
+- [ ] Notes persistence
+- [ ] Resize performance, suspend layout when resize? PLAN_PERF?
+- [ ] Remove dummy panels when channels is working
+- [ ] Channels!
+  - [X] Skeleton
+  - [X] Move notes
+  - [X] Move debug console
 - [ ] Session logging. WIP. needs testing. needs better ui?
 - [X] Style. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
