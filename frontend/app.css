@@ -1998,10 +1998,14 @@ body {
 }
 
 .world-channels-dummy-copy {
-  display: grid;
+  display: none;
   gap: 0.4rem;
   padding: 0.9rem 0.75rem 1rem;
   color: var(--world-output-foreground, var(--text));
+}
+
+.world-channels-dummy-copy.open {
+  display: grid;
 }
 
 .world-channels-dummy-title {

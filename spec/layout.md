@@ -136,7 +136,7 @@ The PlayScreen is the main content and interaction space for a single world and 
 PlayScreen
   - Channels - Anchored to the top, shows tabs within each world
   - HighlightsPanel - Toggle, anchored to top
-  - NotesPanel - Toggle, anchored to top
+  - Notes channel - A host-managed world channel that shows and edits the saved notes for the active character or world and stays mounted while hidden.
   - DebugConsole channel - A host-managed world channel that shows the per-world communication stream for troubleshooting and stays mounted while hidden.
   - Transcript - Fills most space below the channels surface. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
@@ -151,18 +151,18 @@ PlayScreen
 World channels live inside the PlayScreen and provide a host-managed surface for reusable world-specific panels.
 
 Channel bar
-  - Host-managed row that stays visible above the play view and provides Hide and Dummy controls.
+  - Host-managed row that stays visible above the play view and provides Hide plus one button per world channel.
   - Hides automatically when no channel panel is open, but a thin hover area below the topbar can reveal it again.
-  - When the user explicitly opens the dummy channel, the channels panel stays open until they click Hide.
+  - When the user explicitly opens a channel, the channels panel stays open until they click Hide.
 
 Channel panel
-  - Host-managed dummy surface shown beneath the bar when the dummy channel is open.
+  - Host-managed channel surface shown beneath the bar when a world channel is open.
   - Includes a bottom-edge resize handle so the user can adjust its height.
-  - The first implementation of world channels is a host-managed dummy panel inside PlayScreen, intended to validate bar reveal, hide, and resize behavior before any real integrations are added.
+  - The channel shell keeps the built-in notes and debug console mounted inside PlayScreen, intended to validate bar reveal, hide, resize, and focus behavior before any future routed surfaces are added.
 
 Channel scope
-  - Notes, highlights, and rules stay in their dedicated panel locations outside the channels harness for now.
-  - The debug console has moved into the channels harness as the first real world channel.
+  - Notes, highlights, and rules are now routed according to their host location model.
+  - Notes and the debug console live inside the channels harness as the first real world channels.
   - The channel model should be generic enough to support future world-specific panels and routed output surfaces.
 
 Channel component references

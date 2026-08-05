@@ -16,6 +16,7 @@
   } from './spellcheck-editor';
 
   export let open = false;
+  export let embedded = false;
   export let notes = '';
   export let scope = 'world';
   export let onInput: (notes: string) => void;
@@ -56,17 +57,22 @@
   }
 
   $: {
-    draft;
-    spellcheckEnabled;
-    spellcheckLanguage;
-    spellcheckIgnoredWords;
-    spellcheckSuggestionLimit;
-    spellcheckMinimumWordLength;
-    spellcheckDebounceMs;
+    if (!open) {
+      closeMenu();
+      clearLiveSpellcheck();
+    } else {
+      draft;
+      spellcheckEnabled;
+      spellcheckLanguage;
+      spellcheckIgnoredWords;
+      spellcheckSuggestionLimit;
+      spellcheckMinimumWordLength;
+      spellcheckDebounceMs;
 
-    const nextSignature = getLiveSignature(draft);
-    if (nextSignature !== liveSignature) {
-      scheduleLiveSpellcheck(draft);
+      const nextSignature = getLiveSignature(draft);
+      if (nextSignature !== liveSignature) {
+        scheduleLiveSpellcheck(draft);
+      }
     }
   }
 
@@ -306,7 +312,12 @@
   });
 </script>
 
-<div class="notes-panel" id={getWorldNotesPanelId(scope)} class:open={open}>
+<div
+  class="notes-panel"
+  class:embedded={embedded}
+  id={getWorldNotesPanelId(scope)}
+  class:open={open}
+>
   <div class="panel-header">
     <div class="notes-label">notes</div>
     <button

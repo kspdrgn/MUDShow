@@ -18,10 +18,10 @@ World channels are host-managed surfaces inside a PlayScreen. They sit above the
 - The first implementation uses a real debug console channel to exercise the bar, reveal, hide, and resize behavior.
 - The host owns the channel state and decides which channel is active.
 - Channel content is rendered as a host-managed component inside the channel panel.
+- Notes now use the same channel shell as the debug console and stay mounted while hidden.
 
 ## Scope
 
 - Channels are only for world PlayScreens.
 - App-level tabs and settings tabs are not channels.
-- Notes remain outside the channel system for now.
-- The debug console is the first built-in world channel and stays mounted in the host-managed channel shell while hidden.
+- Notes and the debug console are the first built-in world channels and stay mounted in the host-managed channel shell while hidden.

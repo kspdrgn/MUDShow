@@ -44,9 +44,9 @@
 
 ### Notes
 
-- A selectable notes channel should replace the current notes toggle panel.
-- The notes view should remain world or character scoped as it is today.
-- The user should be able to switch to Notes directly from the channel strip.
+- A selectable notes channel replaces the current notes toggle panel.
+- The notes view remains world or character scoped as it is today.
+- The user can switch to Notes directly from the channel strip.
 
 ### Debug Console
 
@@ -110,10 +110,10 @@
 
 ## Notes Migration
 
-- Notes currently live in a panel that is toggled by shortcut or menu.
-- The plan is to relocate notes into a channel while preserving the same stored notes data.
+- Notes now live in the world channel area as a built-in channel.
+- The migration keeps the same stored notes data and spellcheck editor behavior.
 - The content model for notes should remain stable during the UI migration.
-- Existing notes shortcuts may remain as a way to focus the Notes channel.
+- Existing notes shortcuts remain as a way to focus the Notes channel.
 
 ## Debug Console Migration
 
@@ -138,8 +138,7 @@
 ## Suggested First Cut
 
 - Introduce the host-level channel container inside PlayScreen.
-- Move Notes into the new channel system first or alongside Debug Console.
-- Move Debug Console into the new channel system next.
+- Move Notes and Debug Console into the new channel system.
 - Add images and links as optional routed channels if the routing model can be kept simple and understandable.
 - Add routing hooks for built-in actions before wiring plugin integrations.
 - Add plugin header controls only after the channel shell is stable.

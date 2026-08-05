@@ -25,7 +25,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can save multiple characters so I can return to different worlds or accounts quickly.
 - As a player, I can edit a character’s host, port, and connection options without recreating it.
 - As a player, I can connect to a MU* and read the live transcript in one place.
-- As a player, I can open a per-world debug console channel to inspect incoming, outgoing, and status messages for that session.
+- As a player, I can open per-world notes and debug console channels to inspect or edit session-specific information.
 - As a player, I can use a world channels bar and panel in the play screen to host reusable world-specific surfaces.
 - As a player, I can type commands in one of two inputs so I can keep a draft while continuing conversation.
 - As a player, I can switch inputs instantly when I need to pause one thought and start another.
@@ -78,14 +78,14 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
 - Allow a transient transcript diagnostics toggle from the app menu's dev tools submenu that writes extra console debug output while enabled.
-- Allow opening a per-world debug console channel that shares space with the active world tab and shows a rolling communication stream.
+- Allow opening per-world notes and debug console channels that share space with the active world tab.
 - Show a host-managed world channels bar above the PlayScreen channel panel, with Hide collapsing the panel back into the main play view.
 - Keep an explicitly opened channel panel pinned open until the user chooses Hide.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.
 - Store rolling per-character transcript history locally and reload it when reconnecting.
-- Open and close a notes panel for the active character.
+- Open and close a notes channel for the active character.
 - Open and close the per-world debug console channel.
 - Open and close a triggers panel for simple text highlights and regexp rules.
 - Manage triggers at app, world, or character scope.
@@ -105,7 +105,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Let each regexp rule optionally stop later rule evaluation or highlight evaluation when it matches.
 - Support simple word completion from recently seen session text.
 - Support quick switching between the first two input bars with F1 and F2 when a world tab is active. If only one input bar exists, F2 opens a second one.
-- Support quick toggling of notes panel with F3.
+- Support quick toggling of notes channel with F3.
 - Support quick toggling of highlighting panel with F4.
 - Play an optional activity alert when the app is unfocused and new output arrives.
 - Track focus/title attention state so the user can see unseen activity.

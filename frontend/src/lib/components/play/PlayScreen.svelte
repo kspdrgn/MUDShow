@@ -5,6 +5,7 @@
   import type { PlayTranscript, RenderCache } from '../../playback';
   import type { DebugConsoleEntry } from '../../debug-console';
   import DebugConsolePanel from './DebugConsolePanel.svelte';
+  import DummyChannelPanel from './DummyChannelPanel.svelte';
   import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
@@ -98,9 +99,52 @@
   let channelBarAwake = false;
   let channelBarHideTimer: ReturnType<typeof setTimeout> | null = null;
   let lastVisible = visible;
+  let dummyChannelOneOpen = false;
+  let dummyChannelTwoOpen = false;
+  const notesChannelId = 'notes';
   const debugConsoleChannelId = 'debug-console';
+  const dummyChannelOneId = 'dummy';
+  const dummyChannelTwoId = 'dummy-2';
 
   $: channelTabs = [
+    {
+      id: dummyChannelOneId,
+      label: 'dummy 1',
+      open: dummyChannelOneOpen,
+      panelComponent: DummyChannelPanel,
+      panelProps: {
+        title: 'dummy panel',
+      },
+    },
+    {
+      id: dummyChannelTwoId,
+      label: 'dummy 2',
+      open: dummyChannelTwoOpen,
+      panelComponent: DummyChannelPanel,
+      panelProps: {
+        title: 'dummy panel',
+      },
+    },
+    {
+      id: notesChannelId,
+      label: 'notes',
+      open: notesVisible,
+      panelComponent: NotesPanel,
+      panelProps: {
+        embedded: true,
+        notes,
+        scope,
+        spellcheckEnabled,
+        spellcheckLanguage,
+        spellcheckIgnoredWords,
+        spellcheckSuggestionLimit,
+        spellcheckMinimumWordLength,
+        spellcheckDebounceMs,
+        onInput: actions.onNotesInput,
+        onIgnoreWord: actions.onSpellcheckIgnoreWord,
+        onClose: actions.onNotesClose,
+      },
+    },
     {
       id: debugConsoleChannelId,
       label: 'debug console',
@@ -116,7 +160,7 @@
     },
   ] satisfies ChannelTabVM[];
 
-  $: channelPanelOpen = debugConsoleVisible;
+  $: channelPanelOpen = notesVisible || debugConsoleVisible || dummyChannelOneOpen || dummyChannelTwoOpen;
   $: channelBarPinned = channelPanelOpen;
   $: channelBarVisible = channelBarPinned || channelBarHovered || channelBarAwake;
 
@@ -136,7 +180,7 @@
   function scheduleChannelBarHide(): void {
     clearChannelBarTimer();
     channelBarHideTimer = setTimeout(() => {
-      if (!debugConsoleVisible && !channelBarHovered) {
+      if (!channelPanelOpen && !channelBarHovered) {
         channelBarAwake = false;
       }
     }, 1000);
@@ -148,6 +192,55 @@
   }
 
   function toggleChannel(tabId: ChannelTabId): void {
+    if (tabId === dummyChannelOneId) {
+      dummyChannelOneOpen = !dummyChannelOneOpen;
+      dummyChannelTwoOpen = false;
+      if (!dummyChannelOneOpen) {
+        scheduleChannelBarHide();
+      } else {
+        channelBarAwake = true;
+        clearChannelBarTimer();
+        if (notesVisible) {
+          actions.onNotesClose();
+        }
+        if (debugConsoleVisible) {
+          actions.onDebugConsoleClose();
+        }
+      }
+      return;
+    }
+
+    if (tabId === dummyChannelTwoId) {
+      dummyChannelTwoOpen = !dummyChannelTwoOpen;
+      dummyChannelOneOpen = false;
+      if (!dummyChannelTwoOpen) {
+        scheduleChannelBarHide();
+      } else {
+        channelBarAwake = true;
+        clearChannelBarTimer();
+        if (notesVisible) {
+          actions.onNotesClose();
+        }
+        if (debugConsoleVisible) {
+          actions.onDebugConsoleClose();
+        }
+      }
+      return;
+    }
+
+    if (tabId === notesChannelId) {
+      dummyChannelOneOpen = false;
+      dummyChannelTwoOpen = false;
+      if (notesVisible) {
+        closeAllChannels();
+      } else {
+        channelBarAwake = true;
+        clearChannelBarTimer();
+        actions.onOpenNotes();
+      }
+      return;
+    }
+
     if (tabId !== debugConsoleChannelId) {
       return;
     }
@@ -157,13 +250,19 @@
       return;
     }
 
+    dummyChannelOneOpen = false;
+    dummyChannelTwoOpen = false;
     channelBarAwake = true;
     clearChannelBarTimer();
     actions.onOpenDebugConsole();
   }
 
   function closeAllChannels(): void {
-    if (debugConsoleVisible) {
+    dummyChannelOneOpen = false;
+    dummyChannelTwoOpen = false;
+    if (notesVisible) {
+      actions.onNotesClose();
+    } else if (debugConsoleVisible) {
       actions.onDebugConsoleClose();
     }
     scheduleChannelBarHide();
@@ -265,21 +364,6 @@
 
   <WorldChannelsPanel
     tabs={channelTabs}
-  />
-
-  <NotesPanel
-    open={notesVisible}
-    {notes}
-    {scope}
-    {spellcheckEnabled}
-    {spellcheckLanguage}
-    {spellcheckIgnoredWords}
-    {spellcheckSuggestionLimit}
-    {spellcheckMinimumWordLength}
-    {spellcheckDebounceMs}
-    onInput={actions.onNotesInput}
-    onIgnoreWord={actions.onSpellcheckIgnoreWord}
-    onClose={actions.onNotesClose}
   />
 
   <Transcript

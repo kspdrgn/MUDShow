@@ -21,7 +21,6 @@
 
   $: activeTab = tabs.find((tab) => tab.open) ?? null;
   $: open = activeTab !== null;
-  $: mountTab = activeTab ?? tabs[0] ?? null;
 
   function getMaxPanelHeight(): number {
     if (typeof window === 'undefined') {
@@ -114,10 +113,12 @@
 >
   <div class="world-channels-panel-shell">
     <div class="world-channels-panel-body">
-      {#if mountTab?.panelComponent}
-        {@const Panel = mountTab.panelComponent}
-        <svelte:component this={Panel} open={open} {...(mountTab.panelProps ?? {})} />
-      {/if}
+      {#each tabs as tab (tab.id)}
+        {#if tab.panelComponent}
+          {@const Panel = tab.panelComponent}
+          <svelte:component this={Panel} open={tab.open} {...(tab.panelProps ?? {})} />
+        {/if}
+      {/each}
     </div>
   </div>
 
