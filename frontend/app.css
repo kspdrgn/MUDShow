@@ -1935,9 +1935,27 @@ body {
   pointer-events: none;
 }
 
+.world-channels-panel-stage {
+  position: relative;
+}
+
+.world-channels-panel-stage.resizing {
+  height: var(--world-channels-panel-height);
+}
+
 .world-channels-panel.open {
   border-bottom-color: var(--border);
   pointer-events: auto;
+}
+
+.world-channels-panel.resizing {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 4;
+  transition: none;
+  will-change: height;
 }
 
 .world-channels-panel-shell {

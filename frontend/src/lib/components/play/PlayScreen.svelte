@@ -99,6 +99,8 @@
   let channelBarAwake = false;
   let channelBarHideTimer: ReturnType<typeof setTimeout> | null = null;
   let lastVisible = visible;
+  let channelsPanelResizing = false;
+  let channelsPanelResizeLockedHeight = 0;
   let dummyChannelOneOpen = false;
   let dummyChannelTwoOpen = false;
   const notesChannelId = 'notes';
@@ -362,9 +364,22 @@
     onToggleChannel={toggleChannel}
   />
 
-  <WorldChannelsPanel
-    tabs={channelTabs}
-  />
+  <div
+    class="world-channels-panel-stage"
+    class:resizing={channelsPanelResizing}
+    style:--world-channels-panel-height={`${channelsPanelResizeLockedHeight}px`}
+  >
+    <WorldChannelsPanel
+      tabs={channelTabs}
+      onResizeStart={(height) => {
+        channelsPanelResizeLockedHeight = height;
+        channelsPanelResizing = true;
+      }}
+      onResizeEnd={() => {
+        channelsPanelResizing = false;
+      }}
+    />
+  </div>
 
   <Transcript
     {activeBar}

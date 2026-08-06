@@ -3,6 +3,8 @@
   import { type ChannelTabVM } from './channel';
 
   export let tabs: ChannelTabVM[] = [];
+  export let onResizeStart: (height: number) => void = () => {};
+  export let onResizeEnd: () => void = () => {};
 
   const MIN_PANEL_HEIGHT = 80;
   const DEFAULT_PANEL_HEIGHT = 280;
@@ -10,7 +12,10 @@
   const MAX_PANEL_HEIGHT_RATIO = 0.7;
 
   let panelHeight = DEFAULT_PANEL_HEIGHT;
+  let resizing = false;
   let panelElement: HTMLElement | null = null;
+  let pendingPanelHeight = DEFAULT_PANEL_HEIGHT;
+  let resizeFrame: number | null = null;
   let dragState:
     | {
         pointerId: number;
@@ -57,6 +62,10 @@
       startY: event.clientY,
       startHeight: panelElement.getBoundingClientRect().height,
     };
+    pendingPanelHeight = panelHeight;
+    resizing = true;
+
+    onResizeStart(dragState.startHeight);
 
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
@@ -65,9 +74,29 @@
 
   function endResize(): void {
     dragState = null;
+    resizing = false;
+    if (resizeFrame !== null) {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = null;
+    }
+    panelHeight = pendingPanelHeight;
     window.removeEventListener('pointermove', handlePointerMove);
     window.removeEventListener('pointerup', handlePointerUp);
     window.removeEventListener('pointercancel', handlePointerUp);
+    onResizeEnd();
+  }
+
+  function flushResizeFrame(): void {
+    resizeFrame = null;
+    panelHeight = pendingPanelHeight;
+  }
+
+  function scheduleResizeFrame(): void {
+    if (resizeFrame !== null) {
+      return;
+    }
+
+    resizeFrame = requestAnimationFrame(flushResizeFrame);
   }
 
   function handlePointerMove(event: PointerEvent): void {
@@ -75,7 +104,8 @@
       return;
     }
 
-    panelHeight = clampPanelHeight(dragState.startHeight + (event.clientY - dragState.startY));
+    pendingPanelHeight = clampPanelHeight(dragState.startHeight + (event.clientY - dragState.startY));
+    scheduleResizeFrame();
   }
 
   function handlePointerUp(event: PointerEvent): void {
@@ -105,6 +135,7 @@
   bind:this={panelElement}
   class="world-channels-panel"
   class:open={open}
+  class:resizing={resizing}
   aria-hidden={!open}
   aria-label="World channels"
   style:height={`${open ? panelHeight : 0}px`}
