@@ -8,6 +8,8 @@ import {
   getWorldOutputAreaId,
   getWorldRuleInputId,
 } from './world-dom';
+import { flushPendingNotesSave } from './session-world-input';
+import { loadNotes } from './storage';
 
 interface WorldPanelActionContext {
   getActiveWorldTabId: () => string | null;
@@ -123,8 +125,18 @@ export function createWorldPanelActions({
     const shouldPreserveBottom = !session.userScrolled;
 
     if (panel === 'notes') {
+      if (session.notesVisible && !shouldOpen) {
+        flushPendingNotesSave(tabId);
+      }
+
+      if (shouldOpen && session.currentCharacter && session.notes === '') {
+        const loadedNotes = await loadNotes(session.currentCharacter.id, false);
+        updateWorldSession(tabId, { notes: loadedNotes });
+      }
+
       updateWorldSession(tabId, {
         notesVisible: shouldOpen,
+        notesRegistered: shouldOpen ? true : session.notesRegistered,
         highlightsVisible: false,
         rulesVisible: false,
         debugConsoleVisible: false,
@@ -146,6 +158,7 @@ export function createWorldPanelActions({
     } else {
       updateWorldSession(tabId, {
         debugConsoleVisible: shouldOpen,
+        debugConsoleRegistered: shouldOpen ? true : session.debugConsoleRegistered,
         notesVisible: false,
         highlightsVisible: false,
         rulesVisible: false,
@@ -187,10 +200,41 @@ export function createWorldPanelActions({
     }
   }
 
+  async function closePanel(panel: 'notes' | 'debugConsole'): Promise<void> {
+    const tabId = getActiveWorldTabId();
+    if (!tabId) {
+      return;
+    }
+
+    const session = getWorldSession(tabId);
+    const shouldFocusInput = panel === 'notes' ? session.notesVisible : session.debugConsoleVisible;
+
+    if (panel === 'notes') {
+      flushPendingNotesSave(tabId);
+      updateWorldSession(tabId, {
+        notesVisible: false,
+        notesRegistered: false,
+      });
+    } else {
+      updateWorldSession(tabId, {
+        debugConsoleVisible: false,
+        debugConsoleRegistered: false,
+      });
+    }
+
+    if (!shouldFocusInput) {
+      return;
+    }
+
+    await nextFrame();
+    focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar), true);
+  }
+
   return {
     handleOutputScroll,
     handleOutputScrollKey,
     handleScrollToBottom,
     togglePanel,
+    closePanel,
   };
 }

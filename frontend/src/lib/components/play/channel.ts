@@ -6,6 +6,7 @@ export type ChannelTab = {
   id: ChannelTabId;
   label: string;
   open: boolean;
+  onClose?: () => void;
 };
 
 export type ChannelTabVM = ChannelTab & {

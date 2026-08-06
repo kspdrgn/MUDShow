@@ -614,22 +614,29 @@ export async function deleteTranscriptHistory(characterName: string): Promise<vo
   writeWebviewHistory(nextHistory);
 }
 
-export async function loadNotes(characterName: string, waitForWrites = true): Promise<string> {
+export async function loadNotes(characterId: string, waitForWrites = true): Promise<string> {
+  const noteKey = resolveCharacterNoteKey(characterId);
+
   if (!isTauriAvailable()) {
-    return readWebviewData().notes[resolveCharacterNoteKey(characterName)] ?? '';
+    return readWebviewData().notes[noteKey] ?? '';
   }
 
-  return readPersistentData(waitForWrites).then((data) => data.notes[resolveCharacterNoteKey(characterName)] ?? '');
+  return readPersistentData(waitForWrites).then((data) => data.notes[noteKey] ?? '');
 }
 
-export async function saveNotes(characterName: string, notes: string): Promise<void> {
+export async function saveNotes(characterId: string, notes: string): Promise<void> {
+  console.info('[notes] storage write requested', {
+    characterId,
+    noteLength: notes.length,
+  });
+
   if (!isTauriAvailable()) {
     const current = readWebviewData();
-    writeWebviewData(updateNotes(current, characterName, notes));
+    writeWebviewData(updateNotes(current, characterId, notes));
     return;
   }
 
-  await queueFileMutation((data) => updateNotes(data, characterName, notes));
+  await queueFileMutation((data) => updateNotes(data, characterId, notes));
 }
 
 export async function moveNotes(fromCharacterName: string, toCharacterName: string): Promise<void> {
@@ -671,11 +678,11 @@ export async function moveNotes(fromCharacterName: string, toCharacterName: stri
   });
 }
 
-export async function deleteNotes(characterName: string): Promise<void> {
+export async function deleteNotes(characterId: string): Promise<void> {
   if (!isTauriAvailable()) {
     const current = readWebviewData();
     const nextNotes = { ...current.notes };
-    delete nextNotes[resolveCharacterNoteKey(characterName)];
+    delete nextNotes[resolveCharacterNoteKey(characterId)];
     writeWebviewData({
       ...current,
       notes: nextNotes,
@@ -683,7 +690,7 @@ export async function deleteNotes(characterName: string): Promise<void> {
     return;
   }
 
-  await queueFileMutation((data) => updateNotes(data, characterName, null));
+  await queueFileMutation((data) => updateNotes(data, characterId, null));
 }
 
 export async function loadTriggers(): Promise<Trigger[]> {

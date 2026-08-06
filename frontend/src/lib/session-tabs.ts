@@ -23,6 +23,7 @@ import {
 } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import { createInitialState, type SessionState } from './session-state';
+import { cancelPendingNotesSave, flushPendingNotesSave } from './session-world-input';
 
 interface SessionTabsActionContext {
   state: Writable<SessionState>;
@@ -204,6 +205,7 @@ export function createSessionTabsActions({
     delete nextWorldSessions[tabId];
 
     if (tab.kind === 'world') {
+      flushPendingNotesSave(tab.id);
       releaseWorldConnection(tab.id);
     }
 
@@ -480,6 +482,7 @@ export function createSessionTabsActions({
     );
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
+    removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -512,6 +515,7 @@ export function createSessionTabsActions({
     const removedTabs = current.tabs.filter((tab): tab is WorldTab => tab.kind === 'world' && tab.worldId === worldId);
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
+    removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -546,6 +550,7 @@ export function createSessionTabsActions({
 
     for (const tab of current.tabs) {
       if (tab.kind === 'world') {
+        cancelPendingNotesSave(tab.id);
         releaseWorldConnection(tab.id);
         clearLoggingQueue(tab.id);
       }

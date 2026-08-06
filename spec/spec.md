@@ -17,7 +17,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 
 ## Core Model
 - 'Worlds' are the MU servers, and 'Characters' are named users on the server. Connections can be opened directly to a world, or to a named character within a world.
-- Per-character notes: locally stored private freeform text associated with a named local character.
+- Per-character notes: locally stored private freeform text associated with a local character, keyed by that character's internal ID.
 - Hierarchical triggers: highlight type triggers provide exact-text matches mapped to foreground/background styling, and rule type triggers provide raw regular-expression matches mapped to style actions with room for future line-level behaviors. Triggers can be owned by the app, a world, or a character.
 - Session state: active connection, output stream, input focus, read position, etc.
 
@@ -25,7 +25,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can save multiple characters so I can return to different worlds or accounts quickly.
 - As a player, I can edit a character’s host, port, and connection options without recreating it.
 - As a player, I can connect to a MU* and read the live transcript in one place.
-- As a player, I can open per-world notes and debug console channels to inspect or edit session-specific information.
+- As a player, I can open a per-character notes channel and a per-world debug console channel to inspect or edit session-specific information.
 - As a player, I can use a world channels bar and panel in the play screen to host reusable world-specific surfaces.
 - As a player, I can type commands in one of two inputs so I can keep a draft while continuing conversation.
 - As a player, I can switch inputs instantly when I need to pause one thought and start another.
@@ -78,7 +78,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
 - Allow a transient transcript diagnostics toggle from the app menu's dev tools submenu that writes extra console debug output while enabled.
-- Allow opening per-world notes and debug console channels that share space with the active world tab.
+- Allow opening a per-character notes channel and a per-world debug console channel that share space with the active world tab.
 - Show a host-managed world channels bar above the PlayScreen channel panel, with Hide collapsing the panel back into the main play view.
 - Keep an explicitly opened channel panel pinned open until the user chooses Hide.
 - Allow reconnecting after disconnect.

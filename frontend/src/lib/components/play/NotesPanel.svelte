@@ -47,6 +47,26 @@
   let liveScrollX = 0;
   let liveScrollY = 0;
 
+  function portalToBody(node: HTMLElement): { destroy: () => void } {
+    if (typeof document === 'undefined') {
+      return {
+        destroy: () => {},
+      };
+    }
+
+    const target = document.body;
+    const parent = node.parentNode;
+    target.appendChild(node);
+
+    return {
+      destroy: () => {
+        if (parent && node.parentNode === target) {
+          parent.appendChild(node);
+        }
+      },
+    };
+  }
+
   $: if (open && (!lastOpen || notes !== lastNotes)) {
     draft = notes;
   }
@@ -358,21 +378,23 @@
   </div>
 </div>
 
-<SpellcheckContextMenu
-  open={menuOpen}
-  position={menuPosition}
-  ariaLabel="notes spellcheck context menu"
-  suggestions={menuSuggestions}
-  loading={menuLoading}
-  onDismiss={closeMenu}
-  onCopy={() => void copySelection()}
-  onCut={() => void cutSelection()}
-  onPaste={() => void pasteClipboard()}
-  onSelectAll={selectAll}
-  onIgnoreOnce={closeMenu}
-  onIgnoreAlways={ignoreAlways}
-  onChooseSuggestion={(suggestion) => {
-    applyReplacement(suggestion);
-    closeMenu();
-  }}
-/>
+<div use:portalToBody>
+  <SpellcheckContextMenu
+    open={menuOpen}
+    position={menuPosition}
+    ariaLabel="notes spellcheck context menu"
+    suggestions={menuSuggestions}
+    loading={menuLoading}
+    onDismiss={closeMenu}
+    onCopy={() => void copySelection()}
+    onCut={() => void cutSelection()}
+    onPaste={() => void pasteClipboard()}
+    onSelectAll={selectAll}
+    onIgnoreOnce={closeMenu}
+    onIgnoreAlways={ignoreAlways}
+    onChooseSuggestion={(suggestion) => {
+      applyReplacement(suggestion);
+      closeMenu();
+    }}
+  />
+</div>

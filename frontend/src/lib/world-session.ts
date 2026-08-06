@@ -15,7 +15,9 @@ export interface WorldSessionProjection {
   notesVisible: boolean;
   highlightsVisible: boolean;
   rulesVisible: boolean;
+  notesRegistered: boolean;
   debugConsoleVisible: boolean;
+  debugConsoleRegistered: boolean;
   connectionStatus: ConnectionStatus;
   disconnectReason: DisconnectReason;
   hasNewActivity: boolean;
@@ -44,7 +46,9 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     notesVisible: false,
     highlightsVisible: false,
     rulesVisible: false,
+    notesRegistered: false,
     debugConsoleVisible: false,
+    debugConsoleRegistered: false,
     connectionStatus: 'idle',
     disconnectReason: null,
     hasNewActivity: false,
@@ -71,7 +75,9 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     notesVisible: session.notesVisible,
     highlightsVisible: session.highlightsVisible,
     rulesVisible: session.rulesVisible,
+    notesRegistered: session.notesRegistered,
     debugConsoleVisible: session.debugConsoleVisible,
+    debugConsoleRegistered: session.debugConsoleRegistered,
     connectionStatus: session.connectionStatus,
     disconnectReason: session.disconnectReason,
     hasNewActivity: session.hasNewActivity,

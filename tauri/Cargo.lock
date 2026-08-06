@@ -1953,6 +1953,7 @@ dependencies = [
  "fontdb",
  "native-tls",
  "serde",
+ "serde_json",
  "spellbook",
  "tauri",
  "tauri-build",

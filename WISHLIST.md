@@ -3,19 +3,17 @@
 ## Top TODO
 
 MVP Features:
-- [ ] Notes persistence
-- [ ] Resize performance, suspend layout when resize? PLAN_PERF?
-- [ ] Remove dummy panels when channels is working
-- [ ] Channels!
-  - [X] Skeleton
-  - [X] Move notes
-  - [X] Move debug console
+- [X] Notes persistence
+- [X] Channels!
+  - [X] Notes
+  - [X] Debug console
+  - [ ] Trigger routing to channel
 - [ ] Session logging. WIP. needs testing. needs better ui?
 - [X] Style. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.
 - [ ] New activity indicator (separator line?)
-- [ ] app activity indicator settings, constant blinking? other possibilities?
+- [ ] App activity indicator settings, constant blinking? other possibilities?
 - [X] Consolidate world context menu settings shortcuts into settings submenu, to shrink menu and allow adding more
 - [X] Keyboard/mousewheel shortcut to change zoom on the fly
 - [X] scroll virtualization, render cache, configurable history length

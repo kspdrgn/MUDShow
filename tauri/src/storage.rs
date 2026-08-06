@@ -7,6 +7,7 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use serde::Serialize;
+use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
 
 const STORAGE_FILE_NAME: &str = "mudshow-data.json";
@@ -835,7 +836,11 @@ pub fn save_app_storage<R: tauri::Runtime>(
 
     create_parent_dirs(&path)?;
 
-    fs::write(&temp_path, json).map_err(|error| {
+    let formatted_json = serde_json::from_str::<Value>(&json)
+        .and_then(|value| serde_json::to_string_pretty(&value))
+        .map_err(|error| format!("failed to format storage json: {error}"))?;
+
+    fs::write(&temp_path, formatted_json).map_err(|error| {
         format!(
             "failed to write temporary storage file {}: {error}",
             temp_path.display()

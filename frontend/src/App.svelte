@@ -133,7 +133,9 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
       onNotesInput: (notes: string) => session.saveNotes(notes),
       onSpellcheckIgnoreWord: handleSpellcheckIgnoreWord,
       onNotesClose: () => void session.togglePanel('notes'),
+      onCloseNotesTab: () => void session.closePanel('notes'),
       onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
+      onCloseDebugConsoleTab: () => void session.closePanel('debugConsole'),
       onOutputScroll: () => session.handleOutputScroll(),
       onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') =>
         session.handleOutputScrollKey(action),
@@ -566,8 +568,10 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
             : []}
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
+        notesRegistered={worldSession.notesRegistered}
         debugConsoleEntries={worldSession.debugConsoleEntries}
         debugConsoleVisible={worldSession.debugConsoleVisible}
+        debugConsoleRegistered={worldSession.debugConsoleRegistered}
         linkImagePreviews={appSettings.linkImagePreviews}
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         spellcheckEnabled={appSettings.spellcheckEnabled}

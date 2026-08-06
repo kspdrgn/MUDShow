@@ -13,6 +13,70 @@ interface WorldInputActionContext {
   getWorldConnection: (tabId: string) => { send(message: string): void } | null;
 }
 
+interface PendingNotesSave {
+  characterId: string;
+  notes: string;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const pendingNotesSaves = new Map<string, PendingNotesSave>();
+
+function clearPendingNotesSave(tabId: string): void {
+  const pending = pendingNotesSaves.get(tabId);
+  if (!pending) {
+    return;
+  }
+
+  clearTimeout(pending.timer);
+  pendingNotesSaves.delete(tabId);
+}
+
+function schedulePendingNotesSave(tabId: string, characterId: string, notes: string): void {
+  clearPendingNotesSave(tabId);
+
+  const timer = setTimeout(() => {
+    const pending = pendingNotesSaves.get(tabId);
+    pendingNotesSaves.delete(tabId);
+
+    if (!pending) {
+      return;
+    }
+
+    console.info('[notes] persisting debounced save', {
+      tabId,
+      characterId: pending.characterId,
+      noteLength: pending.notes.length,
+    });
+    void persistNotes(pending.characterId, pending.notes);
+  }, 300);
+
+  pendingNotesSaves.set(tabId, {
+    characterId,
+    notes,
+    timer,
+  });
+}
+
+export function flushPendingNotesSave(tabId: string): void {
+  const pending = pendingNotesSaves.get(tabId);
+  if (!pending) {
+    return;
+  }
+
+  clearTimeout(pending.timer);
+  pendingNotesSaves.delete(tabId);
+  console.info('[notes] flushing pending save', {
+    tabId,
+    characterId: pending.characterId,
+    noteLength: pending.notes.length,
+  });
+  void persistNotes(pending.characterId, pending.notes);
+}
+
+export function cancelPendingNotesSave(tabId: string): void {
+  clearPendingNotesSave(tabId);
+}
+
 export function createWorldInputActions({
   getActiveWorldTabId,
   resolveActiveWorldScope,
@@ -165,8 +229,14 @@ export function createWorldInputActions({
       return;
     }
 
-    void persistNotes(session.currentCharacter.id, notes);
     updateWorldSession(tabId, { notes });
+    console.info('[notes] queued save', {
+      tabId,
+      characterId: session.currentCharacter.id,
+      characterName: session.currentCharacter.name,
+      noteLength: notes.length,
+    });
+    schedulePendingNotesSave(tabId, session.currentCharacter.id, notes);
   }
 
   return {

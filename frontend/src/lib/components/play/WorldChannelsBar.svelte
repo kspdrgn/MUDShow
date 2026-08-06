@@ -1,13 +1,64 @@
 <script lang="ts">
-  import type { ChannelTabVM, ChannelTabId } from "./channel";
+  import { onMount } from 'svelte';
+  import ContextMenuShell from '../context-menu/ContextMenuShell.svelte';
+  import type { ChannelTabVM, ChannelTabId } from './channel';
 
   export let visible = false;
   export let tabs: ChannelTabVM[] = [];
   export let onHide: () => void;
   export let onToggleChannel: (tabId: ChannelTabId) => void;
+
+  let contextMenuOpen = false;
+  let contextMenuPosition = { x: 0, y: 0 };
+  let contextMenuTab: ChannelTabVM | null = null;
+  let barElement: HTMLDivElement | null = null;
+
+  function closeContextMenu(): void {
+    contextMenuOpen = false;
+    contextMenuTab = null;
+  }
+
+  function openTabContextMenu(event: MouseEvent, tab: ChannelTabVM): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    contextMenuTab = tab;
+    contextMenuPosition = { x: event.clientX, y: event.clientY };
+    contextMenuOpen = true;
+    window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'world-channels-bar' } }));
+  }
+
+  function closeSelectedTab(): void {
+    const tab = contextMenuTab;
+    closeContextMenu();
+    tab?.onClose?.();
+  }
+
+  function suppressNativeContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+  }
+
+  onMount(() => {
+    const element = barElement;
+    if (!element) {
+      return;
+    }
+
+    element.addEventListener('contextmenu', suppressNativeContextMenu, true);
+    return () => {
+      element.removeEventListener('contextmenu', suppressNativeContextMenu, true);
+    };
+  });
 </script>
 
-<div class="world-channels-bar" class:visible={visible} aria-hidden={!visible} role="tablist" aria-label="World channels">
+<div
+  bind:this={barElement}
+  class="world-channels-bar"
+  class:visible={visible}
+  aria-hidden={!visible}
+  role="tablist"
+  aria-label="World channels"
+>
   <button
     type="button"
     class="btn world-channel world-channel-hide"
@@ -18,15 +69,46 @@
     <span class="world-channel-label">hide</span>
   </button>
   {#each tabs as tab (tab.id)}
-    <button
-      type="button"
-      class="btn world-channel"
-      class:active={tab.open}
-      role="tab"
-      aria-selected={tab.open}
-      on:click={() => onToggleChannel(tab.id)}
-    >
-      <span class="world-channel-label">{tab.label}</span>
-    </button>
+    <div class="world-channel-tab" on:contextmenu={(event) => openTabContextMenu(event, tab)}>
+      <button
+        type="button"
+        class="btn world-channel"
+        class:active={tab.open}
+        role="tab"
+        aria-selected={tab.open}
+        on:click={() => onToggleChannel(tab.id)}
+      >
+        <span class="world-channel-label">{tab.label}</span>
+      </button>
+      {#if tab.onClose}
+        <button
+          type="button"
+          class="btn world-channel-close"
+          aria-label={`close ${tab.label} tab`}
+          title={`Close ${tab.label} tab`}
+          on:click|stopPropagation={() => tab.onClose?.()}
+        >
+          ×
+        </button>
+      {/if}
+    </div>
   {/each}
 </div>
+
+<ContextMenuShell
+  open={contextMenuOpen}
+  position={contextMenuPosition}
+  ariaLabel="channel context menu"
+  source="world-channels-bar"
+  className="world-channel-context-menu"
+  onDismiss={closeContextMenu}
+>
+  <button
+    type="button"
+    class="titlebar-menu-item titlebar-context-menu-item"
+    role="menuitem"
+    on:click={closeSelectedTab}
+  >
+    close
+  </button>
+</ContextMenuShell>

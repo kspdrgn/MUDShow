@@ -136,8 +136,8 @@ The PlayScreen is the main content and interaction space for a single world and 
 PlayScreen
   - Channels - Anchored to the top, shows tabs within each world
   - HighlightsPanel - Toggle, anchored to top
-  - Notes channel - A host-managed world channel that shows and edits the saved notes for the active character or world and stays mounted while hidden.
-  - DebugConsole channel - A host-managed world channel that shows the per-world communication stream for troubleshooting and stays mounted while hidden.
+  - Notes channel - A host-managed character channel that shows and edits the saved notes for the active character, is registered on demand, and keeps the saved text available while hidden after it has been opened once.
+  - DebugConsole channel - A host-managed world channel that shows the per-world communication stream for troubleshooting, is registered on demand, and keeps receiving raw output while hidden after it has been opened once.
   - Transcript - Fills most space below the channels surface. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
   - Logging controls - Start, stop, and rename the active log file for the current world tab.
@@ -152,17 +152,18 @@ World channels live inside the PlayScreen and provide a host-managed surface for
 
 Channel bar
   - Host-managed row that stays visible above the play view and provides Hide plus one button per world channel.
+  - Each registered channel tab includes a close button that unregisters it from the bar and hides it if open.
   - Hides automatically when no channel panel is open, but a thin hover area below the topbar can reveal it again.
   - When the user explicitly opens a channel, the channels panel stays open until they click Hide.
 
 Channel panel
   - Host-managed channel surface shown beneath the bar when a world channel is open.
   - Includes a bottom-edge resize handle so the user can adjust its height.
-  - The channel shell keeps the built-in notes and debug console mounted inside PlayScreen, intended to validate bar reveal, hide, resize, and focus behavior before any future routed surfaces are added.
+  - The channel shell registers the notes channel and the debug console on demand the first time the user opens them.
 
 Channel scope
   - Notes, highlights, and rules are now routed according to their host location model.
-  - Notes and the debug console live inside the channels harness as the first real world channels.
+  - The notes channel is character-scoped within the channels harness, and the debug console remains world-scoped.
   - The channel model should be generic enough to support future world-specific panels and routed output surfaces.
 
 Channel component references

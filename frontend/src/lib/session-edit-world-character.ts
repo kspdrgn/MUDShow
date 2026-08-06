@@ -1,6 +1,6 @@
 import type { Writable } from 'svelte/store';
 import type { CharacterDraft, CharacterRecord, WorldDraft, WorldRecord } from './types';
-import { saveConnectionData, saveTriggers } from './storage';
+import { deleteNotes, deleteTranscriptHistory, saveConnectionData, saveTriggers } from './storage';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { focusElement, nextFrame } from './session-dom';
 import { removeTriggersForCharacter, removeTriggersForWorld } from './session-triggers';
@@ -12,6 +12,10 @@ interface CharacterActionContext {
   onRecordsChanged?: () => void;
   onWorldDeleted?: (worldId: string) => void;
   onCharacterDeleted?: (characterId: string) => void;
+}
+
+function createCharacterId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `character-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function createWorldRecordFromDraft(draft: WorldDraft): WorldRecord | null {
@@ -49,7 +53,7 @@ function createCharacterRecordFromDraft(
     : Number.parseInt(outputHistoryValue, 10);
 
   const nextCharacter: CharacterRecord = {
-    id: existing?.id ?? '',
+    id: existing?.id?.trim() || createCharacterId(),
     worldId,
     name: draft.name.trim(),
     width: undefined,
@@ -258,6 +262,8 @@ export function createCharacterActions({
     const nextTriggers = removeTriggersForWorld(state.triggers, removed.id, removedCharacters);
 
     await saveConnectionData(nextWorlds, nextCharacters);
+    await Promise.all(removedCharacters.map((character) => deleteNotes(character.id)));
+    await Promise.all(removedCharacters.map((character) => deleteTranscriptHistory(character.id)));
     await saveTriggers(nextTriggers);
     onWorldDeleted?.(removed.id);
     patch({
@@ -279,6 +285,8 @@ export function createCharacterActions({
     const nextTriggers = removeTriggersForCharacter(state.triggers, removed.id);
 
     await saveConnectionData(state.worlds, next);
+    await deleteNotes(removed.id);
+    await deleteTranscriptHistory(removed.id);
     await saveTriggers(nextTriggers);
     onCharacterDeleted?.(removed.id);
     patch({
