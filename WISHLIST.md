@@ -34,6 +34,8 @@ MVP Features:
 - [X] tab menu: shortcut to edit world and/or character?
 
 Bugs:
+- [ ] image previews disable trigger coloring
+- [ ] fix transcript being kind of janky, it shifts around a lot when it's supposed to be scrolled to the bottom
 - [X] fix !wholeLine rules styling whole line anyway
 - [X] Creating new world does not create default character
 - [X] fix input box expanding hotkeys conflicting with command history keys

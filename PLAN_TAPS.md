@@ -4,6 +4,7 @@
 
 - Define the first in-repo plugin for Tapestries MUCK, also called Taps.
 - Keep the plan focused on what is specific to Taps versus what belongs to the generic plugin system.
+- Assume Taps surfaces will live inside the host-managed world channel system described in `PLAN_CHANNELS.md` and `spec/channels.md`, rather than in separate plugin-owned windows.
 - Use the simulated Tapestries server in `C:\_\_projects\SomeMUDClientTestServer\Server` as the primary development target while shaping features. Not all planned features are supported by the simulator.
 - Build the plugin so the Taps-specific logic can later be separated from the host app without changing the user-facing behavior.
 
@@ -20,36 +21,9 @@
 
 #### Character Dictionary Model
 
-- Each character has a dictionary-like tree of folders and properties that the player can edit.
-- All character-specific data is exposed through that character dictionary.
-- The root folder can be read with `exa me=/`, which lists all root folders and properties and a total count of everything listed.
-- Individual properties can be read with `exa me=<path>`, such as `exa me=/_/de` for the root description.
-- Character property paths should be treated as full paths inside the character dictionary, not as loose text labels.
-- The plugin backend should parse property responses into structured folder and value records where possible.
-- The app should treat `str` lines as string values and `dir` lines as folders when reading character dictionary output.
-- The plugin should be able to refresh or cache dictionary data so editors and lists can stay in sync with the server.
-- A property name is the name of any data item stored in the character, and may hold its own value as well as child items.
-- A property with no direct value but with child items is shown as `dir <path>:(no value)`.
-- A property with a direct value and child items may still report as `str`, with the value representing the property's own stored data.
-- The trailing slash in a path can indicate that the query is asking for child items beneath that node.
-
-Property response format:
-
-- `str <path>:<value>` means a single string property.
-- `dir <path>:(no value)` means a folder or directory node.
-- `<path>` is the full path into the character dictionary.
-
-Examples:
-
-- `exa me=/redesc#` can return `str /redesc#/:5`, meaning the parent property stores the value `5` and contains child items.
-- `exa me=/prefs` can return `dir /prefs/:(no value)`, meaning `/prefs` has child items but no direct value of its own.
-- `exa me=/prefs/` can list child properties such as `str /prefs/leash:24` and `str /prefs/leashlock/:0`.
-
-Set:
-
-- Command: `@set me=<path>:<value>`
-- Response:
-  - `Property set.`
+- Taps character data should be treated as structured property-tree data, but the low-level property cache and property interface belong to the dedicated FuzzBall plugin described in `PLAN_FUZZBALL.md`.
+- Taps-specific features should ask that shared plugin for reads, writes, refreshes, and shared property cache state instead of reimplementing property parsing directly.
+- Taps should not duplicate the property-path syntax, response parsing rules, or command plumbing that the shared FuzzBall layer already owns.
 
 #### Lists, Eval, And Prop
 
@@ -105,8 +79,10 @@ Get:
 ### Taps-Specific Data vs Plugin Integration
 
 - Taps-specific data is the world meaning itself, such as ride mode, morphs, CInfo, WF, and WS.
-- The app integration points of the plugin should be agnostic to the plugin itself, the core app code should support generic functions to support worlds and not just Tapestries.
+- The app integration points of the plugin should be agnostic to the plugin itself, and the core app code should support generic functions for worlds rather than only Tapestries.
 - Plugin integration is how the app exposes that data through host-managed UI surfaces and backend helpers.
+- Taps expects to interface with a dedicated FuzzBall muck plugin for property cache and property interface access.
+- Taps should consume the shared FuzzBall property cache and property interface rather than defining its own storage layer.
 - The plugin should not own windows or layout code directly.
 - The plugin should describe what it wants to show or edit, and the host should provide the actual UI capabilities.
 
@@ -123,73 +99,45 @@ Get:
 
 ### UI Surfaces
 
-- Dropdown selector for active ride mode
-- Description editor form
-- Morph list panel
-- Morph editor form
-- WF side panel
-- WS side panel
-- CInfo editor form
+- Dropdown selector for active ride mode, shown as a compact channels-bar control
+- Description editor form, hosted in a modal window with pop-out support
+- Morph list panel, launched from the channels bar and hosted in a world channel or other host-managed surface as needed
+- Morph editor form, hosted in a modal window with pop-out support
+- WF side panel, hosted in a side channel
+- WS side panel, hosted in a side channel
+- CInfo editor form, hosted in a modal window with pop-out support
 
-## In-Memory Dictionary Cache
+### Hosting Map
 
-- The plugin should maintain an in-memory cache of the active character dictionary.
-- The cache should be the shared source of truth for plugin behavior while the plugin is active.
-- UI surfaces, query helpers, and declarative rules should all read from the same cached dictionary model.
-- The cache should preserve the server’s path syntax so plugin configuration can reference paths exactly as the server presents them.
-- Cached entries should represent both the node’s direct value and whether the node has child items.
-- The cache should support folders, string properties, integer properties, list-backed nodes, and any other server-reported property types without flattening them too early.
-- The cache should allow partial refreshes when only a subtree changes, but still support full reloads from `exa me=/` when needed.
-- The cache should remember whether a node was queried as a direct property or as a child listing, since those can produce different server responses.
+- Channels bar: shortcut buttons, menu controls, and other compact entry points for Taps
+- Top channels: text-heavy Taps surfaces that benefit from a top-mounted world tab
+- Side channels: compact list surfaces such as WF and WS
+- Modal windows: mixed-data editors such as Description, Morph, and CInfo
+- Pop out windows: modal integrations that the user wants to move outside the main app window
+- The channels bar acts as the primary Taps menu, even when the destination surface lives somewhere else
 
-### Proposed Cached Node Shape
+### Channels Integration
 
-- Path: the full server path, such as `/prefs/`, `/redesc#`, or `/_/de`
-- Type: `str`, `int`, `dir`, or another server-reported type
-- Value: the node’s direct stored value, when present
-- Has children: whether the node exposes child items
-- Child keys: the names or paths of known child entries
-- Source: whether the cache came from a direct `exa`, a subtree listing, or a follow-up property read
-- Updated at: when the node was last refreshed
-
-### Cache Behavior
-
-- Root loads should start from `exa me=/` when the plugin needs a broad refresh.
-- Child listing queries should populate subtree nodes without discarding the parent node’s own value.
-- List-backed directories should keep the parent count and the ordered child entries together.
-- For list-backed nodes, the line count is just the node’s string value, not a separate data item.
-- Declarative rules should be able to match against cached node paths using the same syntax the server uses.
-- Path references in plugin config should not need a separate translation layer if the server already exposes the path directly.
-- The cache should be safe to reuse for UI rendering, server synchronization, and parsing decisions.
-
-## Phase 1 First Step
-
-- Build a dictionary debug view first.
-- The debug view should show the cached character dictionary, including its shape, nodes, values, and child relationships.
-- The debug view should present as a tree of properties and directories, allowing the user to see the hierarchical relationship of all the data.
-- The debug view should make it obvious when data is stale, partially loaded, or missing.
-- The debug view should be the first visible proof that the plugin can read Taps state, cache it, and expose it through the host UI.
-- The debug view can later support richer editor and list flows once the cache model is proven.
-- The debug view should allow selection of individual tree nodes.
-- The debug view should support its own context menu on selected nodes, with options to copy the selected node path or the selected node value.
+- Taps should treat the host channel bar as the primary entry point for all plugin UI.
+- Some Taps surfaces will be routed into top channels, but others will use side channels or modal windows instead.
+- Taps plugin logic should request routing through the host’s shared channel and window model so it can coexist with Notes, Debug Console, and future routed surfaces.
+- Any compact Taps controls that need to appear in the world chrome should remain small host-rendered controls, not full layouts owned by the plugin.
 
 ## Plugin Menu
 
-- The plugin will need a menu entry or entry point so the user can open the dictionary debug view and other plugin surfaces.
-- The menu should fit into the host-owned plugin UI model rather than becoming a separate window system.
-- The menu location is not decided yet.
-- Candidate placements include a world tab menu, a plugin submenu, a tab-bar menu item, or another host-controlled plugin launcher.
-- The menu design should work with the planned tabbed subwindow model so plugin logic can route to reusable plugin-owned views.
-- Global triggers or plugin routing logic should be able to send the user to the dictionary debug view from the menu or from other plugin actions.
+- The channels bar is the main menu and primary entry point for Taps.
+- The plugin will need shortcut buttons, dropdowns, and menu controls in the channels bar so the user can open Taps surfaces and other plugin surfaces.
+- The menu should fit into the host-owned plugin UI model and route to the correct host-managed surface rather than becoming a separate window system.
+- Candidate placements for the controls include a world tab menu area, a plugin submenu in the channels bar, a tab-bar menu item, or another host-controlled launcher.
+- Global triggers or plugin routing logic should be able to send the user to any Taps surface from the channels bar or from other plugin actions.
 
-## Tabbed Subwindows And Routing
+## Channel Routing
 
-- Some plugin surfaces will likely be better represented as tabbed subwindows instead of transient popups.
-- The dictionary debug view may eventually live as one of those tabbed subwindows if it grows beyond a simple panel.
-- Routing from triggers or plugin logic should open the correct plugin surface without requiring the plugin to manage layout directly.
-- The host should own the mechanics of opening, focusing, closing, and switching between plugin subwindows.
-- The host will have its own native tabbed subwindows to support routing output from global triggers.
-- The existing 'notes' and 'debug console' panels may be relocated to the tabbed subwindow interface once ready.
+- Some Taps surfaces will likely be better represented as channels instead of transient popups.
+- Routing from triggers or plugin logic should open the correct Taps surface without requiring the plugin to manage layout directly.
+- The host should own the mechanics of opening, focusing, closing, and switching between world channels.
+- The existing Notes and Debug Console surfaces already use the channel shell, so Taps should follow the same pattern where it needs persistent world-visible UI.
+- Any future tabbed-subwindow behavior should be treated as a host routing implementation detail, not a plugin-owned layout system.
 
 ## Planned Plugin Features
 
@@ -201,8 +149,8 @@ Get:
 - Keep the selector synced with Taps state so it reflects server-side changes made elsewhere.
 - Use the selected mode to affect how ride and carry-related messages are displayed.
 - Support the four known ride modes by default: `ride`, `hand`, `walk`, and `fly`.
-- Use the `exa me=/ride/_mode` query for loading the current value.
-- Use `@set me=/ride/_mode:<rideMode>` for applying changes.
+- Use the `exa me=/ride/_mode` query for loading the current value through the shared FuzzBall property interface.
+- Use `@set me=/ride/_mode:<rideMode>` for applying changes through the shared FuzzBall property interface.
 
 ### Description Editor
 
@@ -210,7 +158,7 @@ Get:
 - Support editing related character attributes such as scent and custom message format.
 - Show a form that reflects the current server-side values when the editor opens.
 - Send updates through the plugin backend rather than requiring the user to manually type commands.
-- Use `exa me=/_/de` to load the current self-description before editing.
+- Use `exa me=/_/de` to load the current self-description through the shared FuzzBall property interface before editing.
 - Treat the self-description as the primary source of truth for the description editor’s initial value.
 - Keep room in the editor model for additional editable properties that may be discovered later.
 
@@ -252,6 +200,7 @@ Get:
 ### Declarative First
 
 - Prefer declarative definitions for Taps fields, panels, and selectors.
+- Prefer declarative definitions that describe what channel a surface should open in, when a surface should be routed, and which compact controls belong in the channel header area.
 - Use config to declare which server values the plugin needs, which commands it uses, and which host surfaces it wants.
 - Keep the first version narrow enough to prove the plugin model without overbuilding a generic Taps framework.
 
@@ -259,22 +208,21 @@ Get:
 
 - Add Taps-specific parsing and state extraction in backend-facing code.
 - Centralize text matching for Taps messages so repeated parsing rules are not duplicated in the UI.
-- Support querying, caching, and refreshing the Taps data that powers the selectors and lists.
+- Support querying and refreshing the Taps data that powers the selectors and lists through the shared FuzzBall property interface.
 - Make backend helpers reusable by future MUCK plugins that need similar state synchronization.
 - Handle the distinction between ordinary properties, directories, list-backed directories, and MPI-expanded references.
 - Track both a property's direct value and its child-item presence when parsing `exa` output.
-- Expose the in-memory dictionary cache as a reusable backend service for selectors, editors, and declarative hooks.
+- Consume the shared property cache exposed by the FuzzBall plugin for selectors, editors, and declarative hooks.
 
 ### Frontend Support
 
-- Use host-owned forms, dropdowns, lists, and side panels.
+- Use host-owned forms, dropdowns, lists, channel panels, and channel header controls.
 - Keep editor rendering in the app rather than in plugin code.
-- Make each Taps surface open, close, and refresh in the same general way as other world panels.
+- Make each Taps surface open, close, focus, and refresh in the same general way as other world channels.
 
 ## Suggested Initial Behavior
 
 - Start with read-only support for the Taps state that can be queried safely.
-- Start with the dictionary debug view so we can see the cache structure before building richer editors.
 - Add the ride-mode selector early because it is a compact way to prove server sync and host UI plumbing.
 - Add one editor flow early, most likely Description or CInfo, so we can validate form editing and save/apply handling.
 - Add list panels after the editor path works, since they mainly prove ongoing synchronization and display.
@@ -282,7 +230,7 @@ Get:
 ## Open Questions
 
 - Which Taps values can be queried directly, and which require command-based refreshes?
-- Which features are safe to cache locally, and which should always be treated as server-authoritative?
+- Which features should be read from the shared cache, and which should always be treated as server-authoritative?
 - What is the minimum command set needed for the first round of Taps integrations?
 - How should the plugin show stale data when the server response is delayed?
 - Which fields in description, morphs, and CInfo should be editable in phase 1 versus later?
@@ -292,12 +240,13 @@ Get:
 
 - Declarative configuration for Taps commands, queries, and UI declarations.
 - Backend support for matching Taps output and maintaining the plugin’s view of current state.
-- Frontend support for the selectors, editors, and side panels requested by Taps.
+- Frontend support for the selectors, editors, side panels, and channel routing requested by Taps.
 - A first plugin implementation that stays in-repo for now but can be split out later.
 
 ## Next Steps
 
 - Define the exact Taps state model the plugin needs to track.
 - Inventory the commands and output patterns the simulated Taps server exposes.
-- Decide the first editor or list to build as the plugin proof-of-concept.
+- Decide which Taps surfaces should be assigned to which world channels first.
 - Draft the host/plugin hook list for Taps before implementing UI details.
+- Align the first editor with the channel shell so the initial proof-of-concept matches the new host model.
