@@ -13,6 +13,13 @@
 - Window content stays separate from window chrome, so the host can swap the presentation without rewriting the content.
 - A window can live inside the app window first, then later move into its own window and back again.
 - Built-in app windows and plugin windows both flow through the same host API, but they are identified differently.
+- Windows have a presentation mode:
+  - modal windows block outside interaction and use a backdrop
+  - MDI windows do not use a backdrop and do not block outside interaction
+- Windows can also have host behavior flags:
+  - `canPopOut` controls whether they can move to a separate native window
+  - `canMoveInApp` controls whether they can be dragged around while they remain in the app
+- Built-in app windows are allowed to exist in either presentation mode, but the current built-in defaults are non-modal MDI behavior for the dummy test surface and modal behavior for true dialog surfaces.
 
 ## Implementation Shape
 
@@ -23,6 +30,9 @@
 - Treat the titlebar as the drag surface for both in-app and popped-out windows.
 - Let built-in windows provide content through typed host adapters instead of owning their own overlay chrome.
 - Keep the shell responsible for the visual frame, while the built-in window components become mostly forms, messages, and button rows.
+- Use the root app shell to render the window host once, then feed it app-owned and tab-owned window records from state.
+- Keep the context menu shell above hosted windows in z-order so menus always win.
+- Bring a clicked MDI window to the front by reordering the host stack.
 
 ## Window Host State
 
@@ -38,6 +48,7 @@
 - Track the window position and size.
 - Track whether the current position is clamped to the app content area or free to move as a separate window.
 - Track enough payload to restore the same window content after a pop out or pop in.
+- Track whether the window is currently active so a click can raise it above other MDI windows.
 
 ## Window Kinds
 
@@ -54,6 +65,7 @@
 - Close-app confirmation window.
 - Notice / alert window.
 - World list delete confirmation window.
+- A dummy app-level window is currently used as the first MDI and pop-out test surface.
 
 ## Host Responsibilities
 
@@ -67,6 +79,10 @@
 - Let built-in window content be simplified to content-only components.
 - Route all window open requests through a single host entry point so future plugin windows do not bypass app rules.
 - Keep the shell mount point outside the tab flow so it can overlay both settings and play screens consistently.
+- Render a native OS window for popped-out content without custom title chrome or OS window-frame overrides.
+- Leave the native OS buttons alone when a window is popped out.
+- Add a small host-rendered pop-in button anchored to the top right of the popped-out window area.
+- Leave native OS keyboard shortcuts and other minimize behaviors alone.
 
 ## Built-In Migration Plan
 
@@ -77,6 +93,8 @@
 - Leave the content components free of backdrop, absolute positioning, and window-shape styling once migrated.
 - Built-in app windows should default to `canPopOut = false` and `canMoveInApp = false`.
 - Windows that are modal should set backdrop dismissal and outside input blocking on; windows that are not modal should not.
+- The current dummy window test surface uses `canPopOut = true`, `canMoveInApp = true`, and non-modal behavior.
+- Pop-outable windows should show a second titlebar button with an arrow glyph in the upper right.
 
 ## Plugin Surface
 
@@ -94,6 +112,7 @@
 - Simplify the built-in window components so they render only their content and actions, not the overlay chrome.
 - Keep the first pass limited to built-in app windows so the host contract is stable before plugin integration.
 - Add the plugin-facing window contract after the built-in path is proven.
+- Use the dummy window as the first end-to-end test for MDI and pop-out behavior.
 
 ## Shell API Draft
 
@@ -103,6 +122,7 @@
 - `popOutWindow(id)` should move a window into a separate window without losing state.
 - `popInWindow(id)` should bring a popped-out window back into the app shell.
 - `moveWindow(id, position)` should update the window location, with the host clamping in-app placement when `canMoveInApp` is true and leaving popped-out placement free.
+- `activateWindow(id)` should bring a window to the front inside the host stack.
 - The host should be able to answer whether a given window is built-in or plugin-hosted.
 
 ## Relationship To Other Plans
@@ -118,3 +138,5 @@
 - Draft the host events needed to open a window in-place or as a separate window.
 - Specify the built-in window interfaces that should migrate first.
 - Define the plugin-facing window request API once the built-in shell is in place.
+- Wire pop-out/pop-in controls into the window shell for pop-out capable windows.
+- Add native-window pop-in behavior through a host-rendered pop-in control on popped-out windows.

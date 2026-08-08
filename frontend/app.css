@@ -416,7 +416,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  z-index: 120;
+  z-index: 300;
   max-height: min(70vh, 560px);
   overflow: auto;
   -webkit-app-region: no-drag;
@@ -1593,6 +1593,93 @@ body {
   gap: 1.15rem;
 }
 
+.window-host-root {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  pointer-events: none;
+}
+
+.window-host-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+}
+
+.window-host-stack {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.window-shell {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-active);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.window-shell.windowed {
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6);
+}
+
+.window-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.8rem 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  user-select: none;
+}
+
+.window-titlebar.locked {
+  cursor: default;
+}
+
+.window-shell:not(.movable) .window-titlebar {
+  cursor: default;
+}
+
+.window-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-bright);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.window-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.window-close {
+  min-width: 1.9rem;
+  padding: 0.2rem 0.55rem;
+  line-height: 1;
+}
+
+.window-body {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 1rem 1.1rem 1.1rem;
+  overflow: auto;
+}
+
 .logging-modal-close {
   position: absolute;
   top: 0.8rem;
@@ -2392,7 +2479,7 @@ body {
 
 .transcript-context-menu {
   position: absolute;
-  z-index: 5;
+  z-index: 300;
   min-width: 180px;
   padding: 4px;
   border: 1px solid var(--border-active);

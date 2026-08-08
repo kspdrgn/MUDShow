@@ -24,6 +24,9 @@ import NoticeModal from './lib/components/window/NoticeModal.svelte';
 import PlayScreen from './lib/components/play/PlayScreen.svelte';
 import SettingsPage from './lib/components/settings/SettingsPage.svelte';
 import TriggersPane from './lib/components/settings/TriggersPane.svelte';
+import WindowHost from './lib/components/window-host/WindowHost.svelte';
+import DummyWindowContent from './lib/components/window-host/DummyWindowContent.svelte';
+import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
 import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
 import WorldModal from './lib/components/settings/WorldModal.svelte';
@@ -55,6 +58,8 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
   let loggingModalTab: AppTab | null = null;
   let loggingModalInitialFileName = '';
   let loggingModalRefreshNonce = 0;
+  let windowHostWindows: WindowRecord[] = [];
+  let nextWindowHostId = 1;
   let resolvedLogFolderPath: string | null = null;
   let storageImportNoticeOpen = false;
   let appCloseConfirmOpen = false;
@@ -191,6 +196,53 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     session.setSettingsActiveTab('style');
   }
 
+  function openDummyWindow(): void {
+    const index = windowHostWindows.length;
+    const id = `dummy-window-${nextWindowHostId++}`;
+
+    windowHostWindows = [
+      ...windowHostWindows,
+      createWindowRecord({
+        id,
+        kind: 'builtin',
+        surfaceId: 'app-dev-dummy',
+        title: `dummy window ${index + 1}`,
+        isModal: false,
+        placement: 'in-app',
+        position: {
+          x: 120 + index * 28,
+          y: 120 + index * 28,
+        },
+        canBackdropDismiss: false,
+        canEscapeDismiss: false,
+        canPopOut: true,
+        canMoveInApp: true,
+      }),
+    ];
+  }
+
+  function closeWindow(windowId: string): void {
+    windowHostWindows = windowHostWindows.filter((windowRecord) => windowRecord.id !== windowId);
+  }
+
+  function activateWindow(windowId: string): void {
+    const index = windowHostWindows.findIndex((windowRecord) => windowRecord.id === windowId);
+    if (index < 0 || index === windowHostWindows.length - 1) {
+      return;
+    }
+
+    const next = [...windowHostWindows];
+    const [active] = next.splice(index, 1);
+    next.push(active);
+    windowHostWindows = next;
+  }
+
+  function moveWindow(windowId: string, position: WindowPoint): void {
+    windowHostWindows = windowHostWindows.map((windowRecord) =>
+      windowRecord.id === windowId ? { ...windowRecord, position } : windowRecord,
+    );
+  }
+
   function closeLoggingModal(): void {
     loggingModalTabId = null;
   }
@@ -248,10 +300,15 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     storageImportNoticeOpen = false;
   }
 
+  function hasBlockingWindow(): boolean {
+    return windowHostWindows.some((windowRecord) => windowRecord.isModal);
+  }
+
   function isModalOpen(): boolean {
     return (
       $session.modalOpen ||
       ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') ||
+      hasBlockingWindow() ||
       appCloseConfirmOpen ||
       loggingModalTabId !== null ||
       storageImportNoticeOpen
@@ -304,7 +361,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
       return;
     }
 
-    if ($session.modalOpen || ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') || loggingModalTabId !== null || storageImportNoticeOpen) {
+    if ($session.modalOpen || ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') || hasBlockingWindow() || loggingModalTabId !== null || storageImportNoticeOpen) {
       event.preventDefault();
       return;
     }
@@ -516,6 +573,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     }}
     onOpenTriggersTab={(worldId, characterId) => session.openTriggersTab(worldId, characterId)}
     onOpenStylesTab={openDefaultStyleSettings}
+    onOpenDummyWindow={openDummyWindow}
     onToggleTranscriptDiagnostics={toggleTranscriptDiagnostics}
   />
 
@@ -641,6 +699,19 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
 </div>
 
 <WindowResizeHandles />
+
+<WindowHost
+  open={windowHostWindows.length > 0}
+  windows={windowHostWindows}
+  onClose={closeWindow}
+  onActivate={activateWindow}
+  onMove={moveWindow}
+  let:windowRecord
+>
+  {#if windowRecord.surfaceId === 'app-dev-dummy'}
+    <DummyWindowContent instanceLabel={windowRecord.title} />
+  {/if}
+</WindowHost>
 
 <CharacterModal
   open={$session.modalOpen && $session.modalKind === 'character'}

@@ -45,7 +45,7 @@
 ## Relationship To Other Plans
 
 - `PLAN_CHANNELS.md` defines the top channel bar and its controls.
-- `PLAN_MODALS.md` defines modal and pop-out window behavior.
+- `PLAN_WINDOWS.md` defines modal and pop-out window behavior.
 - `PLAN_TAPS.md` should map Taps list-style surfaces such as WF and WS to side channels.
 
 ## Next Steps
