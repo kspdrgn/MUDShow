@@ -5,6 +5,7 @@
   export let appBounds: WindowViewport | null = null;
   export let zIndex = 200;
   export let onClose: (id: string) => void;
+  export let onPopOut: (id: string) => void = () => {};
   export let onMove: (id: string, position: WindowPoint) => void = () => {};
   export let onActivate: (id: string) => void = () => {};
 
@@ -119,6 +120,18 @@
   >
     <div class="window-title">{windowRecord.title}</div>
     <div class="window-titlebar-actions">
+      {#if windowRecord.canPopOut && windowRecord.placement === 'in-app'}
+        <button
+          type="button"
+          class="window-pop-out"
+          aria-label={`pop out ${windowRecord.title}`}
+          title={`pop out ${windowRecord.title}`}
+          on:pointerdown|stopPropagation
+          on:click={() => onPopOut(windowRecord.id)}
+        >
+          ↗
+        </button>
+      {/if}
       <button
         type="button"
         class="window-close"

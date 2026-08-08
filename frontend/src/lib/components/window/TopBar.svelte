@@ -29,6 +29,8 @@
     closeWindow,
     minimizeWindow,
     openInspector,
+    openPlainNativeWindow,
+    openPlainWebviewWindow,
     startTitlebarDrag,
     toggleMaximizeWindow,
   } from './window-actions';
@@ -534,6 +536,7 @@
           <button
             type="button"
             class="world-tab"
+            data-tauri-drag-region="false"
             title={tab.title}
             aria-label={tab.title}
             aria-grabbed={tabDragState?.tabId === tab.id && tabDragState.isDragging}
@@ -546,6 +549,7 @@
               bind:this={tabCloseButtons[tab.id]}
               type="button"
               class="world-tab-close"
+              data-tauri-drag-region="false"
               title={`close ${tab.title}`}
               aria-label={`close ${tab.title}`}
               on:pointerdown|stopPropagation
@@ -587,6 +591,7 @@
           <button
             type="button"
             class="titlebar-menu-item titlebar-close-confirm-item danger"
+            data-tauri-drag-region="false"
             role="menuitem"
             on:click={() => onConfirmCloseTab()}
           >
@@ -601,6 +606,7 @@
       <button
         type="button"
         class="world-tab world-tab-add"
+        data-tauri-drag-region="false"
         title="open quick connect menu"
         aria-label="open quick connect menu"
         aria-expanded={quickConnectOpen}
@@ -706,6 +712,7 @@
       <button
         type="button"
         class="titlebar-button titlebar-menu-button"
+        data-tauri-drag-region="false"
         title="app menu"
         aria-label="app menu"
         aria-expanded={menuOpen}
@@ -726,6 +733,7 @@
         <button
           type="button"
           class="titlebar-menu-item"
+          data-tauri-drag-region="false"
           role="menuitem"
           on:click={() => {
             closeMenu();
@@ -738,6 +746,7 @@
         <button
           type="button"
           class="titlebar-menu-item"
+          data-tauri-drag-region="false"
           role="menuitem"
           on:click={() => {
             closeMenu();
@@ -750,6 +759,7 @@
         <button
           type="button"
           class="titlebar-menu-item"
+          data-tauri-drag-region="false"
           role="menuitem"
           on:click={() => {
             closeMenu();
@@ -762,6 +772,7 @@
         <button
           type="button"
           class="titlebar-menu-item titlebar-menu-item-submenu"
+          data-tauri-drag-region="false"
           bind:this={devToolsButton}
           role="menuitem"
           aria-haspopup="menu"
@@ -803,6 +814,7 @@
             <button
               type="button"
               class="titlebar-menu-item titlebar-menu-submenu-item"
+              data-tauri-drag-region="false"
               role="menuitem"
               disabled={!canOpenInspector}
               on:click={() => {
@@ -818,6 +830,7 @@
             <button
               type="button"
               class="titlebar-menu-item titlebar-menu-submenu-item"
+              data-tauri-drag-region="false"
               class:active={transcriptDiagnosticsEnabled}
               role="menuitemcheckbox"
               aria-checked={transcriptDiagnosticsEnabled}
@@ -832,6 +845,7 @@
             <button
               type="button"
               class="titlebar-menu-item titlebar-menu-submenu-item"
+              data-tauri-drag-region="false"
               role="menuitem"
               on:click={() => {
                 closeMenu();
@@ -840,6 +854,32 @@
             >
               <span class="titlebar-menu-item-icon" aria-hidden="true">🧪</span>
               open dummy window
+            </button>
+            <button
+              type="button"
+              class="titlebar-menu-item titlebar-menu-submenu-item"
+              data-tauri-drag-region="false"
+              role="menuitem"
+              on:click={() => {
+                closeMenu();
+                void openPlainNativeWindow();
+              }}
+            >
+              <span class="titlebar-menu-item-icon" aria-hidden="true">🪟</span>
+              open plain native window
+            </button>
+            <button
+              type="button"
+              class="titlebar-menu-item titlebar-menu-submenu-item"
+              data-tauri-drag-region="false"
+              role="menuitem"
+              on:click={() => {
+                closeMenu();
+                void openPlainWebviewWindow();
+              }}
+            >
+              <span class="titlebar-menu-item-icon" aria-hidden="true">🌐</span>
+              open plain webview window
             </button>
           </div>
         {/if}
@@ -850,6 +890,7 @@
       <button
         type="button"
         class="titlebar-button window-button"
+        data-tauri-drag-region="false"
         title="minimize window"
         aria-label="minimize window"
         on:click={minimizeWindow}
@@ -859,6 +900,7 @@
       <button
         type="button"
         class="titlebar-button window-button"
+        data-tauri-drag-region="false"
         title="maximize window"
         aria-label="maximize window"
         on:click={toggleMaximizeWindow}
@@ -868,6 +910,7 @@
       <button
         type="button"
         class="titlebar-button window-button close"
+        data-tauri-drag-region="false"
         title="close window"
         aria-label="close window"
         on:click={closeWindow}

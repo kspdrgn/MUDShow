@@ -110,6 +110,12 @@
     <title>MUDShow</title>
   </head>
   <body>
+    <script>
+      console.log('[window-action] html shell boot', {
+        href: window.location.href,
+        readyState: document.readyState,
+      });
+    </script>
     <div id="startup-overlay" aria-hidden="true">
       <div class="startup-shell">
         <div class="startup-card">

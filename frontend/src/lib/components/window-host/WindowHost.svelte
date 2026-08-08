@@ -7,6 +7,7 @@
   export let windows: WindowRecord[] = [];
   export let appBounds: WindowViewport | null = null;
   export let onClose: (id: string) => void;
+  export let onPopOut: (id: string) => void = () => {};
   export let onMove: (id: string, position: WindowPoint) => void = () => {};
   export let onActivate: (id: string) => void = () => {};
 
@@ -76,6 +77,7 @@
           {appBounds}
           zIndex={200 + index}
           onClose={onClose}
+          onPopOut={onPopOut}
           onMove={onMove}
           onActivate={onActivate}
         >

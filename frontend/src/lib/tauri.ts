@@ -16,6 +16,8 @@ type TauriGlobal = Window & {
     webviewWindow?: {
       getCurrentWebviewWindow(): {
         close(): Promise<void>;
+        destroy(): Promise<void>;
+        openDevtools(): void;
         onCloseRequested(
           handler: (event: { preventDefault(): void }) => void,
         ): Promise<() => void>;
@@ -94,6 +96,8 @@ export async function listen<T>(
 export function getCurrentWebviewWindow():
   | {
       close(): Promise<void>;
+      destroy(): Promise<void>;
+      openDevtools(): void;
       onCloseRequested(
         handler: (event: { preventDefault(): void }) => void,
       ): Promise<() => void>;

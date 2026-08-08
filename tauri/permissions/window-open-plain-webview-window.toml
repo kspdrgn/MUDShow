@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-window-open-plain-webview-window"
+description = "Enables the window_open_plain_webview_window command without any pre-configured scope."
+commands.allow = ["window_open_plain_webview_window"]
+
+[[permission]]
+identifier = "deny-window-open-plain-webview-window"
+description = "Denies the window_open_plain_webview_window command without any pre-configured scope."
+commands.deny = ["window_open_plain_webview_window"]

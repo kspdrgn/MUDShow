@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-window-host-pop-in"
+description = "Enables the window_host_pop_in command without any pre-configured scope."
+commands.allow = ["window_host_pop_in"]
+
+[[permission]]
+identifier = "deny-window-host-pop-in"
+description = "Denies the window_host_pop_in command without any pre-configured scope."
+commands.deny = ["window_host_pop_in"]

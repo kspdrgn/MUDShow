@@ -727,7 +727,7 @@ body {
   min-width: 280px;
   max-width: min(420px, calc(100vw - 16px));
   gap: 8px;
-  z-index: 119;
+  z-index: 261;
 }
 
 .titlebar-close-confirm-copy {
@@ -785,7 +785,7 @@ body {
   background: rgba(0, 0, 0, 0.82);
   align-items: center;
   justify-content: center;
-  z-index: 110;
+  z-index: 250;
 }
 
 #world-selector-overlay.open {
@@ -1574,7 +1574,7 @@ body {
   background: rgba(0, 0, 0, 0.85);
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 260;
 }
 
 #modal-overlay.open {
@@ -1666,6 +1666,12 @@ body {
   flex: 0 0 auto;
 }
 
+.window-pop-out {
+  min-width: 1.9rem;
+  padding: 0.2rem 0.5rem;
+  line-height: 1;
+}
+
 .window-close {
   min-width: 1.9rem;
   padding: 0.2rem 0.55rem;
@@ -1676,6 +1682,29 @@ body {
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
+  padding: 1rem 1.1rem 1.1rem;
+  overflow: auto;
+}
+
+.popped-out-window-view {
+  position: relative;
+  min-height: 100vh;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.popped-out-window-pop-in {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  min-width: 2rem;
+  padding: 0.2rem 0.55rem;
+  line-height: 1;
+}
+
+.popped-out-window-content {
+  min-height: 100vh;
   padding: 1rem 1.1rem 1.1rem;
   overflow: auto;
 }

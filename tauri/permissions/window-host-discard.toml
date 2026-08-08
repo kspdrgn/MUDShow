@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-window-host-discard"
+description = "Enables the window_host_discard command without any pre-configured scope."
+commands.allow = ["window_host_discard"]
+
+[[permission]]
+identifier = "deny-window-host-discard"
+description = "Denies the window_host_discard command without any pre-configured scope."
+commands.deny = ["window_host_discard"]

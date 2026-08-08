@@ -26,6 +26,7 @@ import SettingsPage from './lib/components/settings/SettingsPage.svelte';
 import TriggersPane from './lib/components/settings/TriggersPane.svelte';
 import WindowHost from './lib/components/window-host/WindowHost.svelte';
 import DummyWindowContent from './lib/components/window-host/DummyWindowContent.svelte';
+import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
 import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
@@ -44,7 +45,12 @@ import {
   type AppStyleEditor,
   type AppStyleValues,
 } from './lib/components/styles/style-settings';
-import { getCurrentWebviewWindow, invoke } from './lib/tauri';
+import { getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
+
+const currentUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
+const initialWindowMode = currentUrl?.searchParams.get('windowMode');
+const initialPoppedOutWindowId = currentUrl?.searchParams.get('windowId');
+const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPoppedOutWindowId !== null;
 
   let appSettings = loadAppSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
@@ -59,6 +65,10 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
   let loggingModalInitialFileName = '';
   let loggingModalRefreshNonce = 0;
   let windowHostWindows: WindowRecord[] = [];
+  let poppedOutWindowRecords: Record<string, WindowRecord> = {};
+  let poppedOutWindowId: string | null = initialPoppedOutWindowId;
+  let poppedOutWindowRecord: WindowRecord | null = null;
+  let isPoppedOutWindow = initialIsPoppedOutWindow;
   let nextWindowHostId = 1;
   let resolvedLogFolderPath: string | null = null;
   let storageImportNoticeOpen = false;
@@ -243,6 +253,95 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     );
   }
 
+  function storePoppedOutWindowRecord(windowRecord: WindowRecord): void {
+    poppedOutWindowRecords = {
+      ...poppedOutWindowRecords,
+      [windowRecord.id]: windowRecord,
+    };
+  }
+
+  function removePoppedOutWindowRecord(windowId: string): WindowRecord | null {
+    const windowRecord = poppedOutWindowRecords[windowId] ?? null;
+    if (!windowRecord) {
+      return null;
+    }
+
+    const { [windowId]: _removed, ...rest } = poppedOutWindowRecords;
+    poppedOutWindowRecords = rest;
+    return windowRecord;
+  }
+
+  function restoreWindowRecordToHost(windowRecord: WindowRecord): void {
+    windowHostWindows = [...windowHostWindows, windowRecord];
+  }
+
+  function handlePoppedOutWindowReturned(windowId: string): void {
+    const windowRecord = removePoppedOutWindowRecord(windowId);
+    if (!windowRecord) {
+      console.log('[window-action] popped-out window return ignored', {
+        windowId,
+      });
+      return;
+    }
+
+    console.log('[window-action] popped-out window returned to host', {
+      windowId,
+      title: windowRecord.title,
+    });
+
+    restoreWindowRecordToHost({
+      ...windowRecord,
+      placement: 'in-app',
+    });
+  }
+
+  function handlePoppedOutWindowDiscarded(windowId: string): void {
+    const windowRecord = removePoppedOutWindowRecord(windowId);
+    if (!windowRecord) {
+      console.log('[window-action] popped-out window discard ignored', {
+        windowId,
+      });
+      return;
+    }
+
+    console.log('[window-action] popped-out window discarded', {
+      windowId,
+      title: windowRecord.title,
+    });
+  }
+
+  async function handlePopOutWindow(windowId: string): Promise<void> {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId);
+    if (!windowRecord || !windowRecord.canPopOut || windowRecord.placement !== 'in-app') {
+      return;
+    }
+
+    const nextWindowRecord: WindowRecord = {
+      ...windowRecord,
+      placement: 'window',
+    };
+
+    try {
+      windowHostWindows = windowHostWindows.filter((record) => record.id !== windowId);
+      storePoppedOutWindowRecord(nextWindowRecord);
+      await invoke('window_host_pop_out', {
+        windowRecord: nextWindowRecord,
+      });
+    } catch (error) {
+      restoreWindowRecordToHost(windowRecord);
+      removePoppedOutWindowRecord(windowId);
+      console.error('failed to pop out window:', error);
+    }
+  }
+
+  async function handlePopInWindow(windowId: string): Promise<void> {
+    try {
+      await invoke('window_host_pop_in', { windowId });
+    } catch (error) {
+      console.error('failed to pop in window:', error);
+    }
+  }
+
   function closeLoggingModal(): void {
     loggingModalTabId = null;
   }
@@ -356,22 +455,35 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
   }
 
   function handleAppCloseRequest(event: { preventDefault: () => void }): void {
+    console.log('[window-action] app close requested', {
+      allowWindowCloseOnce,
+      hasBlockingWindow: hasBlockingWindow(),
+      hasConnectedWorldTabs: hasConnectedWorldTabs(),
+      modalOpen: $session.modalOpen,
+      loggingModalTabId,
+      storageImportNoticeOpen,
+    });
+
     if (allowWindowCloseOnce) {
       allowWindowCloseOnce = false;
+      console.log('[window-action] app close allowed once');
       return;
     }
 
     if ($session.modalOpen || ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') || hasBlockingWindow() || loggingModalTabId !== null || storageImportNoticeOpen) {
       event.preventDefault();
+      console.log('[window-action] app close prevented by blocking state');
       return;
     }
 
     if (!hasConnectedWorldTabs()) {
+      console.log('[window-action] app close allowed without confirmation');
       return;
     }
 
     event.preventDefault();
     appCloseConfirmOpen = true;
+    console.log('[window-action] app close confirmation opened');
   }
 
   async function confirmAppClose(): Promise<void> {
@@ -381,14 +493,17 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     }
 
     try {
-      if (!getCurrentWebviewWindow()) {
+      const currentWindow = getCurrentWebviewWindow();
+      if (!currentWindow) {
         appCloseConfirmOpen = false;
         return;
       }
 
+      console.log('[window-action] app close confirm requested via native close');
       allowWindowCloseOnce = true;
       appCloseConfirmOpen = false;
-      await invoke('window_close');
+      await currentWindow.close();
+      console.log('[window-action] app close confirm native close completed');
     } catch (error) {
       allowWindowCloseOnce = false;
       console.error('failed to close the app window:', error);
@@ -451,8 +566,14 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
         : 'MUDShow';
 
   onMount(() => {
+    console.log('[window-action] app mount state', {
+      isPoppedOutWindow,
+      poppedOutWindowId,
+      url: typeof window !== 'undefined' ? window.location.href : null,
+    });
     const handleVisibilityChange = () => session.handleVisibilityChange();
     const handleWindowFocus = () => session.handleWindowFocus();
+    let unlistenWindowHostEvents: Array<() => void> = [];
     const handleKeyDown = (event: KeyboardEvent) => {
       const isReloadKey =
         event.key === 'F5' ||
@@ -480,6 +601,44 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     let disposed = false;
 
     void (async () => {
+      if (isPoppedOutWindow) {
+        console.log('[window-action] popped-out window startup branch entered', {
+          poppedOutWindowId,
+        });
+        if (!poppedOutWindowId) {
+          console.log('[window-action] popped-out window missing id, removing startup overlay only');
+          startupOverlay?.remove();
+          return;
+        }
+
+        try {
+          const record = await invoke<WindowRecord | null>('window_host_get_record', {
+            windowId: poppedOutWindowId,
+          });
+          if (disposed) {
+            console.log('[window-action] popped-out window startup aborted after record fetch', {
+              poppedOutWindowId,
+            });
+            return;
+          }
+
+          poppedOutWindowRecord = record;
+          console.log('[window-action] popped-out window record loaded', {
+            poppedOutWindowId,
+            hasRecord: record !== null,
+          });
+        } catch (error) {
+          console.error('failed to load popped out window record:', error);
+        }
+
+        startupOverlay?.remove();
+        console.log('[window-action] popped-out window startup overlay removed', {
+          poppedOutWindowId,
+        });
+
+        return;
+      }
+
       try {
         session.setConfirmUnloggedTabClose(appSettings.confirmUnloggedTabClose);
         await initializeStoragePath();
@@ -506,9 +665,64 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
           return;
         }
 
-        unlistenAppClose = await currentWebviewWindow.onCloseRequested(handleAppCloseRequest);
+        if (isPoppedOutWindow && poppedOutWindowId) {
+          console.log('[window-action] installing popped-out window close handler', {
+            poppedOutWindowId,
+          });
+          unlistenAppClose = await currentWebviewWindow.onCloseRequested(async (event) => {
+            console.log('[window-action] popped-out window close requested', {
+              poppedOutWindowId,
+            });
+            event.preventDefault();
+
+            try {
+              console.log('[window-action] discarding popped-out window record', {
+                poppedOutWindowId,
+              });
+              await invoke('window_host_discard', { windowId: poppedOutWindowId });
+              console.log('[window-action] discarded popped-out window record', {
+                poppedOutWindowId,
+              });
+            } catch (error) {
+              console.error('failed to discard popped out window:', error);
+            } finally {
+              console.log('[window-action] destroying popped-out native window', {
+                poppedOutWindowId,
+              });
+              await currentWebviewWindow.destroy();
+              console.log('[window-action] destroyed popped-out native window', {
+                poppedOutWindowId,
+              });
+            }
+          });
+        } else {
+          console.log('[window-action] installing main window close handler');
+          unlistenAppClose = await currentWebviewWindow.onCloseRequested(handleAppCloseRequest);
+          const unlistenPopIn = await listen<string>('window-host:pop-in-requested', (event) => {
+            console.log('[window-event] popped-out window pop-in requested', {
+              windowId: event.payload,
+            });
+            handlePoppedOutWindowReturned(event.payload);
+          });
+          const unlistenDiscarded = await listen<string>('window-host:discarded', (event) => {
+            console.log('[window-event] popped-out window discarded', {
+              windowId: event.payload,
+            });
+            handlePoppedOutWindowDiscarded(event.payload);
+          });
+          unlistenWindowHostEvents = [unlistenPopIn, unlistenDiscarded];
+          if (disposed) {
+            unlistenWindowHostEvents.forEach((unlisten) => unlisten());
+            unlistenWindowHostEvents = [];
+            return;
+          }
+          document.addEventListener('visibilitychange', handleVisibilityChange);
+          window.addEventListener('focus', handleWindowFocus);
+          window.addEventListener('keydown', handleKeyDown, { capture: true });
+        }
+
         if (disposed) {
-          unlistenAppClose();
+          unlistenAppClose?.();
           unlistenAppClose = null;
           return;
         }
@@ -517,17 +731,21 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
       }
     })();
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-
     return () => {
       disposed = true;
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      console.log('[window-action] app cleanup', {
+        isPoppedOutWindow,
+        poppedOutWindowId,
+      });
+      if (!isPoppedOutWindow) {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleWindowFocus);
+        window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      }
       unlistenAppClose?.();
       unlistenAppClose = null;
+      unlistenWindowHostEvents.forEach((unlisten) => unlisten());
+      unlistenWindowHostEvents = [];
       session.dispose();
     };
   });
@@ -537,6 +755,20 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
   <title>{pageTitle}</title>
 </svelte:head>
 
+{#if isPoppedOutWindow}
+  <PoppedOutWindowView
+    windowRecord={poppedOutWindowRecord ?? createWindowRecord({
+      id: poppedOutWindowId ?? 'popped-out-window',
+      surfaceId: 'app-dev-dummy',
+      title: 'window',
+    })}
+    onPopIn={(windowId) => void handlePopInWindow(windowId)}
+  >
+    {#if poppedOutWindowRecord?.surfaceId === 'app-dev-dummy'}
+      <DummyWindowContent instanceLabel={poppedOutWindowRecord.title} />
+    {/if}
+  </PoppedOutWindowView>
+{:else}
 <div id="app-shell">
   <TopBar
     tabs={$session.tabs}
@@ -704,6 +936,7 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
   open={windowHostWindows.length > 0}
   windows={windowHostWindows}
   onClose={closeWindow}
+  onPopOut={(windowId) => void handlePopOutWindow(windowId)}
   onActivate={activateWindow}
   onMove={moveWindow}
   let:windowRecord
@@ -815,3 +1048,4 @@ import { getCurrentWebviewWindow, invoke } from './lib/tauri';
     session.setSettingsActiveTab('logging');
   }}
 />
+{/if}

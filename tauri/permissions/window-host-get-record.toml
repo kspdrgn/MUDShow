@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-window-host-get-record"
+description = "Enables the window_host_get_record command without any pre-configured scope."
+commands.allow = ["window_host_get_record"]
+
+[[permission]]
+identifier = "deny-window-host-get-record"
+description = "Denies the window_host_get_record command without any pre-configured scope."
+commands.deny = ["window_host_get_record"]
