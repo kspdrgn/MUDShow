@@ -76,7 +76,16 @@
 
   async function handleMouseUp(): Promise<void> {
     const selection = window.getSelection();
-    const text = selection?.toString() ?? '';
+    if (!selection || selection.rangeCount === 0 || !(consoleScroller instanceof HTMLElement)) {
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!consoleScroller.contains(range.commonAncestorContainer)) {
+      return;
+    }
+
+    const text = selection.toString();
 
     if (text.trim()) {
       try {
@@ -115,7 +124,10 @@
       contentResizeObserver.observe(consoleContent);
     }
 
+    document.addEventListener('mouseup', handleMouseUp);
+
     return () => {
+      document.removeEventListener('mouseup', handleMouseUp);
       contentResizeObserver?.disconnect();
       contentResizeObserver = null;
     };
@@ -169,7 +181,6 @@
     class="debug-console-scroll"
     role="region"
     aria-label="Debug console output"
-    on:mouseup={handleMouseUp}
     on:scroll={handleScroll}
   >
     <div class="debug-console-content" bind:this={consoleContent}>

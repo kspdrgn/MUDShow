@@ -69,13 +69,14 @@
     <span class="world-channel-label">hide</span>
   </button>
   {#each tabs as tab (tab.id)}
-    <div class="world-channel-tab" on:contextmenu={(event) => openTabContextMenu(event, tab)}>
+    <div class="world-channel-tab">
       <button
         type="button"
         class="btn world-channel"
         class:active={tab.open}
         role="tab"
         aria-selected={tab.open}
+        on:contextmenu={(event) => openTabContextMenu(event, tab)}
         on:click={() => onToggleChannel(tab.id)}
       >
         <span class="world-channel-label">{tab.label}</span>
