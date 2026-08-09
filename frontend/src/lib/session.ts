@@ -34,6 +34,11 @@ import {
 } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 
+interface ModalWindowHandlers {
+  onOpen: (kind: 'world' | 'character', title: string) => void;
+  onClose: (kind: 'world' | 'character') => void;
+}
+
 function createSession() {
   const state = writable<SessionState>(createInitialState());
   const getHighlightTriggers = (triggers: Trigger[]): HighlightRule[] =>
@@ -44,6 +49,11 @@ function createSession() {
   let transcriptScrollbackChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS;
   const worldConnections = new Map<string, MudConnection>();
   let clearLoggingQueue = (_tabId: string): void => {};
+  let modalWindowHandlers: ModalWindowHandlers = {
+    onOpen: () => {},
+    onClose: () => {},
+  };
+  let closeModal = (): void => {};
 
   const getState = () => get(state);
   const patch = (partial: Partial<SessionState>) => {
@@ -644,6 +654,8 @@ function createSession() {
     onRecordsChanged: tabsActions.refreshWorldTabs,
     onWorldDeleted: tabsActions.deleteWorldTabsForWorld,
     onCharacterDeleted: tabsActions.deleteWorldTabsForCharacter,
+    onModalWindowOpen: (kind, title) => modalWindowHandlers.onOpen(kind, title),
+    onModalWindowClose: (kind) => modalWindowHandlers.onClose(kind),
   });
 
   const triggerActions = createTriggerActions({
@@ -707,10 +719,12 @@ function createSession() {
     patch,
     getActiveWorldTabId: tabsActions.getActiveWorldTabId,
     closeTab: tabsActions.closeTab,
+    closeModal: () => closeModal(),
     handleWorldShortcutKeyDown: shortcutActions.handleWorldShortcutKeyDown,
   });
 
   clearLoggingQueue = transcriptActions.clearLoggingQueue;
+  closeModal = characterActions.closeModal;
 
   async function openWorldEditorFromWorldTab(tabId: string): Promise<void> {
     const session = tabsActions.getWorldSession(tabId);
@@ -746,6 +760,13 @@ function createSession() {
     await characterActions.openCharacterModal(character.worldId, characterIndex);
   }
 
+  function setModalWindowHandlers(handlers: Partial<ModalWindowHandlers>): void {
+    modalWindowHandlers = {
+      ...modalWindowHandlers,
+      ...handlers,
+    };
+  }
+
   return {
     subscribe: state.subscribe,
     load: tabsActions.load,
@@ -771,6 +792,7 @@ function createSession() {
     deleteWorldTabsForWorld: tabsActions.deleteWorldTabsForWorld,
     openWorldEditorFromWorldTab,
     openCharacterEditorFromWorldTab,
+    setModalWindowHandlers,
     ...connectionActions,
     ...inputActions,
     ...panelActions,

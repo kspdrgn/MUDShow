@@ -12,6 +12,8 @@ interface CharacterActionContext {
   onRecordsChanged?: () => void;
   onWorldDeleted?: (worldId: string) => void;
   onCharacterDeleted?: (characterId: string) => void;
+  onModalWindowOpen?: (kind: 'world' | 'character', title: string) => void;
+  onModalWindowClose?: (kind: 'world' | 'character') => void;
 }
 
 function createCharacterId(): string {
@@ -97,15 +99,18 @@ export function createCharacterActions({
   onRecordsChanged,
   onWorldDeleted,
   onCharacterDeleted,
+  onModalWindowOpen,
+  onModalWindowClose,
 }: CharacterActionContext) {
   async function openWorldModal(index: number | null = null): Promise<void> {
     const state = getState();
     const selected = index === null ? null : state.worlds[index] ?? null;
+    const title = selected ? 'edit world' : 'add world';
 
     if (selected) {
       patch({
         modalKind: 'world',
-        modalTitle: 'edit world',
+        modalTitle: title,
         worldEditingId: selected.id,
         worldModalDraft: createWorldDraftFromWorld(selected),
         modalOpen: true,
@@ -113,7 +118,7 @@ export function createCharacterActions({
     } else {
       patch({
         modalKind: 'world',
-        modalTitle: 'add world',
+        modalTitle: title,
         worldEditingId: null,
         worldModalDraft: {
           name: '',
@@ -125,6 +130,8 @@ export function createCharacterActions({
         modalOpen: true,
       });
     }
+
+    onModalWindowOpen?.('world', title);
 
     await nextFrame();
     focusElement('world-name');
@@ -138,11 +145,12 @@ export function createCharacterActions({
     }
 
     const selected = index === null ? null : state.characters[index] ?? null;
+    const title = selected ? 'edit character' : 'add character';
 
     if (selected) {
       patch({
         modalKind: 'character',
-        modalTitle: 'edit character',
+        modalTitle: title,
         editingIndex: index,
         characterWorldId: worldId,
         modalDraft: createCharacterDraftFromCharacter(selected),
@@ -151,7 +159,7 @@ export function createCharacterActions({
     } else {
       patch({
         modalKind: 'character',
-        modalTitle: 'add character',
+        modalTitle: title,
         editingIndex: null,
         characterWorldId: worldId,
         modalDraft: {
@@ -165,11 +173,18 @@ export function createCharacterActions({
       });
     }
 
+    onModalWindowOpen?.('character', title);
+
     await nextFrame();
     focusElement('field-name');
   }
 
   function closeModal(): void {
+    const state = getState();
+    if (state.modalKind) {
+      onModalWindowClose?.(state.modalKind);
+    }
+
     patch({
       modalOpen: false,
       modalKind: null,
@@ -211,6 +226,9 @@ export function createCharacterActions({
       editingIndex: null,
       characterWorldId: null,
     });
+    if (state.modalKind) {
+      onModalWindowClose?.(state.modalKind);
+    }
     onRecordsChanged?.();
 
     void previousWorld;
@@ -246,6 +264,9 @@ export function createCharacterActions({
       editingIndex: null,
       characterWorldId: null,
     });
+    if (state.modalKind) {
+      onModalWindowClose?.(state.modalKind);
+    }
     onRecordsChanged?.();
   }
 
@@ -298,6 +319,9 @@ export function createCharacterActions({
       editingIndex: null,
       characterWorldId: null,
     });
+    if (state.modalKind) {
+      onModalWindowClose?.(state.modalKind);
+    }
     onRecordsChanged?.();
   }
 

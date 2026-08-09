@@ -323,6 +323,20 @@ const WINDOW_HOST_SINGLETON_IDS = {
     });
   }
 
+  function handleEditorModalOpened(kind: 'world' | 'character', title: string): void {
+    if (kind === 'world') {
+      upsertWindowRecord(createWorldWindowRecord(title));
+    } else {
+      upsertWindowRecord(createCharacterWindowRecord(title));
+    }
+  }
+
+  function handleEditorModalClosed(kind: 'world' | 'character'): void {
+    removeWindowRecord(kind === 'world'
+      ? WINDOW_HOST_SINGLETON_IDS.worldModal
+      : WINDOW_HOST_SINGLETON_IDS.characterModal);
+  }
+
   function openDummyWindow(): void {
     const index = windowHostWindows.length;
     const id = `dummy-window-${nextWindowHostId++}`;
@@ -832,6 +846,10 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
       try {
         session.setConfirmUnloggedTabClose(appSettings.confirmUnloggedTabClose);
+        session.setModalWindowHandlers({
+          onOpen: handleEditorModalOpened,
+          onClose: handleEditorModalClosed,
+        });
         await initializeStoragePath();
         await initializeStyleSettings();
         await refreshResolvedLogFolder();

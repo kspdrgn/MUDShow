@@ -6,6 +6,7 @@ interface AppShortcutActionContext {
   patch: (patch: Partial<SessionState>) => void;
   getActiveWorldTabId: () => string | null;
   closeTab: (tabId: string, source?: 'mouse' | 'shortcut') => void;
+  closeModal: () => void;
   handleWorldShortcutKeyDown: (event: KeyboardEvent) => boolean;
 }
 
@@ -14,6 +15,7 @@ export function createAppShortcutActions({
   patch,
   getActiveWorldTabId,
   closeTab,
+  closeModal,
   handleWorldShortcutKeyDown,
 }: AppShortcutActionContext) {
   function handleGlobalKeyDown(event: KeyboardEvent): void {
@@ -30,7 +32,7 @@ export function createAppShortcutActions({
     if (state.modalOpen) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        patch({ modalOpen: false });
+        closeModal();
       }
       return;
     }
@@ -40,7 +42,7 @@ export function createAppShortcutActions({
 
       const activeTabId = state.activeTabId;
       if (activeTabId !== null) {
-        patch({ modalOpen: false, modalKind: null });
+        closeModal();
         closeTab(activeTabId, 'shortcut');
       }
 

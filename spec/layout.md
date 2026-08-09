@@ -37,6 +37,8 @@ Menu content stays in the owning component so each feature can keep its own acti
 
 The app uses one shared window host for built-in dialogs and future plugin windows. The host owns the overlay, backdrop, focus behavior, stacking order, titlebar chrome, and pop-out / pop-in presentation.
 
+The shared host sits above the main tab content, but below the app's shared context menu shell so menus remain on top when both are open.
+
 The host window record carries these presentation flags and behaviors:
 - `isModal` - blocks outside interaction and uses a backdrop when true.
 - `sizeToContent` - shrink-wraps the shell to its content instead of using the default fixed size.
@@ -45,11 +47,18 @@ The host window record carries these presentation flags and behaviors:
 - `canPopOut` - allows the window to move from the app window into a separate native window.
 - `canMoveInApp` - allows the window to be dragged and relocated within the app shell.
 
+Built-in modal windows default to `isModal = true`, `canPopOut = false`, and `canMoveInApp = false`.
+
 The host record also carries the active placement for the window:
 - `in-app` windows stay inside the main app shell.
 - `window` windows are shown in their own native window.
 
 Host-managed modal windows should use `sizeToContent` when they are short form dialogs or confirmations, so they fit their content without leaving extra empty space.
+
+Modal dismissal is handled by the host shell:
+- Escape closes only the topmost modal window that allows Escape dismissal.
+- Backdrop clicks close only the topmost modal window that allows backdrop dismissal.
+- Built-in modal content is rendered without its own backdrop or window chrome; it supplies only the inner controls and actions.
 
 ## Top Tab Bar
   - Every connected world or world character will have its own tab.
