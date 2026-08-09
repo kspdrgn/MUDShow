@@ -33,7 +33,25 @@ The shared shell:
 
 Menu content stays in the owning component so each feature can keep its own actions and labels.
 
-## Tab Bar
+## Hosted Windows
+
+The app uses one shared window host for built-in dialogs and future plugin windows. The host owns the overlay, backdrop, focus behavior, stacking order, titlebar chrome, and pop-out / pop-in presentation.
+
+The host window record carries these presentation flags and behaviors:
+- `isModal` - blocks outside interaction and uses a backdrop when true.
+- `sizeToContent` - shrink-wraps the shell to its content instead of using the default fixed size.
+- `canBackdropDismiss` - allows clicking the backdrop to dismiss a modal window, this only applies when `isModal` is true.
+- `canEscapeDismiss` - allows Escape to dismiss the topmost dismissible window.
+- `canPopOut` - allows the window to move from the app window into a separate native window.
+- `canMoveInApp` - allows the window to be dragged and relocated within the app shell.
+
+The host record also carries the active placement for the window:
+- `in-app` windows stay inside the main app shell.
+- `window` windows are shown in their own native window.
+
+Host-managed modal windows should use `sizeToContent` when they are short form dialogs or confirmations, so they fit their content without leaving extra empty space.
+
+## Top Tab Bar
   - Every connected world or world character will have its own tab.
   - Tabs can be closed.
   - Only one tab can be opened at a time per world-only or world-character target. Attempting to open the same target will instead activate that tab.

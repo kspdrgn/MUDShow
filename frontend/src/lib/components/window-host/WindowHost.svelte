@@ -11,10 +11,21 @@
   export let onMove: (id: string, position: WindowPoint) => void = () => {};
   export let onActivate: (id: string) => void = () => {};
 
+  function getTopmostModalWindow(): WindowRecord | null {
+    for (let index = windows.length - 1; index >= 0; index -= 1) {
+      const windowRecord = windows[index];
+      if (windowRecord?.isModal) {
+        return windowRecord;
+      }
+    }
+
+    return null;
+  }
+
   function closeTopmostWindow(): void {
-    const topmost = windows[windows.length - 1];
-    if (topmost?.canEscapeDismiss) {
-      onClose(topmost.id);
+    const topmostModal = getTopmostModalWindow();
+    if (topmostModal?.canEscapeDismiss) {
+      onClose(topmostModal.id);
     }
   }
 
@@ -23,9 +34,9 @@
       return;
     }
 
-    const topmost = windows[windows.length - 1];
-    if (topmost?.isModal && topmost.canBackdropDismiss) {
-      onClose(topmost.id);
+    const topmostModal = getTopmostModalWindow();
+    if (topmostModal?.canBackdropDismiss) {
+      onClose(topmostModal.id);
     }
   }
 

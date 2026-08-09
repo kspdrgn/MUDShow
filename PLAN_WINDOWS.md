@@ -131,6 +131,53 @@
 - `PLAN_SIDE_CHANNELS.md` defines the side-mounted list system.
 - `PLAN_TAPS.md` should map Taps editors such as Description, Morph, and CInfo to modal or non-modal windows.
 
+## TODO Checklist
+
+- [x] Inventory the built-in modal surfaces that still bypass the shared host.
+- [x] Confirm the shared host already supports modal, pop-out, and pop-in behavior.
+- [x] Decide the migration parameters for built-in modal windows: `isModal = yes`, `canPopOut = false`, `canMoveInApp = false`, no resize affordance.
+- [x] Migrate the notice / alert window onto the shared host.
+  - [x] Update [NoticeModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\window\NoticeModal.svelte) to render content only.
+  - [x] Add a host-backed notice window record and open/close path in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
+- [x] Migrate the close-world confirmation window onto the shared host.
+  - [x] Update [ConfirmCloseTabModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\window\ConfirmCloseTabModal.svelte) to render content only.
+  - [x] Route world-tab close confirmation state through the window host from [session.ts](C:\_\_projects\MUDShow\frontend\src\lib\session.ts).
+- [x] Migrate the close-app confirmation window onto the shared host.
+  - [x] Replace the app-close modal branch in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) with a shared-host window record.
+  - [x] Keep the native close-request interception in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) but hand it off to the host window state.
+- [ ] Migrate the logging control window onto the shared host.
+  - [ ] Update [LoggingModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\play\LoggingModal.svelte) to render content only.
+  - [ ] Move logging modal open/close state and actions in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) onto the host.
+  - [ ] Preserve the log-file rename, reveal, start, and stop actions during the host migration.
+- [ ] Migrate the world editor window onto the shared host.
+  - [ ] Update [WorldModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldModal.svelte) to render content only.
+  - [ ] Move world editor open/save/cancel flow in [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts) to host-owned state.
+  - [ ] Update the world-editor launch path in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
+- [ ] Migrate the character editor window onto the shared host.
+  - [ ] Update [CharacterModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\CharacterModal.svelte) to render content only.
+  - [ ] Move character editor open/save/cancel flow in [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts) to host-owned state.
+  - [ ] Update the character-editor launch path in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
+- [ ] Migrate the world list delete confirmation into a host-owned window record.
+  - [ ] Remove the inline delete overlay from [WorldsAndCharactersEditor.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldsAndCharactersEditor.svelte).
+  - [ ] Add host-backed delete-confirm state for worlds and characters in [WorldsAndCharactersEditor.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldsAndCharactersEditor.svelte) or its backing state module.
+  - [ ] Keep delete actions wired to [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts).
+- [ ] Remove legacy overlay and window-chrome markup from migrated built-in components.
+  - [ ] Strip backdrop and absolute-positioning styles from migrated modal components.
+  - [ ] Keep only window content, form controls, and action rows in migrated components.
+  - [ ] Ensure migrated components are all rendered through the shared host from [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
+- [ ] Route open/close state for built-in windows through the host entry point.
+  - [ ] Centralize built-in window record creation in [window-host.ts](C:\_\_projects\MUDShow\frontend\src\lib\components\window-host\window-host.ts).
+  - [ ] Keep built-in modal open/close actions in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) and session helpers aligned.
+  - [ ] Make sure modal dismissal still handles Escape, backdrop clicks, and explicit close buttons.
+- [ ] Update the relevant spec documents to describe the shared-host modal behavior.
+  - [ ] Update [spec/layout.md](C:\_\_projects\MUDShow\spec\layout.md) for the modal surfaces that now use the shared host.
+  - [ ] Update [spec/tauri.md](C:\_\_projects\MUDShow\spec\tauri.md) if any popped-out or host-managed window behavior changes.
+  - [ ] Update [PLAN_WINDOWS.md](C:\_\_projects\MUDShow\PLAN_WINDOWS.md) again if the migration order changes.
+- [ ] Verify keyboard dismissal, backdrop dismissal, and focus behavior for migrated modal windows.
+  - [ ] Confirm Escape closes only the topmost host modal when multiple windows are present.
+  - [ ] Confirm backdrop clicks only dismiss windows that allow backdrop dismissal.
+  - [ ] Confirm focus lands on the expected first control after each migrated window opens.
+
 ## Next Steps
 
 - Define the window host data model and lifecycle.

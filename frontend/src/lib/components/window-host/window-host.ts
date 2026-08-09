@@ -22,6 +22,7 @@ export interface WindowRecord {
   surfaceId: string;
   title: string;
   isModal: boolean;
+  sizeToContent: boolean;
   placement: WindowHostPlacement;
   position: WindowPoint;
   size: WindowSize;
@@ -60,6 +61,7 @@ export function createWindowRecord(
     surfaceId: windowRecord.surfaceId,
     title: windowRecord.title,
     isModal: windowRecord.isModal ?? false,
+    sizeToContent: windowRecord.sizeToContent ?? false,
     placement: windowRecord.placement ?? 'in-app',
     position: windowRecord.position ?? { x: 120, y: 120 },
     size: windowRecord.size ?? DEFAULT_WINDOW_SIZE,

@@ -37,6 +37,9 @@
   }
 
   $: renderedPosition = clampPosition(windowRecord.position);
+  $: shellStyle = windowRecord.sizeToContent
+    ? `left: ${renderedPosition.x}px; top: ${renderedPosition.y}px; width: fit-content; height: fit-content; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); z-index: ${zIndex};`
+    : `left: ${renderedPosition.x}px; top: ${renderedPosition.y}px; width: ${windowRecord.size.width}px; min-height: ${windowRecord.size.height}px; z-index: ${zIndex};`;
 
   function beginDrag(event: PointerEvent): void {
     if (event.button !== 0 || !event.isPrimary) {
@@ -99,13 +102,14 @@
 
 <div
   class="window-shell"
+  class:content-sized={windowRecord.sizeToContent}
   class:movable={windowRecord.placement === 'window' || windowRecord.canMoveInApp}
   class:windowed={windowRecord.placement === 'window'}
   role="dialog"
   tabindex="-1"
   aria-modal={windowRecord.isModal ? 'true' : 'false'}
   aria-label={windowRecord.title}
-  style={`left: ${renderedPosition.x}px; top: ${renderedPosition.y}px; width: ${windowRecord.size.width}px; min-height: ${windowRecord.size.height}px; z-index: ${zIndex};`}
+  style={shellStyle}
   on:pointerdown={() => onActivate(windowRecord.id)}
   on:pointermove={moveDrag}
   on:pointerup={(event) => finishDrag(event)}

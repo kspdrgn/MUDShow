@@ -51,6 +51,11 @@ const currentUrl = typeof window !== 'undefined' ? new URL(window.location.href)
 const initialWindowMode = currentUrl?.searchParams.get('windowMode');
 const initialPoppedOutWindowId = currentUrl?.searchParams.get('windowId');
 const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPoppedOutWindowId !== null;
+const WINDOW_HOST_SINGLETON_IDS = {
+  storageImportNotice: 'storage-import-notice',
+  worldCloseConfirm: 'world-close-confirm',
+  appCloseConfirm: 'app-close-confirm',
+} as const;
 
   let appSettings = loadAppSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
@@ -206,6 +211,67 @@ const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPopped
     session.setSettingsActiveTab('style');
   }
 
+  function isSameWindowRecord(left: WindowRecord, right: WindowRecord): boolean {
+    return (
+      left.id === right.id &&
+      left.kind === right.kind &&
+      left.surfaceId === right.surfaceId &&
+      left.title === right.title &&
+      left.isModal === right.isModal &&
+      left.sizeToContent === right.sizeToContent &&
+      left.placement === right.placement &&
+      left.position.x === right.position.x &&
+      left.position.y === right.position.y &&
+      left.size.width === right.size.width &&
+      left.size.height === right.size.height &&
+      left.canBackdropDismiss === right.canBackdropDismiss &&
+      left.canEscapeDismiss === right.canEscapeDismiss &&
+      left.canPopOut === right.canPopOut &&
+      left.canMoveInApp === right.canMoveInApp
+    );
+  }
+
+  function upsertWindowRecord(windowRecord: WindowRecord): void {
+    const index = windowHostWindows.findIndex((entry) => entry.id === windowRecord.id);
+    if (index < 0) {
+      windowHostWindows = [...windowHostWindows, windowRecord];
+      return;
+    }
+
+    if (isSameWindowRecord(windowHostWindows[index], windowRecord)) {
+      return;
+    }
+
+    const next = [...windowHostWindows];
+    next[index] = windowRecord;
+    windowHostWindows = next;
+  }
+
+  function removeWindowRecord(windowId: string): void {
+    const next = windowHostWindows.filter((windowRecord) => windowRecord.id !== windowId);
+    if (next.length === windowHostWindows.length) {
+      return;
+    }
+
+    windowHostWindows = next;
+  }
+
+  function createSingletonModalWindowRecord(windowId: string, title: string): WindowRecord {
+    return createWindowRecord({
+      id: windowId,
+      kind: 'builtin',
+      surfaceId: windowId,
+      title,
+      isModal: true,
+      sizeToContent: true,
+      placement: 'in-app',
+      canBackdropDismiss: true,
+      canEscapeDismiss: true,
+      canPopOut: false,
+      canMoveInApp: false,
+    });
+  }
+
   function openDummyWindow(): void {
     const index = windowHostWindows.length;
     const id = `dummy-window-${nextWindowHostId++}`;
@@ -232,7 +298,15 @@ const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPopped
   }
 
   function closeWindow(windowId: string): void {
-    windowHostWindows = windowHostWindows.filter((windowRecord) => windowRecord.id !== windowId);
+    if (windowId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice) {
+      storageImportNoticeOpen = false;
+    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm) {
+      session.cancelCloseConfirm();
+    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.appCloseConfirm) {
+      appCloseConfirmOpen = false;
+    }
+
+    removeWindowRecord(windowId);
   }
 
   function activateWindow(windowId: string): void {
@@ -395,10 +469,6 @@ const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPopped
     }
   }
 
-  function closeStorageImportNotice(): void {
-    storageImportNoticeOpen = false;
-  }
-
   function hasBlockingWindow(): boolean {
     return windowHostWindows.some((windowRecord) => windowRecord.isModal);
   }
@@ -412,6 +482,46 @@ const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPopped
       loggingModalTabId !== null ||
       storageImportNoticeOpen
     );
+  }
+
+  $: {
+    const closeConfirmCopy =
+      $session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null
+        ? getCloseConfirmCopy($session.closeConfirmTabId)
+        : null;
+
+    if (storageImportNoticeOpen) {
+      upsertWindowRecord(
+        createSingletonModalWindowRecord(
+          WINDOW_HOST_SINGLETON_IDS.storageImportNotice,
+          'import blocked',
+        ),
+      );
+    } else {
+      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.storageImportNotice);
+    }
+
+    if ($session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null && closeConfirmCopy) {
+      upsertWindowRecord(
+        createSingletonModalWindowRecord(
+          WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm,
+          closeConfirmCopy.title,
+        ),
+      );
+    } else {
+      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm);
+    }
+
+    if (appCloseConfirmOpen) {
+      upsertWindowRecord(
+        createSingletonModalWindowRecord(
+          WINDOW_HOST_SINGLETON_IDS.appCloseConfirm,
+          'close app?',
+        ),
+      );
+    } else {
+      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.appCloseConfirm);
+    }
   }
 
   function hasConnectedWorldTabs(): boolean {
@@ -508,10 +618,6 @@ const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPopped
       allowWindowCloseOnce = false;
       console.error('failed to close the app window:', error);
     }
-  }
-
-  function cancelAppClose(): void {
-    appCloseConfirmOpen = false;
   }
 
   async function handleMoveLogFolder(): Promise<void> {
@@ -943,6 +1049,35 @@ const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPopped
 >
   {#if windowRecord.surfaceId === 'app-dev-dummy'}
     <DummyWindowContent instanceLabel={windowRecord.title} />
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice}
+    <NoticeModal
+      message="Import settings file requires closing all world tabs and starting over, please close all tabs and try again."
+      confirmLabel="ok"
+      onClose={() => closeWindow(windowRecord.id)}
+    />
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm}
+    {@const closeConfirmCopy =
+      $session.closeConfirmTabId !== null ? getCloseConfirmCopy($session.closeConfirmTabId) : null}
+    {#if closeConfirmCopy}
+      <ConfirmCloseTabModal
+        title={closeConfirmCopy.title}
+        message={closeConfirmCopy.message}
+        confirmLabel={closeConfirmCopy.confirmLabel}
+        onCancel={() => closeWindow(windowRecord.id)}
+        onConfirm={() => {
+          session.confirmCloseTab();
+          closeWindow(windowRecord.id);
+        }}
+      />
+    {/if}
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.appCloseConfirm}
+    <ConfirmCloseTabModal
+      title="close app?"
+      message="One or more tabs are connected. Disconnect and close the app?"
+      confirmLabel="disconnect and close app"
+      onCancel={() => closeWindow(windowRecord.id)}
+      onConfirm={() => void confirmAppClose()}
+    />
   {/if}
 </WindowHost>
 
@@ -965,32 +1100,6 @@ const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPopped
   draft={$session.worldModalDraft}
   onCancel={() => session.closeModal()}
   onSave={(draft) => session.saveWorld(draft)}
-/>
-
-<ConfirmCloseTabModal
-  open={$session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null}
-  title={getCloseConfirmCopy($session.closeConfirmTabId ?? '').title}
-  message={getCloseConfirmCopy($session.closeConfirmTabId ?? '').message}
-  confirmLabel={getCloseConfirmCopy($session.closeConfirmTabId ?? '').confirmLabel}
-  onCancel={() => session.cancelCloseConfirm()}
-  onConfirm={() => session.confirmCloseTab()}
-/>
-
-<ConfirmCloseTabModal
-  open={appCloseConfirmOpen}
-  title="close app?"
-  message="One or more tabs are connected. Disconnect and close the app?"
-  confirmLabel="disconnect and close app"
-  onCancel={cancelAppClose}
-  onConfirm={() => void confirmAppClose()}
-/>
-
-<NoticeModal
-  open={storageImportNoticeOpen}
-  title="import blocked"
-  message="Import settings file requires closing all world tabs and starting over, please close all tabs and try again."
-  confirmLabel="ok"
-  onClose={closeStorageImportNotice}
 />
 
 <LoggingModal
