@@ -3,39 +3,67 @@
 ## Rough Direction
 
 - Treat plugins as a first-class extension layer for MU* world-specific behavior.
-- Keep MUCK-specific logic in a separate project so the core app stays small and stable.
-- Let the app expose a narrow, well-defined host API instead of giving plugins free rein over arbitrary windows or DOM.
-- Start with a plugin model that supports inspection, routing, enrichment, and small UI surfaces before expanding into deeper automation.
+- Keep MUCK-specific logic in a separate project later, but build the first plugin in-repo so the host and plugin contracts can harden together.
+- Let the app expose a narrow, well-defined host API instead of giving plugins free rein over arbitrary windows, layout, or DOM.
 - Favor declarative plugin definitions over handwritten code whenever possible.
-- Make the common plugin path approachable for non-Rust developers.
 - Reserve code-heavy plugins for cases where declarative rules cannot express the behavior or where performance needs justify it.
+- Make the common plugin path approachable for non-Rust developers.
+- The host owns all rendering, window management, channel routing, persistence plumbing, and lifecycle control.
+- The plugin owns domain rules, parsing, state interpretation, and the intent it wants the host to present.
+
+## Host / Plugin Boundary
+
+### Host-Owned
+
+- Rendering and layout.
+- World channels, side channels, and hosted windows.
+- Open, close, focus, pop out, and pop in mechanics.
+- App and world persistence plumbing.
+- Tab selection, route selection, and window-shell behavior.
+- Safety checks, failure handling, and user-facing fallbacks.
+
+### Plugin-Owned
+
+- Domain-specific parsing and state extraction.
+- Declarative hooks, match rules, and transforms.
+- Plugin-specific cached state.
+- Requested surfaces and display intent.
+- Plugin-specific commands, queries, and metadata.
+
+### Shared Contract
+
+- Hook names and payload shapes.
+- Surface descriptors that tell the host what to show.
+- Data models for plugin-owned state and host-managed routing.
+- Stable helpers for matching, parsing, and event classification.
 
 ## Phase 0
 
-- Build the first plugin inside this repository so the host and plugin can evolve together.
+- Build the first plugin inside this repository so the host and plugin contracts can evolve together.
 - Structure the work so it can be separated later without rewriting the core logic.
 - Treat the initial plugin as the reference implementation for the plugin system.
 - Prefer shared internal modules and clear boundaries over immediate packaging or distribution concerns.
 - Keep the first plugin narrow enough that we can prove the shape of the API before generalizing it.
+- Put plugin code under a dedicated plugin namespace so host code does not reach into feature code directly.
 
 ## Phase 0 Split Points
 
 ### Declarative Configuration
 
-- Define the plugin’s behavior in data first.
-- Use a manifest or config file for names, enabled hooks, matching rules, and UI declarations.
-- Keep behavior that looks like a policy or rule in config rather than code whenever practical.
+- Define plugin behavior in data first.
+- Use a manifest or config file for names, enabled hooks, matching rules, commands, and UI requests.
+- Keep behavior that looks like policy or routing in config rather than code whenever practical.
 
 ### Backend Support
 
 - Put reusable parsing, matching, routing, and state management behind backend-facing helpers.
-- Make the backend services usable by both the in-repo first plugin and future external plugins.
-- Keep backend APIs stable and focused on text processing, event classification, and plugin-owned data.
+- Make backend services usable by both the in-repo first plugin and future external plugins.
+- Keep backend APIs focused on text processing, event classification, plugin-owned data, and host request translation.
 
 ### Frontend Support
 
-- Provide host-owned UI surfaces that plugins can request or populate.
 - Keep rendering, layout, and window management in the app.
+- Provide host-owned UI surfaces that plugins can request, not own.
 - Make the frontend APIs generic enough to support future plugins without redesigning the whole view layer.
 
 ## Why This Exists
@@ -51,7 +79,7 @@
 - Inspect incoming output as it arrives.
 - Classify or reroute output into alternate panes.
 - Enrich world and character records with plugin-managed metadata.
-- Expose narrow custom UI surfaces such as buttons, menus, tabs, and generated form controls.
+- Describe UI surfaces such as buttons, menus, tabs, and generated form controls for the host to render.
 
 ## Authoring Tiers
 
@@ -78,10 +106,12 @@
 
 - Input hooks.
 - Output hooks.
-- Tabbed subwindows inside a world UI.
-- A host-owned plugin menu or launcher entry point.
-- Small custom world controls such as shortcut buttons and dropdowns.
-- Side panels for plugin-managed lists such as people, exits, places, or known names.
+- Plugin menu or launcher entry points.
+- World channels inside a play UI.
+- Hosted windows through the shared window host.
+- Compact controls such as shortcut buttons and dropdowns in host-owned chrome.
+- Future channel bar controls for plugin actions.
+- Future side-channels for plugin-managed lists such as people, exits, places, or known names.
 - Modular form-fill editors for world entities.
 - Per-world and per-character plugin data storage.
 - Plugin logging and diagnostics.
@@ -124,7 +154,9 @@
 
 - Custom world controls in the main play header or toolbar.
 - A plugin launcher that opens plugin-owned surfaces.
-- Tabbed plugin panels within a world tab.
+- Host-managed tabbed plugin panels within a world tab.
+- Host-managed windows rendered through the shared window host.
+- Channel bar controls for compact plugin actions.
 - Dockable side panels for entity lists or inspectors.
 - Declarative form sections for plugin-driven editors.
 - Routing from triggers or plugin logic into host-managed plugin views.
@@ -140,10 +172,13 @@
 
 - Plugins should not own arbitrary native windows.
 - Plugins should not directly manipulate the app layout outside approved host surfaces.
+- Plugin windows should use the shared window host rather than unmanaged native shells.
 - The core app should remain usable even when a plugin fails or is missing.
 - Plugin code should be optional and world-scoped where possible.
 - Plugin behavior should be deterministic enough that users can trust what happened and why.
 - The common plugin workflow should avoid requiring Rust unless the plugin truly needs compiled code.
+- Plugin modules should not import play-screen components or window-host internals directly.
+- Plugin-facing UI should flow through host descriptors, adapters, and registries rather than component-to-component coupling.
 
 ## Data Categories to Separate
 
@@ -180,7 +215,8 @@
 ### UI Contract
 
 - Which UI pieces are fully declarative from plugins, and which are fixed host components?
-- Are tabbed subwindows just labeled views, or can they host richer layouts?
+- Are tabbed channels just labeled views, or can they host richer layouts?
+- How should channel bar controls and side-channels be exposed to plugins?
 - How much styling control do plugins get?
 
 ### Persistence
@@ -202,6 +238,7 @@
 - Add declarative input interception next, including optional command rewriting or capture triggers.
 - Add plugin-owned per-world storage after the hook model is stable.
 - Add narrow UI slots last, once the host-side layout contract is clear.
+- Treat host-managed tabbed channels and hosted windows as the first plugin UI surfaces, then add channel bar controls and side-channels later.
 - Defer general-purpose plugin scripting until the declarative host API has proven where it falls short.
 - For phase 0, implement only the minimum API needed by the first plugin, but shape it so the same code can later be extracted into a separate plugin package.
 

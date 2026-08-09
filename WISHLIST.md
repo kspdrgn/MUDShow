@@ -8,7 +8,16 @@ MVP Features:
   - [X] Notes
   - [X] Debug console
   - [ ] Trigger routing to channel
-- [ ] Session logging. WIP. needs testing. needs better ui?
+- [ ] Windows!
+  - [X] Move all modal popup windows to shared window host
+  - [X] Pop-out to native window
+  - [X] Dummy testing windows
+- [ ] Channel bar controls
+  - [ ] Modular plugin-owned UI controls
+  - [ ] Dropdown menus
+  - [ ] Menu menus
+  - [ ] Buttons
+- [X] Session logging.
 - [X] Style. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
 - [ ] Config versioning, smooth migration of schema changes. WIP. Untested, still at v1.

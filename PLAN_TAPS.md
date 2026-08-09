@@ -5,7 +5,7 @@
 - Define the first in-repo plugin for Tapestries MUCK, also called Taps.
 - Keep the plan focused on what is specific to Taps versus what belongs to the generic plugin system.
 - Assume Taps surfaces will live inside the host-managed world channel system described in `PLAN_CHANNELS.md` and `spec/channels.md`, rather than in separate plugin-owned windows.
-- Use the simulated Tapestries server in `C:\_\_projects\SomeMUDClientTestServer\Server` as the primary development target while shaping features. Not all planned features are supported by the simulator.
+- Use the simulated Tapestries server in `..\SomeMUDClientTestServer\Server` as the primary development target while shaping features. Not all planned features are supported by the simulator.
 - Build the plugin so the Taps-specific logic can later be separated from the host app without changing the user-facing behavior.
 
 ## General Taps Definitions
@@ -49,18 +49,7 @@ Examples:
 - The plugin should treat ride mode as a server-owned value that the user can query and update through the app UI.
 - The active ride mode should be displayed in the ride-mode selector when the plugin opens or refreshes state.
 
-Get:
-
-- Command: `exa me=/ride/_mode`
-- Response format:
-  - `str /ride/_mode:<rideMode>`
-  - `1 property listed.`
-
-Set:
-
-- Command: `@set me=/ride/_mode:<rideMode>`
-- Response:
-  - `Property set.`
+Get: `examine me=/ride/_mode`
 
 #### Self Description
 
@@ -69,12 +58,7 @@ Set:
 - The description editor should initialize from the server value when possible.
 - The description editor should use the same character dictionary property model as the rest of the editable character fields.
 
-Get:
-
-- Command: `exa me=/_/de`
-- Response format:
-  - `str /_/de:<description>`
-  - `1 property listed.`
+Get: `examine me=/_/de`
 
 ### Taps-Specific Data vs Plugin Integration
 
