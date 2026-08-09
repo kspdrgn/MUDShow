@@ -145,7 +145,7 @@
 - [x] Migrate the close-app confirmation window onto the shared host.
   - [x] Replace the app-close modal branch in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) with a shared-host window record.
   - [x] Keep the native close-request interception in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) but hand it off to the host window state.
-- [ ] Migrate the logging control window onto the shared host.
+- [X] Migrate the logging control window onto the shared host.
   - [ ] Update [LoggingModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\play\LoggingModal.svelte) to render content only.
   - [ ] Move logging modal open/close state and actions in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) onto the host.
   - [ ] Preserve the log-file rename, reveal, start, and stop actions during the host migration.

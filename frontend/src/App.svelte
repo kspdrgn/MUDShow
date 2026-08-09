@@ -52,6 +52,7 @@ const initialWindowMode = currentUrl?.searchParams.get('windowMode');
 const initialPoppedOutWindowId = currentUrl?.searchParams.get('windowId');
 const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPoppedOutWindowId !== null;
 const WINDOW_HOST_SINGLETON_IDS = {
+  loggingModal: 'logging-modal',
   storageImportNotice: 'storage-import-notice',
   worldCloseConfirm: 'world-close-confirm',
   appCloseConfirm: 'app-close-confirm',
@@ -272,6 +273,22 @@ const WINDOW_HOST_SINGLETON_IDS = {
     });
   }
 
+  function createLoggingWindowRecord(): WindowRecord {
+    return createWindowRecord({
+      id: WINDOW_HOST_SINGLETON_IDS.loggingModal,
+      kind: 'builtin',
+      surfaceId: WINDOW_HOST_SINGLETON_IDS.loggingModal,
+      title: 'session logging',
+      isModal: true,
+      sizeToContent: true,
+      placement: 'in-app',
+      canBackdropDismiss: true,
+      canEscapeDismiss: true,
+      canPopOut: false,
+      canMoveInApp: false,
+    });
+  }
+
   function openDummyWindow(): void {
     const index = windowHostWindows.length;
     const id = `dummy-window-${nextWindowHostId++}`;
@@ -298,7 +315,9 @@ const WINDOW_HOST_SINGLETON_IDS = {
   }
 
   function closeWindow(windowId: string): void {
-    if (windowId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice) {
+    if (windowId === WINDOW_HOST_SINGLETON_IDS.loggingModal) {
+      loggingModalTabId = null;
+    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice) {
       storageImportNoticeOpen = false;
     } else if (windowId === WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm) {
       session.cancelCloseConfirm();
@@ -418,6 +437,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
   function closeLoggingModal(): void {
     loggingModalTabId = null;
+    removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.loggingModal);
   }
 
   function refreshLoggingModalStatus(): void {
@@ -485,10 +505,17 @@ const WINDOW_HOST_SINGLETON_IDS = {
   }
 
   $: {
+    const loggingModalOpen = loggingModalTab !== null && loggingModalSession !== null;
     const closeConfirmCopy =
       $session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null
         ? getCloseConfirmCopy($session.closeConfirmTabId)
         : null;
+
+    if (loggingModalOpen) {
+      upsertWindowRecord(createLoggingWindowRecord());
+    } else {
+      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.loggingModal);
+    }
 
     if (storageImportNoticeOpen) {
       upsertWindowRecord(
@@ -1049,6 +1076,60 @@ const WINDOW_HOST_SINGLETON_IDS = {
 >
   {#if windowRecord.surfaceId === 'app-dev-dummy'}
     <DummyWindowContent instanceLabel={windowRecord.title} />
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.loggingModal}
+    <LoggingModal
+      active={loggingModalSession?.loggingActive === true}
+      tabTitle={loggingModalTab?.title ?? ''}
+      currentPath={loggingModalSession?.logFilePath ?? ''}
+      defaultFolder={resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? ''}
+      initialFileName={loggingModalInitialFileName}
+      logError={loggingModalSession?.logError ?? ''}
+      refreshNonce={loggingModalRefreshNonce}
+      onStartLogging={async (fileName) => {
+        if (!loggingModalTabId) {
+          return;
+        }
+
+        await session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, fileName);
+        refreshLoggingModalStatus();
+        closeLoggingModal();
+      }}
+      onStopLogging={() => {
+        if (!loggingModalTabId) {
+          return;
+        }
+
+        void session.stopLogging(loggingModalTabId);
+        closeLoggingModal();
+      }}
+      onRenameLogging={async (fileName) => {
+        if (!loggingModalTabId) {
+          return;
+        }
+
+        await session.renameLogging(loggingModalTabId, fileName);
+        refreshLoggingModalStatus();
+        closeLoggingModal();
+      }}
+      onRevealLog={() => {
+        if (!loggingModalTabId) {
+          return;
+        }
+
+        const loggingSession = loggingModalSession;
+        if (loggingSession?.logFilePath) {
+          void session.revealLoggingFile(loggingModalTabId);
+          return;
+        }
+
+        void revealDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null);
+      }}
+      onOpenLoggingSettings={() => {
+        closeLoggingModal();
+        session.selectTab('settings');
+        session.setSettingsActiveTab('logging');
+      }}
+    />
   {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice}
     <NoticeModal
       message="Import settings file requires closing all world tabs and starting over, please close all tabs and try again."
@@ -1102,59 +1183,4 @@ const WINDOW_HOST_SINGLETON_IDS = {
   onSave={(draft) => session.saveWorld(draft)}
 />
 
-<LoggingModal
-  open={loggingModalTab !== null && loggingModalSession !== null}
-  active={loggingModalSession?.loggingActive === true}
-  tabTitle={loggingModalTab?.title ?? ''}
-  currentPath={loggingModalSession?.logFilePath ?? ''}
-  defaultFolder={resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? ''}
-  initialFileName={loggingModalInitialFileName}
-  logError={loggingModalSession?.logError ?? ''}
-  refreshNonce={loggingModalRefreshNonce}
-  onCancel={closeLoggingModal}
-  onStartLogging={async (fileName) => {
-    if (!loggingModalTabId) {
-      return;
-    }
-
-    await session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, fileName);
-    refreshLoggingModalStatus();
-    closeLoggingModal();
-  }}
-  onStopLogging={() => {
-    if (!loggingModalTabId) {
-      return;
-    }
-
-    void session.stopLogging(loggingModalTabId);
-    closeLoggingModal();
-  }}
-  onRenameLogging={async (fileName) => {
-    if (!loggingModalTabId) {
-      return;
-    }
-
-    await session.renameLogging(loggingModalTabId, fileName);
-    refreshLoggingModalStatus();
-    closeLoggingModal();
-  }}
-  onRevealLog={() => {
-    if (!loggingModalTabId) {
-      return;
-    }
-
-    const loggingSession = loggingModalSession;
-    if (loggingSession?.logFilePath) {
-      void session.revealLoggingFile(loggingModalTabId);
-      return;
-    }
-
-    void revealDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null);
-  }}
-  onOpenLoggingSettings={() => {
-    closeLoggingModal();
-    session.selectTab('settings');
-    session.setSettingsActiveTab('logging');
-  }}
-/>
 {/if}
