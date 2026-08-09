@@ -146,25 +146,25 @@
   - [x] Replace the app-close modal branch in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) with a shared-host window record.
   - [x] Keep the native close-request interception in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) but hand it off to the host window state.
 - [X] Migrate the logging control window onto the shared host.
-  - [ ] Update [LoggingModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\play\LoggingModal.svelte) to render content only.
-  - [ ] Move logging modal open/close state and actions in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) onto the host.
-  - [ ] Preserve the log-file rename, reveal, start, and stop actions during the host migration.
-- [ ] Migrate the world editor window onto the shared host.
-  - [ ] Update [WorldModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldModal.svelte) to render content only.
-  - [ ] Move world editor open/save/cancel flow in [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts) to host-owned state.
-  - [ ] Update the world-editor launch path in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
-- [ ] Migrate the character editor window onto the shared host.
-  - [ ] Update [CharacterModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\CharacterModal.svelte) to render content only.
-  - [ ] Move character editor open/save/cancel flow in [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts) to host-owned state.
-  - [ ] Update the character-editor launch path in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
-- [ ] Migrate the world list delete confirmation into a host-owned window record.
-  - [ ] Remove the inline delete overlay from [WorldsAndCharactersEditor.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldsAndCharactersEditor.svelte).
-  - [ ] Add host-backed delete-confirm state for worlds and characters in [WorldsAndCharactersEditor.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldsAndCharactersEditor.svelte) or its backing state module.
-  - [ ] Keep delete actions wired to [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts).
-- [ ] Remove legacy overlay and window-chrome markup from migrated built-in components.
-  - [ ] Strip backdrop and absolute-positioning styles from migrated modal components.
-  - [ ] Keep only window content, form controls, and action rows in migrated components.
-  - [ ] Ensure migrated components are all rendered through the shared host from [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
+  - [x] Update [LoggingModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\play\LoggingModal.svelte) to render content only.
+  - [x] Move logging modal open/close state and actions in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) onto the host.
+  - [x] Preserve the log-file rename, reveal, start, and stop actions during the host migration.
+- [x] Migrate the world editor window onto the shared host.
+  - [x] Update [WorldModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldModal.svelte) to render content only.
+  - [x] Move world editor open/save/cancel flow in [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts) to host-owned state.
+  - [x] Update the world-editor launch path in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
+- [x] Migrate the character editor window onto the shared host.
+  - [x] Update [CharacterModal.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\CharacterModal.svelte) to render content only.
+  - [x] Move character editor open/save/cancel flow in [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts) to host-owned state.
+  - [x] Update the character-editor launch path in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
+- [x] Migrate the world list delete confirmation into a host-owned window record.
+  - [x] Remove the inline delete overlay from [WorldsAndCharactersEditor.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldsAndCharactersEditor.svelte).
+  - [x] Add host-backed delete-confirm state for worlds and characters in [WorldsAndCharactersEditor.svelte](C:\_\_projects\MUDShow\frontend\src\lib\components\settings\WorldsAndCharactersEditor.svelte) or its backing state module.
+  - [x] Keep delete actions wired to [session-edit-world-character.ts](C:\_\_projects\MUDShow\frontend\src\lib\session-edit-world-character.ts).
+- [x] Remove legacy overlay and window-chrome markup from migrated built-in components.
+  - [x] Strip backdrop and absolute-positioning styles from migrated modal components.
+  - [x] Keep only window content, form controls, and action rows in migrated components.
+  - [x] Ensure migrated components are all rendered through the shared host from [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte).
 - [ ] Route open/close state for built-in windows through the host entry point.
   - [ ] Centralize built-in window record creation in [window-host.ts](C:\_\_projects\MUDShow\frontend\src\lib\components\window-host\window-host.ts).
   - [ ] Keep built-in modal open/close actions in [App.svelte](C:\_\_projects\MUDShow\frontend\src\App.svelte) and session helpers aligned.

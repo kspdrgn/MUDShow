@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import type { CharacterRecord, WorldRecord } from '../../types';
+  import WindowHost from '../window-host/WindowHost.svelte';
+  import { createWindowRecord } from '../window-host/window-host';
   import {
     buildWorldRows,
     clampMenuPosition,
@@ -30,8 +32,24 @@
   let renderedMenuPosition = menuPosition;
   let repositionToken = 0;
   let worldRows: WorldRowModel[] = [];
+  let deleteWindowRecord: ReturnType<typeof createWindowRecord> | null = null;
 
   $: worldRows = buildWorldRows(worlds, characters);
+  $: deleteWindowRecord = pendingDelete
+    ? createWindowRecord({
+        id: `delete-confirm-${pendingDelete.kind}-${pendingDelete.index}`,
+        surfaceId: 'worlds-and-characters-editor',
+        title: pendingDelete.kind === 'world'
+          ? `delete ${pendingDelete.worldName}?`
+          : `delete ${pendingDelete.characterName}?`,
+        isModal: true,
+        sizeToContent: true,
+        canBackdropDismiss: true,
+        canEscapeDismiss: true,
+        canPopOut: false,
+        canMoveInApp: false,
+      })
+    : null;
 
   function openContextMenu(target: MenuTarget, position: { x: number; y: number }): void {
     window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'characters-editor' } }));
@@ -91,17 +109,6 @@
       onDeleteWorld(target.index);
     } else {
       onDeleteCharacter(target.index);
-    }
-  }
-
-  function handleDeleteOverlayKeyDown(event: KeyboardEvent): void {
-    if (event.currentTarget !== event.target) {
-      return;
-    }
-
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      closeDeleteConfirm();
     }
   }
 
@@ -347,45 +354,36 @@
   </div>
 {/if}
 
-{#if pendingDelete}
+{#if deleteWindowRecord}
   {@const deleteTarget = pendingDelete}
-  <div
-    id="modal-overlay"
-    class="open"
-    role="button"
-    tabindex="0"
-    aria-label="close delete confirmation"
-    on:pointerdown|self={closeDeleteConfirm}
-    on:keydown={handleDeleteOverlayKeyDown}
-  >
-    <div id="modal">
-      <h2>
+  {#if deleteTarget}
+    <WindowHost
+      open={true}
+      windows={[deleteWindowRecord]}
+      onClose={closeDeleteConfirm}
+    >
+      <div class="host-modal-content delete-confirm-modal">
         {#if deleteTarget.kind === 'world'}
-          delete {deleteTarget.worldName}?
-        {:else}
-          confirm delete
-        {/if}
-      </h2>
-      {#if deleteTarget.kind === 'world'}
-        {@const world = worlds[deleteTarget.index] ?? null}
-        {#if world}
+          {@const world = worlds[deleteTarget.index] ?? null}
+          {#if world}
+            <p class="settings-note">
+              {world.host}:{world.port}
+            </p>
+          {/if}
+          <p class="settings-note">Deleting a world will remove all saved characters!</p>
           <p class="settings-note">
-            {world.host}:{world.port}
+            Deleting a character will remove all saved notes, highlights, and stored history.
+          </p>
+        {:else}
+          <p class="settings-note">
+            Deleting a character will remove all saved notes, highlights, and stored history.
           </p>
         {/if}
-        <p class="settings-note">Deleting a world will remove all saved characters!</p>
-        <p class="settings-note">
-          Deleting a character will remove all saved notes, highlights, and stored history.
-        </p>
-      {:else}
-        <p class="settings-note">
-          Deleting a character will remove all saved notes, highlights, and stored history.
-        </p>
-      {/if}
-      <div class="modal-actions">
-        <button class="btn" type="button" on:click={closeDeleteConfirm}>cancel</button>
-        <button class="btn danger" type="button" on:click={confirmDelete}>delete</button>
+        <div class="modal-actions">
+          <button class="btn" type="button" on:click={closeDeleteConfirm}>cancel</button>
+          <button class="btn danger" type="button" on:click={confirmDelete}>delete</button>
+        </div>
       </div>
-    </div>
-  </div>
+    </WindowHost>
+  {/if}
 {/if}

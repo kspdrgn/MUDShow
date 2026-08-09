@@ -1568,31 +1568,6 @@ body {
   border: 1px solid var(--border);
 }
 
-#modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  align-items: center;
-  justify-content: center;
-  z-index: 260;
-}
-
-#modal-overlay.open {
-  display: flex;
-}
-
-#modal {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border-active);
-  padding: 1.7rem;
-  width: 100%;
-  max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 1.15rem;
-}
-
 .window-host-root {
   position: fixed;
   inset: 0;
@@ -1764,148 +1739,19 @@ body {
   background: transparent;
 }
 
-#modal.character-modal {
+.character-modal {
   color: #fff;
 }
 
-#modal.character-modal h2,
-#modal.character-modal .settings-note,
-#modal.character-modal .field > label,
-#modal.character-modal .field > span,
-#modal.character-modal .field-check label,
-#modal.character-modal .btn {
+.character-modal .field > label,
+.character-modal .field > span,
+.character-modal .field-check label,
+.character-modal .btn {
   color: #fff;
 }
 
-#modal.character-modal .btn:hover {
+.character-modal .btn:hover {
   color: #fff;
-}
-
-#modal.rule-modal {
-  max-width: 720px;
-  color: #fff;
-}
-
-#modal.rule-modal h2,
-#modal.rule-modal .settings-note,
-#modal.rule-modal .field > label,
-#modal.rule-modal .field > span,
-#modal.rule-modal .field-check label,
-#modal.rule-modal .btn {
-  color: #fff;
-}
-
-#modal.rule-modal .btn:hover {
-  color: #fff;
-}
-
-#modal.rule-modal textarea {
-  min-height: 8rem;
-  resize: vertical;
-}
-
-#modal.rule-modal .rule-preview-hit {
-  background: var(--accent-dim);
-  color: #fff;
-  border-radius: 0.18rem;
-}
-
-#modal.rule-modal .rule-preview-zero-width {
-  color: var(--accent);
-}
-
-#modal.rule-modal .rule-preview-error {
-  color: var(--danger);
-  font-size: 0.78rem;
-  margin-top: 0.35rem;
-}
-
-#modal.rule-modal .rule-cheatsheet {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 0.7rem;
-  color: var(--text-dim);
-  font-size: 0.76rem;
-  line-height: 1.4;
-}
-
-#modal.rule-modal .rule-cheatsheet code {
-  color: #fff;
-}
-
-#modal.rule-modal .rule-sample-surface {
-  position: relative;
-  min-height: 8rem;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.22);
-}
-
-#modal.rule-modal .rule-sample-mirror,
-#modal.rule-modal .rule-sample-input {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  padding: 0.62rem 0.78rem;
-  font: 400 0.9rem/1.55 var(--font-mono);
-  letter-spacing: normal;
-  font-kerning: none;
-  font-optical-sizing: none;
-  font-synthesis: none;
-  text-indent: 0;
-  text-transform: none;
-  font-variant-ligatures: none;
-  font-feature-settings:
-    'liga' 0,
-    'clig' 0,
-    'calt' 0;
-  tab-size: 4;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow: auto;
-  scrollbar-gutter: stable;
-}
-
-#modal.rule-modal .rule-sample-mirror {
-  pointer-events: none;
-  color: #fff;
-  z-index: 1;
-  scrollbar-width: none;
-}
-
-#modal.rule-modal .rule-sample-mirror::-webkit-scrollbar {
-  display: none;
-}
-
-#modal.rule-modal .rule-sample-input {
-  z-index: 2;
-  border: 0;
-  background: transparent;
-  color: transparent;
-  caret-color: #fff;
-  resize: none;
-  overflow: auto;
-  outline: none;
-  -webkit-text-fill-color: transparent;
-}
-
-#modal.rule-modal .rule-sample-input::selection {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-#modal.rule-modal .rule-sample-input::placeholder {
-  color: transparent;
-}
-
-#modal h2 {
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  font-weight: 400;
 }
 
 .field {

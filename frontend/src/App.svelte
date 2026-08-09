@@ -52,6 +52,8 @@ const initialWindowMode = currentUrl?.searchParams.get('windowMode');
 const initialPoppedOutWindowId = currentUrl?.searchParams.get('windowId');
 const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPoppedOutWindowId !== null;
 const WINDOW_HOST_SINGLETON_IDS = {
+  characterModal: 'character-modal',
+  worldModal: 'world-modal',
   loggingModal: 'logging-modal',
   storageImportNotice: 'storage-import-notice',
   worldCloseConfirm: 'world-close-confirm',
@@ -289,6 +291,38 @@ const WINDOW_HOST_SINGLETON_IDS = {
     });
   }
 
+  function createWorldWindowRecord(title: string): WindowRecord {
+    return createWindowRecord({
+      id: WINDOW_HOST_SINGLETON_IDS.worldModal,
+      kind: 'builtin',
+      surfaceId: WINDOW_HOST_SINGLETON_IDS.worldModal,
+      title,
+      isModal: true,
+      sizeToContent: true,
+      placement: 'in-app',
+      canBackdropDismiss: true,
+      canEscapeDismiss: true,
+      canPopOut: false,
+      canMoveInApp: false,
+    });
+  }
+
+  function createCharacterWindowRecord(title: string): WindowRecord {
+    return createWindowRecord({
+      id: WINDOW_HOST_SINGLETON_IDS.characterModal,
+      kind: 'builtin',
+      surfaceId: WINDOW_HOST_SINGLETON_IDS.characterModal,
+      title,
+      isModal: true,
+      sizeToContent: true,
+      placement: 'in-app',
+      canBackdropDismiss: true,
+      canEscapeDismiss: true,
+      canPopOut: false,
+      canMoveInApp: false,
+    });
+  }
+
   function openDummyWindow(): void {
     const index = windowHostWindows.length;
     const id = `dummy-window-${nextWindowHostId++}`;
@@ -315,7 +349,11 @@ const WINDOW_HOST_SINGLETON_IDS = {
   }
 
   function closeWindow(windowId: string): void {
-    if (windowId === WINDOW_HOST_SINGLETON_IDS.loggingModal) {
+    if (windowId === WINDOW_HOST_SINGLETON_IDS.characterModal) {
+      session.closeModal();
+    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.worldModal) {
+      session.closeModal();
+    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.loggingModal) {
       loggingModalTabId = null;
     } else if (windowId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice) {
       storageImportNoticeOpen = false;
@@ -505,11 +543,31 @@ const WINDOW_HOST_SINGLETON_IDS = {
   }
 
   $: {
+    const characterModalOpen = $session.modalOpen && $session.modalKind === 'character';
+    const worldModalOpen = $session.modalOpen && $session.modalKind === 'world';
     const loggingModalOpen = loggingModalTab !== null && loggingModalSession !== null;
     const closeConfirmCopy =
       $session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null
         ? getCloseConfirmCopy($session.closeConfirmTabId)
         : null;
+
+    if (characterModalOpen) {
+      const characterWorldName =
+        $session.characterWorldId
+          ? $session.worlds.find((world) => world.id === $session.characterWorldId)?.name ?? ''
+          : '';
+      upsertWindowRecord(createCharacterWindowRecord(
+        characterWorldName ? `${$session.modalTitle} - ${characterWorldName}` : $session.modalTitle,
+      ));
+    } else {
+      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.characterModal);
+    }
+
+    if (worldModalOpen) {
+      upsertWindowRecord(createWorldWindowRecord($session.modalTitle));
+    } else {
+      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.worldModal);
+    }
 
     if (loggingModalOpen) {
       upsertWindowRecord(createLoggingWindowRecord());
@@ -1076,6 +1134,19 @@ const WINDOW_HOST_SINGLETON_IDS = {
 >
   {#if windowRecord.surfaceId === 'app-dev-dummy'}
     <DummyWindowContent instanceLabel={windowRecord.title} />
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.characterModal}
+    <CharacterModal
+      draft={$session.modalDraft}
+      onCancel={() => session.closeModal()}
+      onSave={(draft) => session.saveCharacter(draft)}
+    />
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.worldModal}
+    <WorldModal
+      title={windowRecord.title}
+      draft={$session.worldModalDraft}
+      onCancel={() => session.closeModal()}
+      onSave={(draft) => session.saveWorld(draft)}
+    />
   {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.loggingModal}
     <LoggingModal
       active={loggingModalSession?.loggingActive === true}
@@ -1161,26 +1232,5 @@ const WINDOW_HOST_SINGLETON_IDS = {
     />
   {/if}
 </WindowHost>
-
-<CharacterModal
-  open={$session.modalOpen && $session.modalKind === 'character'}
-  title={$session.modalTitle}
-  worldName={
-    $session.modalKind === 'character' && $session.characterWorldId
-      ? $session.worlds.find((world) => world.id === $session.characterWorldId)?.name ?? ''
-      : ''
-  }
-  draft={$session.modalDraft}
-  onCancel={() => session.closeModal()}
-  onSave={(draft) => session.saveCharacter(draft)}
-/>
-
-<WorldModal
-  open={$session.modalOpen && $session.modalKind === 'world'}
-  title={$session.modalTitle}
-  draft={$session.worldModalDraft}
-  onCancel={() => session.closeModal()}
-  onSave={(draft) => session.saveWorld(draft)}
-/>
 
 {/if}
