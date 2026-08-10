@@ -111,7 +111,6 @@ Sources:
 - Value: the node’s direct stored value, when present
 - Has children: whether the node exposes child items
 - Child keys: the names or paths of known child entries
-- Source: whether the cache came from a direct property read, a subtree listing, or a follow-up read
 - Updated at: when the node was last refreshed
 
 ### Cache Behavior
@@ -121,6 +120,59 @@ Sources:
 - List-backed directories should keep the parent count and the ordered child entries together.
 - For list-backed nodes, the line count is part of the node value model rather than a separate data item.
 - The cache should be safe to reuse for UI rendering, server synchronization, and parsing decisions.
+- `examine` output should be treated as a node listing plus a terminal summary line, not as one flat property value.
+- A listing can contain both `dir` nodes and `str` nodes in the same response.
+- `dir ...:(no value)` means a directory node with no direct value.
+- `str ...:<value>` means a leaf value, even when the path includes a trailing `/` in the listing output.
+- A `0 properties listed.` response means the path is missing or the listing returned nothing useful to cache.
+- A numeric summary line such as `7 properties listed.` should be preserved as the response count for the listing.
+- Version 1 will intentionally be simple and best-effort rather than request-scoped.
+- Version 1 will not correlate request and response, and it will be possible to spoof property data with ordinary world output that happens to match the grammar.
+- Version 1 cache updates will replace stored values with any new incoming property values that match the accepted grammar.
+- Version 1 will not depend on `N properties listed.` for completeness checks or end-of-response detection.
+- Version 1 capture is always active for the connection, and all incoming lines are eligible for inspection.
+- Version 1 will only capture lines that match the known `dir` / `str` / `int` property output shapes and include a full property path.
+- Version 1 will never capture the `N properties listed.` summary line.
+- When the same property path appears again, the new node data replaces the old node data.
+- If a child path arrives before a parent node has been seen, synthesize the missing parent as a `dir` node until an explicit node value is detected.
+- Version 1 stores only the path, reported data type, and value text for captured nodes.
+- Version 1 does not preserve the raw captured line in the displayed tree data.
+
+### Property Text Grammar
+
+- Root example:
+  - `dir /_/:(no value)`
+  - `dir /_page/:(no value)`
+  - `str /_scent:Smells like the dragons she lives with, of exercise and school and play.`
+  - `dir /morph#/:(no value)`
+  - `str /redesc#/:7`
+  - `11 properties listed.`
+- Missing-property example:
+  - `0 properties listed.`
+- Valueless-directory example:
+  - `dir /morph#/:(no value)`
+  - `1 property listed.`
+- Directory-contents example:
+  - `dir /morph#/boxers#/:(no value)`
+  - `dir /morph#/pants#/:(no value)`
+  - `2 properties listed.`
+- Value-directory example:
+  - `str /redesc#/:7`
+  - `1 property listed.`
+- Leaf value example:
+  - `str /ride/_mode:walk`
+  - `1 property listed.`
+- Directory-children example:
+  - `str /redesc#/1:    Kayol is a strange fox, an unusual wolf, and an even stranger jackal.`
+  - `str /redesc#/7:    The wolf wears blue tinted goggles, sometimes pushed up onto his forehead's short natural headfur to reveal striking amber eyes.`
+- For version 1 of capture, assume any line matching the `dir` / `str` / `int` property output shape can be captured into the property cache when it includes a full path.
+
+### Version 2 Strategy (Later)
+
+Version 2 of the capture system should move toward an expectation-based capture strategy:
+  - Treat property data as expected only after sending, or after the user sends, an interrogation command such as `examine`, `exa`, or `ex` if it matches the pattern of a property interrogation.
+  - Use that expectation to compare subsequent output against the requested path.
+  - Check `... properties listed.` counts against the number of properties received before the summary line.
 
 ### Storage Debug View
 
@@ -129,6 +181,9 @@ Sources:
 - Make it obvious when data is stale, partially loaded, or missing.
 - Allow selection of individual tree nodes.
 - Support copy-path and copy-value actions from the storage debug view.
+- Root refresh should send `examine me=/`.
+- Refreshing an individual node should send `examine me=<path>` for that node's path.
+- Expanding a collapsed directory node should issue a non-recursive query for that node's contents.
 - Use the storage debug view to validate the read, write, refresh, and cache behavior before higher-level MUCK plugins depend on it.
 
 ### Property path representation
