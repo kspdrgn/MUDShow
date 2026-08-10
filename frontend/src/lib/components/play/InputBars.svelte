@@ -14,7 +14,6 @@ import {
 } from '../../input-bars';
 import {
   appendHistoryValue,
-  createHistoryBrowseState,
   getHistoryBrowseState,
   resetHistoryBrowseState,
   setHistoryBrowseState,
@@ -302,7 +301,10 @@ import {
       return false;
     }
 
-    setEntry(bar, createHistoryBrowseState());
+    setEntry(bar, {
+      cursor,
+      editIndex: null,
+    });
     setCursorValue(bar, cursor);
     return true;
   }
