@@ -16,7 +16,7 @@
     measureCharacterWidth,
     normalizeCharacterWidth,
   } from './play-width';
-  import { type ChannelTabVM, type ChannelTabId } from './channel';
+  import { type ChannelBarControlVM, type ChannelTabVM, type ChannelTabId } from './channel';
 
   type PlayScreenActions = {
     onReconnectTab: () => void;
@@ -104,6 +104,7 @@
   let lastVisible = visible;
   let channelsPanelResizing = false;
   let channelsPanelResizeLockedHeight = 0;
+  const customChannelBarControlId = 'custom-channel-bar-control';
   const notesChannelId = 'notes';
   const debugConsoleChannelId = 'debug-console';
 
@@ -153,9 +154,21 @@
       : []),
   ] satisfies ChannelTabVM[];
 
+  $: channelBarControls = [
+    {
+      id: customChannelBarControlId,
+      label: 'custom',
+      title: 'Placeholder custom control',
+      onClick: () => {
+        console.debug('[play] custom channel bar control clicked');
+      },
+    },
+  ] satisfies ChannelBarControlVM[];
+
   $: channelPanelOpen = channelTabs.some((tab) => tab.open);
+  $: channelBarHasEntries = channelTabs.length > 0 || channelBarControls.length > 0;
   $: channelBarPinned = channelPanelOpen;
-  $: channelBarVisible = channelTabs.length > 0 && (channelBarPinned || channelBarHovered || channelBarAwake);
+  $: channelBarVisible = channelBarHasEntries && (channelBarPinned || channelBarHovered || channelBarAwake);
 
   function clearChannelBarTimer(): void {
     if (channelBarHideTimer !== null) {
@@ -165,6 +178,10 @@
   }
 
   function showChannelBar(): void {
+    if (!channelBarHasEntries) {
+      return;
+    }
+
     channelBarHovered = true;
     channelBarAwake = true;
     clearChannelBarTimer();
@@ -309,8 +326,11 @@
   <WorldChannelsBar
     visible={channelBarVisible}
     tabs={channelTabs}
+    controls={channelBarControls}
     onHide={closeAllChannels}
     onToggleChannel={toggleChannel}
+    onMouseEnter={showChannelBar}
+    onMouseLeave={hideChannelBar}
   />
 
   <div

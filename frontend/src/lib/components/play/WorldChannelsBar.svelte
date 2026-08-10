@@ -1,12 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import ContextMenuShell from '../context-menu/ContextMenuShell.svelte';
-  import type { ChannelTabVM, ChannelTabId } from './channel';
+  import type { ChannelBarControlVM, ChannelTabVM, ChannelTabId } from './channel';
 
   export let visible = false;
   export let tabs: ChannelTabVM[] = [];
+  export let controls: ChannelBarControlVM[] = [];
   export let onHide: () => void;
   export let onToggleChannel: (tabId: ChannelTabId) => void;
+  export let onMouseEnter: () => void = () => {};
+  export let onMouseLeave: () => void = () => {};
 
   let contextMenuOpen = false;
   let contextMenuPosition = { x: 0, y: 0 };
@@ -56,44 +59,60 @@
   class="world-channels-bar"
   class:visible={visible}
   aria-hidden={!visible}
-  role="tablist"
-  aria-label="World channels"
+  on:mouseenter={onMouseEnter}
+  on:mouseleave={onMouseLeave}
 >
-  <button
-    type="button"
-    class="btn world-channel world-channel-hide"
-    role="tab"
-    aria-selected="false"
-    on:click={onHide}
-  >
-    <span class="world-channel-label">hide</span>
-  </button>
-  {#each tabs as tab (tab.id)}
-    <div class="world-channel-tab">
-      <button
-        type="button"
-        class="btn world-channel"
-        class:active={tab.open}
-        role="tab"
-        aria-selected={tab.open}
-        on:contextmenu={(event) => openTabContextMenu(event, tab)}
-        on:click={() => onToggleChannel(tab.id)}
-      >
-        <span class="world-channel-label">{tab.label}</span>
-      </button>
-      {#if tab.onClose}
+  <div class="world-channels-bar-tabs" role="tablist" aria-label="World channels">
+    <button
+      type="button"
+      class="btn world-channel world-channel-hide"
+      role="tab"
+      aria-selected="false"
+      on:click={onHide}
+    >
+      <span class="world-channel-label">hide</span>
+    </button>
+    {#each tabs as tab (tab.id)}
+      <div class="world-channel-tab">
         <button
           type="button"
-          class="btn world-channel-close"
-          aria-label={`close ${tab.label} tab`}
-          title={`Close ${tab.label} tab`}
-          on:click|stopPropagation={() => tab.onClose?.()}
+          class="btn world-channel"
+          class:active={tab.open}
+          role="tab"
+          aria-selected={tab.open}
+          on:contextmenu={(event) => openTabContextMenu(event, tab)}
+          on:click={() => onToggleChannel(tab.id)}
         >
-          ×
+          <span class="world-channel-label">{tab.label}</span>
         </button>
-      {/if}
-    </div>
-  {/each}
+        {#if tab.onClose}
+          <button
+            type="button"
+            class="btn world-channel-close"
+            aria-label={`close ${tab.label} tab`}
+            title={`Close ${tab.label} tab`}
+            on:click|stopPropagation={() => tab.onClose?.()}
+          >
+            ×
+          </button>
+        {/if}
+      </div>
+    {/each}
+  </div>
+  <div class="world-channels-bar-host-controls" role="group" aria-label="World channel host controls">
+    {#each controls as control (control.id)}
+      <button
+        type="button"
+        class="btn world-channel world-channel-host-control"
+        disabled={control.disabled}
+        aria-label={control.title ?? control.label}
+        title={control.title ?? control.label}
+        on:click={control.onClick}
+      >
+        <span class="world-channel-label">{control.label}</span>
+      </button>
+    {/each}
+  </div>
 </div>
 
 <ContextMenuShell

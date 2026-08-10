@@ -5,8 +5,11 @@ World channels are host-managed surfaces inside a PlayScreen. They sit above the
 ## Current Behavior
 
 - The channels bar lives at the top of the PlayScreen.
+- The channels bar keeps channel tabs anchored to the left and provides a right-anchored host-controls area for custom world-level controls.
+- Host controls are registered separately from channel tabs and can be shown in the bar without opening a channel panel.
 - The bar can hide itself when no channel is open, and it stays hidden until at least one channel has been registered in that world tab.
 - A thin hover area below the top bar can reveal the bar again.
+- If only host controls are registered and no channel is active, moving the pointer away from the reveal zone hides the bar again.
 - Right-clicking a channel tab opens a generic context menu with a Close option.
 - Right-clicking the empty bar area or the Hide button does nothing.
 - Only one channel may be visible at a time; opening a channel hides the others.

@@ -179,8 +179,11 @@ World channels live inside the PlayScreen and provide a host-managed surface for
 
 Channel bar
   - Host-managed row that stays visible above the play view and provides Hide plus one button per world channel.
+  - Keeps the channel tabs left-aligned while reserving a right-anchored area for host-provided controls.
+  - Host-provided controls are registered separately from channel tabs and may appear even when no channel panel is open.
   - Each registered channel tab includes a close button that unregisters it from the bar and hides it if open.
   - Hides automatically when no channel panel is open, but a thin hover area below the topbar can reveal it again.
+  - If only host controls are registered, the bar reveals on hover and collapses again when the pointer leaves the reveal zone.
   - When the user explicitly opens a channel, the channels panel stays open until they click Hide.
 
 Channel panel

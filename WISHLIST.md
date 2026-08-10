@@ -2,6 +2,14 @@
 
 ## Top TODO
 
+todo order:
+- channel bar controls
+  - button for debug dictionary open
+- fuzzball plugin skeleton
+  - prop tree debug view
+  - get
+  - set
+
 MVP Features:
 - [X] Notes persistence
 - [X] Channels!
