@@ -19,6 +19,7 @@ interface WorldConnectionActionContext {
   ensureWorldTab: (world: WorldRecord, character?: CharacterRecord | null) => string;
   appendOutputToTab: (tabId: string, rawText: string) => Promise<void>;
   appendIncomingRawMessageToTab: (tabId: string, text: string) => void;
+  captureIncomingWorldLine: (tabId: string, text: string) => void;
   appendDebugConsoleMessageToTab: (tabId: string, direction: 'incoming' | 'outgoing' | 'status', text: string) => void;
   appendConnectionStatusToTab: (tabId: string, rawText: string) => Promise<void>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
@@ -43,6 +44,7 @@ export function createWorldConnectionActions({
   ensureWorldTab,
   appendOutputToTab,
   appendIncomingRawMessageToTab,
+  captureIncomingWorldLine,
   appendDebugConsoleMessageToTab,
   appendConnectionStatusToTab,
   setHighlightRegexes,
@@ -120,6 +122,7 @@ export function createWorldConnectionActions({
           appendIncomingRawMessageToTab(tabId, text);
         },
         onMessage: (text) => {
+          captureIncomingWorldLine(tabId, text);
           const current = getWorldSession(tabId);
           const shouldPlayActivitySound = !isAppFocused() && !current.hasNewActivity;
 

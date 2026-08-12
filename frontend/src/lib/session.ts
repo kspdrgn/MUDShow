@@ -7,6 +7,7 @@ import { createCharacterActions } from './session-edit-world-character';
 import { createInitialState, type SessionState } from './session-state';
 import { createAppShortcutActions } from './session-app-shortcuts';
 import { createWorldConnectionActions } from './session-world-connection';
+import { createWorldCaptureActions } from './session-world-capture';
 import { createWorldInputActions } from './session-world-input';
 import { createWorldPanelActions } from './session-world-panels';
 import { createWorldShortcutActions } from './session-world-shortcuts';
@@ -647,6 +648,10 @@ function createSession() {
     updateWorldSession: tabsActions.updateWorldSession,
   });
 
+  const captureActions = createWorldCaptureActions({
+    getWorldSession: tabsActions.getWorldSession,
+  });
+
   const characterActions = createCharacterActions({
     state,
     getState,
@@ -677,6 +682,7 @@ function createSession() {
     ensureWorldTab: tabsActions.ensureWorldTab,
     appendOutputToTab: transcriptActions.appendOutputToTab,
     appendIncomingRawMessageToTab: transcriptActions.appendIncomingRawMessageToTab,
+    captureIncomingWorldLine: captureActions.captureIncomingWorldLine,
     appendDebugConsoleMessageToTab: transcriptActions.appendDebugConsoleMessageToTab,
     appendConnectionStatusToTab: transcriptActions.appendConnectionStatusToTab,
     setHighlightRegexes: (regexes) => {

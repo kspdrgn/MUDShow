@@ -97,6 +97,7 @@ While the app settings tab stays open, it remembers the last selected tab. If th
   - name, host, port
   - secure/plain connection choice
   - verify secure connection choice
+  - world compatibility choice: `telnet` for generic connections, `fuzzball` for FuzzBall-compatible property capture and related world-specific parsing
 
 # Character Settings
   - optional preferred output width

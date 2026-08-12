@@ -95,6 +95,7 @@ function normalizeWorldRecord(value: unknown): WorldRecord | null {
 
   const tls = toBooleanValue(value.tls, true);
   const verifyCertificate = tls && toBooleanValue(value.verifyCertificate, true);
+  const compatibility = value.compatibility === 'fuzzball' ? 'fuzzball' : 'telnet';
 
   return {
     id: toStringValue(value.id).trim() || createId('world'),
@@ -103,6 +104,7 @@ function normalizeWorldRecord(value: unknown): WorldRecord | null {
     port,
     tls,
     verifyCertificate,
+    compatibility,
   };
 }
 
@@ -274,7 +276,13 @@ function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
   const byKey = new Map<string, WorldRecord>();
 
   for (const world of worlds) {
-    const key = [world.host, world.port, world.tls ? '1' : '0', world.verifyCertificate ? '1' : '0'].join('|');
+    const key = [
+      world.host,
+      world.port,
+      world.tls ? '1' : '0',
+      world.verifyCertificate ? '1' : '0',
+      world.compatibility,
+    ].join('|');
     if (!byKey.has(key)) {
       byKey.set(key, world);
     }

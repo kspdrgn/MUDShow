@@ -42,6 +42,7 @@ export const INITIAL_WORLD_DRAFT: WorldDraft = {
   port: '',
   tls: true,
   verifyCertificate: true,
+  compatibility: 'telnet',
 };
 
 export const INITIAL_DRAFT: CharacterDraft = {

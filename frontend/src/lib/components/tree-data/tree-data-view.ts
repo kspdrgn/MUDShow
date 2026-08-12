@@ -116,7 +116,14 @@ export function applyTreeDataNodePatch(
   return updateTreeDataNode(root, nodeId, (node) => {
     const nextNode: TreeDataNode = {
       ...node,
-      ...patch,
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.subtitle !== undefined ? { subtitle: patch.subtitle } : {}),
+      ...(patch.badge !== undefined ? { badge: patch.badge } : {}),
+      ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+      ...(patch.valueState !== undefined ? { valueState: patch.valueState } : {}),
+      ...(patch.childrenState !== undefined ? { childrenState: patch.childrenState } : {}),
+      ...(patch.expanded !== undefined && patch.expanded !== null ? { expanded: patch.expanded } : {}),
+      ...(patch.children !== undefined && patch.children !== null ? { children: patch.children } : {}),
     };
 
     if (patch.expanded === null) {

@@ -37,6 +37,7 @@ function createWorldRecordFromDraft(draft: WorldDraft): WorldRecord | null {
     port,
     tls,
     verifyCertificate: tls ? draft.verifyCertificate : false,
+    compatibility: draft.compatibility,
   };
 }
 
@@ -80,6 +81,7 @@ function createWorldDraftFromWorld(world: WorldRecord): WorldDraft {
     port: String(world.port),
     tls: world.tls,
     verifyCertificate: world.verifyCertificate,
+    compatibility: world.compatibility,
   };
 }
 
@@ -126,6 +128,7 @@ export function createCharacterActions({
           port: '',
           tls: true,
           verifyCertificate: true,
+          compatibility: 'telnet',
         },
         modalOpen: true,
       });

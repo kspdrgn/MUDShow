@@ -1,3 +1,5 @@
+export type WorldCompatibility = 'telnet' | 'fuzzball';
+
 export interface WorldRecord {
   id: string;
   name: string;
@@ -5,6 +7,7 @@ export interface WorldRecord {
   port: number;
   tls: boolean;
   verifyCertificate: boolean;
+  compatibility: WorldCompatibility;
 }
 
 export interface CharacterRecord {
@@ -23,6 +26,7 @@ export interface WorldDraft {
   port: string;
   tls: boolean;
   verifyCertificate: boolean;
+  compatibility: WorldCompatibility;
 }
 
 export interface CharacterDraft {

@@ -7,6 +7,7 @@
     port: '',
     tls: true,
     verifyCertificate: true,
+    compatibility: 'telnet',
   };
 
   export let draft: WorldDraft = emptyDraft;
@@ -19,12 +20,14 @@
   let port = '';
   let tls = true;
   let verifyCertificate = true;
+  let compatibility: WorldDraft['compatibility'] = 'telnet';
 
   $: name = draft.name;
   $: host = draft.host;
   $: port = draft.port;
   $: tls = draft.tls;
   $: verifyCertificate = draft.tls ? draft.verifyCertificate !== false : false;
+  $: compatibility = draft.compatibility;
 
   function handleSave(): void {
     onSave({
@@ -33,6 +36,7 @@
       port: String(port),
       tls,
       verifyCertificate,
+      compatibility,
     });
   }
 
@@ -73,6 +77,13 @@
         />
         verify certificate
       </label>
+    </div>
+    <div class="field">
+      <label for="world-compatibility">world compatibility</label>
+      <select id="world-compatibility" bind:value={compatibility}>
+        <option value="telnet">telnet</option>
+        <option value="fuzzball">fuzzball</option>
+      </select>
     </div>
     <div class="modal-actions">
       <button class="btn" type="button" on:click={onCancel}>cancel</button>
