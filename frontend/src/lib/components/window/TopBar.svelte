@@ -64,6 +64,7 @@
   export let onOpenTriggersTab: (worldId: string | null, characterId: string | null) => void;
   export let onOpenStylesTab: () => void;
   export let onOpenDummyWindow: () => void;
+  export let onOpenTreeDataWindow: () => void;
   export let onToggleTranscriptDiagnostics: () => void;
 
   const canOpenInspector = import.meta.env.DEV && isTauriAvailable();
@@ -854,6 +855,19 @@
             >
               <span class="titlebar-menu-item-icon" aria-hidden="true">🧪</span>
               open dummy window
+            </button>
+            <button
+              type="button"
+              class="titlebar-menu-item titlebar-menu-submenu-item"
+              data-tauri-drag-region="false"
+              role="menuitem"
+              on:click={() => {
+                closeMenu();
+                onOpenTreeDataWindow();
+              }}
+            >
+              <span class="titlebar-menu-item-icon" aria-hidden="true">🧪</span>
+              open tree data window
             </button>
             <button
               type="button"

@@ -26,6 +26,7 @@ import SettingsPage from './lib/components/settings/SettingsPage.svelte';
 import TriggersPane from './lib/components/settings/TriggersPane.svelte';
 import WindowHost from './lib/components/window-host/WindowHost.svelte';
 import DummyWindowContent from './lib/components/window-host/DummyWindowContent.svelte';
+import TreeDataWindow from './lib/components/tree-data/TreeDataWindow.svelte';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
@@ -58,6 +59,8 @@ const WINDOW_HOST_SINGLETON_IDS = {
   storageImportNotice: 'storage-import-notice',
   worldCloseConfirm: 'world-close-confirm',
   appCloseConfirm: 'app-close-confirm',
+  dummyWindow: 'app-dev-dummy',
+  treeDataDemo: 'tree-data-demo',
 } as const;
 
   let appSettings = loadAppSettings();
@@ -346,10 +349,45 @@ const WINDOW_HOST_SINGLETON_IDS = {
       createWindowRecord({
         id,
         kind: 'builtin',
-        surfaceId: 'app-dev-dummy',
+        surfaceId: WINDOW_HOST_SINGLETON_IDS.dummyWindow,
         title: `dummy window ${index + 1}`,
         isModal: false,
         placement: 'in-app',
+        sizeToContent: false,
+        size: {
+          width: 560,
+          height: 360,
+        },
+        position: {
+          x: 120 + index * 28,
+          y: 120 + index * 28,
+        },
+        canBackdropDismiss: false,
+        canEscapeDismiss: false,
+        canPopOut: true,
+        canMoveInApp: true,
+      }),
+    ];
+  }
+
+  function openTreeDataWindow(): void {
+    const index = windowHostWindows.length;
+    const id = `tree-data-window-${nextWindowHostId++}`;
+
+    windowHostWindows = [
+      ...windowHostWindows,
+      createWindowRecord({
+        id,
+        kind: 'builtin',
+        surfaceId: WINDOW_HOST_SINGLETON_IDS.treeDataDemo,
+        title: `tree data window ${index + 1}`,
+        isModal: false,
+        placement: 'in-app',
+        sizeToContent: false,
+        size: {
+          width: 720,
+          height: 560,
+        },
         position: {
           x: 120 + index * 28,
           y: 120 + index * 28,
@@ -968,13 +1006,15 @@ const WINDOW_HOST_SINGLETON_IDS = {
   <PoppedOutWindowView
     windowRecord={poppedOutWindowRecord ?? createWindowRecord({
       id: poppedOutWindowId ?? 'popped-out-window',
-      surfaceId: 'app-dev-dummy',
+      surfaceId: WINDOW_HOST_SINGLETON_IDS.dummyWindow,
       title: 'window',
     })}
     onPopIn={(windowId) => void handlePopInWindow(windowId)}
   >
-    {#if poppedOutWindowRecord?.surfaceId === 'app-dev-dummy'}
+    {#if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
       <DummyWindowContent instanceLabel={poppedOutWindowRecord.title} />
+    {:else if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo}
+      <TreeDataWindow />
     {/if}
   </PoppedOutWindowView>
 {:else}
@@ -1015,6 +1055,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
     onOpenTriggersTab={(worldId, characterId) => session.openTriggersTab(worldId, characterId)}
     onOpenStylesTab={openDefaultStyleSettings}
     onOpenDummyWindow={openDummyWindow}
+    onOpenTreeDataWindow={openTreeDataWindow}
     onToggleTranscriptDiagnostics={toggleTranscriptDiagnostics}
   />
 
@@ -1150,8 +1191,10 @@ const WINDOW_HOST_SINGLETON_IDS = {
   onMove={moveWindow}
   let:windowRecord
 >
-  {#if windowRecord.surfaceId === 'app-dev-dummy'}
+  {#if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
     <DummyWindowContent instanceLabel={windowRecord.title} />
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo}
+    <TreeDataWindow />
   {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.characterModal}
     <CharacterModal
       draft={$session.modalDraft}
