@@ -27,6 +27,14 @@ import TriggersPane from './lib/components/settings/TriggersPane.svelte';
 import WindowHost from './lib/components/window-host/WindowHost.svelte';
 import DummyWindowContent from './lib/components/window-host/DummyWindowContent.svelte';
 import TreeDataWindow from './lib/components/tree-data/TreeDataWindow.svelte';
+import {
+  collapseAllDemoTreeDataWindowNodes,
+  createDemoTreeDataWindowState,
+  expandAllDemoTreeDataWindowNodes,
+  toggleDemoTreeDataWindowNode,
+  type TreeDataWindowState,
+  updateDemoTreeDataWindowSelection,
+} from './lib/components/tree-data/tree-data-demo-fixture';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
@@ -81,6 +89,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
   let poppedOutWindowRecord: WindowRecord | null = null;
   let isPoppedOutWindow = initialIsPoppedOutWindow;
   let nextWindowHostId = 1;
+  let treeDataWindowStates: Record<string, TreeDataWindowState> = {};
   let resolvedLogFolderPath: string | null = null;
   let storageImportNoticeOpen = false;
   let appCloseConfirmOpen = false;
@@ -340,6 +349,37 @@ const WINDOW_HOST_SINGLETON_IDS = {
       : WINDOW_HOST_SINGLETON_IDS.characterModal);
   }
 
+  function getTreeDataWindowState(windowId: string): TreeDataWindowState {
+    return treeDataWindowStates[windowId] ?? createDemoTreeDataWindowState();
+  }
+
+  function setTreeDataWindowState(
+    windowId: string,
+    update: (state: TreeDataWindowState) => TreeDataWindowState,
+  ): void {
+    const currentState = getTreeDataWindowState(windowId);
+    treeDataWindowStates = {
+      ...treeDataWindowStates,
+      [windowId]: update(currentState),
+    };
+  }
+
+  function updateTreeDataWindowSelection(windowId: string, nodeId: string): void {
+    setTreeDataWindowState(windowId, (state) => updateDemoTreeDataWindowSelection(state, nodeId));
+  }
+
+  function toggleTreeDataWindowNode(windowId: string, nodeId: string): void {
+    setTreeDataWindowState(windowId, (state) => toggleDemoTreeDataWindowNode(state, nodeId));
+  }
+
+  function expandAllTreeDataWindowNodes(windowId: string): void {
+    setTreeDataWindowState(windowId, (state) => expandAllDemoTreeDataWindowNodes(state));
+  }
+
+  function collapseAllTreeDataWindowNodes(windowId: string): void {
+    setTreeDataWindowState(windowId, (state) => collapseAllDemoTreeDataWindowNodes(state));
+  }
+
   function openDummyWindow(): void {
     const index = windowHostWindows.length;
     const id = `dummy-window-${nextWindowHostId++}`;
@@ -374,6 +414,11 @@ const WINDOW_HOST_SINGLETON_IDS = {
     const index = windowHostWindows.length;
     const id = `tree-data-window-${nextWindowHostId++}`;
 
+    treeDataWindowStates = {
+      ...treeDataWindowStates,
+      [id]: createDemoTreeDataWindowState(),
+    };
+
     windowHostWindows = [
       ...windowHostWindows,
       createWindowRecord({
@@ -400,6 +445,15 @@ const WINDOW_HOST_SINGLETON_IDS = {
     ];
   }
 
+  function clearTreeDataWindowState(windowId: string): void {
+    if (!(windowId in treeDataWindowStates)) {
+      return;
+    }
+
+    const { [windowId]: _removed, ...rest } = treeDataWindowStates;
+    treeDataWindowStates = rest;
+  }
+
   function closeWindow(windowId: string): void {
     if (windowId === WINDOW_HOST_SINGLETON_IDS.characterModal) {
       session.closeModal();
@@ -414,6 +468,8 @@ const WINDOW_HOST_SINGLETON_IDS = {
     } else if (windowId === WINDOW_HOST_SINGLETON_IDS.appCloseConfirm) {
       appCloseConfirmOpen = false;
     }
+
+    clearTreeDataWindowState(windowId);
 
     removeWindowRecord(windowId);
   }
@@ -491,6 +547,8 @@ const WINDOW_HOST_SINGLETON_IDS = {
       windowId,
       title: windowRecord.title,
     });
+
+    clearTreeDataWindowState(windowId);
   }
 
   async function handlePopOutWindow(windowId: string): Promise<void> {
@@ -1014,7 +1072,16 @@ const WINDOW_HOST_SINGLETON_IDS = {
     {#if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
       <DummyWindowContent instanceLabel={poppedOutWindowRecord.title} />
     {:else if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo}
-      <TreeDataWindow />
+      {@const treeDataWindowState =
+        treeDataWindowStates[poppedOutWindowRecord.id] ?? createDemoTreeDataWindowState()}
+      <TreeDataWindow
+        model={treeDataWindowState.model}
+        selectedNodeId={treeDataWindowState.selectedNodeId}
+        onSelectNode={(nodeId) => updateTreeDataWindowSelection(poppedOutWindowRecord.id, nodeId)}
+        onToggleNode={(nodeId) => toggleTreeDataWindowNode(poppedOutWindowRecord.id, nodeId)}
+        onExpandAll={() => expandAllTreeDataWindowNodes(poppedOutWindowRecord.id)}
+        onCollapseAll={() => collapseAllTreeDataWindowNodes(poppedOutWindowRecord.id)}
+      />
     {/if}
   </PoppedOutWindowView>
 {:else}
@@ -1194,7 +1261,16 @@ const WINDOW_HOST_SINGLETON_IDS = {
   {#if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
     <DummyWindowContent instanceLabel={windowRecord.title} />
   {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo}
-    <TreeDataWindow />
+    {@const treeDataWindowState =
+      treeDataWindowStates[windowRecord.id] ?? createDemoTreeDataWindowState()}
+    <TreeDataWindow
+      model={treeDataWindowState.model}
+      selectedNodeId={treeDataWindowState.selectedNodeId}
+      onSelectNode={(nodeId) => updateTreeDataWindowSelection(windowRecord.id, nodeId)}
+      onToggleNode={(nodeId) => toggleTreeDataWindowNode(windowRecord.id, nodeId)}
+      onExpandAll={() => expandAllTreeDataWindowNodes(windowRecord.id)}
+      onCollapseAll={() => collapseAllTreeDataWindowNodes(windowRecord.id)}
+    />
   {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.characterModal}
     <CharacterModal
       draft={$session.modalDraft}

@@ -1,48 +1,18 @@
 <script lang="ts">
   import {
-    createDemoTreeDataWindowModel,
     flattenVisibleTreeDataNodes,
-    setTreeDataDescendantsExpansion,
-    toggleTreeDataNodeExpansion,
     type TreeDataWindowModel,
   } from './tree-data-view';
 
-  let model: TreeDataWindowModel = createDemoTreeDataWindowModel();
-  let selectedNodeId = model.root.id;
+  export let model: TreeDataWindowModel;
+  export let selectedNodeId: string | null = null;
+  export let onSelectNode: (nodeId: string) => void = () => {};
+  export let onToggleNode: (nodeId: string) => void = () => {};
+  export let onExpandAll: () => void = () => {};
+  export let onCollapseAll: () => void = () => {};
 
   $: visibleRows = flattenVisibleTreeDataNodes(model.root);
   $: selectedRow = visibleRows.find((row) => row.node.id === selectedNodeId) ?? null;
-
-  function selectNode(nodeId: string): void {
-    selectedNodeId = nodeId;
-  }
-
-  function toggleNode(nodeId: string): void {
-    model = {
-      ...model,
-      root: toggleTreeDataNodeExpansion(model.root, nodeId),
-    };
-  }
-
-  function expandAll(): void {
-    model = {
-      ...model,
-      root: setTreeDataDescendantsExpansion(model.root, true),
-    };
-  }
-
-  function collapseAll(): void {
-    model = {
-      ...model,
-      root: setTreeDataDescendantsExpansion(model.root, false),
-    };
-    selectedNodeId = model.root.id;
-  }
-
-  function resetDemo(): void {
-    model = createDemoTreeDataWindowModel();
-    selectedNodeId = model.root.id;
-  }
 </script>
 
 <section class="tree-data-window">
@@ -56,9 +26,8 @@
     </div>
 
     <div class="tree-data-window-actions">
-      <button type="button" class="tree-data-window-action" on:click={expandAll}>expand all</button>
-      <button type="button" class="tree-data-window-action" on:click={collapseAll}>collapse all</button>
-      <button type="button" class="tree-data-window-action secondary" on:click={resetDemo}>reset demo</button>
+      <button type="button" class="tree-data-window-action" on:click={onExpandAll}>expand all</button>
+      <button type="button" class="tree-data-window-action" on:click={onCollapseAll}>collapse all</button>
     </div>
   </header>
 
@@ -94,7 +63,7 @@
             aria-label={`${row.node.expanded === true ? 'collapse' : 'expand'} ${row.node.title}`}
             aria-expanded={row.node.expanded === true ? 'true' : 'false'}
             on:pointerdown|stopPropagation
-            on:click|stopPropagation={() => toggleNode(row.node.id)}
+            on:click|stopPropagation={() => onToggleNode(row.node.id)}
           >
             {row.node.expanded === true ? '▼' : '▶'}
           </button>
@@ -106,7 +75,7 @@
           type="button"
           class="tree-data-node"
           class:selected={selectedNodeId === row.node.id}
-          on:click={() => selectNode(row.node.id)}
+          on:click={() => onSelectNode(row.node.id)}
         >
           <span class="tree-data-node-title">{row.node.title}</span>
           {#if row.node.subtitle}
@@ -187,10 +156,6 @@
     color: inherit;
     cursor: pointer;
     text-transform: lowercase;
-  }
-
-  .tree-data-window-action.secondary {
-    color: rgba(231, 238, 249, 0.74);
   }
 
   .tree-data-window-summary {
