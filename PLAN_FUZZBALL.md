@@ -22,7 +22,7 @@
 
 - FuzzBall properties are stored in tree-like propdirs rather than a flat list.
 - A property can hold a value and also contain children.
-- `"/"` is the property-directory separator.
+- `/` is the property-directory separator.
 - `examine` can list a whole propdir, a single property, or a recursive subtree.
 
 Source:
@@ -80,21 +80,59 @@ Sources:
 - Expose a property delete/clear API.
 - Expose a tree refresh API so dependent plugins can force a reload when needed.
 
-### 4. Support property-name overrides
+### 4. Intercept chunked incoming world lines
 
-- Accept override definitions for character-side property names.
-- Merge overrides with shared defaults rather than replacing the full map.
-- Let world-specific plugins or world configuration provide the overrides.
-- Keep the override surface focused on property naming only, not on broader world behavior.
+- Scan every incoming world line for property data.
+- Run the interception after the debug console has handled the raw data and after the world stream has already been split into line chunks.
+- Run the interception before rendering decisions are made.
+- Assume property data lines do not contain ANSI escapes or command characters.
+- Keep version 1 capture always active for the connection instead of relying on any special request state.
+- In future versions, property lines may be omitted from the Transcript while an explicit plugin request is actively expecting them, but user-requested property output should still display in the Transcript.
+
+### 5. Maintain an in-memory session cache
+
+- Keep the cache in the frontend.
+- Key the cache by world id and character id.
+- Use an empty character id for world-only connections.
+- Scope the cache to the world tab session.
+- Let the cache survive disconnect and reconnect actions.
+- Destroy the cache when the world tab is closed.
+- Do not persist the cache.
+
+### 6. Provide a built-in tree-editor host window
+
+- Host the tree editor inside the existing `WindowHost`.
+- Treat the tree editor as built-in app UI rather than a separate plugin-owned window system.
+- Allow the tree data to come from plugin code.
+- Allow tree expansion behavior to be hooked by plugin code.
+- Keep the initial version focused on the tree itself and omit a separate detail pane.
+- Render tree node labels from plugin-provided data.
+- Support individual node selection.
+- Support a custom context menu for the selected node, with actions supplied by plugin code.
+- Make the tree editor non-modal.
+- Allow the tree editor to move within the app.
+- Allow the tree editor to pop out into its own window.
+
+### 7. Connect the debug storage view to the tree editor
+
+- Populate the tree editor immediately from any property cache data already present in the session.
+- If there is no cache data yet, request the root directory properties when the tree editor opens.
+- Request child properties when a node is expanded.
+- Update the tree view whenever the cache data changes.
+- Keep the initial version read-only: view and query only, with no editing or writing.
+- Include the node name, value type, and value or no-value state in the node labels.
+- Provide context menu actions for copying the node path and copying the node value.
 
 ## Candidate Data Model
 
 ### Player binding
 
 - `worldId`
-- `characterId`
+- `characterId` or empty string for world-only connections
+- `worldTabId`
 - `playerObjectId` or equivalent backend handle
 - `activeProfile`
+- `cacheKey` or equivalent frontend lookup key
 
 ### Cache
 
@@ -103,13 +141,18 @@ Sources:
 - `lastSyncAt`
 - `dirtyPaths`
 - `sourceRevision` or equivalent backend change marker if available
+- `isPersisted = false`
+- `scope = world tab session`
 
 ### Cached Node Shape
 
 - Path: the full server path, such as `/prefs/`, `/redesc#`, or `/_/de`
 - Type: `str`, `int`, `dir`, or another server-reported type
 - Value: the node’s direct stored value, when present
-- Has children: whether the node exposes child items
+- Label: the display label provided to the tree editor
+- Is directory: whether the node should render as an expandable branch
+- Is value loaded: whether the node has an explicit captured value
+- Is expanded: whether the node's children have been queried yet
 - Child keys: the names or paths of known child entries
 - Updated at: when the node was last refreshed
 
@@ -122,10 +165,11 @@ Sources:
 - The cache should be safe to reuse for UI rendering, server synchronization, and parsing decisions.
 - `examine` output should be treated as a node listing plus a terminal summary line, not as one flat property value.
 - A listing can contain both `dir` nodes and `str` nodes in the same response.
-- `dir ...:(no value)` means a directory node with no direct value.
-- `str ...:<value>` means a leaf value, even when the path includes a trailing `/` in the listing output.
+- `dir /{path}/:(no value)` means a directory node with no direct value.
+- `str /{path}/:{value}` means a directory node, the trailing `/` indicates there are child nodes.
+- `str /{path}:(no value)` means a leaf value if the path does not include a trailing `/`.
 - A `0 properties listed.` response means the path is missing or the listing returned nothing useful to cache.
-- A numeric summary line such as `7 properties listed.` should be preserved as the response count for the listing.
+- A numeric summary line such as `1 property listed.` or `7 properties listed.` is expected after every path request.
 - Version 1 will intentionally be simple and best-effort rather than request-scoped.
 - Version 1 will not correlate request and response, and it will be possible to spoof property data with ordinary world output that happens to match the grammar.
 - Version 1 cache updates will replace stored values with any new incoming property values that match the accepted grammar.
@@ -135,8 +179,8 @@ Sources:
 - Version 1 will never capture the `N properties listed.` summary line.
 - When the same property path appears again, the new node data replaces the old node data.
 - If a child path arrives before a parent node has been seen, synthesize the missing parent as a `dir` node until an explicit node value is detected.
-- Version 1 stores only the path, reported data type, and value text for captured nodes.
-- Version 1 does not preserve the raw captured line in the displayed tree data.
+- The cache nodes only store the path, reported data type, value text, and tree-state flags needed for display and expansion.
+- The cache does not preserve the raw captured text from the server.
 
 ### Property Text Grammar
 
@@ -167,74 +211,64 @@ Sources:
   - `str /redesc#/7:    The wolf wears blue tinted goggles, sometimes pushed up onto his forehead's short natural headfur to reveal striking amber eyes.`
 - For version 1 of capture, assume any line matching the `dir` / `str` / `int` property output shape can be captured into the property cache when it includes a full path.
 
-### Version 2 Strategy (Later)
+### Cache Nodes Schema
+
+- path - Full path to the node. Includes leading '/'. Normalized to remove trailing '/'.
+- name - Name of this individual node, without any '/'.
+- label - Display label built from the node name, type, and value text.
+- isDir - True if the node is a directory branch.
+- valueType - 'str', 'int', or 'none' based on reported node data type. 'dir' nodes have valueType of 'none'.
+- value - Value stored as string. Undefined if valueType is 'none'.
+- isValueLoaded - True if this node's value and type are known, false if this node has been assumed as an intermediate directory in a larger path.
+- isExpanded - True if this node's children have been queried yet.
+- children - Child nodes.
+
+### Version 2 Capture Strategy (Later)
 
 Version 2 of the capture system should move toward an expectation-based capture strategy:
   - Treat property data as expected only after sending, or after the user sends, an interrogation command such as `examine`, `exa`, or `ex` if it matches the pattern of a property interrogation.
   - Use that expectation to compare subsequent output against the requested path.
   - Check `... properties listed.` counts against the number of properties received before the summary line.
 
-### Storage Debug View
+### Tree Editor Host Window
+
+- The built-in tree editor should be hosted inside the existing `WindowHost`.
+- The tree data should be supplied by plugin code.
+- Expansion hooks should be provided by plugin code.
+- The initial version should not include a separate detail pane.
+- The tree should support individual node selection.
+- The selected node should expose a plugin-defined context menu.
+- The tree editor should be non-modal, movable within the app, and pop-out capable.
+
+### Debug Storage View
 
 - Provide a storage debug view for the active player’s property tree as the first visible proof of the shared storage layer.
-- Show the cached tree shape, nodes, values, child relationships, and freshness state.
+- Show the cached tree shape, node labels, values, child relationships, and freshness state.
 - Make it obvious when data is stale, partially loaded, or missing.
+- Populate immediately from any property cache data already present in the session.
+- If no cache data exists yet, request the root directory properties on open.
+- Request child properties when a node is expanded.
+- Update the tree view whenever cache data changes.
 - Allow selection of individual tree nodes.
 - Support copy-path and copy-value actions from the storage debug view.
+- The initial version is query-only and does not support editing or writing.
+- Node labels should include the node name, value type, and value or no-value state.
+- The node context menu should expose copy-path and copy-value actions.
 - Root refresh should send `examine me=/`.
 - Refreshing an individual node should send `examine me=<path>` for that node's path.
 - Expanding a collapsed directory node should issue a non-recursive query for that node's contents.
 - Use the storage debug view to validate the read, write, refresh, and cache behavior before higher-level MUCK plugins depend on it.
 
-### Property path representation
-
-- Use normalized string paths for now.
-- Keep path handling explicit about:
-  - root versus subtree
-  - leaf value versus directory node
-  - empty or cleared values
-  - missing values
-
-### Override map
-
-- Use a named map of canonical meanings to server-specific property paths.
-- Example canonical meanings:
-  - description
-  - inside description
-  - success message
-  - failure message
-  - object success message
-  - object failure message
-  - drop message
-  - object drop message
-
 ## Proposed API Surface
 
 ### Read operations
 
-- `getProperty(path)`
-- `getPropertyTree(path)`
-- `listProperties(path)`
-- `hasProperty(path)`
+- `get(path)`
 
 ### Write operations
 
-- `setProperty(path, value, type?)`
-- `clearProperty(path)`
-- `clearPropertyTree(path)`
-- `replacePropertyTree(path, tree)`
-
-### Cache operations
-
-- `refreshPropertyCache()`
-- `invalidatePropertyCache(path?)`
-- `getCachedPropertyTree()`
-
-### Override operations
-
-- `setPropertyOverrides(overrides)`
-- `mergePropertyOverrides(overrides)`
-- `resetPropertyOverrides()`
+- `setValue(path, value, type?)`
+- `clearValue(path)`
 
 ## Integration Questions Still Open
 
