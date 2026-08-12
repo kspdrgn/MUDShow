@@ -26,6 +26,11 @@
     height: typeof window !== 'undefined' ? window.innerHeight : windowRecord.size.height,
   };
 
+  const WINDOW_EDGE_MARGIN = 24;
+
+  $: maxWidth = Math.max(0, viewport.width - renderedPosition.x - WINDOW_EDGE_MARGIN);
+  $: maxHeight = Math.max(0, viewport.height - renderedPosition.y - WINDOW_EDGE_MARGIN);
+
   function clampPosition(position: WindowPoint): WindowPoint {
     if (windowRecord.placement === 'in-app' && !windowRecord.canMoveInApp) {
       return windowRecord.position;
@@ -38,8 +43,8 @@
 
   $: renderedPosition = clampPosition(windowRecord.position);
   $: shellStyle = windowRecord.sizeToContent
-    ? `left: ${renderedPosition.x}px; top: ${renderedPosition.y}px; width: fit-content; height: fit-content; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); z-index: ${zIndex};`
-    : `left: ${renderedPosition.x}px; top: ${renderedPosition.y}px; width: ${windowRecord.size.width}px; min-height: ${windowRecord.size.height}px; z-index: ${zIndex};`;
+    ? `left: ${renderedPosition.x}px; top: ${renderedPosition.y}px; width: fit-content; height: fit-content; max-width: ${maxWidth}px; max-height: ${maxHeight}px; z-index: ${zIndex};`
+    : `left: ${renderedPosition.x}px; top: ${renderedPosition.y}px; width: ${Math.min(windowRecord.size.width, maxWidth)}px; height: ${Math.min(windowRecord.size.height, maxHeight)}px; z-index: ${zIndex};`;
 
   function beginDrag(event: PointerEvent): void {
     if (event.button !== 0 || !event.isPrimary) {
