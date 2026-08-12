@@ -19,6 +19,17 @@ export interface TreeDataWindowModel {
   root: TreeDataNode;
 }
 
+export interface TreeDataNodePatch {
+  title?: string;
+  subtitle?: string;
+  badge?: string;
+  kind?: TreeDataNodeKind;
+  valueState?: TreeDataNodeState;
+  childrenState?: TreeDataNodeState;
+  expanded?: boolean | null;
+  children?: TreeDataNode[] | null;
+}
+
 export interface TreeDataVisibleNode {
   node: TreeDataNode;
   depth: number;
@@ -82,6 +93,44 @@ export function setTreeDataDescendantsExpansion(root: TreeDataNode, expanded: bo
   };
 }
 
+export function findTreeDataNode(root: TreeDataNode, nodeId: string): TreeDataNode | null {
+  if (root.id === nodeId) {
+    return root;
+  }
+
+  for (const child of root.children ?? []) {
+    const match = findTreeDataNode(child, nodeId);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
+export function applyTreeDataNodePatch(
+  root: TreeDataNode,
+  nodeId: string,
+  patch: TreeDataNodePatch,
+): TreeDataNode {
+  return updateTreeDataNode(root, nodeId, (node) => {
+    const nextNode: TreeDataNode = {
+      ...node,
+      ...patch,
+    };
+
+    if (patch.expanded === null) {
+      delete nextNode.expanded;
+    }
+
+    if (patch.children === null) {
+      delete nextNode.children;
+    }
+
+    return nextNode;
+  });
+}
+
 function setTreeDataNodeExpansionRecursive(node: TreeDataNode, expanded: boolean): TreeDataNode {
   const nextChildren = node.children?.map((child) => setTreeDataNodeExpansionRecursive(child, expanded)) ?? [];
 
@@ -100,7 +149,7 @@ function setTreeDataNodeExpansionRecursive(node: TreeDataNode, expanded: boolean
   };
 }
 
-function updateTreeDataNode(
+export function updateTreeDataNode(
   root: TreeDataNode,
   nodeId: string,
   updater: (node: TreeDataNode) => TreeDataNode,

@@ -46,9 +46,11 @@
   <div class="tree-data-window-tree" role="tree" aria-label={model.title}>
     {#each visibleRows as row (row.node.id)}
       {@const isBranch = row.node.kind === 'branch'}
+      {@const isLoading = row.node.childrenState === 'loading'}
       <div
         class="tree-data-row"
         class:branch={isBranch}
+        class:loading={isLoading}
         class:selected={selectedNodeId === row.node.id}
         style={`--tree-depth: ${row.depth};`}
         role="treeitem"
@@ -62,10 +64,16 @@
             class="tree-data-toggle tree-data-toggle--branch"
             aria-label={`${row.node.expanded === true ? 'collapse' : 'expand'} ${row.node.title}`}
             aria-expanded={row.node.expanded === true ? 'true' : 'false'}
+            aria-busy={isLoading ? 'true' : 'false'}
+            disabled={isLoading}
             on:pointerdown|stopPropagation
             on:click|stopPropagation={() => onToggleNode(row.node.id)}
           >
-            {row.node.expanded === true ? '▼' : '▶'}
+            {#if isLoading}
+              …
+            {:else}
+              {row.node.expanded === true ? '▼' : '▶'}
+            {/if}
           </button>
         {:else}
           <span class="tree-data-toggle tree-data-toggle--spacer" aria-hidden="true"></span>
@@ -211,6 +219,10 @@
     background: rgba(107, 126, 255, 0.16);
   }
 
+  .tree-data-row.loading {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
   .tree-data-toggle {
     width: 1.6rem;
     height: 1.6rem;
@@ -228,6 +240,11 @@
 
   .tree-data-toggle--branch {
     color: rgba(200, 214, 245, 0.88);
+  }
+
+  .tree-data-toggle--branch:disabled {
+    cursor: progress;
+    opacity: 0.7;
   }
 
   .tree-data-toggle--spacer {

@@ -31,10 +31,15 @@ import {
   collapseAllDemoTreeDataWindowNodes,
   createDemoTreeDataWindowState,
   expandAllDemoTreeDataWindowNodes,
+  loadDemoTreeDataWindowNode,
   toggleDemoTreeDataWindowNode,
   type TreeDataWindowState,
   updateDemoTreeDataWindowSelection,
 } from './lib/components/tree-data/tree-data-demo-fixture';
+import {
+  applyTreeDataNodePatch,
+  findTreeDataNode,
+} from './lib/components/tree-data/tree-data-view';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
@@ -357,7 +362,11 @@ const WINDOW_HOST_SINGLETON_IDS = {
     windowId: string,
     update: (state: TreeDataWindowState) => TreeDataWindowState,
   ): void {
-    const currentState = getTreeDataWindowState(windowId);
+    const currentState = treeDataWindowStates[windowId];
+    if (!currentState) {
+      return;
+    }
+
     treeDataWindowStates = {
       ...treeDataWindowStates,
       [windowId]: update(currentState),
@@ -368,8 +377,61 @@ const WINDOW_HOST_SINGLETON_IDS = {
     setTreeDataWindowState(windowId, (state) => updateDemoTreeDataWindowSelection(state, nodeId));
   }
 
-  function toggleTreeDataWindowNode(windowId: string, nodeId: string): void {
-    setTreeDataWindowState(windowId, (state) => toggleDemoTreeDataWindowNode(state, nodeId));
+  async function toggleTreeDataWindowNode(windowId: string, nodeId: string): Promise<void> {
+    const currentState = treeDataWindowStates[windowId];
+    if (!currentState) {
+      return;
+    }
+
+    const node = findTreeDataNode(currentState.model.root, nodeId);
+    if (!node || node.kind !== 'branch') {
+      return;
+    }
+
+    if (node.childrenState === 'loading') {
+      return;
+    }
+
+    if (node.childrenState === 'unknown') {
+      setTreeDataWindowState(windowId, (state) => ({
+        ...state,
+        model: {
+          ...state.model,
+          root: applyTreeDataNodePatch(state.model.root, nodeId, {
+            expanded: true,
+            childrenState: 'loading',
+            children: [],
+          }),
+        },
+      }));
+
+      const loadedNodePatch = await loadDemoTreeDataWindowNode(nodeId, {
+        knownToHaveChildren: true,
+      });
+      if (!loadedNodePatch || !(windowId in treeDataWindowStates)) {
+        return;
+      }
+
+      setTreeDataWindowState(windowId, (state) => ({
+        ...state,
+        model: {
+          ...state.model,
+          root: applyTreeDataNodePatch(state.model.root, nodeId, {
+            ...loadedNodePatch,
+            expanded: true,
+          }),
+        },
+      }));
+      return;
+    }
+
+    setTreeDataWindowState(windowId, (state) => ({
+      ...state,
+      model: {
+        ...state.model,
+        root: toggleDemoTreeDataWindowNode(state, nodeId).model.root,
+      },
+    }));
   }
 
   function expandAllTreeDataWindowNodes(windowId: string): void {
