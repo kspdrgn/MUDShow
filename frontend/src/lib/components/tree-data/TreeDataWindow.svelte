@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     createDemoTreeDataWindowModel,
-    findTreeDataNode,
     flattenVisibleTreeDataNodes,
     setTreeDataDescendantsExpansion,
     toggleTreeDataNodeExpansion,
@@ -19,22 +18,10 @@
   }
 
   function toggleNode(nodeId: string): void {
-    const beforeNode = findTreeDataNode(model.root, nodeId);
-    console.log('[tree-data] disclosure toggle requested', {
-      nodeId,
-      targetExpandedBefore: beforeNode?.expanded ?? null,
-      visibleRowCountBefore: visibleRows.length,
-    });
     model = {
       ...model,
       root: toggleTreeDataNodeExpansion(model.root, nodeId),
     };
-    const afterNode = findTreeDataNode(model.root, nodeId);
-    console.log('[tree-data] disclosure toggle applied', {
-      nodeId,
-      targetExpandedAfter: afterNode?.expanded ?? null,
-      visibleRowCountAfter: flattenVisibleTreeDataNodes(model.root).length,
-    });
   }
 
   function expandAll(): void {
@@ -63,7 +50,9 @@
     <div class="tree-data-window-copy">
       <p class="tree-data-window-kicker">built-in tree-data view</p>
       <h2>{model.title}</h2>
-      <p class="tree-data-window-description">{model.description}</p>
+      {#if model.description}
+        <p class="tree-data-window-description">{model.description}</p>
+      {/if}
     </div>
 
     <div class="tree-data-window-actions">
@@ -105,15 +94,7 @@
             aria-label={`${row.node.expanded === true ? 'collapse' : 'expand'} ${row.node.title}`}
             aria-expanded={row.node.expanded === true ? 'true' : 'false'}
             on:pointerdown|stopPropagation
-            on:click|stopPropagation={() => {
-              console.log('[tree-data] disclosure arrow clicked', {
-                nodeId: row.node.id,
-                title: row.node.title,
-                expanded: row.node.expanded === true,
-                depth: row.depth,
-              });
-              toggleNode(row.node.id);
-            }}
+            on:click|stopPropagation={() => toggleNode(row.node.id)}
           >
             {row.node.expanded === true ? '▼' : '▶'}
           </button>
@@ -146,8 +127,10 @@
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
-    min-width: 42rem;
-    max-width: min(80vw, 54rem);
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    box-sizing: border-box;
     padding: 1rem;
     color: var(--text-color, #e7eef9);
     background:
@@ -160,6 +143,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
+    flex-wrap: wrap;
   }
 
   .tree-data-window-copy {
@@ -233,8 +217,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.24rem;
-    max-height: min(66vh, 42rem);
-    overflow: auto;
+    width: 100%;
+    min-width: 0;
     padding: 0.2rem;
     border-radius: 0.9rem;
     border: 1px solid rgba(145, 164, 205, 0.14);
