@@ -65,7 +65,7 @@ function removeRecordKey<T>(record: Record<InputBarId, T>, bar: InputBarId): Rec
 }
 
 export function createInputBarsSpellcheckController(deps: InputBarsSpellcheckControllerDeps) {
-  const liveTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
+  const liveTimers = new Map<InputBarId, number>();
   const liveSignatures = new Map<InputBarId, string>();
   const liveRequestTokens = new Map<InputBarId, number>();
   let menuRequestToken = 0;
