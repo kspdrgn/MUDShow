@@ -4,6 +4,12 @@ export interface FuzzBallPropertyNodeInput {
   path: string;
   type: FuzzBallPropertyNodeType;
   value?: string | null;
+  hasChildren?: boolean;
+}
+
+export interface FuzzBallStorageLookupState {
+  worldId: string;
+  characterId: string;
 }
 
 export interface FuzzBallPropertyNodeSnapshot {
@@ -15,6 +21,7 @@ export interface FuzzBallPropertyNodeSnapshot {
   isValueLoaded: boolean;
   isExpanded: boolean;
   hasChildren: boolean;
+  areChildrenLoaded: boolean;
   updatedAt: number;
 }
 
@@ -25,6 +32,7 @@ interface InternalPropertyNode {
   value: string | null;
   isValueLoaded: boolean;
   isExpanded: boolean;
+  hasChildren: boolean;
   updatedAt: number;
 }
 
@@ -71,7 +79,7 @@ function formatNodeLabel(node: Pick<FuzzBallPropertyNodeSnapshot, 'name' | 'type
   return `${node.name} · ${node.type} · ${renderedValue}`;
 }
 
-function toSnapshot(node: InternalPropertyNode, hasChildren: boolean): FuzzBallPropertyNodeSnapshot {
+function toSnapshot(node: InternalPropertyNode, areChildrenLoaded: boolean): FuzzBallPropertyNodeSnapshot {
   return {
     path: node.path,
     name: node.name,
@@ -80,13 +88,24 @@ function toSnapshot(node: InternalPropertyNode, hasChildren: boolean): FuzzBallP
     value: node.value,
     isValueLoaded: node.isValueLoaded,
     isExpanded: node.isExpanded,
-    hasChildren,
+    hasChildren: node.hasChildren || areChildrenLoaded,
+    areChildrenLoaded,
     updatedAt: node.updatedAt,
   };
 }
 
 export class FuzzBallPropertyTreeCache {
   private readonly nodes = new Map<string, InternalPropertyNode>();
+  private readonly listeners = new Set<() => void>();
+  onChange: (() => void) | null = null;
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
 
   hasData(): boolean {
     return this.nodes.size > 0;
@@ -94,14 +113,27 @@ export class FuzzBallPropertyTreeCache {
 
   clear(): void {
     this.nodes.clear();
+    this.notify();
   }
 
   markExpanded(path: string): FuzzBallPropertyNodeSnapshot {
     const normalizedPath = normalizePropertyPath(path);
     const node = this.ensureNode(normalizedPath, true);
+    node.hasChildren = node.hasChildren || this.hasLoadedChildren(normalizedPath);
     node.isExpanded = true;
     node.updatedAt = Date.now();
-    return this.getSnapshot(normalizedPath) ?? toSnapshot(node, this.hasChildren(normalizedPath));
+    this.notify();
+    return this.getSnapshot(normalizedPath) ?? toSnapshot(node, this.hasLoadedChildren(normalizedPath));
+  }
+
+  markCollapsed(path: string): FuzzBallPropertyNodeSnapshot {
+    const normalizedPath = normalizePropertyPath(path);
+    const node = this.ensureNode(normalizedPath, true);
+    node.hasChildren = node.hasChildren || this.hasLoadedChildren(normalizedPath);
+    node.isExpanded = false;
+    node.updatedAt = Date.now();
+    this.notify();
+    return this.getSnapshot(normalizedPath) ?? toSnapshot(node, this.hasLoadedChildren(normalizedPath));
   }
 
   upsertNode(input: FuzzBallPropertyNodeInput): FuzzBallPropertyNodeSnapshot {
@@ -110,18 +142,22 @@ export class FuzzBallPropertyTreeCache {
     this.ensureAncestors(normalizedPath, now);
 
     const existing = this.nodes.get(normalizedPath);
+    const areChildrenLoaded = this.hasLoadedChildren(normalizedPath);
+    const hasChildren = (input.hasChildren ?? false) || areChildrenLoaded;
     const nextNode: InternalPropertyNode = {
       path: normalizedPath,
       name: normalizedPath === '/' ? '/' : getNodeName(normalizedPath),
       type: input.type,
       value: input.type === 'dir' ? null : (input.value ?? null),
       isValueLoaded: true,
-      isExpanded: existing?.isExpanded ?? false,
+      isExpanded: hasChildren ? (existing?.isExpanded ?? false) : false,
+      hasChildren,
       updatedAt: now,
     };
 
     this.nodes.set(normalizedPath, nextNode);
-    return this.getSnapshot(normalizedPath) ?? toSnapshot(nextNode, this.hasChildren(normalizedPath));
+    this.notify();
+    return this.getSnapshot(normalizedPath) ?? toSnapshot(nextNode, this.hasLoadedChildren(normalizedPath));
   }
 
   getSnapshot(path: string): FuzzBallPropertyNodeSnapshot | null {
@@ -139,6 +175,7 @@ export class FuzzBallPropertyTreeCache {
           isValueLoaded: false,
           isExpanded: true,
           hasChildren: true,
+          areChildrenLoaded: true,
           updatedAt: 0,
         };
       }
@@ -146,7 +183,7 @@ export class FuzzBallPropertyTreeCache {
       return null;
     }
 
-    return toSnapshot(node, this.hasChildren(normalizedPath));
+    return toSnapshot(node, this.hasLoadedChildren(normalizedPath));
   }
 
   getChildren(path: string): FuzzBallPropertyNodeSnapshot[] {
@@ -158,12 +195,12 @@ export class FuzzBallPropertyTreeCache {
         return nameCompare !== 0 ? nameCompare : left.path.localeCompare(right.path);
       });
 
-    return children.map((child) => toSnapshot(child, this.hasChildren(child.path)));
+    return children.map((child) => toSnapshot(child, this.hasLoadedChildren(child.path)));
   }
 
   getTree(): FuzzBallPropertyNodeSnapshot {
     const root = this.nodes.get('/');
-    const hasChildren = this.hasChildren('/');
+    const areChildrenLoaded = this.hasLoadedChildren('/');
 
     if (!root) {
       return {
@@ -173,20 +210,21 @@ export class FuzzBallPropertyTreeCache {
         type: 'dir',
         value: null,
         isValueLoaded: false,
-        isExpanded: hasChildren,
-        hasChildren,
+        isExpanded: areChildrenLoaded,
+        hasChildren: areChildrenLoaded,
+        areChildrenLoaded,
         updatedAt: 0,
       };
     }
 
-    return toSnapshot(root, hasChildren);
+    return toSnapshot(root, areChildrenLoaded);
   }
 
   getNodePaths(): string[] {
     return [...this.nodes.keys()].sort((left, right) => left.localeCompare(right));
   }
 
-  private hasChildren(path: string): boolean {
+  private hasLoadedChildren(path: string): boolean {
     const normalizedPath = normalizePropertyPath(path);
 
     for (const node of this.nodes.values()) {
@@ -212,6 +250,7 @@ export class FuzzBallPropertyTreeCache {
       value: null,
       isValueLoaded: !isSynthetic,
       isExpanded: false,
+      hasChildren: false,
       updatedAt: now,
     };
 
@@ -234,6 +273,7 @@ export class FuzzBallPropertyTreeCache {
           value: null,
           isValueLoaded: false,
           isExpanded: true,
+          hasChildren: true,
           updatedAt,
         });
       }
@@ -241,10 +281,19 @@ export class FuzzBallPropertyTreeCache {
       current = getParentPath(current);
     }
   }
+
+  private notify(): void {
+    this.onChange?.();
+
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
 }
 
 export class FuzzBallPropertyCacheStore {
   private readonly sessionCaches = new Map<string, FuzzBallPropertyTreeCache>();
+  private readonly listeners = new Set<() => void>();
 
   getSessionCache(worldId: string, characterId = ''): FuzzBallPropertyTreeCache {
     const cacheKey = this.getCacheKey(worldId, characterId);
@@ -252,6 +301,7 @@ export class FuzzBallPropertyCacheStore {
 
     if (!cache) {
       cache = new FuzzBallPropertyTreeCache();
+      cache.onChange = () => this.notify();
       this.sessionCaches.set(cacheKey, cache);
     }
 
@@ -259,15 +309,33 @@ export class FuzzBallPropertyCacheStore {
   }
 
   clearSessionCache(worldId: string, characterId = ''): void {
-    this.sessionCaches.delete(this.getCacheKey(worldId, characterId));
+    if (this.sessionCaches.delete(this.getCacheKey(worldId, characterId))) {
+      this.notify();
+    }
   }
 
   clearAll(): void {
-    this.sessionCaches.clear();
+    if (this.sessionCaches.size > 0) {
+      this.sessionCaches.clear();
+      this.notify();
+    }
   }
 
   hasSessionCache(worldId: string, characterId = ''): boolean {
     return this.sessionCaches.has(this.getCacheKey(worldId, characterId));
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) {
+      listener();
+    }
   }
 
   private getCacheKey(worldId: string, characterId: string): string {
@@ -276,3 +344,21 @@ export class FuzzBallPropertyCacheStore {
 }
 
 export const fuzzballStorageCache = new FuzzBallPropertyCacheStore();
+
+export function getFuzzballStorageNodeLoadPath(
+  state: FuzzBallStorageLookupState,
+  nodeId: string,
+): string {
+  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
+  const node = cache.getSnapshot(nodeId);
+
+  if (!node) {
+    return nodeId;
+  }
+
+  if (node.hasChildren && !node.areChildrenLoaded) {
+    return node.path === '/' ? '/' : `${node.path}/`;
+  }
+
+  return node.path;
+}

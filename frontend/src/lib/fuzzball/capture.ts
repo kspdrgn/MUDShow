@@ -11,6 +11,13 @@ export function captureFuzzballWorldLine(
     return false;
   }
 
+  console.debug('[fuzzball capture] cached property line', {
+    worldId,
+    characterId,
+    type: parsed.type,
+    path: parsed.path,
+    value: parsed.value,
+  });
   fuzzballStorageCache.getSessionCache(worldId, characterId).upsertNode(parsed);
   return true;
 }

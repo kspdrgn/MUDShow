@@ -27,6 +27,7 @@ import TriggersPane from './lib/components/settings/TriggersPane.svelte';
 import WindowHost from './lib/components/window-host/WindowHost.svelte';
 import DummyWindowContent from './lib/components/window-host/DummyWindowContent.svelte';
 import TreeDataWindow from './lib/components/tree-data/TreeDataWindow.svelte';
+import FuzzballStorageWindow from './lib/components/fuzzball/FuzzballStorageWindow.svelte';
 import {
   collapseAllDemoTreeDataWindowNodes,
   createDemoTreeDataWindowState,
@@ -40,6 +41,15 @@ import {
   applyTreeDataNodePatch,
   findTreeDataNode,
 } from './lib/components/tree-data/tree-data-view';
+import {
+  collapseAllFuzzballStorageViewerNodes,
+  createFuzzballStorageViewerState,
+  expandAllFuzzballStorageViewerNodes,
+  toggleFuzzballStorageViewerNode,
+  updateFuzzballStorageViewerSelection,
+  type FuzzballStorageViewerState,
+} from './lib/fuzzball/storage-viewer';
+import { getFuzzballStorageNodeLoadPath } from './lib/fuzzball/storage-cache';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
@@ -95,6 +105,8 @@ const WINDOW_HOST_SINGLETON_IDS = {
   let isPoppedOutWindow = initialIsPoppedOutWindow;
   let nextWindowHostId = 1;
   let treeDataWindowStates: Record<string, TreeDataWindowState> = {};
+  let fuzzballStorageWindowStates: Record<string, FuzzballStorageViewerState> = {};
+  let previousWorldTabIds = new Set<string>();
   let resolvedLogFolderPath: string | null = null;
   let storageImportNoticeOpen = false;
   let appCloseConfirmOpen = false;
@@ -143,7 +155,32 @@ const WINDOW_HOST_SINGLETON_IDS = {
     session.toggleTranscriptDiagnosticsEnabled();
   }
 
+  $: {
+    const currentWorldTabIds = new Set(
+      $session.tabs
+        .filter((tab): tab is AppTab & { kind: 'world' } => tab.kind === 'world')
+        .map((tab) => tab.id),
+    );
+
+    for (const tabId of previousWorldTabIds) {
+      if (!currentWorldTabIds.has(tabId)) {
+        void discardFuzzballStorageWindowsForSourceTab(tabId);
+      }
+    }
+
+    previousWorldTabIds = currentWorldTabIds;
+  }
+
   function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState) {
+    const currentWorldName = worldSession.currentWorld?.name ?? 'fuzzball storage viewer';
+    const currentCharacterName = worldSession.currentCharacter?.name ?? null;
+    const fuzzballStorageTitle = currentCharacterName
+      ? `${currentWorldName} · ${currentCharacterName} storage`
+      : `${currentWorldName} storage`;
+    const fuzzballStorageDescription = currentCharacterName
+      ? `world: ${currentWorldName} · character: ${currentCharacterName}`
+      : `world: ${currentWorldName}`;
+
     return {
       onReconnectTab: () => void session.reconnectWorldTab(tab.id),
       onDisconnectTab: () => void session.disconnectWorldTab(tab.id),
@@ -157,6 +194,19 @@ const WINDOW_HOST_SINGLETON_IDS = {
       onStopLoggingTab: () => void session.stopLogging(tab.id),
       onEditWorldTab: () => void session.openWorldEditorFromWorldTab(tab.id),
       onEditCharacterTab: () => void session.openCharacterEditorFromWorldTab(tab.id),
+      onOpenFuzzballStorageViewer: () => {
+        if (!worldSession.currentWorld) {
+          return;
+        }
+
+        openFuzzballStorageWindow(
+          tab.id,
+          worldSession.currentWorld.id,
+          worldSession.currentCharacter?.id ?? '',
+          fuzzballStorageTitle,
+          fuzzballStorageDescription,
+        );
+      },
       onCloseTab: () => session.closeTab(tab.id, 'shortcut'),
       onOpenNotes: () => void session.togglePanel('notes'),
       onOpenTriggers: () =>
@@ -442,6 +492,87 @@ const WINDOW_HOST_SINGLETON_IDS = {
     setTreeDataWindowState(windowId, (state) => collapseAllDemoTreeDataWindowNodes(state));
   }
 
+  function getFuzzballStorageWindowState(windowId: string): FuzzballStorageViewerState {
+    return fuzzballStorageWindowStates[windowId] ?? createFuzzballStorageViewerState('', '', '', 'fuzzball storage viewer');
+  }
+
+  function requestFuzzballStorageNodeLoad(state: FuzzballStorageViewerState, nodePath: string): void {
+    if (!state.sourceTabId) {
+      return;
+    }
+
+    const connection = session.getWorldConnection(state.sourceTabId);
+    if (!connection) {
+      return;
+    }
+
+    const requestPath = getFuzzballStorageNodeLoadPath(state, nodePath);
+    const command = `examine me=${requestPath}\r\n`;
+    console.debug('[fuzzball storage] requesting node load', {
+      sourceTabId: state.sourceTabId,
+      worldId: state.worldId,
+      characterId: state.characterId,
+      nodePath,
+      requestPath,
+      command: command.trimEnd(),
+    });
+    connection.send(command);
+  }
+
+  function setFuzzballStorageWindowState(
+    windowId: string,
+    update: (state: FuzzballStorageViewerState) => FuzzballStorageViewerState,
+  ): void {
+    const currentState = fuzzballStorageWindowStates[windowId];
+    if (!currentState) {
+      return;
+    }
+
+    const nextState = update(currentState);
+    fuzzballStorageWindowStates = {
+      ...fuzzballStorageWindowStates,
+      [windowId]: nextState,
+    };
+  }
+
+  function updateFuzzballStorageWindowSelection(windowId: string, nodeId: string): void {
+    const currentState = getFuzzballStorageWindowState(windowId);
+    if (!currentState.sourceTabId) {
+      return;
+    }
+
+    setFuzzballStorageWindowState(windowId, (state) => updateFuzzballStorageViewerSelection(state, nodeId));
+  }
+
+  function toggleFuzzballStorageWindowNode(windowId: string, nodeId: string): void {
+    const currentState = getFuzzballStorageWindowState(windowId);
+    if (!currentState.sourceTabId) {
+      return;
+    }
+
+    toggleFuzzballStorageViewerNode(currentState, nodeId, (nodePath) =>
+      requestFuzzballStorageNodeLoad(currentState, nodePath),
+    );
+  }
+
+  function expandAllFuzzballStorageWindowNodes(windowId: string): void {
+    const currentState = getFuzzballStorageWindowState(windowId);
+    if (!currentState.sourceTabId) {
+      return;
+    }
+
+    expandAllFuzzballStorageViewerNodes(currentState);
+  }
+
+  function collapseAllFuzzballStorageWindowNodes(windowId: string): void {
+    const currentState = getFuzzballStorageWindowState(windowId);
+    if (!currentState.sourceTabId) {
+      return;
+    }
+
+    collapseAllFuzzballStorageViewerNodes(currentState);
+  }
+
   function openDummyWindow(): void {
     const index = windowHostWindows.length;
     const id = `dummy-window-${nextWindowHostId++}`;
@@ -507,6 +638,51 @@ const WINDOW_HOST_SINGLETON_IDS = {
     ];
   }
 
+  function openFuzzballStorageWindow(
+    sourceTabId: string,
+    worldId: string,
+    characterId: string,
+    title: string,
+    description?: string,
+  ): void {
+    if (!worldId) {
+      return;
+    }
+
+    const index = windowHostWindows.length;
+    const id = `fuzzball-storage-window-${nextWindowHostId++}`;
+
+    fuzzballStorageWindowStates = {
+      ...fuzzballStorageWindowStates,
+      [id]: createFuzzballStorageViewerState(sourceTabId, worldId, characterId, title, description),
+    };
+
+    windowHostWindows = [
+      ...windowHostWindows,
+      createWindowRecord({
+        id,
+        kind: 'builtin',
+        surfaceId: id,
+        title,
+        isModal: false,
+        placement: 'in-app',
+        sizeToContent: false,
+        size: {
+          width: 720,
+          height: 560,
+        },
+        position: {
+          x: 120 + index * 28,
+          y: 120 + index * 28,
+        },
+        canBackdropDismiss: false,
+        canEscapeDismiss: false,
+        canPopOut: true,
+        canMoveInApp: true,
+      }),
+    ];
+  }
+
   function clearTreeDataWindowState(windowId: string): void {
     if (!(windowId in treeDataWindowStates)) {
       return;
@@ -514,6 +690,44 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
     const { [windowId]: _removed, ...rest } = treeDataWindowStates;
     treeDataWindowStates = rest;
+  }
+
+  function clearFuzzballStorageWindowState(windowId: string): void {
+    if (!(windowId in fuzzballStorageWindowStates)) {
+      return;
+    }
+
+    const { [windowId]: _removed, ...rest } = fuzzballStorageWindowStates;
+    fuzzballStorageWindowStates = rest;
+  }
+
+  async function discardFuzzballStorageWindowsForSourceTab(sourceTabId: string): Promise<void> {
+    const matchedWindowIds = Object.entries(fuzzballStorageWindowStates)
+      .filter(([, state]) => state.sourceTabId === sourceTabId)
+      .map(([windowId]) => windowId);
+
+    if (matchedWindowIds.length === 0) {
+      return;
+    }
+
+    const windowIdSet = new Set(matchedWindowIds);
+    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
+
+    fuzzballStorageWindowStates = Object.fromEntries(
+      Object.entries(fuzzballStorageWindowStates).filter(([windowId]) => !windowIdSet.has(windowId)),
+    );
+    windowHostWindows = windowHostWindows.filter((windowRecord) => !windowIdSet.has(windowRecord.id));
+    poppedOutWindowRecords = Object.fromEntries(
+      Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
+    );
+
+    await Promise.all(
+      poppedOutWindowIds.map((windowId) =>
+        invoke('window_host_discard', { windowId }).catch((error) => {
+          console.error('failed to discard fuzzball storage window:', error);
+        }),
+      ),
+    );
   }
 
   function closeWindow(windowId: string): void {
@@ -532,6 +746,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
     }
 
     clearTreeDataWindowState(windowId);
+    clearFuzzballStorageWindowState(windowId);
 
     removeWindowRecord(windowId);
   }
@@ -611,6 +826,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
     });
 
     clearTreeDataWindowState(windowId);
+    clearFuzzballStorageWindowState(windowId);
   }
 
   async function handlePopOutWindow(windowId: string): Promise<void> {
@@ -1144,6 +1360,16 @@ const WINDOW_HOST_SINGLETON_IDS = {
         onExpandAll={() => expandAllTreeDataWindowNodes(poppedOutWindowRecord.id)}
         onCollapseAll={() => collapseAllTreeDataWindowNodes(poppedOutWindowRecord.id)}
       />
+    {:else if poppedOutWindowRecord?.surfaceId.startsWith('fuzzball-storage-window-')}
+      {@const fuzzballStorageWindowState = getFuzzballStorageWindowState(poppedOutWindowRecord.id)}
+      <FuzzballStorageWindow
+        state={fuzzballStorageWindowState}
+        selectedNodeId={fuzzballStorageWindowState.selectedNodeId}
+        onSelectNode={(nodeId) => updateFuzzballStorageWindowSelection(poppedOutWindowRecord.id, nodeId)}
+        onToggleNode={(nodeId) => toggleFuzzballStorageWindowNode(poppedOutWindowRecord.id, nodeId)}
+        onExpandAll={() => expandAllFuzzballStorageWindowNodes(poppedOutWindowRecord.id)}
+        onCollapseAll={() => collapseAllFuzzballStorageWindowNodes(poppedOutWindowRecord.id)}
+      />
     {/if}
   </PoppedOutWindowView>
 {:else}
@@ -1332,6 +1558,16 @@ const WINDOW_HOST_SINGLETON_IDS = {
       onToggleNode={(nodeId) => toggleTreeDataWindowNode(windowRecord.id, nodeId)}
       onExpandAll={() => expandAllTreeDataWindowNodes(windowRecord.id)}
       onCollapseAll={() => collapseAllTreeDataWindowNodes(windowRecord.id)}
+    />
+  {:else if windowRecord.surfaceId.startsWith('fuzzball-storage-window-')}
+    {@const fuzzballStorageWindowState = getFuzzballStorageWindowState(windowRecord.id)}
+    <FuzzballStorageWindow
+      state={fuzzballStorageWindowState}
+      selectedNodeId={fuzzballStorageWindowState.selectedNodeId}
+      onSelectNode={(nodeId) => updateFuzzballStorageWindowSelection(windowRecord.id, nodeId)}
+      onToggleNode={(nodeId) => toggleFuzzballStorageWindowNode(windowRecord.id, nodeId)}
+      onExpandAll={() => expandAllFuzzballStorageWindowNodes(windowRecord.id)}
+      onCollapseAll={() => collapseAllFuzzballStorageWindowNodes(windowRecord.id)}
     />
   {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.characterModal}
     <CharacterModal

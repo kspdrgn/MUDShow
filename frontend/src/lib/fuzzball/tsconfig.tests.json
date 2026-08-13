@@ -15,7 +15,8 @@
   },
   "include": [
     "./storage-cache.ts",
-    "./tests/storage-cache.test.ts"
+    "./tests/storage-cache.test.ts",
+    "./tests/storage-viewer.test.ts"
   ],
   "exclude": ["../../../../node_modules", "../../../../dist", "../../../../tauri"]
 }

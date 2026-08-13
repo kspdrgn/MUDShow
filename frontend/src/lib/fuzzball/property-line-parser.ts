@@ -17,7 +17,11 @@ export function parseFuzzballPropertyLine(text: string): FuzzBallPropertyNodeInp
 
   const [, rawType, rawPath, rawValue = ''] = match;
   const type = rawType.toLowerCase() as FuzzBallPropertyNodeType;
-  const path = rawPath.trim();
+  const trimmedPath = rawPath.trim();
+  const hasChildren = trimmedPath.endsWith('/');
+  const path = hasChildren
+    ? trimmedPath.replace(/\/+$/u, '')
+    : trimmedPath;
 
   if (!path) {
     return null;
@@ -28,6 +32,7 @@ export function parseFuzzballPropertyLine(text: string): FuzzBallPropertyNodeInp
       path,
       type,
       value: null,
+      hasChildren,
     };
   }
 
@@ -35,5 +40,6 @@ export function parseFuzzballPropertyLine(text: string): FuzzBallPropertyNodeInp
     path,
     type,
     value: rawValue,
+    hasChildren,
   };
 }

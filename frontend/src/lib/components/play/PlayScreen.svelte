@@ -26,6 +26,7 @@
     onStopLoggingTab: () => void;
     onEditWorldTab: () => void;
     onEditCharacterTab: () => void;
+    onOpenFuzzballStorageViewer: () => void;
     onCloseTab: (anchorRect: DOMRect) => void;
     onOpenNotes: () => void;
     onOpenTriggers: () => void;
@@ -155,6 +156,12 @@
   ] satisfies ChannelTabVM[];
 
   $: channelBarControls = [
+    {
+      id: 'fuzzball-storage-viewer',
+      label: 'me=/',
+      title: 'open fuzzball storage viewer',
+      onClick: actions.onOpenFuzzballStorageViewer,
+    },
     {
       id: customChannelBarControlId,
       label: 'custom',
