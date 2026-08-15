@@ -33,6 +33,10 @@ import {
   createWorldTabSessionState,
   type WorldTabSessionState,
 } from './world-session';
+import {
+  createWorldSessionContainerRegistry,
+  createWorldSessionKey,
+} from './world-session-container';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 
 interface ModalWindowHandlers {
@@ -48,6 +52,7 @@ function createSession() {
   let nextWorldTabId = 1;
   let nextConnectionId = 1;
   let transcriptScrollbackChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS;
+  const worldSessionContainers = createWorldSessionContainerRegistry();
   const worldConnections = new Map<string, MudConnection>();
   let clearLoggingQueue = (_tabId: string): void => {};
   let modalWindowHandlers: ModalWindowHandlers = {
@@ -89,6 +94,14 @@ function createSession() {
     return getWorldSessions()[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
   }
 
+  function syncWorldSessionContainer(tabId: string, worldId: string, characterId: string | null): void {
+    worldSessionContainers.ensureByTabId(tabId, createWorldSessionKey(worldId, characterId));
+  }
+
+  function clearWorldSessionContainer(tabId: string): void {
+    worldSessionContainers.deleteByTabId(tabId);
+  }
+
   function resetPersistentView(): void {
     const current = getState();
     const nextTabs = current.tabs.filter((tab) => tab.kind !== 'world');
@@ -96,6 +109,7 @@ function createSession() {
 
     for (const tab of current.tabs) {
       if (tab.kind === 'world') {
+        clearWorldSessionContainer(tab.id);
         releaseWorldConnection(tab.id);
         clearLoggingQueue(tab.id);
       }
@@ -213,6 +227,7 @@ function createSession() {
       highlightRegexes = regexes;
     },
     clearLoggingQueue,
+    worldSessionContainers,
   });
 
   function getWorldConnection(tabId: string): MudConnection | null {
@@ -288,6 +303,7 @@ function createSession() {
     delete nextWorldSessions[tabId];
 
     if (tab.kind === 'world') {
+      clearWorldSessionContainer(tab.id);
       releaseWorldConnection(tab.id);
     }
 
@@ -478,6 +494,7 @@ function createSession() {
 
         const character = tab.characterId ? characterById.get(tab.characterId) ?? null : null;
         const world = character ? worldById.get(character.worldId) ?? null : worldById.get(tab.worldId) ?? null;
+        syncWorldSessionContainer(tabId, world?.id ?? tab.worldId, character?.id ?? tab.characterId);
         worldSessions[tabId] = {
           ...session,
           currentWorld: world,
@@ -532,6 +549,8 @@ function createSession() {
       },
     }));
 
+    syncWorldSessionContainer(tab.id, world.id, character?.id ?? null);
+
     return tab.id;
   }
 
@@ -570,6 +589,7 @@ function createSession() {
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
+    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
@@ -602,6 +622,7 @@ function createSession() {
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
+    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
@@ -677,6 +698,7 @@ function createSession() {
     ensureWorldSession: tabsActions.ensureWorldSession,
     updateWorldSession: tabsActions.updateWorldSession,
     activateWorldTab: tabsActions.activateWorldTab,
+    worldSessionContainers,
     getWorldConnection: tabsActions.getWorldConnection,
     closeWorldTabConnection: tabsActions.closeWorldTabConnection,
     ensureWorldTab: tabsActions.ensureWorldTab,
@@ -698,6 +720,7 @@ function createSession() {
     },
     getWorldSession: tabsActions.getWorldSession,
     updateWorldSession: tabsActions.updateWorldSession,
+    worldSessionContainers,
     appendDebugConsoleMessageToTab: transcriptActions.appendDebugConsoleMessageToTab,
     getWorldConnection: tabsActions.getWorldConnection,
   });

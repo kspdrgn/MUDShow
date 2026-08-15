@@ -1,6 +1,7 @@
 import { saveNotes as persistNotes } from './storage';
 import { createInputBar, getNextInputBarId, normalizeInputBars, type InputBarId } from './input-bars';
 import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
+import type { WorldSessionContainerRegistry } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId, getWorldOutputAreaId } from './world-dom';
 
@@ -9,6 +10,7 @@ interface WorldInputActionContext {
   resolveActiveWorldScope: () => string | null;
   getWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
+  worldSessionContainers: WorldSessionContainerRegistry;
   appendDebugConsoleMessageToTab: (tabId: string, direction: 'incoming' | 'outgoing' | 'status', text: string) => void;
   getWorldConnection: (tabId: string) => { send(message: string): void } | null;
 }
@@ -82,6 +84,7 @@ export function createWorldInputActions({
   resolveActiveWorldScope,
   getWorldSession,
   updateWorldSession,
+  worldSessionContainers,
   appendDebugConsoleMessageToTab,
   getWorldConnection,
 }: WorldInputActionContext) {

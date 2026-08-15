@@ -4,6 +4,7 @@ import { playBeep } from './playback';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { focusElement } from './session-dom';
 import type { CharacterRecord, WorldRecord } from './types';
+import type { WorldSessionContainerRegistry } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import type { MudConnection } from './connection';
@@ -14,6 +15,7 @@ interface WorldConnectionActionContext {
   ensureWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
   activateWorldTab: (tabId: string) => void;
+  worldSessionContainers: WorldSessionContainerRegistry;
   getWorldConnection: (tabId: string) => MudConnection | null;
   closeWorldTabConnection: (tabId: string) => Promise<void>;
   ensureWorldTab: (world: WorldRecord, character?: CharacterRecord | null) => string;
@@ -39,6 +41,7 @@ export function createWorldConnectionActions({
   ensureWorldSession,
   updateWorldSession,
   activateWorldTab,
+  worldSessionContainers,
   getWorldConnection,
   closeWorldTabConnection,
   ensureWorldTab,

@@ -21,6 +21,7 @@ import {
   createWorldTabSessionState,
   type WorldTabSessionState,
 } from './world-session';
+import { createWorldSessionKey, type WorldSessionContainerRegistry } from './world-session-container';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import { createInitialState, type SessionState } from './session-state';
 import { cancelPendingNotesSave, flushPendingNotesSave } from './session-world-input';
@@ -31,6 +32,7 @@ interface SessionTabsActionContext {
   patch: (patch: Partial<SessionState>) => void;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
   clearLoggingQueue: (tabId: string) => void;
+  worldSessionContainers: WorldSessionContainerRegistry;
 }
 
 export function createSessionTabsActions({
@@ -39,6 +41,7 @@ export function createSessionTabsActions({
   patch,
   setHighlightRegexes,
   clearLoggingQueue,
+  worldSessionContainers,
 }: SessionTabsActionContext) {
   const worldConnections = new Map<string, MudConnection>();
   let nextWorldTabId = 1;
@@ -68,6 +71,14 @@ export function createSessionTabsActions({
 
   function getWorldSession(tabId: string): WorldTabSessionState {
     return getWorldSessions()[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
+  }
+
+  function syncWorldSessionContainer(tabId: string, worldId: string, characterId: string | null): void {
+    worldSessionContainers.ensureByTabId(tabId, createWorldSessionKey(worldId, characterId));
+  }
+
+  function clearWorldSessionContainer(tabId: string): void {
+    worldSessionContainers.deleteByTabId(tabId);
   }
 
   function ensureWorldSession(tabId: string): WorldTabSessionState {
@@ -206,6 +217,7 @@ export function createSessionTabsActions({
 
     if (tab.kind === 'world') {
       flushPendingNotesSave(tab.id);
+      clearWorldSessionContainer(tab.id);
       releaseWorldConnection(tab.id);
     }
 
@@ -391,6 +403,7 @@ export function createSessionTabsActions({
 
         const character = tab.characterId ? characterById.get(tab.characterId) ?? null : null;
         const world = character ? worldById.get(character.worldId) ?? null : worldById.get(tab.worldId) ?? null;
+        syncWorldSessionContainer(tabId, world?.id ?? tab.worldId, character?.id ?? tab.characterId);
         worldSessions[tabId] = {
           ...session,
           currentWorld: world,
@@ -445,6 +458,8 @@ export function createSessionTabsActions({
       },
     }));
 
+    syncWorldSessionContainer(tab.id, world.id, character?.id ?? null);
+
     return tab.id;
   }
 
@@ -483,6 +498,7 @@ export function createSessionTabsActions({
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
     removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
+    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -516,6 +532,7 @@ export function createSessionTabsActions({
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
     removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
+    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
     removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -551,6 +568,7 @@ export function createSessionTabsActions({
     for (const tab of current.tabs) {
       if (tab.kind === 'world') {
         cancelPendingNotesSave(tab.id);
+        clearWorldSessionContainer(tab.id);
         releaseWorldConnection(tab.id);
         clearLoggingQueue(tab.id);
       }
@@ -622,6 +640,7 @@ export function createSessionTabsActions({
   };
 
   function dispose(): void {
+    worldSessionContainers.clear();
     for (const tabId of [...worldConnections.keys()]) {
       releaseWorldConnection(tabId);
     }
