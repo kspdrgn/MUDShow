@@ -10,6 +10,7 @@
 - spec/fonts.md - Built-in and system font discovery, shelf persistence, validation, fallback, and fontdb behavior
 - spec/style.md - Style settings for fonts and colors used by input and output area, can be stored at three levels: app, world, character
 - spec/triggers.md - Simple word highlights and complex regexp triggers
+- spec/di.md - Dependency injection container shape for world-session scoped resources
 - spec/svelte.md - Svelte-specific code organization guidance for component-local logic, shared helper modules, and service boundaries
 - spec/tauri.md - Tauri window, webview, and desktop shell behavior
 
