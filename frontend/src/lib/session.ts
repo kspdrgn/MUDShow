@@ -1,5 +1,4 @@
 import { get, writable } from 'svelte/store';
-import { MudConnection } from './connection';
 import { buildHighlightRegexes } from './formatting';
 import { DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS } from './playback';
 import { createSessionTabsActions } from './session-tabs';
@@ -53,7 +52,6 @@ function createSession() {
   let nextConnectionId = 1;
   let transcriptScrollbackChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS;
   const worldSessionContainers = createWorldSessionContainerRegistry();
-  const worldConnections = new Map<string, MudConnection>();
   let clearLoggingQueue = (_tabId: string): void => {};
   let modalWindowHandlers: ModalWindowHandlers = {
     onOpen: () => {},
@@ -94,12 +92,20 @@ function createSession() {
     return getWorldSessions()[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
   }
 
-  function syncWorldSessionContainer(tabId: string, worldId: string, characterId: string | null): void {
-    worldSessionContainers.ensureByTabId(tabId, createWorldSessionKey(worldId, characterId));
+  function syncWorldSessionContainer(
+    tabId: string,
+    worldId: string,
+    characterId: string | null,
+    connectionId: string | null = null,
+  ): void {
+    worldSessionContainers.container.ensureByTabId(tabId, createWorldSessionKey(worldId, characterId));
+    if (connectionId !== null) {
+      worldSessionContainers.connection.setConnectionIdByTabId(tabId, connectionId);
+    }
   }
 
   function clearWorldSessionContainer(tabId: string): void {
-    worldSessionContainers.deleteByTabId(tabId);
+    worldSessionContainers.container.deleteByTabId(tabId);
   }
 
   function resetPersistentView(): void {
@@ -109,8 +115,8 @@ function createSession() {
 
     for (const tab of current.tabs) {
       if (tab.kind === 'world') {
+        void worldSessionContainers.connection.releaseByTabId(tab.id);
         clearWorldSessionContainer(tab.id);
-        releaseWorldConnection(tab.id);
         clearLoggingQueue(tab.id);
       }
     }
@@ -230,38 +236,6 @@ function createSession() {
     worldSessionContainers,
   });
 
-  function getWorldConnection(tabId: string): MudConnection | null {
-    const tab = getTab(tabId);
-    if (!tab || tab.kind !== 'world') {
-      return null;
-    }
-
-    let connection = worldConnections.get(tabId);
-    if (!connection) {
-      connection = new MudConnection(tab.connectionId);
-      worldConnections.set(tabId, connection);
-    }
-
-    return connection;
-  }
-
-  function releaseWorldConnection(tabId: string): void {
-    const connection = worldConnections.get(tabId);
-    worldConnections.delete(tabId);
-    if (connection) {
-      void connection.close();
-    }
-  }
-
-  async function closeWorldTabConnection(tabId: string): Promise<void> {
-    const connection = worldConnections.get(tabId);
-    if (!connection) {
-      return;
-    }
-
-    await connection.close();
-  }
-
   function shouldConfirmWorldTabClose(tabId: string): boolean {
     const tab = getTab(tabId);
     if (!tab || tab.kind !== 'world') {
@@ -303,8 +277,8 @@ function createSession() {
     delete nextWorldSessions[tabId];
 
     if (tab.kind === 'world') {
+      void worldSessionContainers.connection.releaseByTabId(tab.id);
       clearWorldSessionContainer(tab.id);
-      releaseWorldConnection(tab.id);
     }
 
     if (tab.kind === 'settings') {
@@ -588,7 +562,7 @@ function createSession() {
     );
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
-    removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
+    removedTabs.forEach((tab) => void worldSessionContainers.connection.releaseByTabId(tab.id));
     removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -621,7 +595,7 @@ function createSession() {
     const removedTabs = current.tabs.filter((tab): tab is WorldTab => tab.kind === 'world' && tab.worldId === worldId);
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
-    removedTabs.forEach((tab) => releaseWorldConnection(tab.id));
+    removedTabs.forEach((tab) => void worldSessionContainers.connection.releaseByTabId(tab.id));
     removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -699,8 +673,6 @@ function createSession() {
     updateWorldSession: tabsActions.updateWorldSession,
     activateWorldTab: tabsActions.activateWorldTab,
     worldSessionContainers,
-    getWorldConnection: tabsActions.getWorldConnection,
-    closeWorldTabConnection: tabsActions.closeWorldTabConnection,
     ensureWorldTab: tabsActions.ensureWorldTab,
     appendOutputToTab: transcriptActions.appendOutputToTab,
     appendIncomingRawMessageToTab: transcriptActions.appendIncomingRawMessageToTab,
@@ -722,7 +694,6 @@ function createSession() {
     updateWorldSession: tabsActions.updateWorldSession,
     worldSessionContainers,
     appendDebugConsoleMessageToTab: transcriptActions.appendDebugConsoleMessageToTab,
-    getWorldConnection: tabsActions.getWorldConnection,
   });
 
   const panelActions = createWorldPanelActions({
@@ -801,6 +772,7 @@ function createSession() {
     load: tabsActions.load,
     dispose: tabsActions.dispose,
     selectTab: tabsActions.selectTab,
+    activateWorldTab,
     setTranscriptScrollbackChunks: tabsActions.setTranscriptScrollbackChunks,
     setSettingsActiveTab,
     setTranscriptDiagnosticsEnabled,
@@ -815,10 +787,10 @@ function createSession() {
     confirmCloseTab: tabsActions.confirmCloseTab,
     ensureWorldTab: tabsActions.ensureWorldTab,
     getWorldSession: tabsActions.getWorldSession,
-    getWorldConnection: tabsActions.getWorldConnection,
     refreshWorldTabs: tabsActions.refreshWorldTabs,
     deleteWorldTabsForCharacter: tabsActions.deleteWorldTabsForCharacter,
     deleteWorldTabsForWorld: tabsActions.deleteWorldTabsForWorld,
+    worldSessionContainers,
     openWorldEditorFromWorldTab,
     openCharacterEditorFromWorldTab,
     setModalWindowHandlers,

@@ -7,7 +7,6 @@ import type { CharacterRecord, WorldRecord } from './types';
 import type { WorldSessionContainerRegistry } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
-import type { MudConnection } from './connection';
 
 interface WorldConnectionActionContext {
   getState: () => SessionState;
@@ -16,8 +15,6 @@ interface WorldConnectionActionContext {
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
   activateWorldTab: (tabId: string) => void;
   worldSessionContainers: WorldSessionContainerRegistry;
-  getWorldConnection: (tabId: string) => MudConnection | null;
-  closeWorldTabConnection: (tabId: string) => Promise<void>;
   ensureWorldTab: (world: WorldRecord, character?: CharacterRecord | null) => string;
   appendOutputToTab: (tabId: string, rawText: string) => Promise<void>;
   appendIncomingRawMessageToTab: (tabId: string, text: string) => void;
@@ -42,8 +39,6 @@ export function createWorldConnectionActions({
   updateWorldSession,
   activateWorldTab,
   worldSessionContainers,
-  getWorldConnection,
-  closeWorldTabConnection,
   ensureWorldTab,
   appendOutputToTab,
   appendIncomingRawMessageToTab,
@@ -53,10 +48,14 @@ export function createWorldConnectionActions({
   setHighlightRegexes,
 }: WorldConnectionActionContext) {
   async function connectToTarget(world: WorldRecord, character: CharacterRecord | null): Promise<void> {
-    const stateSnapshot = getState();
     const tabId = ensureWorldTab(world, character);
     const session = ensureWorldSession(tabId);
-    const connection = getWorldConnection(tabId);
+    const stateSnapshot = getState();
+    const tab = stateSnapshot.tabs.find(
+      (entry): entry is Extract<(typeof stateSnapshot.tabs)[number], { kind: 'world' }> =>
+        entry.id === tabId && entry.kind === 'world',
+    );
+    const connection = tab ? worldSessionContainers.connection.ensureByTabId(tabId, tab.connectionId) : null;
 
     if (!connection) {
       return;
@@ -212,7 +211,7 @@ export function createWorldConnectionActions({
 
     void appendConnectionStatusToTab(tabId, '\x1b[90m[disconnected]\x1b[0m\n');
 
-    await closeWorldTabConnection(tabId);
+    await worldSessionContainers.connection.closeByTabId(tabId);
   }
 
   return {

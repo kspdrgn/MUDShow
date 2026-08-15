@@ -501,11 +501,6 @@ const WINDOW_HOST_SINGLETON_IDS = {
       return;
     }
 
-    const connection = session.getWorldConnection(state.sourceTabId);
-    if (!connection) {
-      return;
-    }
-
     const requestPath = getFuzzballStorageNodeLoadPath(state, nodePath);
     const command = `examine me=${requestPath}\r\n`;
     console.debug('[fuzzball storage] requesting node load', {
@@ -516,7 +511,9 @@ const WINDOW_HOST_SINGLETON_IDS = {
       requestPath,
       command: command.trimEnd(),
     });
-    connection.send(command);
+    if (!session.worldSessionContainers.connection.sendByTabId(state.sourceTabId, command)) {
+      return;
+    }
   }
 
   function setFuzzballStorageWindowState(
