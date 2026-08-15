@@ -511,9 +511,9 @@ const WINDOW_HOST_SINGLETON_IDS = {
       requestPath,
       command: command.trimEnd(),
     });
-    if (!session.worldSessionContainers.connection.sendByTabId(state.sourceTabId, command)) {
-      return;
-    }
+    session.worldSessionContainers.connection
+      .get({ worldId: state.worldId, characterId: state.characterId })
+      ?.send(command);
   }
 
   function setFuzzballStorageWindowState(

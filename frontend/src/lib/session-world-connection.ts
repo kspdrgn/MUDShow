@@ -5,6 +5,7 @@ import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state
 import { focusElement } from './session-dom';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { WorldSessionContainerRegistry } from './world-session-container';
+import { createWorldSessionKey } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 
@@ -55,7 +56,9 @@ export function createWorldConnectionActions({
       (entry): entry is Extract<(typeof stateSnapshot.tabs)[number], { kind: 'world' }> =>
         entry.id === tabId && entry.kind === 'world',
     );
-    const connection = tab ? worldSessionContainers.connection.ensureByTabId(tabId, tab.connectionId) : null;
+    const connection = tab
+      ? worldSessionContainers.connection.ensure(createWorldSessionKey(world.id, character?.id ?? null), tab.connectionId)
+      : null;
 
     if (!connection) {
       return;
@@ -211,7 +214,10 @@ export function createWorldConnectionActions({
 
     void appendConnectionStatusToTab(tabId, '\x1b[90m[disconnected]\x1b[0m\n');
 
-    await worldSessionContainers.connection.closeByTabId(tabId);
+    const connection = worldSessionContainers.connection.get(createWorldSessionKey(tab.worldId, tab.characterId));
+    if (connection) {
+      await connection.close();
+    }
   }
 
   return {

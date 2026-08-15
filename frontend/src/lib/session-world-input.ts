@@ -7,6 +7,7 @@ import { getWorldDomScope, getWorldInputBarInputId, getWorldOutputAreaId } from 
 
 interface WorldInputActionContext {
   getActiveWorldTabId: () => string | null;
+  getActiveWorldSessionKey: () => { worldId: string; characterId: string | null } | null;
   resolveActiveWorldScope: () => string | null;
   getWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
@@ -80,6 +81,7 @@ export function cancelPendingNotesSave(tabId: string): void {
 
 export function createWorldInputActions({
   getActiveWorldTabId,
+  getActiveWorldSessionKey,
   resolveActiveWorldScope,
   getWorldSession,
   updateWorldSession,
@@ -106,7 +108,10 @@ export function createWorldInputActions({
     }
 
     appendDebugConsoleMessageToTab(tabId, 'outgoing', `${value}\r\n`);
-    worldSessionContainers.connection.sendByTabId(tabId, value + '\r\n');
+    const sessionKey = getActiveWorldSessionKey();
+    if (sessionKey) {
+      worldSessionContainers.connection.get(sessionKey)?.send(value + '\r\n');
+    }
 
     const session = getWorldSession(tabId);
     if (!session.userScrolled) {

@@ -7,6 +7,13 @@
 - Centralize session-scoped access to things like the world connection and fuzzball cache.
 - Reduce the amount of repeated `worldId` / `characterId` plumbing across session-aware modules.
 
+## Current Status
+
+- The general world-session container now exists in `frontend/src/lib/world-session-container.ts`.
+- The registry is keyed only by `WorldSessionKey`.
+- The first DI-backed service is the world connection path, including connection creation and resolution.
+- The container no longer owns a separate connection id field; the tab record and `MudConnection` own that identity.
+
 ## Working Name
 
 - Call the scope a `world session`.
@@ -23,17 +30,17 @@
 
 ## Best First Candidate
 
-- Put the fuzzball cache behind the registry first.
-- The fuzzball cache already uses `worldId + characterId` as its natural key.
-- It is a strong example of a session-owned service that should remain centralized in the main app frontend.
-- It gives us an immediate place to validate the registry shape without changing unrelated parts of the app.
+- Keep the connection service as the first proven DI-backed world-session service.
+- The connection path already exercises session-key lookup and connection creation.
+- It is the clearest example of a session-owned service that benefits from a shared container.
+- Use it as the pattern reference for later services such as fuzzball cache and other session-scoped helpers.
 
 ## Candidate Session-Scoped Services
 
 ### Clearly session-scoped
 
+- World connection access for the active world session.
 - Fuzzball property cache and tree capture state.
-- World connection access for sending commands back to the active world session.
 - Character-scoped notes storage and note loading.
 - Character-scoped transcript history loading.
 
@@ -64,6 +71,7 @@ The following systems look like they may benefit from the same world-session reg
 ### Connection and capture
 
 - Live MUD connection ownership per world tab.
+- World-tab connection id ownership on the tab record and `MudConnection`.
 - Incoming-line capture routing.
 - Fuzzball-specific capture parsing and cache updates.
 
@@ -139,11 +147,12 @@ The following systems look like they may benefit from the same world-session reg
 - Create services lazily the first time a session is requested.
 - Reuse the same session service object while the session remains alive.
 - Destroy the session service when its owning world session is torn down.
+- Keep the registry keyed only by `WorldSessionKey`.
 
 ### Session Services
 
 - Expose the shared services needed by world-session-aware code.
-- Keep the fuzzball cache and world connection access behind this layer first.
+- Keep the world connection access behind this layer first.
 - Allow future services like notes or transcript helpers to join later.
 - Keep the session service focused on access and coordination rather than UI.
 
@@ -164,9 +173,9 @@ The following systems look like they may benefit from the same world-session reg
 ## Suggested First Cut
 
 - Name the session scope and registry clearly in code.
-- Add the registry with only the fuzzball cache at first.
-- Make the registry return a session service object for a given world session key.
-- Route one or two existing consumers through the registry to prove the pattern.
+- Keep the registry lightweight and dependency-free.
+- Keep connection ownership inside the registry-backed container and the tab record.
+- Route one or two existing consumers through the registry-backed connection path to prove the pattern.
 - Add additional session-scoped services only after the first shape feels right.
 
 ## Open Questions
@@ -176,11 +185,13 @@ The following systems look like they may benefit from the same world-session reg
 - Should the session service object be long-lived per session, or rebuilt on demand from smaller providers?
 - Should notes and transcript history live in the same registry object as the fuzzball cache, or in adjacent session services?
 - Should the registry live near `session.ts` or as its own feature-local module?
+- Should future session-scoped services be attached as namespaces on the same container, or split into adjacent registries?
+- Should connection id stay only on the tab record and `MudConnection`, or also be mirrored anywhere else for debugging?
 
 ## Next Steps
 
 - Pick the final name for the scope and registry.
-- Define the first session service interface around fuzzball cache access.
+- Define the next session service interface, likely fuzzball cache or another cache-like helper.
 - Identify one or two consumers that can move to the registry with minimal churn.
 - Decide where the registry should live in the `frontend/src/lib` tree.
 - Expand the registry once the first service proves the pattern.

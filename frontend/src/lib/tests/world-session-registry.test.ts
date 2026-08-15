@@ -18,39 +18,38 @@ test('world session keys normalize world-only access and preserve character ids'
   assert.equal(withCharacter.characterId, 'character-a');
 });
 
-test('world session registry resolves sessions by key and tab id', () => {
+test('world session registry resolves sessions by key and tracks entries', () => {
   const registry = createWorldSessionRegistry<{ label: string }>();
   const key = createWorldSessionKey('world-a', 'character-a');
 
-  const value = registry.ensureByTabId('tab-a', key, () => ({ label: 'session-a' }));
+  const value = registry.ensure(key, () => ({ label: 'session-a' }));
   const byKey = registry.get(key);
-  const byTab = registry.getByTabId('tab-a');
-  const keyByTab = registry.getKeyByTabId('tab-a');
 
   assert.strictEqual(value, byKey);
-  assert.strictEqual(value, byTab);
-  assert.deepEqual(keyByTab, key);
   assert.ok(registry.has(key));
-  assert.ok(registry.hasByTabId('tab-a'));
+  assert.equal(registry.entries().length, 1);
+  assert.equal(registry.entries()[0]?.key.worldId, 'world-a');
 });
 
-test('world session registry can rebind a tab id and clean up stale entries', () => {
-  const registry = createWorldSessionRegistry<{ label: string }>();
+test('world session registry disposes values when entries are replaced, deleted, or cleared', () => {
+  const disposed: string[] = [];
+  const registry = createWorldSessionRegistry<{ label: string }>({
+    dispose: (value) => {
+      disposed.push(value.label);
+    },
+  });
   const firstKey = createWorldSessionKey('world-a', 'character-a');
   const secondKey = createWorldSessionKey('world-b', null);
 
-  registry.ensure(firstKey, () => ({ label: 'first' }));
-  registry.ensure(secondKey, () => ({ label: 'second' }));
-  registry.attachTabId('tab-a', firstKey);
-  registry.attachTabId('tab-a', secondKey);
+  registry.set(firstKey, { label: 'first' });
+  registry.set(firstKey, { label: 'replacement' });
+  assert.deepEqual(disposed, ['first']);
 
-  assert.equal(registry.getByTabId('tab-a')?.label, 'second');
-  assert.equal(registry.getKeyByTabId('tab-a')?.worldId, 'world-b');
-  assert.equal(registry.getKeyByTabId('tab-a')?.characterId, null);
-  assert.equal(registry.entries().filter((entry) => entry.tabId === 'tab-a').length, 1);
+  registry.set(secondKey, { label: 'second' });
+  assert.equal(registry.delete(secondKey), true);
+  assert.deepEqual(disposed, ['first', 'second']);
 
-  assert.equal(registry.deleteByTabId('tab-a'), true);
-  assert.equal(registry.getByTabId('tab-a'), null);
-  assert.equal(registry.get(secondKey), null);
-  assert.ok(registry.get(firstKey));
+  registry.set(secondKey, { label: 'third' });
+  registry.clear();
+  assert.deepEqual(disposed, ['first', 'second', 'third']);
 });

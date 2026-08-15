@@ -72,19 +72,15 @@ export function createSessionTabsActions({
   }
 
   function syncWorldSessionContainer(
-    tabId: string,
     worldId: string,
     characterId: string | null,
-    connectionId: string | null = null,
   ): void {
-    worldSessionContainers.container.ensureByTabId(tabId, createWorldSessionKey(worldId, characterId));
-    if (connectionId !== null) {
-      worldSessionContainers.connection.setConnectionIdByTabId(tabId, connectionId);
-    }
+    const key = createWorldSessionKey(worldId, characterId);
+    worldSessionContainers.container.ensure(key);
   }
 
-  function clearWorldSessionContainer(tabId: string): void {
-    worldSessionContainers.container.deleteByTabId(tabId);
+  function clearWorldSessionContainer(worldId: string, characterId: string | null): void {
+    worldSessionContainers.container.delete(createWorldSessionKey(worldId, characterId));
   }
 
   function ensureWorldSession(tabId: string): WorldTabSessionState {
@@ -191,8 +187,7 @@ export function createSessionTabsActions({
 
     if (tab.kind === 'world') {
       flushPendingNotesSave(tab.id);
-      void worldSessionContainers.connection.releaseByTabId(tab.id);
-      clearWorldSessionContainer(tab.id);
+      clearWorldSessionContainer(tab.worldId, tab.characterId);
     }
 
     if (tab.kind === 'settings') {
@@ -377,7 +372,7 @@ export function createSessionTabsActions({
 
         const character = tab.characterId ? characterById.get(tab.characterId) ?? null : null;
         const world = character ? worldById.get(character.worldId) ?? null : worldById.get(tab.worldId) ?? null;
-        syncWorldSessionContainer(tabId, world?.id ?? tab.worldId, character?.id ?? tab.characterId, tab.connectionId);
+        syncWorldSessionContainer(world?.id ?? tab.worldId, character?.id ?? tab.characterId);
         worldSessions[tabId] = {
           ...session,
           currentWorld: world,
@@ -404,7 +399,7 @@ export function createSessionTabsActions({
 
     if (existing) {
       ensureWorldSession(existing.id);
-      syncWorldSessionContainer(existing.id, world.id, character?.id ?? null, existing.connectionId);
+      syncWorldSessionContainer(world.id, character?.id ?? null);
       patch({ activeTabId: existing.id });
       return existing.id;
     }
@@ -433,7 +428,7 @@ export function createSessionTabsActions({
       },
     }));
 
-    syncWorldSessionContainer(tab.id, world.id, character?.id ?? null, connectionId);
+    syncWorldSessionContainer(world.id, character?.id ?? null);
 
     return tab.id;
   }
@@ -473,8 +468,7 @@ export function createSessionTabsActions({
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
     removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
-    removedTabs.forEach((tab) => void worldSessionContainers.connection.releaseByTabId(tab.id));
-    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
+    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.worldId, tab.characterId));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
@@ -507,8 +501,7 @@ export function createSessionTabsActions({
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
     removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
-    removedTabs.forEach((tab) => void worldSessionContainers.connection.releaseByTabId(tab.id));
-    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.id));
+    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.worldId, tab.characterId));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
@@ -543,8 +536,7 @@ export function createSessionTabsActions({
     for (const tab of current.tabs) {
       if (tab.kind === 'world') {
         cancelPendingNotesSave(tab.id);
-        void worldSessionContainers.connection.releaseByTabId(tab.id);
-        clearWorldSessionContainer(tab.id);
+        clearWorldSessionContainer(tab.worldId, tab.characterId);
         clearLoggingQueue(tab.id);
       }
     }
@@ -615,7 +607,6 @@ export function createSessionTabsActions({
   };
 
   function dispose(): void {
-    void worldSessionContainers.connection.clear();
     worldSessionContainers.container.clear();
   }
 
