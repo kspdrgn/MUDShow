@@ -60,6 +60,7 @@ import { addSpellcheckWord, appendSpellcheckIgnoredWord } from './lib/spellcheck
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
+import { createWorldSessionKey } from './lib/world-session-container';
 import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
 import {
   createAppStyleEditor,
@@ -1444,6 +1445,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
     {#each $session.tabs.filter((tab) => tab.kind === 'world') as tab (tab.id)}
       {@const worldSession = $session.worldSessions[tab.id] ?? session.getWorldSession(tab.id)}
+      {@const debugConsole = session.worldSessionContainers.debugConsole.get(createWorldSessionKey(tab.worldId, tab.characterId))}
       {@const playScreenActions = createPlayScreenActions(tab, worldSession)}
       <PlayScreen
         scope={tab.id}
@@ -1461,9 +1463,9 @@ const WINDOW_HOST_SINGLETON_IDS = {
         notes={worldSession.notes}
         notesVisible={worldSession.notesVisible}
         notesRegistered={worldSession.notesRegistered}
-        debugConsoleEntries={worldSession.debugConsoleEntries}
-        debugConsoleVisible={worldSession.debugConsoleVisible}
-        debugConsoleRegistered={worldSession.debugConsoleRegistered}
+        debugConsoleEntries={debugConsole?.entries ?? []}
+        debugConsoleVisible={debugConsole?.visible ?? false}
+        debugConsoleRegistered={debugConsole?.registered ?? false}
         linkImagePreviews={appSettings.linkImagePreviews}
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         spellcheckEnabled={appSettings.spellcheckEnabled}

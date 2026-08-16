@@ -1,30 +1,37 @@
 import { focusElement, nextFrame, scrollElementBy, scrollElementToBottom, scrollElementToTop } from './session-dom';
 import type { WorldTabSessionState } from './world-session';
+import type { WorldSessionContainerRegistry } from './world-session-container';
+import type { WorldSessionKey } from './world-session-registry';
 import {
   getWorldDomScope,
-  getWorldHighlightInputId,
   getWorldInputBarInputId,
-  getWorldNotesEditorId,
   getWorldOutputAreaId,
-  getWorldRuleInputId,
 } from './world-dom';
 import { flushPendingNotesSave } from './session-world-input';
-import { loadNotes } from './storage';
 
 interface WorldPanelActionContext {
   getActiveWorldTabId: () => string | null;
   resolveActiveWorldScope: () => string | null;
   getWorldSession: (tabId: string) => WorldTabSessionState;
+  getWorldSessionKeyForTab: (tabId: string) => WorldSessionKey | null;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
+  worldSessionContainers: WorldSessionContainerRegistry;
 }
 
 export function createWorldPanelActions({
   getActiveWorldTabId,
   resolveActiveWorldScope,
   getWorldSession,
+  getWorldSessionKeyForTab,
   updateWorldSession,
+  worldSessionContainers,
 }: WorldPanelActionContext) {
   let suppressTranscriptScrollState = false;
+
+  function getDebugConsole(tabId: string) {
+    const sessionKey = getWorldSessionKeyForTab(tabId);
+    return sessionKey ? worldSessionContainers.debugConsole.ensure(sessionKey) : null;
+  }
 
   function updateOutputScrollState(tabId: string, outputEl: HTMLElement): void {
     const distance = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight;
@@ -107,21 +114,17 @@ export function createWorldPanelActions({
     });
   }
 
-  async function togglePanel(panel: 'notes' | 'highlights' | 'rules' | 'debugConsole'): Promise<void> {
+  async function togglePanel(panel: 'notes' | 'debugConsole'): Promise<void> {
     const tabId = getActiveWorldTabId();
     if (!tabId) {
       return;
     }
 
     const session = getWorldSession(tabId);
-    const shouldOpen =
-      panel === 'notes'
-        ? !session.notesVisible
-        : panel === 'highlights'
-          ? !session.highlightsVisible
-          : panel === 'rules'
-            ? !session.rulesVisible
-            : !session.debugConsoleVisible;
+    const debugConsole = getDebugConsole(tabId);
+    const shouldOpen = panel === 'notes'
+      ? !session.notesVisible
+      : !(debugConsole?.visible ?? false);
     const shouldPreserveBottom = !session.userScrolled;
 
     if (panel === 'notes') {
@@ -129,39 +132,26 @@ export function createWorldPanelActions({
         flushPendingNotesSave(tabId);
       }
 
-      if (shouldOpen && session.currentCharacter && session.notes === '') {
-        const loadedNotes = await loadNotes(session.currentCharacter.id, false);
-        updateWorldSession(tabId, { notes: loadedNotes });
+      if (debugConsole) {
+        debugConsole.visible = false;
       }
 
       updateWorldSession(tabId, {
         notesVisible: shouldOpen,
         notesRegistered: shouldOpen ? true : session.notesRegistered,
-        highlightsVisible: false,
-        rulesVisible: false,
-        debugConsoleVisible: false,
-      });
-    } else if (panel === 'highlights') {
-      updateWorldSession(tabId, {
-        highlightsVisible: shouldOpen,
-        notesVisible: false,
-        rulesVisible: false,
-        debugConsoleVisible: false,
-      });
-    } else if (panel === 'rules') {
-      updateWorldSession(tabId, {
-        rulesVisible: shouldOpen,
-        notesVisible: false,
-        highlightsVisible: false,
-        debugConsoleVisible: false,
+        debugConsoleRevision: debugConsole ? session.debugConsoleRevision + 1 : session.debugConsoleRevision,
       });
     } else {
+      if (debugConsole) {
+        debugConsole.visible = shouldOpen;
+        if (shouldOpen) {
+          debugConsole.registered = true;
+        }
+      }
+
       updateWorldSession(tabId, {
-        debugConsoleVisible: shouldOpen,
-        debugConsoleRegistered: shouldOpen ? true : session.debugConsoleRegistered,
         notesVisible: false,
-        highlightsVisible: false,
-        rulesVisible: false,
+        debugConsoleRevision: session.debugConsoleRevision + 1,
       });
     }
 
@@ -179,19 +169,7 @@ export function createWorldPanelActions({
       await nextFrame();
 
       if (shouldOpen) {
-        const scope = resolveActiveWorldScope();
-        if (scope) {
-          focusElement(
-            panel === 'notes'
-              ? getWorldNotesEditorId(scope)
-              : panel === 'highlights'
-                ? getWorldHighlightInputId(scope)
-                : panel === 'rules'
-                  ? getWorldRuleInputId(scope)
-                  : getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar),
-            true,
-          );
-        }
+        focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar), true);
       } else {
         focusElement(getWorldInputBarInputId(getWorldDomScope(tabId), session.activeBar));
       }
@@ -207,7 +185,8 @@ export function createWorldPanelActions({
     }
 
     const session = getWorldSession(tabId);
-    const shouldFocusInput = panel === 'notes' ? session.notesVisible : session.debugConsoleVisible;
+    const debugConsole = getDebugConsole(tabId);
+    const shouldFocusInput = panel === 'notes' ? session.notesVisible : debugConsole?.visible ?? false;
 
     if (panel === 'notes') {
       flushPendingNotesSave(tabId);
@@ -216,9 +195,13 @@ export function createWorldPanelActions({
         notesRegistered: false,
       });
     } else {
+      if (debugConsole) {
+        debugConsole.visible = false;
+        debugConsole.registered = false;
+      }
+
       updateWorldSession(tabId, {
-        debugConsoleVisible: false,
-        debugConsoleRegistered: false,
+        debugConsoleRevision: session.debugConsoleRevision + 1,
       });
     }
 

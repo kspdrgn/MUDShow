@@ -19,17 +19,20 @@ It is organized into namespaces for different systems:
 
 - `container` for registry management and world-session identity
 - `connection` for connection ownership and creation
+- `debugConsole` for per-session debug console state and entries
 
 The container should hold the session-scoped connection object rather than exposing `MudConnection` through the session shell.
 The container should not own a separate connection id field when the tab record or connection object already carries that identity.
+The container should also own the per-session debug console state so the session shell only coordinates visibility and rendering.
 
 ## Usage
 
 - Use `container` methods to create, retrieve, replace, and remove world-session records.
 - Use `connection` methods to resolve or create the session-owned connection.
+- Use `debugConsole` methods to resolve and update the session-owned debug console.
 - Prefer `WorldSessionKey` access when the caller is operating from world and character identity.
 - Prefer tab-derived key helpers in session-level code when the caller starts from a world tab.
-- Keep session-shell code thin. It may coordinate tabs and higher-level flows, but it should not become the owner of connection state or connection metadata.
+- Keep session-shell code thin. It may coordinate tabs and higher-level flows, but it should not become the owner of connection state, connection metadata, or debug console state.
 
 ## Intended Direction
 

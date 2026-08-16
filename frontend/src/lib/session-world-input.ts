@@ -12,7 +12,6 @@ interface WorldInputActionContext {
   getWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
   worldSessionContainers: WorldSessionContainerRegistry;
-  appendDebugConsoleMessageToTab: (tabId: string, direction: 'incoming' | 'outgoing' | 'status', text: string) => void;
 }
 
 interface PendingNotesSave {
@@ -86,7 +85,6 @@ export function createWorldInputActions({
   getWorldSession,
   updateWorldSession,
   worldSessionContainers,
-  appendDebugConsoleMessageToTab,
 }: WorldInputActionContext) {
   function handleInputFocus(bar: InputBarId): void {
     const tabId = getActiveWorldTabId();
@@ -107,7 +105,6 @@ export function createWorldInputActions({
       return;
     }
 
-    appendDebugConsoleMessageToTab(tabId, 'outgoing', `${value}\r\n`);
     const sessionKey = getActiveWorldSessionKey();
     if (sessionKey) {
       worldSessionContainers.connection.get(sessionKey)?.send(value + '\r\n');

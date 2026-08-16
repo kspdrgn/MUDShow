@@ -12,6 +12,7 @@
 - The general world-session container now exists in `frontend/src/lib/world-session-container.ts`.
 - The registry is keyed only by `WorldSessionKey`.
 - The first DI-backed service is the world connection path, including connection creation and resolution.
+- The debug console now lives in the world-session container as a DI-backed service, with its own entries and visibility state.
 - The container no longer owns a separate connection id field; the tab record and `MudConnection` own that identity.
 
 ## Working Name
@@ -40,6 +41,7 @@
 ### Clearly session-scoped
 
 - World connection access for the active world session.
+- Debug console entries, visibility, and registration state for the active world session.
 - Fuzzball property cache and tree capture state.
 - Character-scoped notes storage and note loading.
 - Character-scoped transcript history loading.

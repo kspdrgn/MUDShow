@@ -1,4 +1,6 @@
 import { invoke, listen } from './tauri';
+import { appendDebugConsoleEntry, type DebugConsoleDirection } from './debug-console';
+import type { WorldSessionDebugConsole } from './world-session-debug-console';
 
 type Handlers = {
   onOpen: () => void;
@@ -23,7 +25,10 @@ type ConnectionEvent =
   | { connectionId: string; kind: 'error'; message: string };
 
 export class MudConnection {
-  constructor(private readonly connectionId: string) {}
+  constructor(
+    private readonly connectionId: string,
+    private readonly debugConsole: WorldSessionDebugConsole | null = null,
+  ) {}
 
   private sessionToken = 0;
   private connected = false;
@@ -56,6 +61,15 @@ export class MudConnection {
   send(text: string): void {
     if (!this.connected) {
       return;
+    }
+
+    if (this.debugConsole && text) {
+      const sourceLabel = this.debugConsole.sourceLabel ?? 'world session';
+      this.debugConsole.entries = appendDebugConsoleEntry(this.debugConsole.entries, {
+        direction: 'outgoing' satisfies DebugConsoleDirection,
+        sourceLabel,
+        text,
+      });
     }
 
     void invoke('send_mud', { connectionId: this.connectionId, text }).catch(() => undefined);

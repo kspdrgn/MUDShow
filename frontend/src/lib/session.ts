@@ -647,7 +647,9 @@ function createSession() {
       return tabId ? getWorldDomScope(tabId) : null;
     },
     getWorldSession: tabsActions.getWorldSession,
+    getWorldSessionKeyForTab,
     updateWorldSession: tabsActions.updateWorldSession,
+    worldSessionContainers,
   });
 
   const captureActions = createWorldCaptureActions({
@@ -684,7 +686,6 @@ function createSession() {
     appendOutputToTab: transcriptActions.appendOutputToTab,
     appendIncomingRawMessageToTab: transcriptActions.appendIncomingRawMessageToTab,
     captureIncomingWorldLine: captureActions.captureIncomingWorldLine,
-    appendDebugConsoleMessageToTab: transcriptActions.appendDebugConsoleMessageToTab,
     appendConnectionStatusToTab: transcriptActions.appendConnectionStatusToTab,
     setHighlightRegexes: (regexes) => {
       highlightRegexes = regexes;
@@ -701,7 +702,6 @@ function createSession() {
     getWorldSession: tabsActions.getWorldSession,
     updateWorldSession: tabsActions.updateWorldSession,
     worldSessionContainers,
-    appendDebugConsoleMessageToTab: transcriptActions.appendDebugConsoleMessageToTab,
   });
 
   const panelActions = createWorldPanelActions({
@@ -711,7 +711,9 @@ function createSession() {
       return tabId ? getWorldDomScope(tabId) : null;
     },
     getWorldSession: tabsActions.getWorldSession,
+    getWorldSessionKeyForTab,
     updateWorldSession: tabsActions.updateWorldSession,
+    worldSessionContainers,
   });
 
   const shortcutActions = createWorldShortcutActions({

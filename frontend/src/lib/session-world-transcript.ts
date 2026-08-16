@@ -14,6 +14,8 @@ import { isTauriAvailable, invoke } from './tauri';
 import { nextFrame, scrollElementToBottom } from './session-dom';
 import type { SessionState } from './session-state';
 import type { WorldTabSessionState } from './world-session';
+import type { WorldSessionContainerRegistry } from './world-session-container';
+import type { WorldSessionKey } from './world-session-registry';
 import { getWorldDomScope, getWorldOutputAreaId } from './world-dom';
 
 interface WorldTranscriptActionContext {
@@ -22,7 +24,9 @@ interface WorldTranscriptActionContext {
   getActiveWorldTabId: () => string | null;
   getActiveWorldScope: () => string | null;
   getWorldSession: (tabId: string) => WorldTabSessionState;
+  getWorldSessionKeyForTab: (tabId: string) => WorldSessionKey | null;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
+  worldSessionContainers: WorldSessionContainerRegistry;
 }
 
 interface CreateSessionLogResult {
@@ -36,7 +40,9 @@ export function createWorldTranscriptActions({
   getActiveWorldTabId,
   getActiveWorldScope,
   getWorldSession,
+  getWorldSessionKeyForTab,
   updateWorldSession,
+  worldSessionContainers,
 }: WorldTranscriptActionContext) {
   const logWriteQueues = new Map<string, Promise<void>>();
 
@@ -114,13 +120,21 @@ export function createWorldTranscriptActions({
       return;
     }
 
+    const sessionKey = getWorldSessionKeyForTab(tabId);
+    if (!sessionKey) {
+      return;
+    }
+
     const session = getWorldSession(tabId);
+    const debugConsole = worldSessionContainers.debugConsole.ensure(sessionKey);
+    debugConsole.entries = appendDebugConsoleEntry(debugConsole.entries, {
+      direction,
+      sourceLabel: getDebugConsoleSourceLabel(tabId),
+      text,
+    });
+
     updateWorldSession(tabId, {
-      debugConsoleEntries: appendDebugConsoleEntry(session.debugConsoleEntries, {
-        direction,
-        sourceLabel: getDebugConsoleSourceLabel(tabId),
-        text,
-      }),
+      debugConsoleRevision: session.debugConsoleRevision + 1,
     });
   }
 

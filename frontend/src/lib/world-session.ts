@@ -1,6 +1,5 @@
 import type { InputBarId } from './input-bars';
 import { createInputBars, type InputBarConfig } from './input-bars';
-import type { DebugConsoleEntry } from './debug-console';
 import { PlayTranscript, type TranscriptHistoryEntry, RenderCache } from './playback';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { ConnectionStatus, DisconnectReason } from './session-state';
@@ -13,11 +12,9 @@ export interface WorldSessionProjection {
   userScrolled: boolean;
   activeBar: InputBarId;
   notesVisible: boolean;
-  highlightsVisible: boolean;
   rulesVisible: boolean;
   notesRegistered: boolean;
-  debugConsoleVisible: boolean;
-  debugConsoleRegistered: boolean;
+  debugConsoleRevision: number;
   connectionStatus: ConnectionStatus;
   disconnectReason: DisconnectReason;
   hasNewActivity: boolean;
@@ -31,7 +28,6 @@ export interface WorldSessionProjection {
 export interface WorldTabSessionState extends WorldSessionProjection {
   transcript: PlayTranscript;
   transcriptHistory: TranscriptHistoryEntry[];
-  debugConsoleEntries: DebugConsoleEntry[];
   renderCache: RenderCache; // Hot render cache for visible output
 }
 
@@ -44,11 +40,9 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     userScrolled: false,
     activeBar: 1,
     notesVisible: false,
-    highlightsVisible: false,
     rulesVisible: false,
     notesRegistered: false,
-    debugConsoleVisible: false,
-    debugConsoleRegistered: false,
+    debugConsoleRevision: 0,
     connectionStatus: 'idle',
     disconnectReason: null,
     hasNewActivity: false,
@@ -59,7 +53,6 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     logError: null,
     transcript: new PlayTranscript(transcriptMaxChunks),
     transcriptHistory: [],
-    debugConsoleEntries: [],
     renderCache: new RenderCache(1000), // Cache last 1000 rendered entries
   };
 }
@@ -73,11 +66,9 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     userScrolled: session.userScrolled,
     activeBar: session.activeBar,
     notesVisible: session.notesVisible,
-    highlightsVisible: session.highlightsVisible,
     rulesVisible: session.rulesVisible,
     notesRegistered: session.notesRegistered,
-    debugConsoleVisible: session.debugConsoleVisible,
-    debugConsoleRegistered: session.debugConsoleRegistered,
+    debugConsoleRevision: session.debugConsoleRevision,
     connectionStatus: session.connectionStatus,
     disconnectReason: session.disconnectReason,
     hasNewActivity: session.hasNewActivity,

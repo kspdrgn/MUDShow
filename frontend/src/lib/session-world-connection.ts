@@ -20,7 +20,6 @@ interface WorldConnectionActionContext {
   appendOutputToTab: (tabId: string, rawText: string) => Promise<void>;
   appendIncomingRawMessageToTab: (tabId: string, text: string) => void;
   captureIncomingWorldLine: (tabId: string, text: string) => void;
-  appendDebugConsoleMessageToTab: (tabId: string, direction: 'incoming' | 'outgoing' | 'status', text: string) => void;
   appendConnectionStatusToTab: (tabId: string, rawText: string) => Promise<void>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
 }
@@ -44,7 +43,6 @@ export function createWorldConnectionActions({
   appendOutputToTab,
   appendIncomingRawMessageToTab,
   captureIncomingWorldLine,
-  appendDebugConsoleMessageToTab,
   appendConnectionStatusToTab,
   setHighlightRegexes,
 }: WorldConnectionActionContext) {
@@ -63,6 +61,9 @@ export function createWorldConnectionActions({
     if (!connection) {
       return;
     }
+
+    const debugConsole = worldSessionContainers.debugConsole.ensure(createWorldSessionKey(world.id, character?.id ?? null));
+    debugConsole.sourceLabel = character ? `${world.name} · ${character.name}` : world.name;
 
     const activeBar = session.activeBar ?? session.inputBars[0]?.id ?? 1;
     const shouldInitializeSession = session.currentWorld === null;
@@ -84,7 +85,6 @@ export function createWorldConnectionActions({
         currentWorld: world,
         currentCharacter: character,
         notesVisible: false,
-        highlightsVisible: false,
         connectionStatus: 'connecting',
         disconnectReason: null,
         hasNewActivity: false,
@@ -117,7 +117,6 @@ export function createWorldConnectionActions({
       {
         onOpen: () => {
           if (character?.connectString && character.connectString.trim()) {
-            appendDebugConsoleMessageToTab(tabId, 'outgoing', `${character.connectString}\r\n`);
             connection.send(`${character.connectString}\r\n`);
           }
           updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });

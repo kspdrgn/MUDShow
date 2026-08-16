@@ -12,7 +12,7 @@ interface WorldShortcutActionContext {
   getWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
   addInputBarAfter: (barId: InputBarId) => Promise<void>;
-  togglePanel: (panel: 'notes' | 'highlights' | 'rules' | 'debugConsole') => Promise<void>;
+  togglePanel: (panel: 'notes' | 'debugConsole') => Promise<void>;
 }
 
 export function createWorldShortcutActions({
