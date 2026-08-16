@@ -1,8 +1,8 @@
 import type { Writable } from 'svelte/store';
+import { appServices } from './app-services';
 import { buildHighlightRegexes } from './formatting';
 import { DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS } from './playback';
 import { focusElement, nextFrame } from './session-dom';
-import { loadSessionData } from './storage';
 import type { HighlightRule, WorldRecord, CharacterRecord } from './types';
 import {
   CHARACTERS_TAB_ID,
@@ -597,7 +597,7 @@ export function createSessionTabsActions({
   const load = async () => {
     try {
       resetPersistentView();
-      const { worlds, characters, triggers } = await loadSessionData();
+      const { worlds, characters, triggers } = await appServices.storage.loadSessionData();
       patch({ worlds, characters, triggers });
       setHighlightRegexes(buildHighlightRegexes(triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight')));
       refreshWorldTabs();

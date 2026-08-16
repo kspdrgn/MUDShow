@@ -1,19 +1,6 @@
 <script lang="ts">
 import { onMount, tick } from 'svelte';
-import { loadAppSettings, saveAppSettings, type AppSettings } from './lib/app-settings';
-import {
-  getDefaultLogFolder,
-  moveAppStorageFile,
-  moveDefaultLogFolder,
-  pickAppStorageFile,
-  revealAppStorageFile,
-  revealDefaultLogFolder,
-  setAppStoragePath,
-  loadAppStyleOverrides,
-  saveAppStyleOverrides,
-  loadFontShelf,
-  saveFontShelf,
-} from './lib/storage';
+import { appServices, type AppSettings } from './lib/app-services';
 import { normalizeFontShelf, type FontShelfEntry } from './lib/fonts';
 import WorldsAndCharactersEditor from './lib/components/settings/WorldsAndCharactersEditor.svelte';
 import CharacterModal from './lib/components/settings/CharacterModal.svelte';
@@ -56,11 +43,9 @@ import TopBar from './lib/components/window/TopBar.svelte';
 import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
 import WorldModal from './lib/components/settings/WorldModal.svelte';
 import { session } from './lib/session';
-import { addSpellcheckWord, appendSpellcheckIgnoredWord } from './lib/spellcheck';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
-import { createWorldSessionKey } from './lib/world-session-container';
 import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
 import {
   createAppStyleEditor,
@@ -87,7 +72,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
   treeDataDemo: 'tree-data-demo',
 } as const;
 
-  let appSettings = loadAppSettings();
+  let appSettings = appServices.settings.getSettings();
   let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
   let resolvedAppStyle: AppStyleValues = resolveAppStyleEditor(appStyle);
   let fontShelf: FontShelfEntry[] = normalizeFontShelf([]);
@@ -117,12 +102,11 @@ const WINDOW_HOST_SINGLETON_IDS = {
   async function initializeStoragePath(): Promise<void> {
     try {
       const requestedPath = appSettings.storageFilePath;
-      const resolvedPath = await setAppStoragePath(requestedPath);
+      const resolvedPath = await appServices.storage.setAppStoragePath(requestedPath);
       storageFilePath = resolvedPath;
 
       if (requestedPath !== null && requestedPath !== resolvedPath) {
-        appSettings = { ...appSettings, storageFilePath: null };
-        saveAppSettings(appSettings);
+        appSettings = appServices.settings.updateSettings({ storageFilePath: null });
       }
     } catch {
       storageFilePath = appSettings.storageFilePath;
@@ -131,8 +115,8 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
   async function initializeStyleSettings(): Promise<void> {
     try {
-      appStyle = createAppStyleEditor(await loadAppStyleOverrides());
-      fontShelf = normalizeFontShelf(await loadFontShelf());
+      appStyle = createAppStyleEditor(await appServices.storage.loadAppStyleOverrides());
+      fontShelf = normalizeFontShelf(await appServices.storage.loadFontShelf());
       resolvedAppStyle = resolveAppStyleEditor(appStyle);
     } catch (error) {
       console.error('failed to load app style overrides:', error);
@@ -143,8 +127,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
   }
 
   function updateAppSettings(patch: Partial<AppSettings>): void {
-    appSettings = { ...appSettings, ...patch };
-    saveAppSettings(appSettings);
+    appSettings = appServices.settings.updateSettings(patch);
     session.setConfirmUnloggedTabClose(appSettings.confirmUnloggedTabClose);
 
     if (typeof patch.transcriptScrollbackChunks === 'number') {
@@ -173,15 +156,6 @@ const WINDOW_HOST_SINGLETON_IDS = {
   }
 
   function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState) {
-    const currentWorldName = worldSession.currentWorld?.name ?? 'fuzzball storage viewer';
-    const currentCharacterName = worldSession.currentCharacter?.name ?? null;
-    const fuzzballStorageTitle = currentCharacterName
-      ? `${currentWorldName} · ${currentCharacterName} storage`
-      : `${currentWorldName} storage`;
-    const fuzzballStorageDescription = currentCharacterName
-      ? `world: ${currentWorldName} · character: ${currentCharacterName}`
-      : `world: ${currentWorldName}`;
-
     return {
       onReconnectTab: () => void session.reconnectWorldTab(tab.id),
       onDisconnectTab: () => void session.disconnectWorldTab(tab.id),
@@ -195,19 +169,6 @@ const WINDOW_HOST_SINGLETON_IDS = {
       onStopLoggingTab: () => void session.stopLogging(tab.id),
       onEditWorldTab: () => void session.openWorldEditorFromWorldTab(tab.id),
       onEditCharacterTab: () => void session.openCharacterEditorFromWorldTab(tab.id),
-      onOpenFuzzballStorageViewer: () => {
-        if (!worldSession.currentWorld) {
-          return;
-        }
-
-        openFuzzballStorageWindow(
-          tab.id,
-          worldSession.currentWorld.id,
-          worldSession.currentCharacter?.id ?? '',
-          fuzzballStorageTitle,
-          fuzzballStorageDescription,
-        );
-      },
       onCloseTab: () => session.closeTab(tab.id, 'shortcut'),
       onOpenNotes: () => void session.togglePanel('notes'),
       onOpenTriggers: () =>
@@ -221,12 +182,9 @@ const WINDOW_HOST_SINGLETON_IDS = {
       onInputAddBar: (bar: number) => void session.addInputBarAfter(bar),
       onInputRemoveBar: (bar: number) => void session.removeInputBar(bar),
       onInputResizeBar: (bar: number, delta: -1 | 1) => session.resizeInputBar(bar, delta),
-      onNotesInput: (notes: string) => session.saveNotes(notes),
       onSpellcheckIgnoreWord: handleSpellcheckIgnoreWord,
       onNotesClose: () => void session.togglePanel('notes'),
-      onCloseNotesTab: () => void session.closePanel('notes'),
       onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
-      onCloseDebugConsoleTab: () => void session.closePanel('debugConsole'),
       onOutputScroll: () => session.handleOutputScroll(),
       onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') =>
         session.handleOutputScrollKey(action),
@@ -240,11 +198,11 @@ const WINDOW_HOST_SINGLETON_IDS = {
     }
 
     updateAppSettings({
-      spellcheckIgnoredWords: appendSpellcheckIgnoredWord(appSettings.spellcheckIgnoredWords, word),
+      spellcheckIgnoredWords: appServices.spellcheck.appendIgnoredWord(appSettings.spellcheckIgnoredWords, word),
     });
 
     try {
-      await addSpellcheckWord(word, appSettings.spellcheckLanguage);
+      await appServices.spellcheck.addWord(word, appSettings.spellcheckLanguage);
     } catch (error) {
       console.error('failed to add spellcheck word:', error);
     }
@@ -253,18 +211,18 @@ const WINDOW_HOST_SINGLETON_IDS = {
   function updateAppStyle(nextStyle: AppStyleEditor): void {
     appStyle = nextStyle;
     resolvedAppStyle = resolveAppStyleEditor(appStyle);
-    void saveAppStyleOverrides(serializeAppStyleEditor(appStyle));
+    void appServices.storage.saveAppStyleOverrides(serializeAppStyleEditor(appStyle));
   }
 
   function updateFontShelf(nextShelf: FontShelfEntry[]): void {
     fontShelf = normalizeFontShelf(nextShelf);
-    void saveFontShelf(fontShelf);
+    void appServices.storage.saveFontShelf(fontShelf);
   }
 
   async function refreshResolvedLogFolder(): Promise<void> {
     try {
       console.debug('[logging] resolving default log folder');
-      resolvedLogFolderPath = appSettings.defaultLogFolder ?? (await getDefaultLogFolder());
+      resolvedLogFolderPath = appSettings.defaultLogFolder ?? (await appServices.storage.getDefaultLogFolder());
       console.debug('[logging] default log folder resolved', resolvedLogFolderPath);
     } catch (error) {
       console.error('[logging] default log folder lookup failed', error);
@@ -870,7 +828,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
   async function handleRevealStorageLocation(): Promise<void> {
     try {
-      await revealAppStorageFile();
+      await appServices.storage.revealAppStorageFile();
     } catch (error) {
       console.error('failed to reveal the storage location:', error);
     }
@@ -878,13 +836,15 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
   async function handleMoveStorageLocation(): Promise<void> {
     try {
-      const nextPath = await moveAppStorageFile();
+      const nextPath = await appServices.storage.moveAppStorageFile();
       if (!nextPath) {
         return;
       }
 
-      appSettings = { ...appSettings, storageFilePath: nextPath };
-      saveAppSettings(appSettings);
+      appSettings = appServices.settings.saveSettings({
+        ...appSettings,
+        storageFilePath: nextPath,
+      });
       storageFilePath = nextPath;
     } catch (error) {
       console.error('failed to move the storage location:', error);
@@ -898,14 +858,16 @@ const WINDOW_HOST_SINGLETON_IDS = {
     }
 
     try {
-      const nextPath = await pickAppStorageFile();
+      const nextPath = await appServices.storage.pickAppStorageFile();
       if (!nextPath) {
         return;
       }
 
-      const resolvedPath = await setAppStoragePath(nextPath);
-      appSettings = { ...appSettings, storageFilePath: resolvedPath };
-      saveAppSettings(appSettings);
+      const resolvedPath = await appServices.storage.setAppStoragePath(nextPath);
+      appSettings = appServices.settings.saveSettings({
+        ...appSettings,
+        storageFilePath: resolvedPath,
+      });
       storageFilePath = resolvedPath;
       await session.load();
     } catch (error) {
@@ -1093,13 +1055,17 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
   async function handleMoveLogFolder(): Promise<void> {
     try {
-      const nextFolder = await moveDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? (await getDefaultLogFolder()));
+      const nextFolder = await appServices.storage.moveDefaultLogFolder(
+        resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? (await appServices.storage.getDefaultLogFolder()),
+      );
       if (!nextFolder) {
         return;
       }
 
-      appSettings = { ...appSettings, defaultLogFolder: nextFolder };
-      saveAppSettings(appSettings);
+      appSettings = appServices.settings.saveSettings({
+        ...appSettings,
+        defaultLogFolder: nextFolder,
+      });
       resolvedLogFolderPath = nextFolder;
     } catch (error) {
       console.error('failed to move the log folder:', error);
@@ -1108,9 +1074,9 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
   async function handleRevealLogFolder(): Promise<void> {
     try {
-      const folder = resolvedLogFolderPath ?? (await getDefaultLogFolder());
+      const folder = resolvedLogFolderPath ?? (await appServices.storage.getDefaultLogFolder());
       console.debug('[logging] revealing default log folder', folder);
-      await revealDefaultLogFolder(folder);
+      await appServices.storage.revealDefaultLogFolder(folder);
     } catch (error) {
       console.error('[logging] failed to reveal the log folder', error);
     }
@@ -1445,7 +1411,47 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
     {#each $session.tabs.filter((tab) => tab.kind === 'world') as tab (tab.id)}
       {@const worldSession = $session.worldSessions[tab.id] ?? session.getWorldSession(tab.id)}
-      {@const debugConsole = session.worldSessionContainers.debugConsole.get(createWorldSessionKey(tab.worldId, tab.characterId))}
+      {@const channels = session.channels.getWorldChannelsViewModel(tab.id, {
+        currentWorldName: worldSession.currentWorld?.name ?? 'fuzzball storage viewer',
+        currentCharacterName: worldSession.currentCharacter?.name ?? null,
+        scope: tab.id,
+        activeBar: worldSession.activeBar,
+        notes: worldSession.notes,
+        spellcheckEnabled: appSettings.spellcheckEnabled,
+        spellcheckLanguage: appSettings.spellcheckLanguage,
+        spellcheckIgnoredWords: appSettings.spellcheckIgnoredWords,
+        spellcheckSuggestionLimit: appSettings.spellcheckSuggestionLimit,
+        spellcheckMinimumWordLength: appSettings.spellcheckMinimumWordLength,
+        spellcheckDebounceMs: appSettings.spellcheckDebounceMs,
+        onNotesInput: (notes) => session.saveNotes(notes),
+        onSpellcheckIgnoreWord: handleSpellcheckIgnoreWord,
+        onNotesClose: () => void session.togglePanel('notes'),
+        onCloseNotesTab: () => void session.closePanel('notes'),
+        onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
+        onCloseDebugConsoleTab: () => void session.closePanel('debugConsole'),
+        onOpenFuzzballStorageViewer: () => {
+          if (!worldSession.currentWorld) {
+            return;
+          }
+
+          const currentWorldName = worldSession.currentWorld.name;
+          const currentCharacterName = worldSession.currentCharacter?.name ?? null;
+          const fuzzballStorageTitle = currentCharacterName
+            ? `${currentWorldName} · ${currentCharacterName} storage`
+            : `${currentWorldName} storage`;
+          const fuzzballStorageDescription = currentCharacterName
+            ? `world: ${currentWorldName} · character: ${currentCharacterName}`
+            : `world: ${currentWorldName}`;
+
+          openFuzzballStorageWindow(
+            tab.id,
+            worldSession.currentWorld.id,
+            worldSession.currentCharacter?.id ?? '',
+            fuzzballStorageTitle,
+            fuzzballStorageDescription,
+          );
+        },
+      })}
       {@const playScreenActions = createPlayScreenActions(tab, worldSession)}
       <PlayScreen
         scope={tab.id}
@@ -1460,12 +1466,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
           : worldSession.currentWorld
             ? getTriggersForWorld($session.triggers, worldSession.currentWorld.id)
             : []}
-        notes={worldSession.notes}
-        notesVisible={worldSession.notesVisible}
-        notesRegistered={worldSession.notesRegistered}
-        debugConsoleEntries={debugConsole?.entries ?? []}
-        debugConsoleVisible={debugConsole?.visible ?? false}
-        debugConsoleRegistered={debugConsole?.registered ?? false}
+        channels={channels}
         linkImagePreviews={appSettings.linkImagePreviews}
         showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
         spellcheckEnabled={appSettings.spellcheckEnabled}
@@ -1627,7 +1628,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
           return;
         }
 
-        void revealDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null);
+      void appServices.storage.revealDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null);
       }}
       onOpenLoggingSettings={() => {
         closeLoggingModal();

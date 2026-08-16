@@ -1,4 +1,9 @@
 import { focusElement, nextFrame, scrollElementBy, scrollElementToBottom, scrollElementToTop } from './session-dom';
+import { type InputBarId } from './input-bars';
+import type { DebugConsoleEntry } from './debug-console';
+import DebugConsolePanel from './components/play/DebugConsolePanel.svelte';
+import NotesPanel from './components/play/NotesPanel.svelte';
+import type { ChannelBarControlVM, ChannelTabVM } from './components/play/channel';
 import type { WorldTabSessionState } from './world-session';
 import type { WorldSessionContainerRegistry } from './world-session-container';
 import type { WorldSessionKey } from './world-session-registry';
@@ -9,7 +14,7 @@ import {
 } from './world-dom';
 import { flushPendingNotesSave } from './session-world-input';
 
-interface WorldPanelActionContext {
+interface WorldChannelActionContext {
   getActiveWorldTabId: () => string | null;
   resolveActiveWorldScope: () => string | null;
   getWorldSession: (tabId: string) => WorldTabSessionState;
@@ -18,19 +23,134 @@ interface WorldPanelActionContext {
   worldSessionContainers: WorldSessionContainerRegistry;
 }
 
-export function createWorldPanelActions({
+export interface WorldChannelViewContext {
+  currentWorldName: string;
+  currentCharacterName: string | null;
+  scope: string;
+  activeBar: InputBarId;
+  notes: string;
+  spellcheckEnabled: boolean;
+  spellcheckLanguage: string;
+  spellcheckIgnoredWords: string;
+  spellcheckSuggestionLimit: number;
+  spellcheckMinimumWordLength: number;
+  spellcheckDebounceMs: number;
+  onNotesInput: (notes: string) => void;
+  onSpellcheckIgnoreWord: (word: string) => void;
+  onNotesClose: () => void;
+  onCloseNotesTab: () => void;
+  onDebugConsoleClose: () => void;
+  onCloseDebugConsoleTab: () => void;
+  onOpenFuzzballStorageViewer: () => void;
+}
+
+export interface WorldChannelState {
+  notesVisible: boolean;
+  notesRegistered: boolean;
+  debugConsoleVisible: boolean;
+  debugConsoleRegistered: boolean;
+  debugConsoleEntries: DebugConsoleEntry[];
+}
+
+export interface WorldChannelsViewModel {
+  tabs: ChannelTabVM[];
+  controls: ChannelBarControlVM[];
+}
+
+export function createWorldChannelActions({
   getActiveWorldTabId,
   resolveActiveWorldScope,
   getWorldSession,
   getWorldSessionKeyForTab,
   updateWorldSession,
   worldSessionContainers,
-}: WorldPanelActionContext) {
+}: WorldChannelActionContext) {
   let suppressTranscriptScrollState = false;
 
   function getDebugConsole(tabId: string) {
     const sessionKey = getWorldSessionKeyForTab(tabId);
     return sessionKey ? worldSessionContainers.debugConsole.ensure(sessionKey) : null;
+  }
+
+  function getWorldChannelState(tabId: string): WorldChannelState {
+    const session = getWorldSession(tabId);
+    const debugConsole = getDebugConsole(tabId);
+
+    return {
+      notesVisible: session.notesVisible,
+      notesRegistered: session.notesRegistered,
+      debugConsoleVisible: debugConsole?.visible ?? false,
+      debugConsoleRegistered: debugConsole?.registered ?? false,
+      debugConsoleEntries: debugConsole?.entries ?? [],
+    };
+  }
+
+  function getWorldChannelsViewModel(tabId: string, context: WorldChannelViewContext): WorldChannelsViewModel {
+    const state = getWorldChannelState(tabId);
+
+    const tabs: ChannelTabVM[] = [
+      ...(state.notesRegistered || state.notesVisible
+        ? [
+            {
+              id: 'notes',
+              label: 'notes',
+              open: state.notesVisible,
+              panelComponent: NotesPanel,
+              panelProps: {
+                embedded: true,
+                notes: context.notes,
+                scope: context.scope,
+                spellcheckEnabled: context.spellcheckEnabled,
+                spellcheckLanguage: context.spellcheckLanguage,
+                spellcheckIgnoredWords: context.spellcheckIgnoredWords,
+                spellcheckSuggestionLimit: context.spellcheckSuggestionLimit,
+                spellcheckMinimumWordLength: context.spellcheckMinimumWordLength,
+                spellcheckDebounceMs: context.spellcheckDebounceMs,
+                onInput: context.onNotesInput,
+                onIgnoreWord: context.onSpellcheckIgnoreWord,
+                onClose: context.onNotesClose,
+              },
+              onClose: context.onCloseNotesTab,
+            },
+          ]
+        : []),
+      ...(state.debugConsoleRegistered || state.debugConsoleVisible
+        ? [
+            {
+              id: 'debug-console',
+              label: 'debug console',
+              open: state.debugConsoleVisible,
+              panelComponent: DebugConsolePanel,
+              panelProps: {
+                embedded: true,
+                entries: state.debugConsoleEntries,
+                scope: context.scope,
+                activeBar: context.activeBar,
+                onClose: context.onDebugConsoleClose,
+              },
+              onClose: context.onCloseDebugConsoleTab,
+            },
+          ]
+        : []),
+    ] satisfies ChannelTabVM[];
+
+    const controls: ChannelBarControlVM[] = [
+      {
+        id: 'fuzzball-storage-viewer',
+        label: context.currentCharacterName
+          ? `${context.currentWorldName} · ${context.currentCharacterName} storage`
+          : `${context.currentWorldName} storage`,
+        title: context.currentCharacterName
+          ? `world: ${context.currentWorldName} · character: ${context.currentCharacterName}`
+          : `world: ${context.currentWorldName}`,
+        onClick: context.onOpenFuzzballStorageViewer,
+      },
+    ];
+
+    return {
+      tabs,
+      controls,
+    };
   }
 
   function updateOutputScrollState(tabId: string, outputEl: HTMLElement): void {
@@ -219,5 +339,9 @@ export function createWorldPanelActions({
     handleScrollToBottom,
     togglePanel,
     closePanel,
+    getWorldChannelState,
+    getWorldChannelsViewModel,
   };
 }
+
+export const createWorldPanelActions = createWorldChannelActions;

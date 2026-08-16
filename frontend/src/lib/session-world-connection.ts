@@ -1,5 +1,5 @@
+import { appServices } from './app-services';
 import { buildHighlightRegexes } from './formatting';
-import { loadNotes, loadTranscriptHistory } from './storage';
 import { playBeep } from './playback';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { focusElement } from './session-dom';
@@ -73,8 +73,8 @@ export function createWorldConnectionActions({
       const highlightRegexes = buildHighlightRegexes(getHighlightTriggers(stateSnapshot.triggers));
       const [notes, history] = character
         ? await Promise.all([
-            loadNotes(character.id, false),
-            loadTranscriptHistory(character.id, maxHistoryLines, false),
+            appServices.storage.loadNotes(character.id, false),
+            appServices.storage.loadTranscriptHistory(character.id, maxHistoryLines, false),
           ])
         : ['', []];
 

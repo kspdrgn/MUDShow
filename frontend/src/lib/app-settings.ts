@@ -256,9 +256,9 @@ export function loadAppSettings(): AppSettings {
   return settings;
 }
 
-export function saveAppSettings(settings: AppSettings): void {
+export function saveAppSettings(settings: AppSettings): AppSettings {
   if (typeof window === 'undefined') {
-    return;
+    return settings;
   }
 
   const next: AppSettings = {
@@ -314,4 +314,5 @@ export function saveAppSettings(settings: AppSettings): void {
 
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
   setDesktopStorageMode(next.storageMode);
+  return next;
 }

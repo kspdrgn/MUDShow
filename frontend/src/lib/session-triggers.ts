@@ -1,6 +1,6 @@
 import type { Writable } from 'svelte/store';
+import { appServices } from './app-services';
 import { buildHighlightRegexes } from './formatting';
-import { saveTriggers } from './storage';
 import { APP_TRIGGER_OWNER, createTriggerId, triggerOwnerEquals } from './triggers';
 import type { HighlightDraft, HighlightRule, Rule, RuleDraft, Trigger, TriggerOwner, CharacterRecord } from './types';
 import type { SessionState } from './session-state';
@@ -74,7 +74,7 @@ export function createTriggerActions({
 
     const next = [...state.triggers];
     next[triggerIndex] = updater(current);
-    void saveTriggers(next);
+    void appServices.storage.saveTriggers(next);
     syncHighlightRegexes(next);
     patch({ triggers: next });
   }
@@ -114,7 +114,7 @@ export function createTriggerActions({
       next[triggerIndex] = nextHighlight;
     }
 
-    void saveTriggers(next);
+    void appServices.storage.saveTriggers(next);
     syncHighlightRegexes(next);
     patch({ triggers: next });
   }
@@ -128,7 +128,7 @@ export function createTriggerActions({
 
     const next = [...state.triggers];
     next.splice(triggerIndex, 1);
-    void saveTriggers(next);
+    void appServices.storage.saveTriggers(next);
     syncHighlightRegexes(next);
     patch({ triggers: next });
   }
@@ -176,7 +176,7 @@ export function createTriggerActions({
       next[triggerIndex] = nextRule;
     }
 
-    void saveTriggers(next);
+    void appServices.storage.saveTriggers(next);
     patch({ triggers: next });
   }
 
@@ -189,7 +189,7 @@ export function createTriggerActions({
 
     const next = [...state.triggers];
     next.splice(triggerIndex, 1);
-    void saveTriggers(next);
+    void appServices.storage.saveTriggers(next);
     patch({ triggers: next });
   }
 
@@ -221,7 +221,7 @@ export function createTriggerActions({
       next.splice(insertAfterIndex + 1, 0, moved);
     }
 
-    void saveTriggers(next);
+    void appServices.storage.saveTriggers(next);
     syncHighlightRegexes(next);
     patch({ triggers: next });
   }

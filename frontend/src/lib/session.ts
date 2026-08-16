@@ -8,12 +8,12 @@ import { createAppShortcutActions } from './session-app-shortcuts';
 import { createWorldConnectionActions } from './session-world-connection';
 import { createWorldCaptureActions } from './session-world-capture';
 import { createWorldInputActions } from './session-world-input';
-import { createWorldPanelActions } from './session-world-panels';
+import { createWorldChannelActions } from './session-channels';
 import { createWorldShortcutActions } from './session-world-shortcuts';
 import { createTriggerActions } from './session-triggers';
 import { createWorldTranscriptActions } from './session-world-transcript';
 import { focusElement, nextFrame } from './session-dom';
-import { loadSessionData } from './storage';
+import { appServices } from './app-services';
 import type { CharacterRecord, HighlightRule, Trigger, WorldRecord } from './types';
 import {
   CHARACTERS_TAB_ID,
@@ -704,7 +704,7 @@ function createSession() {
     worldSessionContainers,
   });
 
-  const panelActions = createWorldPanelActions({
+  const channelActions = createWorldChannelActions({
     getActiveWorldTabId: tabsActions.getActiveWorldTabId,
     resolveActiveWorldScope: () => {
       const tabId = tabsActions.getActiveWorldTabId();
@@ -721,7 +721,7 @@ function createSession() {
     getWorldSession: tabsActions.getWorldSession,
     updateWorldSession: tabsActions.updateWorldSession,
     addInputBarAfter: inputActions.addInputBarAfter,
-    togglePanel: panelActions.togglePanel,
+    togglePanel: channelActions.togglePanel,
   });
 
   const appShortcutActions = createAppShortcutActions({
@@ -806,7 +806,8 @@ function createSession() {
     setModalWindowHandlers,
     ...connectionActions,
     ...inputActions,
-    ...panelActions,
+    channels: channelActions,
+    ...channelActions,
     ...shortcutActions,
     ...appShortcutActions,
     ...transcriptActions,

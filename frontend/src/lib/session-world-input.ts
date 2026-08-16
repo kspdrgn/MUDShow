@@ -1,4 +1,4 @@
-import { saveNotes as persistNotes } from './storage';
+import { appServices } from './app-services';
 import { createInputBar, getNextInputBarId, normalizeInputBars, type InputBarId } from './input-bars';
 import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
 import type { WorldSessionContainerRegistry } from './world-session-container';
@@ -48,7 +48,7 @@ function schedulePendingNotesSave(tabId: string, characterId: string, notes: str
       characterId: pending.characterId,
       noteLength: pending.notes.length,
     });
-    void persistNotes(pending.characterId, pending.notes);
+    void appServices.storage.saveNotes(pending.characterId, pending.notes);
   }, 300);
 
   pendingNotesSaves.set(tabId, {
@@ -71,7 +71,7 @@ export function flushPendingNotesSave(tabId: string): void {
     characterId: pending.characterId,
     noteLength: pending.notes.length,
   });
-  void persistNotes(pending.characterId, pending.notes);
+  void appServices.storage.saveNotes(pending.characterId, pending.notes);
 }
 
 export function cancelPendingNotesSave(tabId: string): void {

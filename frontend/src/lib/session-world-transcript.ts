@@ -3,12 +3,7 @@ import {
   appendDebugConsoleEntry,
   type DebugConsoleDirection,
 } from './debug-console';
-import {
-  loadNotes,
-  loadTranscriptHistory,
-  saveNotes as persistNotes,
-  saveTranscriptHistory,
-} from './storage';
+import { appServices } from './app-services';
 import { generateLogFilename, getLogFileName, stripTranscriptForLog } from './logging';
 import { isTauriAvailable, invoke } from './tauri';
 import { nextFrame, scrollElementToBottom } from './session-dom';
@@ -50,20 +45,6 @@ export function createWorldTranscriptActions({
     logWriteQueues.delete(tabId);
   }
 
-  function isAppFocused(): boolean {
-    return typeof document !== 'undefined' && !document.hidden && document.hasFocus();
-  }
-
-  function setWindowAttention(enabled: boolean): void {
-    if (!isTauriAvailable()) {
-      return;
-    }
-
-    void invoke('window_request_attention', { enabled }).catch((error) => {
-      console.error('failed to update window attention:', error);
-    });
-  }
-
   function clearActiveTabActivity(): void {
     const tabId = getActiveWorldTabId();
     if (!tabId) {
@@ -81,7 +62,7 @@ export function createWorldTranscriptActions({
 
   function noteOutputActivity(tabId: string): void {
     const activeTabId = getActiveWorldTabId();
-    const appFocused = isAppFocused();
+    const appFocused = appServices.windowAttention.isAppFocused();
 
     if (activeTabId !== tabId || !appFocused) {
       const current = getWorldSession(tabId);
@@ -91,7 +72,7 @@ export function createWorldTranscriptActions({
     }
 
     if (!appFocused) {
-      setWindowAttention(true);
+      appServices.windowAttention.requestAttention(true);
     }
   }
 
@@ -147,7 +128,7 @@ export function createWorldTranscriptActions({
     if (session.currentCharacter && maxHistoryLines > 0) {
       const transcriptHistory = appendTranscriptHistory(session.transcriptHistory, rawText, maxHistoryLines);
       updateWorldSession(tabId, { transcriptHistory });
-      void saveTranscriptHistory(session.currentCharacter.id, transcriptHistory, maxHistoryLines);
+      void appServices.storage.saveTranscriptHistory(session.currentCharacter.id, transcriptHistory, maxHistoryLines);
     }
 
     updateWorldSession(tabId, {
@@ -364,13 +345,13 @@ export function createWorldTranscriptActions({
 
   function handleVisibilityChange(): void {
     if (!document.hidden) {
-      setWindowAttention(false);
+      appServices.windowAttention.requestAttention(false);
       clearActiveTabActivity();
     }
   }
 
   function handleWindowFocus(): void {
-    setWindowAttention(false);
+    appServices.windowAttention.requestAttention(false);
     clearActiveTabActivity();
   }
 

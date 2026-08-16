@@ -1,8 +1,38 @@
-# World Session DI
+# Dependency Injection
 
-This document describes the dependency injection shape for world-session scoped state and services.
+This document describes the dependency injection shape for app-wide and world-session scoped state and services.
 
-## Scope
+## App Scope DI
+
+The app-wide DI registry is the owner of services and shared app state that are used across multiple parts of the UI.
+
+It is organized into namespaces for different systems:
+
+- `storage` for persistence, file location management, and app data loading/saving
+- `settings` for app settings state, normalization, and updates
+- `spellcheck` for shared spellcheck configuration and request helpers
+- `windowAttention` for app-level attention and unseen-activity coordination
+
+The app-wide registry should hold long-lived services rather than forcing the app shell to pass storage, settings, or spellcheck callbacks through many component layers.
+The registry should expose stable service methods and shared state accessors so feature modules can depend on a small number of named app services.
+The registry should keep UI-local state out of shared services unless that state must survive across components or coordinate app-wide behavior.
+
+### App Usage
+
+- Use `storage` methods to load, save, and move persisted app data.
+- Use `settings` methods to read, update, and persist app settings.
+- Use `spellcheck` methods to normalize ignored words and perform shared spellcheck requests.
+- Use `windowAttention` methods to track focus state, unseen activity, and attention requests.
+- Prefer the app-wide registry when a caller needs a cross-cutting service that is used in more than one feature area.
+- Keep the app shell thin. It may coordinate registry setup and high-level flows, but it should not become the owner of storage, settings, spellcheck, or attention service state.
+
+### App Intended Direction
+
+The app-wide DI registry is the place where future global services should live when they are shared across the whole application.
+
+The goal is to reduce callback plumbing and make app-wide behavior available through stable service boundaries, while still keeping feature-local UI state and world/session-specific behavior in their own modules.
+
+## World Session Scope DI
 
 A world session is identified by a `WorldSessionKey`, made from:
 
@@ -11,7 +41,7 @@ A world session is identified by a `WorldSessionKey`, made from:
 
 The registry itself is keyed only by `WorldSessionKey`. Tab-to-session translation lives in the session layer or in callers that already have the tab record.
 
-## Shape
+### Shape
 
 The world-session DI registry is the owner of the world session container for each active world session.
 
@@ -25,7 +55,7 @@ The container should hold the session-scoped connection object rather than expos
 The container should not own a separate connection id field when the tab record or connection object already carries that identity.
 The container should also own the per-session debug console state so the session shell only coordinates visibility and rendering.
 
-## Usage
+### Usage
 
 - Use `container` methods to create, retrieve, replace, and remove world-session records.
 - Use `connection` methods to resolve or create the session-owned connection.
@@ -34,7 +64,7 @@ The container should also own the per-session debug console state so the session
 - Prefer tab-derived key helpers in session-level code when the caller starts from a world tab.
 - Keep session-shell code thin. It may coordinate tabs and higher-level flows, but it should not become the owner of connection state, connection metadata, or debug console state.
 
-## Intended Direction
+### Intended Direction
 
 The DI container is the place where future world-session services should live when they are scoped to a specific world and character pair.
 

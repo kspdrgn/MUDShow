@@ -1,11 +1,8 @@
-<script lang="ts">
+  <script lang="ts">
   import { type InputBarConfig, type InputBarId } from '../../input-bars';
   import { onMount } from 'svelte';
   import type { Trigger } from '../../types';
   import type { PlayTranscript, RenderCache } from '../../playback';
-  import type { DebugConsoleEntry } from '../../debug-console';
-  import DebugConsolePanel from './DebugConsolePanel.svelte';
-  import NotesPanel from './NotesPanel.svelte';
   import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
   import WorldChannelsBar from './WorldChannelsBar.svelte';
@@ -26,12 +23,14 @@
     onStopLoggingTab: () => void;
     onEditWorldTab: () => void;
     onEditCharacterTab: () => void;
-    onOpenFuzzballStorageViewer: () => void;
     onCloseTab: (anchorRect: DOMRect) => void;
     onOpenNotes: () => void;
     onOpenTriggers: () => void;
     onOpenDebugConsole: () => void;
     onOpenStyles: () => void;
+    onSpellcheckIgnoreWord: (word: string) => void;
+    onNotesClose: () => void;
+    onDebugConsoleClose: () => void;
     onInputFocusBar: (bar: InputBarId) => void;
     onInputSubmit: (bar: InputBarId, value: string) => void;
     onInputComplete: (
@@ -42,12 +41,6 @@
     onInputAddBar: (bar: InputBarId) => void;
     onInputRemoveBar: (bar: InputBarId) => void;
     onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
-    onNotesInput: (notes: string) => void;
-    onSpellcheckIgnoreWord: (word: string) => void;
-    onNotesClose: () => void;
-    onCloseNotesTab: () => void;
-    onDebugConsoleClose: () => void;
-    onCloseDebugConsoleTab: () => void;
     onOutputScroll: () => void;
     onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
     onScrollToBottom: () => void;
@@ -62,12 +55,10 @@
   export let hasNewActivity = false;
   export let loggingActive = false;
   export let triggers: Trigger[] = [];
-  export let notes = '';
-  export let notesVisible = false;
-  export let notesRegistered = false;
-  export let debugConsoleEntries: DebugConsoleEntry[] = [];
-  export let debugConsoleVisible = false;
-  export let debugConsoleRegistered = false;
+  export let channels: { tabs: ChannelTabVM[]; controls: ChannelBarControlVM[] } = {
+    tabs: [],
+    controls: [],
+  };
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
@@ -105,72 +96,11 @@
   let lastVisible = visible;
   let channelsPanelResizing = false;
   let channelsPanelResizeLockedHeight = 0;
-  const customChannelBarControlId = 'custom-channel-bar-control';
   const notesChannelId = 'notes';
   const debugConsoleChannelId = 'debug-console';
 
-  $: channelTabs = [
-    ...(notesRegistered || notesVisible
-      ? [
-          {
-            id: notesChannelId,
-            label: 'notes',
-            open: notesVisible,
-            panelComponent: NotesPanel,
-            panelProps: {
-              embedded: true,
-              notes,
-              scope,
-              spellcheckEnabled,
-              spellcheckLanguage,
-              spellcheckIgnoredWords,
-              spellcheckSuggestionLimit,
-              spellcheckMinimumWordLength,
-              spellcheckDebounceMs,
-              onInput: actions.onNotesInput,
-              onIgnoreWord: actions.onSpellcheckIgnoreWord,
-              onClose: actions.onNotesClose,
-            },
-            onClose: actions.onCloseNotesTab,
-          },
-        ]
-      : []),
-    ...(debugConsoleRegistered || debugConsoleVisible
-      ? [
-          {
-            id: debugConsoleChannelId,
-            label: 'debug console',
-            open: debugConsoleVisible,
-            panelComponent: DebugConsolePanel,
-            panelProps: {
-              embedded: true,
-              entries: debugConsoleEntries,
-              scope,
-              activeBar,
-              onClose: actions.onDebugConsoleClose,
-            },
-            onClose: actions.onCloseDebugConsoleTab,
-          },
-        ]
-      : []),
-  ] satisfies ChannelTabVM[];
-
-  $: channelBarControls = [
-    {
-      id: 'fuzzball-storage-viewer',
-      label: 'me=/',
-      title: 'open fuzzball storage viewer',
-      onClick: actions.onOpenFuzzballStorageViewer,
-    },
-    {
-      id: customChannelBarControlId,
-      label: 'custom',
-      title: 'Placeholder custom control',
-      onClick: () => {
-        console.debug('[play] custom channel bar control clicked');
-      },
-    },
-  ] satisfies ChannelBarControlVM[];
+  $: channelTabs = channels.tabs;
+  $: channelBarControls = channels.controls;
 
   $: channelPanelOpen = channelTabs.some((tab) => tab.open);
   $: channelBarHasEntries = channelTabs.length > 0 || channelBarControls.length > 0;
@@ -209,35 +139,35 @@
   }
 
   function toggleChannel(tabId: ChannelTabId): void {
-    if (tabId === notesChannelId) {
-      if (notesVisible) {
-        closeAllChannels();
-      } else {
-        channelBarAwake = true;
-        clearChannelBarTimer();
-        actions.onOpenNotes();
-      }
+    const tab = channelTabs.find((entry) => entry.id === tabId);
+    if (!tab) {
       return;
     }
 
-    if (tabId !== debugConsoleChannelId) {
-      return;
-    }
-
-    if (debugConsoleVisible) {
+    if (tab.open) {
       closeAllChannels();
       return;
     }
 
     channelBarAwake = true;
     clearChannelBarTimer();
-    actions.onOpenDebugConsole();
+    if (tabId === notesChannelId) {
+      actions.onOpenNotes();
+    } else if (tabId === debugConsoleChannelId) {
+      actions.onOpenDebugConsole();
+    }
   }
 
   function closeAllChannels(): void {
-    if (notesVisible) {
+    const openTab = channelTabs.find((tab) => tab.open);
+    if (!openTab) {
+      scheduleChannelBarHide();
+      return;
+    }
+
+    if (openTab.id === notesChannelId) {
       actions.onNotesClose();
-    } else if (debugConsoleVisible) {
+    } else if (openTab.id === debugConsoleChannelId) {
       actions.onDebugConsoleClose();
     }
     scheduleChannelBarHide();

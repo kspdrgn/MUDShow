@@ -1,6 +1,6 @@
 import type { Writable } from 'svelte/store';
+import { appServices } from './app-services';
 import type { CharacterDraft, CharacterRecord, WorldDraft, WorldRecord } from './types';
-import { deleteNotes, deleteTranscriptHistory, saveConnectionData, saveTriggers } from './storage';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
 import { focusElement, nextFrame } from './session-dom';
 import { removeTriggersForCharacter, removeTriggersForWorld } from './session-triggers';
@@ -219,7 +219,7 @@ export function createCharacterActions({
       ? state.worlds.map((entry) => (entry.id === previousWorld.id ? { ...entry, ...world } : entry))
       : [...state.worlds, world];
 
-    await saveConnectionData(nextWorlds, state.characters);
+    await appServices.storage.saveConnectionData(nextWorlds, state.characters);
 
     patch({
       worlds: nextWorlds,
@@ -257,7 +257,7 @@ export function createCharacterActions({
       ? [...state.characters, nextCharacter]
       : state.characters.map((entry, index) => (index === state.editingIndex ? nextCharacter : entry));
 
-    await saveConnectionData(state.worlds, nextCharacters);
+    await appServices.storage.saveConnectionData(state.worlds, nextCharacters);
 
     patch({
       characters: nextCharacters,
@@ -285,10 +285,10 @@ export function createCharacterActions({
     const nextCharacters = state.characters.filter((character) => character.worldId !== removed.id);
     const nextTriggers = removeTriggersForWorld(state.triggers, removed.id, removedCharacters);
 
-    await saveConnectionData(nextWorlds, nextCharacters);
-    await Promise.all(removedCharacters.map((character) => deleteNotes(character.id)));
-    await Promise.all(removedCharacters.map((character) => deleteTranscriptHistory(character.id)));
-    await saveTriggers(nextTriggers);
+    await appServices.storage.saveConnectionData(nextWorlds, nextCharacters);
+    await Promise.all(removedCharacters.map((character) => appServices.storage.deleteNotes(character.id)));
+    await Promise.all(removedCharacters.map((character) => appServices.storage.deleteTranscriptHistory(character.id)));
+    await appServices.storage.saveTriggers(nextTriggers);
     onWorldDeleted?.(removed.id);
     patch({
       worlds: nextWorlds,
@@ -308,10 +308,10 @@ export function createCharacterActions({
     const next = state.characters.filter((_, currentIndex) => currentIndex !== index);
     const nextTriggers = removeTriggersForCharacter(state.triggers, removed.id);
 
-    await saveConnectionData(state.worlds, next);
-    await deleteNotes(removed.id);
-    await deleteTranscriptHistory(removed.id);
-    await saveTriggers(nextTriggers);
+    await appServices.storage.saveConnectionData(state.worlds, next);
+    await appServices.storage.deleteNotes(removed.id);
+    await appServices.storage.deleteTranscriptHistory(removed.id);
+    await appServices.storage.saveTriggers(nextTriggers);
     onCharacterDeleted?.(removed.id);
     patch({
       characters: next,
