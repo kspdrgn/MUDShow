@@ -36,7 +36,6 @@ import {
   updateFuzzballStorageViewerSelection,
   type FuzzballStorageViewerState,
 } from './lib/fuzzball/storage-viewer';
-import { getFuzzballStorageNodeLoadPath } from './lib/fuzzball/storage-cache';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
@@ -382,26 +381,6 @@ function openLoggingModal(tabId: string): void {
     return fuzzballStorageWindowStates[windowId] ?? createFuzzballStorageViewerState('', '', '', 'fuzzball storage viewer');
   }
 
-  function requestFuzzballStorageNodeLoad(state: FuzzballStorageViewerState, nodePath: string): void {
-    if (!state.sourceTabId) {
-      return;
-    }
-
-    const requestPath = getFuzzballStorageNodeLoadPath(state, nodePath);
-    const command = `examine me=${requestPath}\r\n`;
-    console.debug('[fuzzball storage] requesting node load', {
-      sourceTabId: state.sourceTabId,
-      worldId: state.worldId,
-      characterId: state.characterId,
-      nodePath,
-      requestPath,
-      command: command.trimEnd(),
-    });
-    session.worldSessionContainers.connection
-      .get({ worldId: state.worldId, characterId: state.characterId })
-      ?.send(command);
-  }
-
   function setFuzzballStorageWindowState(
     windowId: string,
     update: (state: FuzzballStorageViewerState) => FuzzballStorageViewerState,
@@ -433,9 +412,7 @@ function openLoggingModal(tabId: string): void {
       return;
     }
 
-    toggleFuzzballStorageViewerNode(currentState, nodeId, (nodePath) =>
-      requestFuzzballStorageNodeLoad(currentState, nodePath),
-    );
+    toggleFuzzballStorageViewerNode(currentState, nodeId, session.worldSessionContainers);
   }
 
   function expandAllFuzzballStorageWindowNodes(windowId: string): void {

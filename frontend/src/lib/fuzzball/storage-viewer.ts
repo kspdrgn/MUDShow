@@ -1,6 +1,10 @@
-import { fuzzballStorageCache } from './storage-cache.js';
-import type { FuzzBallPropertyTreeCache } from './storage-cache.js';
+import { fuzzballStorageCache, getFuzzballStorageNodeLoadPath } from './storage-cache';
+import type { FuzzBallPropertyTreeCache } from './storage-cache';
 import type { TreeDataNode, TreeDataWindowModel } from '../components/tree-data/tree-data-view.js';
+import {
+  createWorldSessionKey,
+  type WorldSessionContainerRegistry,
+} from '../world-session-container';
 
 export interface FuzzballStorageViewerState {
   sourceTabId: string;
@@ -81,6 +85,30 @@ export function updateFuzzballStorageViewerSelection(
   };
 }
 
+export function requestFuzzballStorageNodeLoad(
+  state: FuzzballStorageViewerState,
+  nodePath: string,
+  worldSessionContainers: WorldSessionContainerRegistry | null = null,
+): void {
+  if (!state.sourceTabId || !worldSessionContainers) {
+    return;
+  }
+
+  const requestPath = getFuzzballStorageNodeLoadPath(state, nodePath);
+  const command = `examine me=${requestPath}\r\n`;
+  console.debug('[fuzzball storage] requesting node load', {
+    sourceTabId: state.sourceTabId,
+    worldId: state.worldId,
+    characterId: state.characterId,
+    nodePath,
+    requestPath,
+    command: command.trimEnd(),
+  });
+  worldSessionContainers.connection
+    .get(createWorldSessionKey(state.worldId, state.characterId))
+    ?.send(command);
+}
+
 export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerState): TreeDataWindowModel {
   const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
   const root = buildTreeNode(cache, '/') ?? {
@@ -124,7 +152,7 @@ function walkKnownTreePaths(
 export function toggleFuzzballStorageViewerNode(
   state: FuzzballStorageViewerState,
   nodeId: string,
-  onRequestNodeLoad: ((nodePath: string) => void) | null = null,
+  worldSessionContainers: WorldSessionContainerRegistry | null = null,
 ): void {
   const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
   const node = cache.getSnapshot(nodeId);
@@ -139,7 +167,7 @@ export function toggleFuzzballStorageViewerNode(
   }
 
   if (!node || !node.isValueLoaded || !node.areChildrenLoaded) {
-    onRequestNodeLoad?.(nodeId);
+    requestFuzzballStorageNodeLoad(state, nodeId, worldSessionContainers);
   }
 
   cache.markExpanded(nodeId);
