@@ -134,6 +134,11 @@ export function createCharacterActions({
       });
     }
 
+    appServices.notice.openNotice({
+      kind: 'custom',
+      surfaceId: 'world-modal',
+      title,
+    });
     onModalWindowOpen?.('world', title);
 
     await nextFrame();
@@ -176,6 +181,11 @@ export function createCharacterActions({
       });
     }
 
+    appServices.notice.openNotice({
+      kind: 'custom',
+      surfaceId: 'character-modal',
+      title,
+    });
     onModalWindowOpen?.('character', title);
 
     await nextFrame();
@@ -195,6 +205,7 @@ export function createCharacterActions({
       editingIndex: null,
       characterWorldId: null,
     });
+    appServices.notice.closeNotice();
   }
 
   async function saveWorld(draft: WorldDraft): Promise<void> {
@@ -229,6 +240,7 @@ export function createCharacterActions({
       editingIndex: null,
       characterWorldId: null,
     });
+    appServices.notice.closeNotice();
     if (state.modalKind) {
       onModalWindowClose?.(state.modalKind);
     }
@@ -267,6 +279,7 @@ export function createCharacterActions({
       editingIndex: null,
       characterWorldId: null,
     });
+    appServices.notice.closeNotice();
     if (state.modalKind) {
       onModalWindowClose?.(state.modalKind);
     }
@@ -322,6 +335,7 @@ export function createCharacterActions({
       editingIndex: null,
       characterWorldId: null,
     });
+    appServices.notice.closeNotice();
     if (state.modalKind) {
       onModalWindowClose?.(state.modalKind);
     }

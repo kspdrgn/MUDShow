@@ -32,6 +32,7 @@ While the app settings tab stays open, it remembers the last selected tab. If th
   - Reveal file - A white 'folder' button opens the current database folder in the OS file manager and selects the file.
   - Move file - A yellow 'file move' button opens a native save dialog, copies the database file to the selected location, and removes the old file after a successful copy when it is safe to do so.
   - Pick different file - A red 'file open' button opens a native file picker dialog starting at the current database file location. The user can select a JSON database file, and the app will set this file as the current database file and load from it, ignoring the original file.
+- If the user tries to import settings while any world tabs are open, the app shows an app notice that asks them to close the world tabs first.
 - The app uses the default location when this setting is null or invalid.
 - The location of the database file is stored within the app's webview storage, so custom locations can be remembered.
 - All settings (besides the location of the settings file) are saved immediately to the database file

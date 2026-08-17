@@ -1588,6 +1588,52 @@ body {
   pointer-events: none;
 }
 
+.app-notice-root {
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  pointer-events: none;
+}
+
+.app-notice-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+}
+
+.app-notice-stack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.app-notice-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: fit-content;
+  height: fit-content;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  background: var(--surface);
+  border: 1px solid var(--border-active);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.app-notice-body {
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem 1.1rem 1.1rem;
+  overflow: auto;
+}
+
 .window-shell {
   position: fixed;
   display: flex;

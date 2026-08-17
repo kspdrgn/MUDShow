@@ -92,23 +92,23 @@
   }
 
   function selectHighlight(id: string, event: MouseEvent): void {
-    selectTreeItem(event, { kind: 'highlight', id });
+    void selectTreeItem(event, { kind: 'highlight', id });
   }
 
   function selectRule(id: string, event: MouseEvent): void {
-    selectTreeItem(event, { kind: 'rule', id });
+    void selectTreeItem(event, { kind: 'rule', id });
   }
 
   function selectWorld(worldId: string, event: MouseEvent): void {
-    selectTreeItem(event, { kind: 'world', worldId });
+    void selectTreeItem(event, { kind: 'world', worldId });
   }
 
   function selectCharacter(characterId: string, event: MouseEvent): void {
-    selectTreeItem(event, { kind: 'character', characterId });
+    void selectTreeItem(event, { kind: 'character', characterId });
   }
 
-  function selectTreeItem(event: MouseEvent, selection: SelectableTreeSelection): void {
-    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+  async function selectTreeItem(event: MouseEvent, selection: SelectableTreeSelection): Promise<void> {
+    const dirtyCheck = await confirmTriggerEditorDiscard(editorDirty);
     editorDirty = dirtyCheck.dirty;
     if (!dirtyCheck.accepted) {
       return;
@@ -165,8 +165,8 @@
     return null;
   }
 
-  function addHighlight(): void {
-    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+  async function addHighlight(): Promise<void> {
+    const dirtyCheck = await confirmTriggerEditorDiscard(editorDirty);
     editorDirty = dirtyCheck.dirty;
     if (!dirtyCheck.accepted) {
       return;
@@ -187,8 +187,8 @@
     pendingDraftOwner = owner;
   }
 
-  function addRule(): void {
-    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+  async function addRule(): Promise<void> {
+    const dirtyCheck = await confirmTriggerEditorDiscard(editorDirty);
     editorDirty = dirtyCheck.dirty;
     if (!dirtyCheck.accepted) {
       return;
@@ -261,7 +261,7 @@
       return;
     }
 
-    selectTreeItem(event, getNodeSelection(item));
+    void selectTreeItem(event, getNodeSelection(item));
   }
 
   function handleNodeKeydown(event: KeyboardEvent, item: FlatTreeItem): void {
@@ -301,7 +301,7 @@
     dropIndicatorIndex = getDropIndicatorIndexFromPoint(event.clientY);
   }
 
-  function handlePointerUp(event: PointerEvent): void {
+  async function handlePointerUp(event: PointerEvent): Promise<void> {
     const dragState = pointerDragState;
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
@@ -318,7 +318,7 @@
     suppressNextClick = true;
     event.preventDefault();
 
-    const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+    const dirtyCheck = await confirmTriggerEditorDiscard(editorDirty);
     editorDirty = dirtyCheck.dirty;
     if (!dirtyCheck.accepted) {
       return;
@@ -348,7 +348,7 @@
 
     const key = getSelectionKey(selection);
     if (!selectedKeys.has(key)) {
-      const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+      const dirtyCheck = await confirmTriggerEditorDiscard(editorDirty);
       editorDirty = dirtyCheck.dirty;
       if (!dirtyCheck.accepted) {
         return;
@@ -561,8 +561,8 @@
           selectedItem = null;
         }}
         onSave={(draft) => saveHighlight(selectedHighlightId, selectedHighlight?.owner ?? APP_TRIGGER_OWNER, draft)}
-        onDelete={() => {
-          const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+        onDelete={async () => {
+          const dirtyCheck = await confirmTriggerEditorDiscard(editorDirty);
           editorDirty = dirtyCheck.dirty;
           if (dirtyCheck.accepted) {
             onHighlightDelete(selectedHighlightId);
@@ -598,8 +598,8 @@
           selectedItem = null;
         }}
         onSave={(draft) => saveRule(selectedRuleId, selectedRule?.owner ?? APP_TRIGGER_OWNER, draft)}
-        onDelete={() => {
-          const dirtyCheck = confirmTriggerEditorDiscard(editorDirty, window.confirm.bind(window));
+        onDelete={async () => {
+          const dirtyCheck = await confirmTriggerEditorDiscard(editorDirty);
           editorDirty = dirtyCheck.dirty;
           if (dirtyCheck.accepted) {
             onRuleDelete(selectedRuleId);

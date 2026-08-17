@@ -1,8 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { appServices } from '../../app-services';
   import {
     createSystemFontShelfEntry,
-    listSystemFonts,
     normalizeFontShelf,
     type FontShelfEntry,
     type SystemFontFamily,
@@ -113,7 +113,7 @@
 
     pickerLoading = true;
     try {
-      systemFonts = await listSystemFonts();
+      systemFonts = await appServices.style.listSystemFonts();
       selectedSystemFamily = filteredSystemFonts[0] ?? systemFonts[0] ?? null;
       if (systemFonts.length === 0) {
         pickerError = 'No system fonts were found.';

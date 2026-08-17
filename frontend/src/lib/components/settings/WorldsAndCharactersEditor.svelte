@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { appServices } from '../../app-services';
   import type { CharacterRecord, WorldRecord } from '../../types';
-  import WindowHost from '../window-host/WindowHost.svelte';
-  import { createWindowRecord } from '../window-host/window-host';
   import {
     buildWorldRows,
     clampMenuPosition,
@@ -32,24 +31,8 @@
   let renderedMenuPosition = menuPosition;
   let repositionToken = 0;
   let worldRows: WorldRowModel[] = [];
-  let deleteWindowRecord: ReturnType<typeof createWindowRecord> | null = null;
 
   $: worldRows = buildWorldRows(worlds, characters);
-  $: deleteWindowRecord = pendingDelete
-    ? createWindowRecord({
-        id: `delete-confirm-${pendingDelete.kind}-${pendingDelete.index}`,
-        surfaceId: 'worlds-and-characters-editor',
-        title: pendingDelete.kind === 'world'
-          ? `delete ${pendingDelete.worldName}?`
-          : `delete ${pendingDelete.characterName}?`,
-        isModal: true,
-        sizeToContent: true,
-        canBackdropDismiss: true,
-        canEscapeDismiss: true,
-        canPopOut: false,
-        canMoveInApp: false,
-      })
-    : null;
 
   function openContextMenu(target: MenuTarget, position: { x: number; y: number }): void {
     window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'characters-editor' } }));
@@ -85,29 +68,36 @@
     closeContextMenu();
   }
 
-  function requestDeleteWorld(index: number): void {
+  async function requestDeleteWorld(index: number): Promise<void> {
     pendingDelete = createWorldDeleteTarget(index, worlds[index]);
-  }
-
-  function requestDeleteCharacter(index: number): void {
-    pendingDelete = createCharacterDeleteTarget(index, characters[index]);
-  }
-
-  function closeDeleteConfirm(): void {
-    pendingDelete = null;
-  }
-
-  function confirmDelete(): void {
-    if (!pendingDelete) {
-      return;
-    }
-
+    const confirmed = await appServices.notice.confirm({
+      surfaceId: 'delete-confirm',
+      title: `delete ${pendingDelete?.worldName ?? 'world'}?`,
+      message: 'Deleting a world will remove all saved characters!',
+      confirmLabel: 'delete',
+      cancelLabel: 'cancel',
+    });
     const target = pendingDelete;
     pendingDelete = null;
 
-    if (target.kind === 'world') {
+    if (confirmed && target && target.kind === 'world') {
       onDeleteWorld(target.index);
-    } else {
+    }
+  }
+
+  async function requestDeleteCharacter(index: number): Promise<void> {
+    pendingDelete = createCharacterDeleteTarget(index, characters[index]);
+    const confirmed = await appServices.notice.confirm({
+      surfaceId: 'delete-confirm',
+      title: `delete ${pendingDelete?.characterName ?? 'character'}?`,
+      message: 'Deleting a character will remove all saved notes, highlights, and stored history.',
+      confirmLabel: 'delete',
+      cancelLabel: 'cancel',
+    });
+    const target = pendingDelete;
+    pendingDelete = null;
+
+    if (confirmed && target && target.kind === 'character') {
       onDeleteCharacter(target.index);
     }
   }
@@ -352,38 +342,4 @@
       </button>
     {/if}
   </div>
-{/if}
-
-{#if deleteWindowRecord}
-  {@const deleteTarget = pendingDelete}
-  {#if deleteTarget}
-    <WindowHost
-      open={true}
-      windows={[deleteWindowRecord]}
-      onClose={closeDeleteConfirm}
-    >
-      <div class="host-modal-content delete-confirm-modal">
-        {#if deleteTarget.kind === 'world'}
-          {@const world = worlds[deleteTarget.index] ?? null}
-          {#if world}
-            <p class="settings-note">
-              {world.host}:{world.port}
-            </p>
-          {/if}
-          <p class="settings-note">Deleting a world will remove all saved characters!</p>
-          <p class="settings-note">
-            Deleting a character will remove all saved notes, highlights, and stored history.
-          </p>
-        {:else}
-          <p class="settings-note">
-            Deleting a character will remove all saved notes, highlights, and stored history.
-          </p>
-        {/if}
-        <div class="modal-actions">
-          <button class="btn" type="button" on:click={closeDeleteConfirm}>cancel</button>
-          <button class="btn danger" type="button" on:click={confirmDelete}>delete</button>
-        </div>
-      </div>
-    </WindowHost>
-  {/if}
 {/if}

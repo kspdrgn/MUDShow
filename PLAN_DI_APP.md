@@ -13,6 +13,9 @@
 - `storage` already behaves like an app-wide service, even though it is currently exposed as a plain module.
 - `app-settings` already behaves like a shared settings service, with load and save logic concentrated in one module.
 - `spellcheck` is a shared cross-cutting feature, but most of its text helpers are still utility-style functions.
+- `spellcheck` now owns the app-wide configuration lookup used by Notes and InputBars.
+- The app-wide registry now includes lifecycle hooks, and storage registers its startup initialization there.
+- App style now has an app-scoped service that resolves the current app style from the default style plus app-level overrides, and owns the font shelf / OS font lookup flow.
 - Window attention logic currently lives inside world transcript/session behavior and should be separated into its own app-level service.
 
 ## Why This Exists
@@ -33,6 +36,8 @@
 ### Likely app-wide
 
 - Spellcheck request helpers and shared spellcheck configuration.
+- App style resolution, including default style values, app-level overrides, and style editor state.
+- Font shelf management and OS font lookup used by the style editor.
 - Fonts if font discovery, validation, or shelf access starts to spread beyond the style/settings area.
 - Logging location helpers if they continue to be accessed from several unrelated surfaces.
 
@@ -54,6 +59,7 @@
 - `storage` for persistence, file location management, and app data load/save operations.
 - `settings` for app settings state, normalization, persistence, and update helpers.
 - `spellcheck` for shared spellcheck requests and spellcheck-related configuration access.
+- `style` for resolving the current app style from the default style and app-level overrides.
 - `windowAttention` for focus tracking, attention requests, and unseen-activity coordination.
 
 ## Function Migration Map
@@ -150,6 +156,28 @@ Suggested split:
 - The settings service owns the ignored-words string because it is persisted app state.
 - Pure text helpers remain standalone utility functions.
 
+### `style`
+
+Move into the app-wide registry:
+
+- default app style values
+- app style editor state
+- app style override loading and saving
+- font shelf loading and saving
+- current app style resolution
+
+Keep private in the app style module:
+
+- style normalization helpers
+- style serialization helpers
+- style editor dirty-state checks
+- pure value resolution helpers
+
+Suggested split:
+
+- The app style service owns the app-level style editor and resolves the current app style.
+- The world-session style service will later compose per-world and per-character style choices on top of the app style service.
+
 ### `windowAttention`
 
 Move into the app-wide registry:
@@ -220,36 +248,42 @@ This order gives the biggest wiring reduction first and leaves the most utility-
 
 ### Phase 1: Establish the Container
 
-- [ ] Define the app-wide registry entry point and its namespace shape.
-- [ ] Decide whether the registry is assembled in one `createAppServices()` function or via small service factories plus a root assembler.
-- [ ] Add the container without moving major behavior yet.
-- [ ] Wire `App.svelte` to create or receive the registry.
-- [ ] Keep the initial implementation small enough that it can still delegate directly to the current modules.
+- [x] Define the app-wide registry entry point and its namespace shape.
+- [x] Decide whether the registry is assembled in one `createAppServices()` function or via small service factories plus a root assembler.
+- [x] Add the container without moving major behavior yet.
+- [x] Wire `App.svelte` to create or receive the registry.
+- [x] Keep the initial implementation small enough that it can still delegate directly to the current modules.
 
 ### Phase 2: Prove the Shape With a Smaller Migration
 
-- [ ] Choose a low-risk migration candidate, likely `windowAttention` or `spellcheck`.
-- [ ] Move the chosen service behind the registry.
-- [ ] Update `App.svelte` and the immediate call sites to use the new service boundary.
-- [ ] Decide where shared configuration or ignored-word mutation should live and keep that ownership consistent.
-- [ ] Confirm the new service shape still feels simple before moving more code.
+- [x] Choose a low-risk migration candidate, likely `windowAttention` or `spellcheck`.
+- [x] Move the chosen service behind the registry.
+- [x] Update `App.svelte` and the immediate call sites to use the new service boundary.
+- [x] Decide where shared configuration or ignored-word mutation should live and keep that ownership consistent.
+- [x] Confirm the new service shape still feels simple before moving more code.
 
 ### Phase 3: Migrate App Settings
 
-- [ ] Move app settings load/save/update behavior behind the registry.
-- [ ] Replace direct settings callbacks passed into components with registry-backed service calls.
-- [ ] Keep `AppSettings` state ownership in one place rather than spreading it through the tree.
+- [x] Move app settings load/save/update behavior behind the registry.
+- [x] Replace direct settings callbacks passed into components with registry-backed service calls.
+- [x] Keep `AppSettings` state ownership in one place rather than spreading it through the tree.
 
 ### Phase 4: Move Storage Last
 
-- [ ] Move storage path and persistence access behind the registry.
-- [ ] Move the app-wide persistence operations into the storage service one group at a time.
-- [ ] Replace direct storage imports in `App.svelte` and feature modules with registry-backed service calls.
-- [ ] Update any components that still depend on storage callbacks after the first passes.
-- [ ] Clean up any now-unused imports or helper paths left behind after the refactor.
+- [x] Move storage path and persistence access behind the registry.
+- [x] Move the app-wide persistence operations into the storage service one group at a time.
+- [x] Replace direct storage imports in `App.svelte` and feature modules with registry-backed service calls.
+- [x] Update any components that still depend on storage callbacks after the first passes.
+- [x] Clean up any now-unused imports or helper paths left behind after the refactor.
 
 ### Phase 5: Verify and Tighten
 
-- [ ] Update related spec or plan docs if the implementation reveals a better boundary.
-- [ ] Run the relevant type checks and targeted tests after each major extraction.
+- [x] Update related spec or plan docs if the implementation reveals a better boundary.
+- [x] Run the relevant type checks and targeted tests after each major extraction.
+- [x] Add a generic app lifecycle hook registry and move storage startup initialization into the storage service.
+- [x] Move resolved default log-folder lookup into the storage service.
+- [x] Move log-folder migration into the storage service so App only consumes the result.
+- [x] Create an app-scoped style service and move app style startup initialization into its lifecycle hook.
+- [x] Move spellcheck configuration lookup into `AppSpellcheckService` and route the main consumers through the registry-backed config.
+- [x] Move the spellcheck ignore-word mutation flow into `AppSpellcheckService`.
 - [ ] Revisit whether `spellcheck` should remain partly utility-based or move more of its shared logic into the service.

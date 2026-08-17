@@ -2,6 +2,7 @@ import type { CharacterRecord, TriggerOwner, WorldRecord } from '../../types';
 import { APP_TRIGGER_OWNER, triggerOwnerEquals } from '../../triggers';
 import type { FlatTreeItem, TreeSelection } from './triggers-tree';
 import { getSelectionKey, getOwnerFromFlatItem } from './triggers-tree';
+import { appServices } from '../../app-services';
 
 export function getSelectionFromFlatItem(item: FlatTreeItem | null): TreeSelection | null {
   if (!item) {
@@ -105,15 +106,20 @@ export function getPreferredNewOwner(options: {
   return APP_TRIGGER_OWNER;
 }
 
-export function confirmDiscardDirtyEditor(
+export async function confirmDiscardDirtyEditor(
   editorDirty: boolean,
-  confirmFn: (message: string) => boolean,
-): { accepted: boolean; dirty: boolean } {
+): Promise<{ accepted: boolean; dirty: boolean }> {
   if (!editorDirty) {
     return { accepted: true, dirty: false };
   }
 
-  const accepted = confirmFn('Discard unsaved trigger changes?');
+  const accepted = await appServices.notice.confirm({
+    surfaceId: 'trigger-discard-confirm',
+    title: 'discard trigger changes?',
+    message: 'Discard unsaved trigger changes?',
+    confirmLabel: 'discard',
+    cancelLabel: 'keep editing',
+  });
   return { accepted, dirty: accepted ? false : true };
 }
 

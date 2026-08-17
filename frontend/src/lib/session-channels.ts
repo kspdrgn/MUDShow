@@ -1,4 +1,5 @@
 import { focusElement, nextFrame, scrollElementBy, scrollElementToBottom, scrollElementToTop } from './session-dom';
+import { appServices } from './app-services';
 import { type InputBarId } from './input-bars';
 import type { DebugConsoleEntry } from './debug-console';
 import DebugConsolePanel from './components/play/DebugConsolePanel.svelte';
@@ -29,12 +30,6 @@ export interface WorldChannelViewContext {
   scope: string;
   activeBar: InputBarId;
   notes: string;
-  spellcheckEnabled: boolean;
-  spellcheckLanguage: string;
-  spellcheckIgnoredWords: string;
-  spellcheckSuggestionLimit: number;
-  spellcheckMinimumWordLength: number;
-  spellcheckDebounceMs: number;
   onNotesInput: (notes: string) => void;
   onSpellcheckIgnoreWord: (word: string) => void;
   onNotesClose: () => void;
@@ -87,6 +82,7 @@ export function createWorldChannelActions({
 
   function getWorldChannelsViewModel(tabId: string, context: WorldChannelViewContext): WorldChannelsViewModel {
     const state = getWorldChannelState(tabId);
+    const spellcheckSettings = appServices.spellcheck.getConfig();
 
     const tabs: ChannelTabVM[] = [
       ...(state.notesRegistered || state.notesVisible
@@ -100,12 +96,12 @@ export function createWorldChannelActions({
                 embedded: true,
                 notes: context.notes,
                 scope: context.scope,
-                spellcheckEnabled: context.spellcheckEnabled,
-                spellcheckLanguage: context.spellcheckLanguage,
-                spellcheckIgnoredWords: context.spellcheckIgnoredWords,
-                spellcheckSuggestionLimit: context.spellcheckSuggestionLimit,
-                spellcheckMinimumWordLength: context.spellcheckMinimumWordLength,
-                spellcheckDebounceMs: context.spellcheckDebounceMs,
+                spellcheckEnabled: spellcheckSettings.enabled,
+                spellcheckLanguage: spellcheckSettings.language,
+                spellcheckIgnoredWords: spellcheckSettings.ignoredWords,
+                spellcheckSuggestionLimit: spellcheckSettings.suggestionLimit,
+                spellcheckMinimumWordLength: spellcheckSettings.minimumWordLength,
+                spellcheckDebounceMs: spellcheckSettings.debounceMs,
                 onInput: context.onNotesInput,
                 onIgnoreWord: context.onSpellcheckIgnoreWord,
                 onClose: context.onNotesClose,

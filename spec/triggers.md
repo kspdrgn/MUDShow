@@ -38,7 +38,7 @@ Within an owner, highlights are always displayed above rules. Dragging within th
 
 Insertion lines at owner boundaries use the row above the line as the owner context, unless the line is at the very top of an owner section. This prevents dropping at the end of one owner's trigger list from unexpectedly moving the trigger into the next world or character. Multiple-trigger drag can be added later.
 
-If a trigger editor has unsaved changes and the user attempts to move away, close the editor, select something else, drag the trigger to a different owner, or otherwise lose the draft, the app shows an unsaved changes warning before discarding or replacing the dirty draft.
+If a trigger editor has unsaved changes and the user attempts to move away, close the editor, select something else, drag the trigger to a different owner, or otherwise lose the draft, the app shows an app notice confirmation before discarding or replacing the dirty draft.
 
 # Rules
 

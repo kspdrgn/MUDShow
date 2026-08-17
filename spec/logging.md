@@ -13,18 +13,18 @@ Session logging records the visible transcript for a world tab to a user-chosen 
 
 - The context menu of a world tab will contain two options to initiate logging actions:
   - start logging / stop logging - a single entry that changes label and action based on whether logging is active
-  - logging... - open a logging control modal
+  - logging... - open a logging control app notice
 
 ## Logging Config Modal
 
-A modal window will provide options for the current world tab
+An app notice will provide options for the current world tab
 - Show logging status.
 - Show the current log file path without the filename.
 - Show whether the calculated log file name already exists.
 - Provide a button to open the logging settings tab in app settings.
 - User may edit the log file name to rename the file on-the-fly. The file will be copied to the new name, and logging will continue in the new file. Logging must queue pending log entries until the log file move is successful.
 - Provide buttons to start logging, stop logging, reveal the active log file, and rename the file while logging is active.
-- Clicking outside the modal or the upper-right close button closes the modal.
+- Clicking outside the notice or pressing Escape closes the notice.
 
 ## File Naming
 

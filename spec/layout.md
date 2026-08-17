@@ -33,9 +33,19 @@ The shared shell:
 
 Menu content stays in the owning component so each feature can keep its own actions and labels.
 
+## App Notices
+
+The app uses one shared app notice host for modal notices, alerts, and confirmations. The host owns the backdrop, focus behavior, stacking order, and dismissal rules.
+
+App notices are always modal:
+- They block interaction outside the active notice.
+- Clicking the backdrop cancels the active notice.
+- Escape cancels the active notice.
+- App notices never pop out into separate windows.
+
 ## Hosted Windows
 
-The app uses one shared window host for built-in dialogs and future plugin windows. The host owns the overlay, backdrop, focus behavior, stacking order, titlebar chrome, and pop-out / pop-in presentation.
+The app uses one shared window host for built-in utility windows and future plugin windows. The host owns the overlay, focus behavior, stacking order, titlebar chrome, and pop-out / pop-in presentation.
 
 The shared host sits above the main tab content, but below the app's shared context menu shell so menus remain on top when both are open.
 
@@ -47,7 +57,7 @@ The host window record carries these presentation flags and behaviors:
 - `canPopOut` - allows the window to move from the app window into a separate native window.
 - `canMoveInApp` - allows the window to be dragged and relocated within the app shell.
 
-Built-in modal windows default to `isModal = true`, `canPopOut = false`, and `canMoveInApp = false`.
+Built-in modal windows in the window host default to `isModal = true`, `canPopOut = false`, and `canMoveInApp = false`.
 
 The host record also carries the active placement for the window:
 - `in-app` windows stay inside the main app shell.

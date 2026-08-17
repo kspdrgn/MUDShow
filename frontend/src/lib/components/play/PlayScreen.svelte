@@ -14,6 +14,7 @@
     normalizeCharacterWidth,
   } from './play-width';
   import { type ChannelBarControlVM, type ChannelTabVM, type ChannelTabId } from './channel';
+  import { appServices } from '../../app-services';
 
   type PlayScreenActions = {
     onReconnectTab: () => void;
@@ -64,12 +65,6 @@
   export let showCurrentOutputWhenScrollingUp = true;
   export let transcriptDiagnosticsEnabled = false;
   export let userScrolled = false;
-  export let spellcheckEnabled = true;
-  export let spellcheckLanguage = 'en-US';
-  export let spellcheckIgnoredWords = '';
-  export let spellcheckSuggestionLimit = 5;
-  export let spellcheckMinimumWordLength = 3;
-  export let spellcheckDebounceMs = 250;
   export let squiggleOpacity = 1;
   export let squiggleColor = '#ff0000';
   export let squiggleStyle = 'wavy';
@@ -98,6 +93,7 @@
   let channelsPanelResizeLockedHeight = 0;
   const notesChannelId = 'notes';
   const debugConsoleChannelId = 'debug-console';
+  const spellcheckConfig = appServices.spellcheck.config;
 
   $: channelTabs = channels.tabs;
   $: channelBarControls = channels.controls;
@@ -331,12 +327,12 @@
     {hasNewActivity}
     {loggingActive}
     {scope}
-    {spellcheckEnabled}
-    {spellcheckLanguage}
-    {spellcheckIgnoredWords}
-    {spellcheckSuggestionLimit}
-    {spellcheckMinimumWordLength}
-    {spellcheckDebounceMs}
+    spellcheckEnabled={$spellcheckConfig.enabled}
+    spellcheckLanguage={$spellcheckConfig.language}
+    spellcheckIgnoredWords={$spellcheckConfig.ignoredWords}
+    spellcheckSuggestionLimit={$spellcheckConfig.suggestionLimit}
+    spellcheckMinimumWordLength={$spellcheckConfig.minimumWordLength}
+    spellcheckDebounceMs={$spellcheckConfig.debounceMs}
     onIgnoreWord={actions.onSpellcheckIgnoreWord}
     onFocusBar={actions.onInputFocusBar}
     onSubmit={actions.onInputSubmit}

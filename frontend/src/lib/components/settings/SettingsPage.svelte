@@ -1,14 +1,14 @@
 <script lang="ts">
+  import { appServices } from '../../app-services';
   import type { AppSettings } from '../../app-settings';
-  import type { FontShelfEntry } from '../../fonts';
-  import type { AppStyleEditor } from '../styles/style-settings';
+  import { session } from '../../session';
   import StyleSettingsPane from '../styles/StyleSettingsPane.svelte';
   import {
     SETTINGS_PAGE_PLACEHOLDER_TABS,
     SETTINGS_PAGE_TAB_ICONS,
     SETTINGS_PAGE_TABS,
     type SettingsTabId,
-  } from './settings-page-tabs';
+  } from './settings-page';
   import {
     DEFAULT_SQUIGGLE_COLOR,
     SQUIGGLE_PREVIEW_WAVY_PATH,
@@ -20,26 +20,92 @@
     normalizeSquiggleStyle,
   } from '../../spellcheck-style';
 
-  export let settings: AppSettings;
-  export let onChange: (patch: Partial<AppSettings>) => void;
-  export let style: AppStyleEditor;
-  export let onStyleChange: (next: AppStyleEditor) => void;
-  export let fontShelf: FontShelfEntry[];
-  export let onFontShelfChange: (next: FontShelfEntry[]) => void;
-  export let storageFilePath: string | null;
-  export let resolvedLogFolderPath: string | null;
-  export let onRevealLogFolder: () => void;
-  export let onMoveLogFolder: () => void;
-  export let onRevealStorageLocation: () => void;
-  export let onPickStorageLocation: () => void;
-  export let onMoveStorageLocation: () => void;
   export let activeTab: SettingsTabId = 'database';
   export let onTabChange: (tab: SettingsTabId) => void = () => {};
   const appStyleScope = { kind: 'app' as const };
+  const appStyleEditor = appServices.style.editor;
+  const appFontShelf = appServices.style.fontShelf;
+  let settings: AppSettings = appServices.settings.getSettings();
+
+  appServices.settings.current.subscribe((next) => {
+    settings = next;
+  });
 
   let squiggleStyleMenuOpen = false;
   $: currentSquiggleStyle = normalizeSquiggleStyle(settings.squiggleStyle);
 
+  function updateSettings(patch: Partial<AppSettings>): void {
+    appServices.settings.updateSettings(patch);
+  }
+
+  async function handleRevealStorageLocation(): Promise<void> {
+    try {
+      await appServices.storage.revealAppStorageFile();
+    } catch (error) {
+      console.error('failed to reveal the storage location:', error);
+    }
+  }
+
+  async function handleMoveStorageLocation(): Promise<void> {
+    try {
+      const nextPath = await appServices.storage.moveAppStorageFile();
+      if (!nextPath) {
+        return;
+      }
+
+      updateSettings({ storageFilePath: nextPath });
+    } catch (error) {
+      console.error('failed to move the storage location:', error);
+    }
+  }
+
+  async function handleRevealLogFolder(): Promise<void> {
+    try {
+      const folder = appServices.storage.getResolvedDefaultLogFolder() ?? settings.defaultLogFolder ?? null;
+      console.debug('[logging] revealing default log folder', folder);
+      await appServices.storage.revealDefaultLogFolder(folder);
+    } catch (error) {
+      console.error('[logging] failed to reveal the log folder', error);
+    }
+  }
+
+  async function handleMoveLogFolder(): Promise<void> {
+    try {
+      const nextFolder = await appServices.storage.moveDefaultLogFolder();
+      if (!nextFolder) {
+        return;
+      }
+
+      updateSettings({ defaultLogFolder: nextFolder });
+    } catch (error) {
+      console.error('failed to move the log folder:', error);
+    }
+  }
+
+  async function handlePickStorageLocation(): Promise<void> {
+    if ($session.tabs.some((tab) => tab.kind === 'world')) {
+      await appServices.notice.alert({
+        surfaceId: 'storage-import-notice',
+        title: 'import blocked',
+        message: 'Import settings file requires closing all world tabs and starting over, please close all tabs and try again.',
+        confirmLabel: 'ok',
+      });
+      return;
+    }
+
+    try {
+      const nextPath = await appServices.storage.pickAppStorageFile();
+      if (!nextPath) {
+        return;
+      }
+
+      const resolvedPath = await appServices.storage.setAppStoragePath(nextPath);
+      updateSettings({ storageFilePath: resolvedPath });
+      await session.load();
+    } catch (error) {
+      console.error('failed to pick the storage location:', error);
+    }
+  }
 </script>
 
 <section id="screen-settings" class="screen-panel">
@@ -76,7 +142,7 @@
               id="storage-mode"
               value={settings.storageMode}
               disabled
-              on:change={() => onChange({ storageMode: 'file' })}
+              on:change={() => updateSettings({ storageMode: 'file' })}
             >
               <option value="file">external json file</option>
             </select>
@@ -86,7 +152,7 @@
             <div class="storage-location-row">
               <input
                 type="text"
-                value={storageFilePath ?? 'loading storage file location...'}
+                value={settings.storageFilePath ?? 'loading storage file location...'}
                 disabled
                 readonly
                 spellcheck="false"
@@ -97,8 +163,8 @@
                   class="icon-button"
                   title="Open the database folder."
                   aria-label="Open the database folder."
-                  disabled={storageFilePath === null}
-                  on:click={onRevealStorageLocation}
+                  disabled={settings.storageFilePath === null}
+                  on:click={handleRevealStorageLocation}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
@@ -110,8 +176,8 @@
                   class="icon-button warning"
                   title="Move the database file to a new location."
                   aria-label="Move the database file to a new location."
-                  disabled={storageFilePath === null}
-                  on:click={onMoveStorageLocation}
+                  disabled={settings.storageFilePath === null}
+                  on:click={handleMoveStorageLocation}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
@@ -124,8 +190,8 @@
                   class="icon-button danger"
                   title="Pick a different database file. Discards the current file!"
                   aria-label="Pick a different database file. Discards the current file!"
-                  disabled={storageFilePath === null}
-                  on:click={onPickStorageLocation}
+                  disabled={settings.storageFilePath === null}
+                  on:click={handlePickStorageLocation}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M7.5 4.5h7l4 4v11a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" />
@@ -149,7 +215,7 @@
             <input
               type="checkbox"
               checked={settings.titleAttention}
-              on:change={(event) => onChange({ titleAttention: (event.currentTarget as HTMLInputElement).checked })}
+              on:change={(event) => updateSettings({ titleAttention: (event.currentTarget as HTMLInputElement).checked })}
             />
             <span>flash the window title when new activity arrives.</span>
           </label>
@@ -159,7 +225,7 @@
                 type="checkbox"
                 checked={settings.alwaysOnTop}
                 disabled
-                on:change={(event) => onChange({ alwaysOnTop: (event.currentTarget as HTMLInputElement).checked })}
+                on:change={(event) => updateSettings({ alwaysOnTop: (event.currentTarget as HTMLInputElement).checked })}
               />
               <span>keep the app window on-top of others.</span>
             </label>
@@ -174,7 +240,7 @@
                 value={settings.transparency}
                 disabled
                 on:input={(event) =>
-                  onChange({ transparency: Number((event.currentTarget as HTMLInputElement).value) })}
+                  updateSettings({ transparency: Number((event.currentTarget as HTMLInputElement).value) })}
               />
             </label>
           </div>
@@ -187,7 +253,7 @@
               type="checkbox"
               checked={settings.showCurrentOutputWhenScrollingUp}
               on:change={(event) =>
-                onChange({
+                updateSettings({
                   showCurrentOutputWhenScrollingUp: (event.currentTarget as HTMLInputElement).checked,
                 })}
             />
@@ -198,7 +264,7 @@
               type="checkbox"
               checked={settings.linkImagePreviews}
               on:change={(event) =>
-                onChange({ linkImagePreviews: (event.currentTarget as HTMLInputElement).checked })}
+                updateSettings({ linkImagePreviews: (event.currentTarget as HTMLInputElement).checked })}
             />
             <span>show previews for image links.</span>
           </label>
@@ -210,7 +276,7 @@
               step="100"
               value={settings.transcriptScrollbackChunks}
               on:input={(event) =>
-                onChange({
+                updateSettings({
                   transcriptScrollbackChunks: Math.max(1, Math.round(Number((event.currentTarget as HTMLInputElement).value))),
                 })}
             />
@@ -219,7 +285,7 @@
             type="button"
             class="btn"
             on:click={() =>
-              onChange({
+              updateSettings({
                 imagePreviewCacheVersion: settings.imagePreviewCacheVersion + 1,
               })}
           >
@@ -237,7 +303,7 @@
             <div class="storage-location-row">
               <input
                 type="text"
-                value={resolvedLogFolderPath ?? settings.defaultLogFolder ?? 'loading log folder...'}
+                value={appServices.storage.getResolvedDefaultLogFolder() ?? settings.defaultLogFolder ?? 'loading log folder...'}
                 spellcheck="false"
                 readonly
                 disabled
@@ -248,7 +314,7 @@
                   class="icon-button"
                   title="Open the default log folder."
                   aria-label="Open the default log folder."
-                  on:click={onRevealLogFolder}
+                  on:click={handleRevealLogFolder}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
@@ -260,7 +326,7 @@
                   class="icon-button warning"
                   title="Move the default log folder to a new location. Will not move logs."
                   aria-label="Move the default log folder to a new location. Will not move logs."
-                  on:click={onMoveLogFolder}
+                  on:click={handleMoveLogFolder}
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M3.5 8.5h6l1.8 2H20.5a1 1 0 0 1 1 1v6.5a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2V9.5a1 1 0 0 1 1-1Z" />
@@ -279,7 +345,7 @@
               type="checkbox"
               checked={settings.confirmUnloggedTabClose}
               on:change={(event) =>
-                onChange({
+                updateSettings({
                   confirmUnloggedTabClose: (event.currentTarget as HTMLInputElement).checked,
                 })}
             />
@@ -303,7 +369,7 @@
                 value={settings.connectionTimeoutSeconds}
                 disabled
                 on:input={(event) =>
-                  onChange({
+                  updateSettings({
                     connectionTimeoutSeconds: Number((event.currentTarget as HTMLInputElement).value),
                   })}
               />
@@ -318,7 +384,7 @@
                 value={settings.connectionRetries}
                 disabled
                 on:input={(event) =>
-                  onChange({
+                  updateSettings({
                     connectionRetries: Number((event.currentTarget as HTMLInputElement).value),
                   })}
               />
@@ -329,7 +395,7 @@
                 type="checkbox"
                 checked={settings.keepAlive}
                 disabled
-                on:change={(event) => onChange({ keepAlive: (event.currentTarget as HTMLInputElement).checked })}
+                on:change={(event) => updateSettings({ keepAlive: (event.currentTarget as HTMLInputElement).checked })}
               />
               <span>send tcp keep-alive signals.</span>
             </label>
@@ -343,7 +409,7 @@
               type="checkbox"
               checked={settings.spellcheckEnabled}
               on:change={(event) =>
-                onChange({ spellcheckEnabled: (event.currentTarget as HTMLInputElement).checked })}
+                updateSettings({ spellcheckEnabled: (event.currentTarget as HTMLInputElement).checked })}
             />
             <span>enable live spellcheck underlines in editable text fields.</span>
           </label>
@@ -404,7 +470,7 @@
                           style:--spellcheck-preview-opacity={settings.squiggleOpacity}
                           style:--spellcheck-preview-thickness={settings.squiggleSize}
                           on:click={() => {
-                            onChange({ squiggleStyle: option.value });
+                            updateSettings({ squiggleStyle: option.value });
                             squiggleStyleMenuOpen = false;
                           }}
                         >
@@ -440,7 +506,7 @@
                       value={getSquiggleColorPickerValue(settings.squiggleColor)}
                       aria-label="spellcheck squiggle color picker"
                       on:input={(event) =>
-                        onChange({
+                        updateSettings({
                           squiggleColor:
                             normalizeHexColor((event.currentTarget as HTMLInputElement).value) ??
                             (event.currentTarget as HTMLInputElement).value,
@@ -454,7 +520,7 @@
                     spellcheck="false"
                     aria-label="spellcheck squiggle color"
                     on:input={(event) =>
-                      onChange({
+                      updateSettings({
                         squiggleColor: (event.currentTarget as HTMLInputElement).value,
                       })}
                     on:paste={(event) => {
@@ -463,7 +529,7 @@
 
                       if (normalizedText !== null) {
                         event.preventDefault();
-                        onChange({ squiggleColor: normalizedText });
+                        updateSettings({ squiggleColor: normalizedText });
                       }
                     }}
                   />
@@ -481,7 +547,7 @@
                     value={settings.squiggleOpacity}
                     aria-label="spellcheck squiggle opacity"
                     on:input={(event) =>
-                      onChange({
+                      updateSettings({
                         squiggleOpacity: Math.min(
                           1,
                           Math.max(0, Number((event.currentTarget as HTMLInputElement).value)),
@@ -497,7 +563,7 @@
                     value={settings.squiggleOpacity}
                     aria-label="spellcheck squiggle opacity value"
                     on:input={(event) =>
-                      onChange({
+                      updateSettings({
                         squiggleOpacity: Math.min(
                           1,
                           Math.max(0, Number((event.currentTarget as HTMLInputElement).value)),
@@ -518,7 +584,7 @@
                     value={settings.squiggleSize}
                     aria-label="spellcheck squiggle thickness"
                     on:input={(event) =>
-                      onChange({
+                      updateSettings({
                         squiggleSize: Math.min(
                           4,
                           Math.max(0.5, Number((event.currentTarget as HTMLInputElement).value)),
@@ -534,7 +600,7 @@
                     value={settings.squiggleSize}
                     aria-label="spellcheck squiggle thickness value"
                     on:input={(event) =>
-                      onChange({
+                      updateSettings({
                         squiggleSize: Math.min(
                           4,
                           Math.max(0.5, Number((event.currentTarget as HTMLInputElement).value)),
@@ -552,7 +618,7 @@
                   step="1"
                   value={settings.spellcheckSuggestionLimit}
                   on:input={(event) =>
-                    onChange({
+                    updateSettings({
                       spellcheckSuggestionLimit: Math.max(
                         1,
                         Math.round(Number((event.currentTarget as HTMLInputElement).value)),
@@ -569,7 +635,7 @@
                   step="1"
                   value={settings.spellcheckMinimumWordLength}
                   on:input={(event) =>
-                    onChange({
+                    updateSettings({
                       spellcheckMinimumWordLength: Math.max(
                         1,
                         Math.round(Number((event.currentTarget as HTMLInputElement).value)),
@@ -586,7 +652,7 @@
                   step="25"
                   value={settings.spellcheckDebounceMs}
                   on:input={(event) =>
-                    onChange({
+                    updateSettings({
                       spellcheckDebounceMs: Math.max(
                         0,
                         Math.round(Number((event.currentTarget as HTMLInputElement).value)),
@@ -603,7 +669,7 @@
                   step="1"
                   value={settings.spellcheckQueueConcurrency}
                   on:input={(event) =>
-                    onChange({
+                    updateSettings({
                       spellcheckQueueConcurrency: Math.max(
                         1,
                         Math.round(Number((event.currentTarget as HTMLInputElement).value)),
@@ -621,10 +687,10 @@
                   value={settings.spellcheckLanguage}
                   spellcheck="false"
                   on:input={(event) =>
-                    onChange({
+                    updateSettings({
                       spellcheckLanguage: (event.currentTarget as HTMLInputElement).value,
                     })}
-                />
+              />
               </label>
 
               <label class="field">
@@ -634,10 +700,10 @@
                   value={settings.spellcheckIgnoredWords}
                   spellcheck="false"
                   on:input={(event) =>
-                    onChange({
+                    updateSettings({
                       spellcheckIgnoredWords: (event.currentTarget as HTMLInputElement).value,
                     })}
-                />
+              />
               </label>
             </div>
           </div>
@@ -648,10 +714,10 @@
       {:else if activeTab === 'style'}
         <StyleSettingsPane
           storageScope={appStyleScope}
-          style={style}
-          fontShelf={fontShelf}
-          onChange={onStyleChange}
-          onFontShelfChange={onFontShelfChange}
+          style={$appStyleEditor}
+          fontShelf={$appFontShelf}
+          onChange={appServices.style.saveStyle}
+          onFontShelfChange={appServices.style.updateFontShelf}
         />
       {:else if activeTab === 'ui'}
         <section class="settings-card">
@@ -663,7 +729,7 @@
               value={settings.colorScheme}
               disabled
               on:change={(event) =>
-                onChange({ colorScheme: (event.currentTarget as HTMLSelectElement).value })}
+                updateSettings({ colorScheme: (event.currentTarget as HTMLSelectElement).value })}
             >
               <option value="midnight">midnight</option>
               <option value="graphite">graphite</option>

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { onMount, tick } from 'svelte';
-import { appServices, type AppSettings } from './lib/app-services';
-import { normalizeFontShelf, type FontShelfEntry } from './lib/fonts';
+import { appServices } from './lib/app-services';
+import AppNoticeHost from './lib/components/app-notice/AppNoticeHost.svelte';
 import WorldsAndCharactersEditor from './lib/components/settings/WorldsAndCharactersEditor.svelte';
 import CharacterModal from './lib/components/settings/CharacterModal.svelte';
 import ConfirmCloseTabModal from './lib/components/window/ConfirmCloseTabModal.svelte';
@@ -47,99 +47,60 @@ import { generateLogFilename, getLogFileName } from './lib/logging';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
 import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
-import {
-  createAppStyleEditor,
-  createDefaultAppStyleEditor,
-  resolveAppStyleEditor,
-  serializeAppStyleEditor,
-  type AppStyleEditor,
-  type AppStyleValues,
-} from './lib/components/styles/style-settings';
 import { getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
 
 const currentUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
 const initialWindowMode = currentUrl?.searchParams.get('windowMode');
 const initialPoppedOutWindowId = currentUrl?.searchParams.get('windowId');
 const initialIsPoppedOutWindow = initialWindowMode === 'popout' && initialPoppedOutWindowId !== null;
-const WINDOW_HOST_SINGLETON_IDS = {
+const APP_NOTICE_SURFACE_IDS = {
   characterModal: 'character-modal',
   worldModal: 'world-modal',
   loggingModal: 'logging-modal',
   storageImportNotice: 'storage-import-notice',
   worldCloseConfirm: 'world-close-confirm',
   appCloseConfirm: 'app-close-confirm',
+  deleteConfirm: 'delete-confirm',
+  triggerDiscardConfirm: 'trigger-discard-confirm',
+} as const;
+const WINDOW_HOST_SINGLETON_IDS = {
   dummyWindow: 'app-dev-dummy',
   treeDataDemo: 'tree-data-demo',
 } as const;
 
-  let appSettings = appServices.settings.getSettings();
-  let appStyle: AppStyleEditor = createDefaultAppStyleEditor();
-  let resolvedAppStyle: AppStyleValues = resolveAppStyleEditor(appStyle);
-  let fontShelf: FontShelfEntry[] = normalizeFontShelf([]);
-  let storageFilePath: string | null = appSettings.storageFilePath;
-  let loggingModalTabId: string | null = null;
-  let activeTab: AppTab | null = null;
-  let activeWorldSession: WorldTabSessionState | null = null;
-  let loggingModalSession: WorldTabSessionState | null = null;
-  let loggingModalTab: AppTab | null = null;
-  let loggingModalInitialFileName = '';
-  let loggingModalRefreshNonce = 0;
-  let windowHostWindows: WindowRecord[] = [];
-  let poppedOutWindowRecords: Record<string, WindowRecord> = {};
-  let poppedOutWindowId: string | null = initialPoppedOutWindowId;
-  let poppedOutWindowRecord: WindowRecord | null = null;
-  let isPoppedOutWindow = initialIsPoppedOutWindow;
-  let nextWindowHostId = 1;
-  let treeDataWindowStates: Record<string, TreeDataWindowState> = {};
-  let fuzzballStorageWindowStates: Record<string, FuzzballStorageViewerState> = {};
-  let previousWorldTabIds = new Set<string>();
-  let resolvedLogFolderPath: string | null = null;
-  let storageImportNoticeOpen = false;
-  let appCloseConfirmOpen = false;
-  let allowWindowCloseOnce = false;
-  let unlistenAppClose: (() => void) | null = null;
+const appSettingsStore = appServices.settings.current;
+const appNoticeStore = appServices.notice.current;
+let loggingModalTabId: string | null = null;
+let activeTab: AppTab | null = null;
+let activeWorldSession: WorldTabSessionState | null = null;
+let loggingModalSession: WorldTabSessionState | null = null;
+let loggingModalTab: AppTab | null = null;
+let loggingModalInitialFileName = '';
+let loggingModalRefreshNonce = 0;
+let windowHostWindows: WindowRecord[] = [];
+let poppedOutWindowRecords: Record<string, WindowRecord> = {};
+let poppedOutWindowId: string | null = initialPoppedOutWindowId;
+let poppedOutWindowRecord: WindowRecord | null = null;
+let isPoppedOutWindow = initialIsPoppedOutWindow;
+let nextWindowHostId = 1;
+let treeDataWindowStates: Record<string, TreeDataWindowState> = {};
+let fuzzballStorageWindowStates: Record<string, FuzzballStorageViewerState> = {};
+let previousWorldTabIds = new Set<string>();
+let allowWindowCloseOnce = false;
+let unlistenAppClose: (() => void) | null = null;
 
-  async function initializeStoragePath(): Promise<void> {
-    try {
-      const requestedPath = appSettings.storageFilePath;
-      const resolvedPath = await appServices.storage.setAppStoragePath(requestedPath);
-      storageFilePath = resolvedPath;
+const resolvedAppStyle = appServices.style.resolved;
 
-      if (requestedPath !== null && requestedPath !== resolvedPath) {
-        appSettings = appServices.settings.updateSettings({ storageFilePath: null });
-      }
-    } catch {
-      storageFilePath = appSettings.storageFilePath;
-    }
-  }
+$: {
+  session.setConfirmUnloggedTabClose($appSettingsStore.confirmUnloggedTabClose);
+  session.setTranscriptScrollbackChunks($appSettingsStore.transcriptScrollbackChunks);
+}
 
-  async function initializeStyleSettings(): Promise<void> {
-    try {
-      appStyle = createAppStyleEditor(await appServices.storage.loadAppStyleOverrides());
-      fontShelf = normalizeFontShelf(await appServices.storage.loadFontShelf());
-      resolvedAppStyle = resolveAppStyleEditor(appStyle);
-    } catch (error) {
-      console.error('failed to load app style overrides:', error);
-      appStyle = createDefaultAppStyleEditor();
-      fontShelf = normalizeFontShelf([]);
-      resolvedAppStyle = resolveAppStyleEditor(appStyle);
-    }
-  }
-
-  function updateAppSettings(patch: Partial<AppSettings>): void {
-    appSettings = appServices.settings.updateSettings(patch);
-    session.setConfirmUnloggedTabClose(appSettings.confirmUnloggedTabClose);
-
-    if (typeof patch.transcriptScrollbackChunks === 'number') {
-      session.setTranscriptScrollbackChunks(appSettings.transcriptScrollbackChunks);
-    }
-  }
-
-  function toggleTranscriptDiagnostics(): void {
+function toggleTranscriptDiagnostics(): void {
     session.toggleTranscriptDiagnosticsEnabled();
-  }
+}
 
-  $: {
+$: {
     const currentWorldTabIds = new Set(
       $session.tabs
         .filter((tab): tab is AppTab & { kind: 'world' } => tab.kind === 'world')
@@ -153,16 +114,16 @@ const WINDOW_HOST_SINGLETON_IDS = {
     }
 
     previousWorldTabIds = currentWorldTabIds;
-  }
+}
 
-  function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState) {
+function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState) {
     return {
       onReconnectTab: () => void session.reconnectWorldTab(tab.id),
       onDisconnectTab: () => void session.disconnectWorldTab(tab.id),
       onQuickLogTab: () =>
         void session.startLogging(
           tab.id,
-          resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null,
+          appServices.storage.getResolvedDefaultLogFolder() ?? $appSettingsStore.defaultLogFolder ?? null,
           null,
         ),
       onOpenLoggingTab: () => openLoggingModal(tab.id),
@@ -182,7 +143,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
       onInputAddBar: (bar: number) => void session.addInputBarAfter(bar),
       onInputRemoveBar: (bar: number) => void session.removeInputBar(bar),
       onInputResizeBar: (bar: number, delta: -1 | 1) => session.resizeInputBar(bar, delta),
-      onSpellcheckIgnoreWord: handleSpellcheckIgnoreWord,
+      onSpellcheckIgnoreWord: (word: string) => void appServices.spellcheck.ignoreWord(word),
       onNotesClose: () => void session.togglePanel('notes'),
       onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
       onOutputScroll: () => session.handleOutputScroll(),
@@ -190,49 +151,15 @@ const WINDOW_HOST_SINGLETON_IDS = {
         session.handleOutputScrollKey(action),
       onScrollToBottom: () => session.handleScrollToBottom(),
     };
-  }
+}
 
-  async function handleSpellcheckIgnoreWord(word: string): Promise<void> {
-    if (!word.trim()) {
-      return;
-    }
-
-    updateAppSettings({
-      spellcheckIgnoredWords: appServices.spellcheck.appendIgnoredWord(appSettings.spellcheckIgnoredWords, word),
-    });
-
-    try {
-      await appServices.spellcheck.addWord(word, appSettings.spellcheckLanguage);
-    } catch (error) {
-      console.error('failed to add spellcheck word:', error);
-    }
-  }
-
-  function updateAppStyle(nextStyle: AppStyleEditor): void {
-    appStyle = nextStyle;
-    resolvedAppStyle = resolveAppStyleEditor(appStyle);
-    void appServices.storage.saveAppStyleOverrides(serializeAppStyleEditor(appStyle));
-  }
-
-  function updateFontShelf(nextShelf: FontShelfEntry[]): void {
-    fontShelf = normalizeFontShelf(nextShelf);
-    void appServices.storage.saveFontShelf(fontShelf);
-  }
-
-  async function refreshResolvedLogFolder(): Promise<void> {
-    try {
-      console.debug('[logging] resolving default log folder');
-      resolvedLogFolderPath = appSettings.defaultLogFolder ?? (await appServices.storage.getDefaultLogFolder());
-      console.debug('[logging] default log folder resolved', resolvedLogFolderPath);
-    } catch (error) {
-      console.error('[logging] default log folder lookup failed', error);
-      console.debug('[logging] falling back to saved log folder', appSettings.defaultLogFolder);
-      resolvedLogFolderPath = appSettings.defaultLogFolder ?? null;
-    }
-  }
-
-  function openLoggingModal(tabId: string): void {
+function openLoggingModal(tabId: string): void {
     loggingModalTabId = tabId;
+    appServices.notice.openNotice({
+      kind: 'custom',
+      surfaceId: APP_NOTICE_SURFACE_IDS.loggingModal,
+      title: 'session logging',
+    });
   }
 
   function openDefaultStyleSettings(): void {
@@ -687,20 +614,6 @@ const WINDOW_HOST_SINGLETON_IDS = {
   }
 
   function closeWindow(windowId: string): void {
-    if (windowId === WINDOW_HOST_SINGLETON_IDS.characterModal) {
-      session.closeModal();
-    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.worldModal) {
-      session.closeModal();
-    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.loggingModal) {
-      loggingModalTabId = null;
-    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice) {
-      storageImportNoticeOpen = false;
-    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm) {
-      session.cancelCloseConfirm();
-    } else if (windowId === WINDOW_HOST_SINGLETON_IDS.appCloseConfirm) {
-      appCloseConfirmOpen = false;
-    }
-
     clearTreeDataWindowState(windowId);
     clearFuzzballStorageWindowState(windowId);
 
@@ -819,60 +732,37 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
   function closeLoggingModal(): void {
     loggingModalTabId = null;
-    removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.loggingModal);
+    appServices.notice.closeNotice();
   }
 
   function refreshLoggingModalStatus(): void {
     loggingModalRefreshNonce += 1;
   }
 
-  async function handleRevealStorageLocation(): Promise<void> {
-    try {
-      await appServices.storage.revealAppStorageFile();
-    } catch (error) {
-      console.error('failed to reveal the storage location:', error);
-    }
-  }
-
-  async function handleMoveStorageLocation(): Promise<void> {
-    try {
-      const nextPath = await appServices.storage.moveAppStorageFile();
-      if (!nextPath) {
-        return;
-      }
-
-      appSettings = appServices.settings.saveSettings({
-        ...appSettings,
-        storageFilePath: nextPath,
-      });
-      storageFilePath = nextPath;
-    } catch (error) {
-      console.error('failed to move the storage location:', error);
-    }
-  }
-
-  async function handlePickStorageLocation(): Promise<void> {
-    if ($session.tabs.some((tab) => tab.kind === 'world')) {
-      storageImportNoticeOpen = true;
+  function closeActiveNotice(): void {
+    const activeNotice = appServices.notice.getCurrent();
+    if (!activeNotice) {
       return;
     }
 
-    try {
-      const nextPath = await appServices.storage.pickAppStorageFile();
-      if (!nextPath) {
+    if (activeNotice.kind === 'custom') {
+      if (activeNotice.surfaceId === APP_NOTICE_SURFACE_IDS.characterModal || activeNotice.surfaceId === APP_NOTICE_SURFACE_IDS.worldModal) {
+        session.closeModal();
         return;
       }
 
-      const resolvedPath = await appServices.storage.setAppStoragePath(nextPath);
-      appSettings = appServices.settings.saveSettings({
-        ...appSettings,
-        storageFilePath: resolvedPath,
-      });
-      storageFilePath = resolvedPath;
-      await session.load();
-    } catch (error) {
-      console.error('failed to pick the storage location:', error);
+      if (activeNotice.surfaceId === APP_NOTICE_SURFACE_IDS.loggingModal) {
+        closeLoggingModal();
+        return;
+      }
     }
+
+    if (activeNotice.kind === 'alert') {
+      appServices.notice.acceptCurrentNotice();
+      return;
+    }
+
+    appServices.notice.dismissCurrentNotice();
   }
 
   function hasBlockingWindow(): boolean {
@@ -882,79 +772,10 @@ const WINDOW_HOST_SINGLETON_IDS = {
   function isModalOpen(): boolean {
     return (
       $session.modalOpen ||
-      ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') ||
+      $appNoticeStore !== null ||
       hasBlockingWindow() ||
-      appCloseConfirmOpen ||
-      loggingModalTabId !== null ||
-      storageImportNoticeOpen
+      ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal')
     );
-  }
-
-  $: {
-    const characterModalOpen = $session.modalOpen && $session.modalKind === 'character';
-    const worldModalOpen = $session.modalOpen && $session.modalKind === 'world';
-    const loggingModalOpen = loggingModalTab !== null && loggingModalSession !== null;
-    const closeConfirmCopy =
-      $session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null
-        ? getCloseConfirmCopy($session.closeConfirmTabId)
-        : null;
-
-    if (characterModalOpen) {
-      const characterWorldName =
-        $session.characterWorldId
-          ? $session.worlds.find((world) => world.id === $session.characterWorldId)?.name ?? ''
-          : '';
-      upsertWindowRecord(createCharacterWindowRecord(
-        characterWorldName ? `${$session.modalTitle} - ${characterWorldName}` : $session.modalTitle,
-      ));
-    } else {
-      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.characterModal);
-    }
-
-    if (worldModalOpen) {
-      upsertWindowRecord(createWorldWindowRecord($session.modalTitle));
-    } else {
-      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.worldModal);
-    }
-
-    if (loggingModalOpen) {
-      upsertWindowRecord(createLoggingWindowRecord());
-    } else {
-      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.loggingModal);
-    }
-
-    if (storageImportNoticeOpen) {
-      upsertWindowRecord(
-        createSingletonModalWindowRecord(
-          WINDOW_HOST_SINGLETON_IDS.storageImportNotice,
-          'import blocked',
-        ),
-      );
-    } else {
-      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.storageImportNotice);
-    }
-
-    if ($session.closeConfirmMode === 'modal' && $session.closeConfirmTabId !== null && closeConfirmCopy) {
-      upsertWindowRecord(
-        createSingletonModalWindowRecord(
-          WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm,
-          closeConfirmCopy.title,
-        ),
-      );
-    } else {
-      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm);
-    }
-
-    if (appCloseConfirmOpen) {
-      upsertWindowRecord(
-        createSingletonModalWindowRecord(
-          WINDOW_HOST_SINGLETON_IDS.appCloseConfirm,
-          'close app?',
-        ),
-      );
-    } else {
-      removeWindowRecord(WINDOW_HOST_SINGLETON_IDS.appCloseConfirm);
-    }
   }
 
   function hasConnectedWorldTabs(): boolean {
@@ -1004,7 +825,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
       hasConnectedWorldTabs: hasConnectedWorldTabs(),
       modalOpen: $session.modalOpen,
       loggingModalTabId,
-      storageImportNoticeOpen,
+      notice: $appNoticeStore?.surfaceId ?? null,
     });
 
     if (allowWindowCloseOnce) {
@@ -1013,7 +834,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
       return;
     }
 
-    if ($session.modalOpen || ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal') || hasBlockingWindow() || loggingModalTabId !== null || storageImportNoticeOpen) {
+    if ($session.modalOpen || $appNoticeStore !== null || hasBlockingWindow() || loggingModalTabId !== null || ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal')) {
       event.preventDefault();
       console.log('[window-action] app close prevented by blocking state');
       return;
@@ -1025,60 +846,38 @@ const WINDOW_HOST_SINGLETON_IDS = {
     }
 
     event.preventDefault();
-    appCloseConfirmOpen = true;
+    void appServices.notice.confirm({
+      surfaceId: APP_NOTICE_SURFACE_IDS.appCloseConfirm,
+      title: 'close app?',
+      message: 'One or more tabs are connected. Disconnect and close the app?',
+      confirmLabel: 'disconnect and close app',
+      cancelLabel: 'cancel',
+    }).then((accepted) => {
+      if (accepted) {
+        void confirmAppClose();
+      }
+    });
     console.log('[window-action] app close confirmation opened');
   }
 
   async function confirmAppClose(): Promise<void> {
     if (!hasConnectedWorldTabs()) {
-      appCloseConfirmOpen = false;
       return;
     }
 
     try {
       const currentWindow = getCurrentWebviewWindow();
       if (!currentWindow) {
-        appCloseConfirmOpen = false;
         return;
       }
 
       console.log('[window-action] app close confirm requested via native close');
       allowWindowCloseOnce = true;
-      appCloseConfirmOpen = false;
       await currentWindow.close();
       console.log('[window-action] app close confirm native close completed');
     } catch (error) {
       allowWindowCloseOnce = false;
       console.error('failed to close the app window:', error);
-    }
-  }
-
-  async function handleMoveLogFolder(): Promise<void> {
-    try {
-      const nextFolder = await appServices.storage.moveDefaultLogFolder(
-        resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? (await appServices.storage.getDefaultLogFolder()),
-      );
-      if (!nextFolder) {
-        return;
-      }
-
-      appSettings = appServices.settings.saveSettings({
-        ...appSettings,
-        defaultLogFolder: nextFolder,
-      });
-      resolvedLogFolderPath = nextFolder;
-    } catch (error) {
-      console.error('failed to move the log folder:', error);
-    }
-  }
-
-  async function handleRevealLogFolder(): Promise<void> {
-    try {
-      const folder = resolvedLogFolderPath ?? (await appServices.storage.getDefaultLogFolder());
-      console.debug('[logging] revealing default log folder', folder);
-      await appServices.storage.revealDefaultLogFolder(folder);
-    } catch (error) {
-      console.error('[logging] failed to reveal the log folder', error);
     }
   }
 
@@ -1101,7 +900,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
       : activeTab?.kind === 'triggers'
         ? 'Triggers · MUDShow'
       : activeTab?.kind === 'world' && activeWorldSession?.currentWorld
-        ? appSettings.titleAttention && activeWorldSession.hasNewActivity
+        ? $appSettingsStore.titleAttention && activeWorldSession.hasNewActivity
           ? `* ${activeWorldSession.currentCharacter ? `${activeWorldSession.currentWorld.name} · ${activeWorldSession.currentCharacter.name}` : activeWorldSession.currentWorld.name}`
           : activeWorldSession.currentCharacter
             ? `${activeWorldSession.currentWorld.name} · ${activeWorldSession.currentCharacter.name}`
@@ -1183,15 +982,9 @@ const WINDOW_HOST_SINGLETON_IDS = {
       }
 
       try {
-        session.setConfirmUnloggedTabClose(appSettings.confirmUnloggedTabClose);
-        session.setModalWindowHandlers({
-          onOpen: handleEditorModalOpened,
-          onClose: handleEditorModalClosed,
-        });
-        await initializeStoragePath();
-        await initializeStyleSettings();
-        await refreshResolvedLogFolder();
-        session.setTranscriptScrollbackChunks(appSettings.transcriptScrollbackChunks);
+        session.setConfirmUnloggedTabClose($appSettingsStore.confirmUnloggedTabClose);
+        await appServices.lifecycle.runHooks('startup');
+        session.setTranscriptScrollbackChunks($appSettingsStore.transcriptScrollbackChunks);
         if (disposed) {
           return;
         }
@@ -1344,7 +1137,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
     worldSessions={$session.worldSessions}
     closeConfirmTabId={$session.closeConfirmTabId}
     closeConfirmMode={$session.closeConfirmMode}
-    confirmUnloggedTabClose={appSettings.confirmUnloggedTabClose}
+    confirmUnloggedTabClose={$appSettingsStore.confirmUnloggedTabClose}
     transcriptDiagnosticsEnabled={$session.transcriptDiagnosticsEnabled}
     worlds={$session.worlds}
     characters={$session.characters}
@@ -1355,7 +1148,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
     onConfirmCloseTab={() => session.confirmCloseTab()}
     onReconnectTab={(tabId) => void session.reconnectWorldTab(tabId)}
     onDisconnectTab={(tabId) => void session.disconnectWorldTab(tabId)}
-    onQuickLogTab={(tabId) => void session.startLogging(tabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, null)}
+    onQuickLogTab={(tabId) => void session.startLogging(tabId, appServices.storage.getResolvedDefaultLogFolder() ?? $appSettingsStore.defaultLogFolder ?? null, null)}
     onOpenLoggingTab={(tabId) => openLoggingModal(tabId)}
     onStopLoggingTab={(tabId) => void session.stopLogging(tabId)}
     onConnectWorld={(worldId) => void session.connectToWorld(worldId)}
@@ -1417,14 +1210,8 @@ const WINDOW_HOST_SINGLETON_IDS = {
         scope: tab.id,
         activeBar: worldSession.activeBar,
         notes: worldSession.notes,
-        spellcheckEnabled: appSettings.spellcheckEnabled,
-        spellcheckLanguage: appSettings.spellcheckLanguage,
-        spellcheckIgnoredWords: appSettings.spellcheckIgnoredWords,
-        spellcheckSuggestionLimit: appSettings.spellcheckSuggestionLimit,
-        spellcheckMinimumWordLength: appSettings.spellcheckMinimumWordLength,
-        spellcheckDebounceMs: appSettings.spellcheckDebounceMs,
         onNotesInput: (notes) => session.saveNotes(notes),
-        onSpellcheckIgnoreWord: handleSpellcheckIgnoreWord,
+        onSpellcheckIgnoreWord: (word) => void appServices.spellcheck.ignoreWord(word),
         onNotesClose: () => void session.togglePanel('notes'),
         onCloseNotesTab: () => void session.closePanel('notes'),
         onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
@@ -1456,7 +1243,7 @@ const WINDOW_HOST_SINGLETON_IDS = {
       <PlayScreen
         scope={tab.id}
         visible={tab.id === $session.activeTabId}
-        styleValues={resolvedAppStyle}
+        styleValues={$resolvedAppStyle}
         activeBar={worldSession.activeBar}
         connectionStatus={worldSession.connectionStatus}
         hasNewActivity={worldSession.hasNewActivity}
@@ -1467,27 +1254,21 @@ const WINDOW_HOST_SINGLETON_IDS = {
             ? getTriggersForWorld($session.triggers, worldSession.currentWorld.id)
             : []}
         channels={channels}
-        linkImagePreviews={appSettings.linkImagePreviews}
-        showCurrentOutputWhenScrollingUp={appSettings.showCurrentOutputWhenScrollingUp}
-        spellcheckEnabled={appSettings.spellcheckEnabled}
-        spellcheckLanguage={appSettings.spellcheckLanguage}
-        spellcheckIgnoredWords={appSettings.spellcheckIgnoredWords}
-        spellcheckSuggestionLimit={appSettings.spellcheckSuggestionLimit}
-        spellcheckMinimumWordLength={appSettings.spellcheckMinimumWordLength}
-        spellcheckDebounceMs={appSettings.spellcheckDebounceMs}
-        squiggleOpacity={appSettings.squiggleOpacity}
-        squiggleColor={appSettings.squiggleColor}
-        squiggleStyle={appSettings.squiggleStyle}
-        squiggleSize={appSettings.squiggleSize}
+        linkImagePreviews={$appSettingsStore.linkImagePreviews}
+        showCurrentOutputWhenScrollingUp={$appSettingsStore.showCurrentOutputWhenScrollingUp}
+        squiggleOpacity={$appSettingsStore.squiggleOpacity}
+        squiggleColor={$appSettingsStore.squiggleColor}
+        squiggleStyle={$appSettingsStore.squiggleStyle}
+        squiggleSize={$appSettingsStore.squiggleSize}
         userScrolled={worldSession.userScrolled}
         transcript={worldSession.transcript}
         outputRevision={worldSession.outputRevision}
         renderCache={worldSession.renderCache}
         characterWidth={worldSession.currentCharacter?.width}
-        outputFontSize={resolvedAppStyle.output.fontSize}
+        outputFontSize={$resolvedAppStyle.output.fontSize}
         transcriptDiagnosticsEnabled={$session.transcriptDiagnosticsEnabled}
         loggingActive={worldSession.loggingActive}
-        imagePreviewCacheVersion={appSettings.imagePreviewCacheVersion}
+        imagePreviewCacheVersion={$appSettingsStore.imagePreviewCacheVersion}
         canReconnect={worldSession.connectionStatus === 'disconnected' && worldSession.currentWorld !== null}
         canDisconnect={worldSession.connectionStatus === 'connecting' || worldSession.connectionStatus === 'connected'}
         canQuickLog={!worldSession.loggingActive}
@@ -1515,27 +1296,101 @@ const WINDOW_HOST_SINGLETON_IDS = {
 
     {#if activeTab?.kind === 'settings'}
       <SettingsPage
-        settings={appSettings}
-        onChange={updateAppSettings}
-        style={appStyle}
-        onStyleChange={updateAppStyle}
-        fontShelf={fontShelf}
-        onFontShelfChange={updateFontShelf}
         activeTab={$session.settingsActiveTab}
         onTabChange={(tab) => session.setSettingsActiveTab(tab)}
-        storageFilePath={storageFilePath}
-        resolvedLogFolderPath={resolvedLogFolderPath}
-        onRevealLogFolder={() => void handleRevealLogFolder()}
-        onMoveLogFolder={() => void handleMoveLogFolder()}
-        onRevealStorageLocation={() => void handleRevealStorageLocation()}
-        onPickStorageLocation={() => void handlePickStorageLocation()}
-        onMoveStorageLocation={() => void handleMoveStorageLocation()}
       />
     {/if}
   </main>
 </div>
 
 <WindowResizeHandles />
+
+{#if $appNoticeStore}
+  <AppNoticeHost open={true} title={$appNoticeStore.title} onClose={closeActiveNotice}>
+    {#if $appNoticeStore.kind === 'custom' && $appNoticeStore.surfaceId === APP_NOTICE_SURFACE_IDS.characterModal}
+      <CharacterModal
+        draft={$session.modalDraft}
+        onCancel={() => session.closeModal()}
+        onSave={(draft) => session.saveCharacter(draft)}
+      />
+    {:else if $appNoticeStore.kind === 'custom' && $appNoticeStore.surfaceId === APP_NOTICE_SURFACE_IDS.worldModal}
+      <WorldModal
+        title={$appNoticeStore.title}
+        draft={$session.worldModalDraft}
+        onCancel={() => session.closeModal()}
+        onSave={(draft) => session.saveWorld(draft)}
+      />
+    {:else if $appNoticeStore.kind === 'custom' && $appNoticeStore.surfaceId === APP_NOTICE_SURFACE_IDS.loggingModal}
+      <LoggingModal
+        active={loggingModalSession?.loggingActive === true}
+        tabTitle={loggingModalTab?.title ?? ''}
+        currentPath={loggingModalSession?.logFilePath ?? ''}
+        defaultFolder={appServices.storage.getResolvedDefaultLogFolder() ?? $appSettingsStore.defaultLogFolder ?? ''}
+        initialFileName={loggingModalInitialFileName}
+        logError={loggingModalSession?.logError ?? ''}
+        refreshNonce={loggingModalRefreshNonce}
+        onStartLogging={async (fileName) => {
+          if (!loggingModalTabId) {
+            return;
+          }
+
+          await session.startLogging(loggingModalTabId, appServices.storage.getResolvedDefaultLogFolder() ?? $appSettingsStore.defaultLogFolder ?? null, fileName);
+          refreshLoggingModalStatus();
+          closeLoggingModal();
+        }}
+        onStopLogging={() => {
+          if (!loggingModalTabId) {
+            return;
+          }
+
+          void session.stopLogging(loggingModalTabId);
+          closeLoggingModal();
+        }}
+        onRenameLogging={async (fileName) => {
+          if (!loggingModalTabId) {
+            return;
+          }
+
+          await session.renameLogging(loggingModalTabId, fileName);
+          refreshLoggingModalStatus();
+          closeLoggingModal();
+        }}
+        onRevealLog={() => {
+          if (!loggingModalTabId) {
+            return;
+          }
+
+          const loggingSession = loggingModalSession;
+          if (loggingSession?.logFilePath) {
+            void session.revealLoggingFile(loggingModalTabId);
+            return;
+          }
+
+          void appServices.storage.revealDefaultLogFolder(appServices.storage.getResolvedDefaultLogFolder() ?? $appSettingsStore.defaultLogFolder ?? null);
+        }}
+        onOpenLoggingSettings={() => {
+          closeLoggingModal();
+          session.selectTab('settings');
+          session.setSettingsActiveTab('logging');
+        }}
+      />
+    {:else if $appNoticeStore.kind === 'alert'}
+      <NoticeModal
+        message={$appNoticeStore.message ?? ''}
+        confirmLabel={$appNoticeStore.confirmLabel ?? 'ok'}
+        onClose={() => appServices.notice.acceptCurrentNotice()}
+      />
+    {:else if $appNoticeStore.kind === 'confirm'}
+      <ConfirmCloseTabModal
+        title={$appNoticeStore.title}
+        message={$appNoticeStore.message ?? ''}
+        confirmLabel={$appNoticeStore.confirmLabel ?? 'ok'}
+        onCancel={() => appServices.notice.dismissCurrentNotice()}
+        onConfirm={() => appServices.notice.acceptCurrentNotice()}
+      />
+    {/if}
+  </AppNoticeHost>
+{/if}
 
 <WindowHost
   open={windowHostWindows.length > 0}
@@ -1568,102 +1423,6 @@ const WINDOW_HOST_SINGLETON_IDS = {
       onToggleNode={(nodeId) => toggleFuzzballStorageWindowNode(windowRecord.id, nodeId)}
       onExpandAll={() => expandAllFuzzballStorageWindowNodes(windowRecord.id)}
       onCollapseAll={() => collapseAllFuzzballStorageWindowNodes(windowRecord.id)}
-    />
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.characterModal}
-    <CharacterModal
-      draft={$session.modalDraft}
-      onCancel={() => session.closeModal()}
-      onSave={(draft) => session.saveCharacter(draft)}
-    />
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.worldModal}
-    <WorldModal
-      title={windowRecord.title}
-      draft={$session.worldModalDraft}
-      onCancel={() => session.closeModal()}
-      onSave={(draft) => session.saveWorld(draft)}
-    />
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.loggingModal}
-    <LoggingModal
-      active={loggingModalSession?.loggingActive === true}
-      tabTitle={loggingModalTab?.title ?? ''}
-      currentPath={loggingModalSession?.logFilePath ?? ''}
-      defaultFolder={resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? ''}
-      initialFileName={loggingModalInitialFileName}
-      logError={loggingModalSession?.logError ?? ''}
-      refreshNonce={loggingModalRefreshNonce}
-      onStartLogging={async (fileName) => {
-        if (!loggingModalTabId) {
-          return;
-        }
-
-        await session.startLogging(loggingModalTabId, resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null, fileName);
-        refreshLoggingModalStatus();
-        closeLoggingModal();
-      }}
-      onStopLogging={() => {
-        if (!loggingModalTabId) {
-          return;
-        }
-
-        void session.stopLogging(loggingModalTabId);
-        closeLoggingModal();
-      }}
-      onRenameLogging={async (fileName) => {
-        if (!loggingModalTabId) {
-          return;
-        }
-
-        await session.renameLogging(loggingModalTabId, fileName);
-        refreshLoggingModalStatus();
-        closeLoggingModal();
-      }}
-      onRevealLog={() => {
-        if (!loggingModalTabId) {
-          return;
-        }
-
-        const loggingSession = loggingModalSession;
-        if (loggingSession?.logFilePath) {
-          void session.revealLoggingFile(loggingModalTabId);
-          return;
-        }
-
-      void appServices.storage.revealDefaultLogFolder(resolvedLogFolderPath ?? appSettings.defaultLogFolder ?? null);
-      }}
-      onOpenLoggingSettings={() => {
-        closeLoggingModal();
-        session.selectTab('settings');
-        session.setSettingsActiveTab('logging');
-      }}
-    />
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.storageImportNotice}
-    <NoticeModal
-      message="Import settings file requires closing all world tabs and starting over, please close all tabs and try again."
-      confirmLabel="ok"
-      onClose={() => closeWindow(windowRecord.id)}
-    />
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.worldCloseConfirm}
-    {@const closeConfirmCopy =
-      $session.closeConfirmTabId !== null ? getCloseConfirmCopy($session.closeConfirmTabId) : null}
-    {#if closeConfirmCopy}
-      <ConfirmCloseTabModal
-        title={closeConfirmCopy.title}
-        message={closeConfirmCopy.message}
-        confirmLabel={closeConfirmCopy.confirmLabel}
-        onCancel={() => closeWindow(windowRecord.id)}
-        onConfirm={() => {
-          session.confirmCloseTab();
-          closeWindow(windowRecord.id);
-        }}
-      />
-    {/if}
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.appCloseConfirm}
-    <ConfirmCloseTabModal
-      title="close app?"
-      message="One or more tabs are connected. Disconnect and close the app?"
-      confirmLabel="disconnect and close app"
-      onCancel={() => closeWindow(windowRecord.id)}
-      onConfirm={() => void confirmAppClose()}
     />
   {/if}
 </WindowHost>

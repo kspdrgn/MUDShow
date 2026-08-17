@@ -15,6 +15,25 @@
 - The debug console now lives in the world-session container as a DI-backed service, with its own entries and visibility state.
 - The container no longer owns a separate connection id field; the tab record and `MudConnection` own that identity.
 
+## Implementation Checklist
+
+### Done
+
+- [x] Establish a general world-session container for session-scoped services.
+- [x] Key the registry by `WorldSessionKey` only.
+- [x] Move world connection creation and resolution behind the registry.
+- [x] Move per-session debug console state and entries behind the registry.
+- [x] Remove the separate connection id field from the container when the tab record and `MudConnection` already carry that identity.
+- [x] Document the world-session DI shape in `spec/di.md`.
+
+### Still To Do
+
+- [ ] Decide whether fuzzball cache belongs in the same world-session registry or in an adjacent service.
+- [ ] Decide whether notes and transcript history should become session-owned services in the registry.
+- [ ] Decide whether trigger context should be session-owned or continue to be derived from the active world and character.
+- [ ] Route additional session-scoped consumers through the registry once the first shape feels stable.
+- [ ] Keep the session shell thin and continue moving session-owned behavior out of `session.ts` where it still reaches across modules directly.
+
 ## Working Name
 
 - Call the scope a `world session`.
@@ -49,6 +68,7 @@
 ### Likely session-scoped
 
 - World or character style scope lookup.
+- World-session style resolution that composes on top of the app style service.
 - Trigger context derived from the active world or character.
 - Logging-related helpers that need to know the current world session.
 - Refresh helpers for any session-owned debug or inspection views.
@@ -95,6 +115,7 @@ The following systems look like they may benefit from the same world-session reg
 - Notes panel visibility and loading.
 - Highlights, rules, and debug console panel state.
 - Scroll restoration and focus restoration for world panels.
+- Effective style resolution for the active world session and its panels.
 
 ### Character-bound persistence inside a world tab
 

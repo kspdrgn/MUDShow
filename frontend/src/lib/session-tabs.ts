@@ -435,9 +435,45 @@ export function createSessionTabsActions({
 
   function closeTab(tabId: string, source: 'mouse' | 'shortcut' = 'mouse'): void {
     if (shouldConfirmWorldTabClose(tabId) || shouldConfirmUnloggedWorldTabClose(tabId)) {
+      if (source === 'shortcut') {
+        const current = getState();
+        const tab = current.tabs.find((entry) => entry.id === tabId) ?? null;
+        const sessionState = current.worldSessions[tabId];
+        const worldName =
+          sessionState?.currentWorld?.name ??
+          sessionState?.currentCharacter?.name ??
+          tab?.title ??
+          'this world';
+        const isConnected =
+          sessionState?.connectionStatus === 'connected' ||
+          sessionState?.connectionStatus === 'connecting';
+
+        void appServices.notice.confirm({
+          surfaceId: 'world-close-confirm',
+          title: 'close world tab?',
+          message: isConnected
+            ? `World ${worldName} is connected. Disconnect and close?`
+            : `World ${worldName} is not being logged. Close anyway?`,
+          confirmLabel: isConnected ? 'disconnect and close' : 'close anyway',
+          cancelLabel: 'cancel',
+        }).then((accepted) => {
+          if (accepted) {
+            closeTabImmediately(tabId);
+          }
+        });
+
+        patch({
+          closeConfirmTabId: null,
+          closeConfirmMode: null,
+          modalOpen: false,
+          modalKind: null,
+        });
+        return;
+      }
+
       patch({
         closeConfirmTabId: tabId,
-        closeConfirmMode: source === 'shortcut' ? 'modal' : 'dropdown',
+        closeConfirmMode: 'dropdown',
         modalOpen: false,
         modalKind: null,
       });
