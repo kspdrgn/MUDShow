@@ -645,11 +645,12 @@
   </div>
 
   {#if worldContextMenuOpen && worldContextMenuState.tab}
+    {@const worldContextMenuTab = worldContextMenuState.tab}
     <div bind:this={worldContextMenuDropdown}>
       <WorldContextMenu
         open={worldContextMenuOpen}
         position={worldContextMenuPosition}
-        ariaLabel={`tab menu for ${worldContextMenuState.tab.title}`}
+        ariaLabel={`tab menu for ${worldContextMenuTab.title}`}
         source="titlebar"
         canReconnect={worldContextMenuState.canReconnect}
         canDisconnect={worldContextMenuState.canDisconnect}
@@ -659,32 +660,32 @@
         canEditCharacter={worldContextMenuState.canEditCharacter}
         onReconnect={() =>
           worldContextMenuState.canReconnect &&
-          handleWorldContextMenuAction(() => onReconnectTab(worldContextMenuState.tab.id))
+          handleWorldContextMenuAction(() => onReconnectTab(worldContextMenuTab.id))
         }
         onDisconnect={() =>
           worldContextMenuState.canDisconnect &&
-          handleWorldContextMenuAction(() => onDisconnectTab(worldContextMenuState.tab.id))
+          handleWorldContextMenuAction(() => onDisconnectTab(worldContextMenuTab.id))
         }
         onQuickLog={() =>
           worldContextMenuState.canQuickLog &&
-          handleWorldContextMenuAction(() => onQuickLogTab(worldContextMenuState.tab.id))
+          handleWorldContextMenuAction(() => onQuickLogTab(worldContextMenuTab.id))
         }
         onStopLogging={() =>
           worldContextMenuState.canStopLogging &&
-          handleWorldContextMenuAction(() => onStopLoggingTab(worldContextMenuState.tab.id))
+          handleWorldContextMenuAction(() => onStopLoggingTab(worldContextMenuTab.id))
         }
-        onOpenLogging={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuState.tab.id))}
+        onOpenLogging={() => handleWorldContextMenuAction(() => onOpenLoggingTab(worldContextMenuTab.id))}
         onEditWorld={() =>
           worldContextMenuState.canEditWorld &&
-          handleWorldContextMenuAction(() => onEditWorldTab(worldContextMenuState.tab.id))
+          handleWorldContextMenuAction(() => onEditWorldTab(worldContextMenuTab.id))
         }
         onEditCharacter={() =>
           worldContextMenuState.canEditCharacter &&
-          handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuState.tab.id))
+          handleWorldContextMenuAction(() => onEditCharacterTab(worldContextMenuTab.id))
         }
-        onOpenNotes={() => handleWorldContextMenuAction(() => onOpenNotesTab(worldContextMenuState.tab.id))}
+        onOpenNotes={() => handleWorldContextMenuAction(() => onOpenNotesTab(worldContextMenuTab.id))}
         onOpenDebugConsole={() =>
-          handleWorldContextMenuAction(() => onOpenDebugConsoleTab(worldContextMenuState.tab.id))
+          handleWorldContextMenuAction(() => onOpenDebugConsoleTab(worldContextMenuTab.id))
         }
         onOpenTriggers={() =>
           handleWorldContextMenuAction(() =>
@@ -702,7 +703,7 @@
               clientX: rect.left + rect.width / 2,
               clientY: rect.bottom,
             }),
-            worldContextMenuState.tab,
+            worldContextMenuTab,
           )}
       />
     </div>

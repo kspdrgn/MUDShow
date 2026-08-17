@@ -667,7 +667,7 @@
 
     window.dispatchEvent(new CustomEvent('mudshow-context-menu-open', { detail: { source: 'transcript' } }));
 
-    const shellRect = transcriptShellElement?.getBoundingClientRect();
+    const shellRect = transcriptShellElement?.getBoundingClientRect() ?? null;
     contextMenuPosition = getTranscriptContextMenuPosition(shellRect, event.clientX, event.clientY);
     contextMenuOpen = true;
   }

@@ -24,6 +24,7 @@ import {
 import {
   createFuzzballStorageViewerState,
   buildFuzzballStorageViewerModel,
+  requestFuzzballStorageNodeLoad,
   type FuzzballStorageViewerState,
 } from './lib/fuzzball/storage-viewer';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
@@ -55,6 +56,9 @@ const APP_NOTICE_SURFACE_IDS = {
 const WINDOW_HOST_SINGLETON_IDS = {
   dummyWindow: 'app-dev-dummy',
   treeDataDemo: 'tree-data-demo',
+  loggingModal: 'logging-modal',
+  worldModal: 'world-modal',
+  characterModal: 'character-modal',
 } as const;
 
 const appSettingsStore = appServices.settings.current;
@@ -68,7 +72,7 @@ let loggingModalInitialFileName = '';
 let loggingModalRefreshNonce = 0;
 let windowHostWindows: WindowRecord[] = [];
 let poppedOutWindowRecords: Record<string, WindowRecord> = {};
-let poppedOutWindowId: string | null = initialPoppedOutWindowId;
+let poppedOutWindowId: string | null = initialPoppedOutWindowId ?? null;
 let poppedOutWindowRecord: WindowRecord | null = null;
 let isPoppedOutWindow = initialIsPoppedOutWindow;
 let nextWindowHostId = 1;
@@ -1156,7 +1160,6 @@ function openLoggingModal(tabId: string): void {
       />
     {:else if $appNoticeStore.kind === 'custom' && $appNoticeStore.surfaceId === APP_NOTICE_SURFACE_IDS.worldModal}
       <WorldModal
-        title={$appNoticeStore.title}
         draft={$session.worldModalDraft}
         onCancel={() => session.closeModal()}
         onSave={(draft) => session.saveWorld(draft)}

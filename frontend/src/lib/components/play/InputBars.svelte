@@ -41,7 +41,7 @@ import {
   export let onAddBar: (bar: InputBarId) => void;
   export let onRemoveBar: (bar: InputBarId) => void;
   export let onResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
-  export let onOutputScrollKey: (key: string) => void;
+  export let onOutputScrollKey: (key: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
   export let spellcheckEnabled = true;
   export let spellcheckLanguage = 'en-US';
   export let spellcheckIgnoredWords = '';
@@ -60,7 +60,7 @@ import {
   let controlsVisible: Record<InputBarId, boolean> = {};
   let spellcheck: InputBarsSpellcheckState = createInputBarsSpellcheckState();
   let lastSelectedBar: InputBarId = activeBar;
-  const controlTimers = new Map<InputBarId, ReturnType<typeof setTimeout>>();
+  const controlTimers = new Map<InputBarId, number>();
   const spellcheckController = createInputBarsSpellcheckController({
     getInput,
     onIgnoreWord,

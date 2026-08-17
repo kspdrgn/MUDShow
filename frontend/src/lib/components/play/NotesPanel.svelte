@@ -42,7 +42,7 @@
   let liveUnderlayHtml = '';
   let liveLoading = false;
   let liveRequestToken = 0;
-  let liveTimer: ReturnType<typeof setTimeout> | null = null;
+  let liveTimer: number | null = null;
   let liveSignature = '';
   let liveScrollX = 0;
   let liveScrollY = 0;

@@ -69,15 +69,15 @@
   }
 
   async function requestDeleteWorld(index: number): Promise<void> {
-    pendingDelete = createWorldDeleteTarget(index, worlds[index]);
+    const target = createWorldDeleteTarget(index, worlds[index]);
+    pendingDelete = target;
     const confirmed = await appServices.notice.confirm({
       surfaceId: 'delete-confirm',
-      title: `delete ${pendingDelete?.worldName ?? 'world'}?`,
+      title: `delete ${target?.kind === 'world' ? target.worldName : 'world'}?`,
       message: 'Deleting a world will remove all saved characters!',
       confirmLabel: 'delete',
       cancelLabel: 'cancel',
     });
-    const target = pendingDelete;
     pendingDelete = null;
 
     if (confirmed && target && target.kind === 'world') {
@@ -86,15 +86,15 @@
   }
 
   async function requestDeleteCharacter(index: number): Promise<void> {
-    pendingDelete = createCharacterDeleteTarget(index, characters[index]);
+    const target = createCharacterDeleteTarget(index, characters[index]);
+    pendingDelete = target;
     const confirmed = await appServices.notice.confirm({
       surfaceId: 'delete-confirm',
-      title: `delete ${pendingDelete?.characterName ?? 'character'}?`,
+      title: `delete ${target?.kind === 'character' ? target.characterName : 'character'}?`,
       message: 'Deleting a character will remove all saved notes, highlights, and stored history.',
       confirmLabel: 'delete',
       cancelLabel: 'cancel',
     });
-    const target = pendingDelete;
     pendingDelete = null;
 
     if (confirmed && target && target.kind === 'character') {
