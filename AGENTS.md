@@ -27,6 +27,9 @@ For every feature or behavior added to the app, we need to ensure the entire fun
 - For Tauri build/dev commands in this repo, make sure `node` is available before invoking `npm run tauri:dev`, `npm run tauri:build`, `npm run dev:frontend`, or `npm run build`.
 - Prefer the existing npm scripts and Tauri commands for desktop workflows instead of inventing new shell wrappers.
 - Git may reject the repo with a safe-directory warning in this environment. If that happens, use `git -c safe.directory=<repo path> ...` for the command you need instead of assuming the checkout is broken.
+- `svelte-check` is used to detect typescript errors and other issues in Svelte files that `tsc` will not detect.
+  - If node is on the path (unlikely but possible with local setup) Run `npm run check:svelte`
+  - Otherwise use the bundled Node runtime plus `scripts/check-svelte.cjs`.
 
 ## Fork / Permanent Worktree Startup Instructions
 
