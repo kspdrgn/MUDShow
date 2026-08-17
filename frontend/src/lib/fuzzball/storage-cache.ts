@@ -19,7 +19,6 @@ export interface FuzzBallPropertyNodeSnapshot {
   type: FuzzBallPropertyNodeType;
   value: string | null;
   isValueLoaded: boolean;
-  isExpanded: boolean;
   hasChildren: boolean;
   areChildrenLoaded: boolean;
   updatedAt: number;
@@ -31,7 +30,6 @@ interface InternalPropertyNode {
   type: FuzzBallPropertyNodeType;
   value: string | null;
   isValueLoaded: boolean;
-  isExpanded: boolean;
   hasChildren: boolean;
   updatedAt: number;
 }
@@ -87,7 +85,6 @@ function toSnapshot(node: InternalPropertyNode, areChildrenLoaded: boolean): Fuz
     type: node.type,
     value: node.value,
     isValueLoaded: node.isValueLoaded,
-    isExpanded: node.isExpanded,
     hasChildren: node.hasChildren || areChildrenLoaded,
     areChildrenLoaded,
     updatedAt: node.updatedAt,
@@ -116,32 +113,11 @@ export class FuzzBallPropertyTreeCache {
     this.notify();
   }
 
-  markExpanded(path: string): FuzzBallPropertyNodeSnapshot {
-    const normalizedPath = normalizePropertyPath(path);
-    const node = this.ensureNode(normalizedPath, true);
-    node.hasChildren = node.hasChildren || this.hasLoadedChildren(normalizedPath);
-    node.isExpanded = true;
-    node.updatedAt = Date.now();
-    this.notify();
-    return this.getSnapshot(normalizedPath) ?? toSnapshot(node, this.hasLoadedChildren(normalizedPath));
-  }
-
-  markCollapsed(path: string): FuzzBallPropertyNodeSnapshot {
-    const normalizedPath = normalizePropertyPath(path);
-    const node = this.ensureNode(normalizedPath, true);
-    node.hasChildren = node.hasChildren || this.hasLoadedChildren(normalizedPath);
-    node.isExpanded = false;
-    node.updatedAt = Date.now();
-    this.notify();
-    return this.getSnapshot(normalizedPath) ?? toSnapshot(node, this.hasLoadedChildren(normalizedPath));
-  }
-
   upsertNode(input: FuzzBallPropertyNodeInput): FuzzBallPropertyNodeSnapshot {
     const normalizedPath = normalizePropertyPath(input.path);
     const now = Date.now();
     this.ensureAncestors(normalizedPath, now);
 
-    const existing = this.nodes.get(normalizedPath);
     const areChildrenLoaded = this.hasLoadedChildren(normalizedPath);
     const hasChildren = (input.hasChildren ?? false) || areChildrenLoaded;
     const nextNode: InternalPropertyNode = {
@@ -150,7 +126,6 @@ export class FuzzBallPropertyTreeCache {
       type: input.type,
       value: input.type === 'dir' ? null : (input.value ?? null),
       isValueLoaded: true,
-      isExpanded: hasChildren ? (existing?.isExpanded ?? false) : false,
       hasChildren,
       updatedAt: now,
     };
@@ -173,7 +148,6 @@ export class FuzzBallPropertyTreeCache {
           type: 'dir',
           value: null,
           isValueLoaded: false,
-          isExpanded: true,
           hasChildren: true,
           areChildrenLoaded: true,
           updatedAt: 0,
@@ -210,7 +184,6 @@ export class FuzzBallPropertyTreeCache {
         type: 'dir',
         value: null,
         isValueLoaded: false,
-        isExpanded: areChildrenLoaded,
         hasChildren: areChildrenLoaded,
         areChildrenLoaded,
         updatedAt: 0,
@@ -236,34 +209,11 @@ export class FuzzBallPropertyTreeCache {
     return false;
   }
 
-  private ensureNode(path: string, isSynthetic = false): InternalPropertyNode {
-    const existing = this.nodes.get(path);
-    if (existing) {
-      return existing;
-    }
-
-    const now = Date.now();
-    const node: InternalPropertyNode = {
-      path,
-      name: path === '/' ? '/' : getNodeName(path),
-      type: 'dir',
-      value: null,
-      isValueLoaded: !isSynthetic,
-      isExpanded: false,
-      hasChildren: false,
-      updatedAt: now,
-    };
-
-    this.nodes.set(path, node);
-    return node;
-  }
-
   private ensureAncestors(path: string, updatedAt: number): void {
     let current = getParentPath(path);
     while (current) {
       const existing = this.nodes.get(current);
       if (existing) {
-        existing.isExpanded = true;
         existing.updatedAt = updatedAt;
       } else {
         this.nodes.set(current, {
@@ -272,7 +222,6 @@ export class FuzzBallPropertyTreeCache {
           type: 'dir',
           value: null,
           isValueLoaded: false,
-          isExpanded: true,
           hasChildren: true,
           updatedAt,
         });

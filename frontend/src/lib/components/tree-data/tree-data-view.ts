@@ -9,8 +9,12 @@ export interface TreeDataNode {
   kind: TreeDataNodeKind;
   valueState: TreeDataNodeState;
   childrenState: TreeDataNodeState;
-  expanded?: boolean;
   children?: TreeDataNode[];
+}
+
+export interface TreeDataWindowViewState {
+  selectedNodeId: string | null;
+  expandedNodeIds: string[];
 }
 
 export interface TreeDataWindowModel {
@@ -26,7 +30,6 @@ export interface TreeDataNodePatch {
   kind?: TreeDataNodeKind;
   valueState?: TreeDataNodeState;
   childrenState?: TreeDataNodeState;
-  expanded?: boolean | null;
   children?: TreeDataNode[] | null;
 }
 
@@ -34,19 +37,25 @@ export interface TreeDataVisibleNode {
   node: TreeDataNode;
   depth: number;
   hasChildren: boolean;
+  expanded: boolean;
 }
 
-export function flattenVisibleTreeDataNodes(root: TreeDataNode): TreeDataVisibleNode[] {
+export function flattenVisibleTreeDataNodes(
+  root: TreeDataNode,
+  expandedNodeIds: ReadonlySet<string>,
+): TreeDataVisibleNode[] {
   const rows: TreeDataVisibleNode[] = [];
 
   function visit(node: TreeDataNode, depth: number): void {
+    const expanded = expandedNodeIds.has(node.id);
     rows.push({
       node,
       depth,
       hasChildren: node.kind === 'branch' && node.childrenState !== 'missing',
+      expanded,
     });
 
-    if (!node.expanded) {
+    if (!expanded) {
       return;
     }
 
@@ -57,40 +66,6 @@ export function flattenVisibleTreeDataNodes(root: TreeDataNode): TreeDataVisible
 
   visit(root, 0);
   return rows;
-}
-
-export function toggleTreeDataNodeExpansion(root: TreeDataNode, nodeId: string): TreeDataNode {
-  return updateTreeDataNode(root, nodeId, (node) => {
-    if (node.kind !== 'branch') {
-      return node;
-    }
-
-    return {
-      ...node,
-      expanded: !node.expanded,
-    };
-  });
-}
-
-export function setTreeDataNodeExpansion(root: TreeDataNode, nodeId: string, expanded: boolean): TreeDataNode {
-  return updateTreeDataNode(root, nodeId, (node) => {
-    if (node.kind !== 'branch') {
-      return node;
-    }
-
-    return {
-      ...node,
-      expanded,
-    };
-  });
-}
-
-export function setTreeDataDescendantsExpansion(root: TreeDataNode, expanded: boolean): TreeDataNode {
-  return {
-    ...root,
-    expanded: true,
-    children: root.children?.map((child) => setTreeDataNodeExpansionRecursive(child, expanded)) ?? [],
-  };
 }
 
 export function findTreeDataNode(root: TreeDataNode, nodeId: string): TreeDataNode | null {
@@ -122,13 +97,8 @@ export function applyTreeDataNodePatch(
       ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
       ...(patch.valueState !== undefined ? { valueState: patch.valueState } : {}),
       ...(patch.childrenState !== undefined ? { childrenState: patch.childrenState } : {}),
-      ...(patch.expanded !== undefined && patch.expanded !== null ? { expanded: patch.expanded } : {}),
       ...(patch.children !== undefined && patch.children !== null ? { children: patch.children } : {}),
     };
-
-    if (patch.expanded === null) {
-      delete nextNode.expanded;
-    }
 
     if (patch.children === null) {
       delete nextNode.children;
@@ -136,24 +106,6 @@ export function applyTreeDataNodePatch(
 
     return nextNode;
   });
-}
-
-function setTreeDataNodeExpansionRecursive(node: TreeDataNode, expanded: boolean): TreeDataNode {
-  const nextChildren = node.children?.map((child) => setTreeDataNodeExpansionRecursive(child, expanded)) ?? [];
-
-  if (nextChildren.length === 0) {
-    return {
-      ...node,
-      expanded: false,
-      children: nextChildren,
-    };
-  }
-
-  return {
-    ...node,
-    expanded,
-    children: nextChildren,
-  };
 }
 
 export function updateTreeDataNode(

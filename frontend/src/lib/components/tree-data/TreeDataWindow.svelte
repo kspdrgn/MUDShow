@@ -2,23 +2,88 @@
   import {
     flattenVisibleTreeDataNodes,
     type TreeDataWindowModel,
+    type TreeDataWindowViewState,
   } from './tree-data-view';
 
   export let model: TreeDataWindowModel;
-  export let selectedNodeId: string | null = null;
-  export let onSelectNode: (nodeId: string) => void = () => {};
   export let onToggleNode: (nodeId: string) => void = () => {};
-  export let onExpandAll: () => void = () => {};
-  export let onCollapseAll: () => void = () => {};
 
-  $: visibleRows = flattenVisibleTreeDataNodes(model.root);
-  $: selectedRow = visibleRows.find((row) => row.node.id === selectedNodeId) ?? null;
+  let viewState: TreeDataWindowViewState = createInitialViewState(model.root.id);
+  let activeRootId = model.root.id;
+
+  $: if (activeRootId !== model.root.id) {
+    activeRootId = model.root.id;
+    viewState = createInitialViewState(model.root.id);
+  }
+
+  $: visibleRows = flattenVisibleTreeDataNodes(model.root, new Set(viewState.expandedNodeIds));
+  $: selectedRow = visibleRows.find((row) => row.node.id === viewState.selectedNodeId) ?? null;
+
+  function selectNode(nodeId: string): void {
+    viewState = {
+      ...viewState,
+      selectedNodeId: nodeId,
+    };
+  }
+
+  function toggleNode(nodeId: string): void {
+    const expandedNodeIds = new Set(viewState.expandedNodeIds);
+    if (expandedNodeIds.has(nodeId)) {
+      expandedNodeIds.delete(nodeId);
+    } else {
+      expandedNodeIds.add(nodeId);
+    }
+
+    viewState = {
+      ...viewState,
+      expandedNodeIds: [...expandedNodeIds],
+    };
+
+    onToggleNode(nodeId);
+  }
+
+  function expandAll(): void {
+    viewState = {
+      ...viewState,
+      expandedNodeIds: collectTreeDataNodeIds(model.root),
+    };
+  }
+
+  function collapseAll(): void {
+    viewState = {
+      ...viewState,
+      selectedNodeId: model.root.id,
+      expandedNodeIds: [model.root.id],
+    };
+  }
+
+  function collectTreeDataNodeIds(root: TreeDataWindowModel['root']): string[] {
+    const ids: string[] = [];
+
+    function visit(node: TreeDataWindowModel['root']): void {
+      ids.push(node.id);
+
+      for (const child of node.children ?? []) {
+        visit(child);
+      }
+    }
+
+    visit(root);
+    return ids;
+  }
+
+  function createInitialViewState(rootId: string): TreeDataWindowViewState {
+    return {
+      selectedNodeId: rootId,
+      expandedNodeIds: [rootId],
+    };
+  }
 </script>
 
 <section class="tree-data-window">
   <header class="tree-data-window-header">
     <div class="tree-data-window-copy">
-      <p class="tree-data-window-kicker">built-in tree-data view</p>
+      <p class="tree-data-window-kicker">tree-data view</p>
       <h2>{model.title}</h2>
       {#if model.description}
         <p class="tree-data-window-description">{model.description}</p>
@@ -26,8 +91,8 @@
     </div>
 
     <div class="tree-data-window-actions">
-      <button type="button" class="tree-data-window-action" on:click={onExpandAll}>expand all</button>
-      <button type="button" class="tree-data-window-action" on:click={onCollapseAll}>collapse all</button>
+      <button type="button" class="tree-data-window-action" on:click={expandAll}>expand all</button>
+      <button type="button" class="tree-data-window-action" on:click={collapseAll}>collapse all</button>
     </div>
   </header>
 
@@ -51,28 +116,28 @@
         class="tree-data-row"
         class:branch={isBranch}
         class:loading={isLoading}
-        class:selected={selectedNodeId === row.node.id}
+        class:selected={viewState.selectedNodeId === row.node.id}
         style={`--tree-depth: ${row.depth};`}
         role="treeitem"
         aria-level={row.depth + 1}
-        aria-expanded={isBranch ? (row.node.expanded === true ? 'true' : 'false') : undefined}
-        aria-selected={selectedNodeId === row.node.id ? 'true' : 'false'}
+        aria-expanded={isBranch ? (row.expanded ? 'true' : 'false') : undefined}
+        aria-selected={viewState.selectedNodeId === row.node.id ? 'true' : 'false'}
       >
         {#if isBranch}
           <button
             type="button"
             class="tree-data-toggle tree-data-toggle--branch"
-            aria-label={`${row.node.expanded === true ? 'collapse' : 'expand'} ${row.node.title}`}
-            aria-expanded={row.node.expanded === true ? 'true' : 'false'}
+            aria-label={`${row.expanded ? 'collapse' : 'expand'} ${row.node.title}`}
+            aria-expanded={row.expanded ? 'true' : 'false'}
             aria-busy={isLoading ? 'true' : 'false'}
             disabled={isLoading}
             on:pointerdown|stopPropagation
-            on:click|stopPropagation={() => onToggleNode(row.node.id)}
+            on:click|stopPropagation={() => toggleNode(row.node.id)}
           >
             {#if isLoading}
               …
             {:else}
-              {row.node.expanded === true ? '▼' : '▶'}
+              {row.expanded ? '▼' : '▶'}
             {/if}
           </button>
         {:else}
@@ -82,8 +147,8 @@
         <button
           type="button"
           class="tree-data-node"
-          class:selected={selectedNodeId === row.node.id}
-          on:click={() => onSelectNode(row.node.id)}
+          class:selected={viewState.selectedNodeId === row.node.id}
+          on:click={() => selectNode(row.node.id)}
         >
           <span class="tree-data-node-title">{row.node.title}</span>
           {#if row.node.subtitle}

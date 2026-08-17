@@ -10,7 +10,6 @@ export interface FuzzballStorageViewerState {
   sourceTabId: string;
   worldId: string;
   characterId: string;
-  selectedNodeId: string;
   title: string;
   description?: string;
 }
@@ -35,12 +34,10 @@ function buildTreeNode(cache: FuzzBallPropertyTreeCache, path: string): TreeData
     return null;
   }
 
-  const children = snapshot.isExpanded
-    ? snapshot.areChildrenLoaded
-      ? cache.getChildren(snapshot.path)
-        .map((child): TreeDataNode | null => buildTreeNode(cache, child.path))
-        .filter((child: TreeDataNode | null): child is TreeDataNode => child !== null)
-      : undefined
+  const children = snapshot.areChildrenLoaded
+    ? cache.getChildren(snapshot.path)
+      .map((child): TreeDataNode | null => buildTreeNode(cache, child.path))
+      .filter((child: TreeDataNode | null): child is TreeDataNode => child !== null)
     : undefined;
 
   return {
@@ -53,7 +50,6 @@ function buildTreeNode(cache: FuzzBallPropertyTreeCache, path: string): TreeData
     childrenState: snapshot.hasChildren
       ? (snapshot.areChildrenLoaded ? 'loaded' : 'unknown')
       : 'missing',
-    expanded: snapshot.hasChildren ? snapshot.isExpanded : false,
     children,
   };
 }
@@ -69,19 +65,8 @@ export function createFuzzballStorageViewerState(
     sourceTabId,
     worldId,
     characterId,
-    selectedNodeId: '/',
     title,
     description,
-  };
-}
-
-export function updateFuzzballStorageViewerSelection(
-  state: FuzzballStorageViewerState,
-  nodeId: string,
-): FuzzballStorageViewerState {
-  return {
-    ...state,
-    selectedNodeId: nodeId,
   };
 }
 
@@ -119,7 +104,6 @@ export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerStat
     kind: 'branch',
     valueState: 'unknown',
     childrenState: 'missing',
-    expanded: false,
   };
 
   return {
@@ -127,68 +111,4 @@ export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerStat
     description: state.description,
     root,
   };
-}
-
-function walkKnownTreePaths(
-  cache: FuzzBallPropertyTreeCache,
-  path: string,
-  visit: (nodePath: string) => void,
-): void {
-  const snapshot = cache.getSnapshot(path);
-
-  if (!snapshot) {
-    return;
-  }
-
-  visit(snapshot.path);
-
-  for (const child of cache.getChildren(snapshot.path)) {
-    if (child.hasChildren) {
-      walkKnownTreePaths(cache, child.path, visit);
-    }
-  }
-}
-
-export function toggleFuzzballStorageViewerNode(
-  state: FuzzballStorageViewerState,
-  nodeId: string,
-  worldSessionContainers: WorldSessionContainerRegistry | null = null,
-): void {
-  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
-  const node = cache.getSnapshot(nodeId);
-
-  if (node && !node.hasChildren) {
-    return;
-  }
-
-  if (node?.isExpanded) {
-    cache.markCollapsed(nodeId);
-    return;
-  }
-
-  if (!node || !node.isValueLoaded || !node.areChildrenLoaded) {
-    requestFuzzballStorageNodeLoad(state, nodeId, worldSessionContainers);
-  }
-
-  cache.markExpanded(nodeId);
-}
-
-export function expandAllFuzzballStorageViewerNodes(state: FuzzballStorageViewerState): void {
-  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
-  walkKnownTreePaths(cache, '/', (path) => {
-    const node = cache.getSnapshot(path);
-    if (node?.hasChildren) {
-      cache.markExpanded(path);
-    }
-  });
-}
-
-export function collapseAllFuzzballStorageViewerNodes(state: FuzzballStorageViewerState): void {
-  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
-  walkKnownTreePaths(cache, '/', (path) => {
-    const node = cache.getSnapshot(path);
-    if (node?.hasChildren) {
-      cache.markCollapsed(path);
-    }
-  });
 }

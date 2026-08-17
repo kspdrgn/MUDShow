@@ -14,26 +14,16 @@ import TriggersPane from './lib/components/settings/TriggersPane.svelte';
 import WindowHost from './lib/components/window-host/WindowHost.svelte';
 import DummyWindowContent from './lib/components/window-host/DummyWindowContent.svelte';
 import TreeDataWindow from './lib/components/tree-data/TreeDataWindow.svelte';
-import FuzzballStorageWindow from './lib/components/fuzzball/FuzzballStorageWindow.svelte';
 import {
-  collapseAllDemoTreeDataWindowNodes,
-  createDemoTreeDataWindowState,
-  expandAllDemoTreeDataWindowNodes,
-  loadDemoTreeDataWindowNode,
-  toggleDemoTreeDataWindowNode,
-  type TreeDataWindowState,
-  updateDemoTreeDataWindowSelection,
+  createDemoTreeDataWindowModel,
 } from './lib/components/tree-data/tree-data-demo-fixture';
 import {
-  applyTreeDataNodePatch,
   findTreeDataNode,
+  type TreeDataWindowModel,
 } from './lib/components/tree-data/tree-data-view';
 import {
-  collapseAllFuzzballStorageViewerNodes,
   createFuzzballStorageViewerState,
-  expandAllFuzzballStorageViewerNodes,
-  toggleFuzzballStorageViewerNode,
-  updateFuzzballStorageViewerSelection,
+  buildFuzzballStorageViewerModel,
   type FuzzballStorageViewerState,
 } from './lib/fuzzball/storage-viewer';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
@@ -82,11 +72,15 @@ let poppedOutWindowId: string | null = initialPoppedOutWindowId;
 let poppedOutWindowRecord: WindowRecord | null = null;
 let isPoppedOutWindow = initialIsPoppedOutWindow;
 let nextWindowHostId = 1;
-let treeDataWindowStates: Record<string, TreeDataWindowState> = {};
 let fuzzballStorageWindowStates: Record<string, FuzzballStorageViewerState> = {};
 let previousWorldTabIds = new Set<string>();
 let allowWindowCloseOnce = false;
 let unlistenAppClose: (() => void) | null = null;
+
+type TreeDataWindowRenderProps = {
+  model: TreeDataWindowModel;
+  onToggleNode?: (nodeId: string) => void;
+};
 
 const resolvedAppStyle = appServices.style.resolved;
 
@@ -289,148 +283,49 @@ function openLoggingModal(tabId: string): void {
       : WINDOW_HOST_SINGLETON_IDS.characterModal);
   }
 
-  function getTreeDataWindowState(windowId: string): TreeDataWindowState {
-    return treeDataWindowStates[windowId] ?? createDemoTreeDataWindowState();
-  }
-
-  function setTreeDataWindowState(
-    windowId: string,
-    update: (state: TreeDataWindowState) => TreeDataWindowState,
-  ): void {
-    const currentState = treeDataWindowStates[windowId];
-    if (!currentState) {
-      return;
-    }
-
-    treeDataWindowStates = {
-      ...treeDataWindowStates,
-      [windowId]: update(currentState),
-    };
-  }
-
-  function updateTreeDataWindowSelection(windowId: string, nodeId: string): void {
-    setTreeDataWindowState(windowId, (state) => updateDemoTreeDataWindowSelection(state, nodeId));
-  }
-
-  async function toggleTreeDataWindowNode(windowId: string, nodeId: string): Promise<void> {
-    const currentState = treeDataWindowStates[windowId];
-    if (!currentState) {
-      return;
-    }
-
-    const node = findTreeDataNode(currentState.model.root, nodeId);
-    if (!node || node.kind !== 'branch') {
-      return;
-    }
-
-    if (node.childrenState === 'loading') {
-      return;
-    }
-
-    if (node.childrenState === 'unknown') {
-      setTreeDataWindowState(windowId, (state) => ({
-        ...state,
-        model: {
-          ...state.model,
-          root: applyTreeDataNodePatch(state.model.root, nodeId, {
-            expanded: true,
-            childrenState: 'loading',
-            children: [],
-          }),
-        },
-      }));
-
-      const loadedNodePatch = await loadDemoTreeDataWindowNode(nodeId, {
-        knownToHaveChildren: true,
-      });
-      if (!loadedNodePatch || !(windowId in treeDataWindowStates)) {
-        return;
-      }
-
-      setTreeDataWindowState(windowId, (state) => ({
-        ...state,
-        model: {
-          ...state.model,
-          root: applyTreeDataNodePatch(state.model.root, nodeId, {
-            ...loadedNodePatch,
-            expanded: true,
-          }),
-        },
-      }));
-      return;
-    }
-
-    setTreeDataWindowState(windowId, (state) => ({
-      ...state,
-      model: {
-        ...state.model,
-        root: toggleDemoTreeDataWindowNode(state, nodeId).model.root,
-      },
-    }));
-  }
-
-  function expandAllTreeDataWindowNodes(windowId: string): void {
-    setTreeDataWindowState(windowId, (state) => expandAllDemoTreeDataWindowNodes(state));
-  }
-
-  function collapseAllTreeDataWindowNodes(windowId: string): void {
-    setTreeDataWindowState(windowId, (state) => collapseAllDemoTreeDataWindowNodes(state));
-  }
-
   function getFuzzballStorageWindowState(windowId: string): FuzzballStorageViewerState {
     return fuzzballStorageWindowStates[windowId] ?? createFuzzballStorageViewerState('', '', '', 'fuzzball storage viewer');
   }
 
-  function setFuzzballStorageWindowState(
-    windowId: string,
-    update: (state: FuzzballStorageViewerState) => FuzzballStorageViewerState,
-  ): void {
-    const currentState = fuzzballStorageWindowStates[windowId];
-    if (!currentState) {
-      return;
+  function getTreeDataWindowRenderProps(windowId: string): TreeDataWindowRenderProps | null {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (!windowRecord) {
+      return null;
     }
 
-    const nextState = update(currentState);
-    fuzzballStorageWindowStates = {
-      ...fuzzballStorageWindowStates,
-      [windowId]: nextState,
-    };
+    if (windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo) {
+      return {
+        model: createDemoTreeDataWindowModel(),
+      };
+    }
+
+    if (windowRecord.surfaceId.startsWith('fuzzball-storage-window-')) {
+      const sourceState = getFuzzballStorageWindowState(windowId);
+      return {
+        model: buildFuzzballStorageViewerModel(sourceState),
+        onToggleNode: (nodeId) => handleFuzzballStorageTreeToggle(windowId, nodeId),
+      };
+    }
+
+    return null;
   }
 
-  function updateFuzzballStorageWindowSelection(windowId: string, nodeId: string): void {
-    const currentState = getFuzzballStorageWindowState(windowId);
-    if (!currentState.sourceTabId) {
+  function handleFuzzballStorageTreeToggle(windowId: string, nodeId: string): void {
+    const sourceState = getFuzzballStorageWindowState(windowId);
+    if (!sourceState.sourceTabId) {
       return;
     }
 
-    setFuzzballStorageWindowState(windowId, (state) => updateFuzzballStorageViewerSelection(state, nodeId));
-  }
-
-  function toggleFuzzballStorageWindowNode(windowId: string, nodeId: string): void {
-    const currentState = getFuzzballStorageWindowState(windowId);
-    if (!currentState.sourceTabId) {
+    const model = buildFuzzballStorageViewerModel(sourceState);
+    const node = model.root;
+    if (node.id !== nodeId || node.kind !== 'branch' || node.childrenState !== 'unknown') {
       return;
     }
 
-    toggleFuzzballStorageViewerNode(currentState, nodeId, session.worldSessionContainers);
-  }
-
-  function expandAllFuzzballStorageWindowNodes(windowId: string): void {
-    const currentState = getFuzzballStorageWindowState(windowId);
-    if (!currentState.sourceTabId) {
-      return;
-    }
-
-    expandAllFuzzballStorageViewerNodes(currentState);
-  }
-
-  function collapseAllFuzzballStorageWindowNodes(windowId: string): void {
-    const currentState = getFuzzballStorageWindowState(windowId);
-    if (!currentState.sourceTabId) {
-      return;
-    }
-
-    collapseAllFuzzballStorageViewerNodes(currentState);
+    requestFuzzballStorageNodeLoad(sourceState, nodeId, session.worldSessionContainers);
   }
 
   function openDummyWindow(): void {
@@ -466,11 +361,6 @@ function openLoggingModal(tabId: string): void {
   function openTreeDataWindow(): void {
     const index = windowHostWindows.length;
     const id = `tree-data-window-${nextWindowHostId++}`;
-
-    treeDataWindowStates = {
-      ...treeDataWindowStates,
-      [id]: createDemoTreeDataWindowState(),
-    };
 
     windowHostWindows = [
       ...windowHostWindows,
@@ -543,15 +433,6 @@ function openLoggingModal(tabId: string): void {
     ];
   }
 
-  function clearTreeDataWindowState(windowId: string): void {
-    if (!(windowId in treeDataWindowStates)) {
-      return;
-    }
-
-    const { [windowId]: _removed, ...rest } = treeDataWindowStates;
-    treeDataWindowStates = rest;
-  }
-
   function clearFuzzballStorageWindowState(windowId: string): void {
     if (!(windowId in fuzzballStorageWindowStates)) {
       return;
@@ -591,7 +472,6 @@ function openLoggingModal(tabId: string): void {
   }
 
   function closeWindow(windowId: string): void {
-    clearTreeDataWindowState(windowId);
     clearFuzzballStorageWindowState(windowId);
 
     removeWindowRecord(windowId);
@@ -671,7 +551,6 @@ function openLoggingModal(tabId: string): void {
       title: windowRecord.title,
     });
 
-    clearTreeDataWindowState(windowId);
     clearFuzzballStorageWindowState(windowId);
   }
 
@@ -1083,27 +962,12 @@ function openLoggingModal(tabId: string): void {
   >
     {#if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
       <DummyWindowContent instanceLabel={poppedOutWindowRecord.title} />
-    {:else if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo}
-      {@const treeDataWindowState =
-        treeDataWindowStates[poppedOutWindowRecord.id] ?? createDemoTreeDataWindowState()}
-      <TreeDataWindow
-        model={treeDataWindowState.model}
-        selectedNodeId={treeDataWindowState.selectedNodeId}
-        onSelectNode={(nodeId) => updateTreeDataWindowSelection(poppedOutWindowRecord.id, nodeId)}
-        onToggleNode={(nodeId) => toggleTreeDataWindowNode(poppedOutWindowRecord.id, nodeId)}
-        onExpandAll={() => expandAllTreeDataWindowNodes(poppedOutWindowRecord.id)}
-        onCollapseAll={() => collapseAllTreeDataWindowNodes(poppedOutWindowRecord.id)}
-      />
-    {:else if poppedOutWindowRecord?.surfaceId.startsWith('fuzzball-storage-window-')}
-      {@const fuzzballStorageWindowState = getFuzzballStorageWindowState(poppedOutWindowRecord.id)}
-      <FuzzballStorageWindow
-        state={fuzzballStorageWindowState}
-        selectedNodeId={fuzzballStorageWindowState.selectedNodeId}
-        onSelectNode={(nodeId) => updateFuzzballStorageWindowSelection(poppedOutWindowRecord.id, nodeId)}
-        onToggleNode={(nodeId) => toggleFuzzballStorageWindowNode(poppedOutWindowRecord.id, nodeId)}
-        onExpandAll={() => expandAllFuzzballStorageWindowNodes(poppedOutWindowRecord.id)}
-        onCollapseAll={() => collapseAllFuzzballStorageWindowNodes(poppedOutWindowRecord.id)}
-      />
+    {:else if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
+      || poppedOutWindowRecord?.surfaceId.startsWith('fuzzball-storage-window-')}
+      {@const treeDataWindowProps = getTreeDataWindowRenderProps(poppedOutWindowRecord.id)}
+      {#if treeDataWindowProps}
+        <TreeDataWindow {...treeDataWindowProps} />
+      {/if}
     {/if}
   </PoppedOutWindowView>
 {:else}
@@ -1380,27 +1244,12 @@ function openLoggingModal(tabId: string): void {
 >
   {#if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
     <DummyWindowContent instanceLabel={windowRecord.title} />
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo}
-    {@const treeDataWindowState =
-      treeDataWindowStates[windowRecord.id] ?? createDemoTreeDataWindowState()}
-    <TreeDataWindow
-      model={treeDataWindowState.model}
-      selectedNodeId={treeDataWindowState.selectedNodeId}
-      onSelectNode={(nodeId) => updateTreeDataWindowSelection(windowRecord.id, nodeId)}
-      onToggleNode={(nodeId) => toggleTreeDataWindowNode(windowRecord.id, nodeId)}
-      onExpandAll={() => expandAllTreeDataWindowNodes(windowRecord.id)}
-      onCollapseAll={() => collapseAllTreeDataWindowNodes(windowRecord.id)}
-    />
-  {:else if windowRecord.surfaceId.startsWith('fuzzball-storage-window-')}
-    {@const fuzzballStorageWindowState = getFuzzballStorageWindowState(windowRecord.id)}
-    <FuzzballStorageWindow
-      state={fuzzballStorageWindowState}
-      selectedNodeId={fuzzballStorageWindowState.selectedNodeId}
-      onSelectNode={(nodeId) => updateFuzzballStorageWindowSelection(windowRecord.id, nodeId)}
-      onToggleNode={(nodeId) => toggleFuzzballStorageWindowNode(windowRecord.id, nodeId)}
-      onExpandAll={() => expandAllFuzzballStorageWindowNodes(windowRecord.id)}
-      onCollapseAll={() => collapseAllFuzzballStorageWindowNodes(windowRecord.id)}
-    />
+  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
+    || windowRecord.surfaceId.startsWith('fuzzball-storage-window-')}
+    {@const treeDataWindowProps = getTreeDataWindowRenderProps(windowRecord.id)}
+    {#if treeDataWindowProps}
+      <TreeDataWindow {...treeDataWindowProps} />
+    {/if}
   {/if}
 </WindowHost>
 

@@ -39,13 +39,11 @@ test('upserting a child synthesizes missing parents and preserves tree structure
 
   assert.equal(prefs?.type, 'dir');
   assert.equal(prefs?.isValueLoaded, false);
-  assert.equal(prefs?.isExpanded, true);
   assert.equal(prefs?.hasChildren, true);
   assert.equal(prefs?.label, 'prefs · dir · no value');
 
   assert.equal(colors?.type, 'dir');
   assert.equal(colors?.isValueLoaded, false);
-  assert.equal(colors?.isExpanded, true);
   assert.equal(colors?.hasChildren, true);
 
   assert.equal(theme?.type, 'str');
@@ -89,7 +87,6 @@ test('upserting a slash-suffixed node marks it as a known branch before children
   assert.equal(prefs?.path, '/prefs');
   assert.equal(prefs?.hasChildren, true);
   assert.equal(prefs?.areChildrenLoaded, false);
-  assert.equal(prefs?.isExpanded, false);
   assert.deepEqual(children, []);
 });
 
@@ -108,17 +105,16 @@ test('adding child nodes flips a cached branch to loaded children', () => {
   assert.deepEqual(children.map((node) => node.path), ['/prefs/theme']);
 });
 
-test('markExpanded updates tree state without dropping existing data', () => {
+test('upserting a child leaves tree data intact without tracking expansion state', () => {
   const cache = new FuzzBallPropertyTreeCache();
 
   cache.upsertNode({ path: '/prefs/theme', type: 'str', value: 'ember' });
-  cache.markExpanded('/prefs');
 
   const prefs = cache.getSnapshot('/prefs');
   const tree = cache.getTree();
 
   assert.ok(prefs);
-  assert.equal(prefs?.isExpanded, true);
+  assert.equal(prefs?.areChildrenLoaded, true);
   assert.equal(tree.path, '/');
   assert.equal(tree.hasChildren, true);
 });
