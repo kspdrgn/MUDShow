@@ -3,12 +3,31 @@
 ## Top TODO
 
 todo order:
-- channel bar controls
-  - button for debug dictionary open
-- fuzzball plugin skeleton
-  - prop tree debug view
-  - get
-  - set
+- [X] channel bar controls
+  - [X] button for debug dictionary open
+- [X] fuzzball plugin skeleton
+  - [X] generic prop tree debug view
+  - [X] parsing exa props
+  - [X] get
+  - [ ] set
+  - [ ] filter out captured props from transcript IF they are from plugin requests (not manual user requests)
+    - [ ] capture pipeline filter system to omit contents from transcript
+- [X] app notice modals system separate from hosted popout windows
+- [X] app DI, slim down App.svelte
+- [X] worldsession DI, slim down component plumbing
+- [ ] plugin architecture
+- [ ] taps plugin skeleton
+  - [ ] desc editor first candidate window
+  - [ ] morph list
+  - [ ] morph editor
+  - [ ] page popouts to channels
+  - [ ] WS side channel
+  - [ ] ridemode dropdown control
+- [ ] surfaces
+  - [ ] Dockview
+    - [ ] consolidated channels? move channels from top to side to pop-in to pop-out?
+    - [ ] side channels
+  - [ ] message bus
 
 MVP Features:
 - [X] Notes persistence
