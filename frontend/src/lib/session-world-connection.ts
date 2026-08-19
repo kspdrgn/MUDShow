@@ -1,4 +1,5 @@
 import { appServices } from './app-services';
+import { bumpDebugConsoleCache } from './debug-console-cache';
 import { buildHighlightRegexes } from './formatting';
 import { playBeep } from './playback';
 import { DEFAULT_OUTPUT_HISTORY_LINES, type SessionState } from './session-state';
@@ -8,6 +9,7 @@ import type { WorldSessionContainerRegistry } from './world-session-container';
 import { createWorldSessionKey } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
+import { setWorldNotes } from './session-world-input';
 
 interface WorldConnectionActionContext {
   getState: () => SessionState;
@@ -64,34 +66,35 @@ export function createWorldConnectionActions({
 
     const debugConsole = worldSessionContainers.debugConsole.ensure(createWorldSessionKey(world.id, character?.id ?? null));
     debugConsole.sourceLabel = character ? `${world.name} · ${character.name}` : world.name;
+    bumpDebugConsoleCache();
 
     const activeBar = session.activeBar ?? session.inputBars[0]?.id ?? 1;
     const shouldInitializeSession = session.currentWorld === null;
 
+    const maxHistoryLines = character?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+    const highlightRegexes = buildHighlightRegexes(getHighlightTriggers(stateSnapshot.triggers));
+    const [notes, history] = character
+      ? await Promise.all([
+          appServices.storage.loadNotes(character.id, false),
+          appServices.storage.loadTranscriptHistory(character.id, maxHistoryLines, false),
+        ])
+      : ['', []];
+
+    session.transcript.loadHistory(maxHistoryLines > 0 ? history : []);
+    setWorldNotes(tabId, notes);
+    setHighlightRegexes(highlightRegexes);
+
     if (shouldInitializeSession) {
-      const maxHistoryLines = character?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
-      const highlightRegexes = buildHighlightRegexes(getHighlightTriggers(stateSnapshot.triggers));
-      const [notes, history] = character
-        ? await Promise.all([
-            appServices.storage.loadNotes(character.id, false),
-            appServices.storage.loadTranscriptHistory(character.id, maxHistoryLines, false),
-          ])
-        : ['', []];
-
-      session.transcript.loadHistory(maxHistoryLines > 0 ? history : []);
-      setHighlightRegexes(highlightRegexes);
-
+      
       updateWorldSession(tabId, {
         currentWorld: world,
         currentCharacter: character,
-        notesVisible: false,
         connectionStatus: 'connecting',
         disconnectReason: null,
         hasNewActivity: false,
         outputRevision: session.outputRevision + 1,
         userScrolled: false,
         activeBar,
-        notes,
         transcriptHistory: history,
       });
     } else {

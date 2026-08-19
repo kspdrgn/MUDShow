@@ -29,9 +29,6 @@
   export let spellcheckDebounceMs = 250;
   export let onIgnoreWord: (word: string) => void;
 
-  let draft = notes;
-  let lastNotes = notes;
-  let lastOpen = false;
   let notesEditor: HTMLTextAreaElement | null = null;
   let menuOpen = false;
   let menuPosition = { x: 0, y: 0 };
@@ -67,21 +64,11 @@
     };
   }
 
-  $: if (open && (!lastOpen || notes !== lastNotes)) {
-    draft = notes;
-  }
-
-  $: {
-    lastOpen = open;
-    lastNotes = notes;
-  }
-
   $: {
     if (!open) {
       closeMenu();
       clearLiveSpellcheck();
     } else {
-      draft;
       spellcheckEnabled;
       spellcheckLanguage;
       spellcheckIgnoredWords;
@@ -89,9 +76,9 @@
       spellcheckMinimumWordLength;
       spellcheckDebounceMs;
 
-      const nextSignature = getLiveSignature(draft);
+      const nextSignature = getLiveSignature(notes);
       if (nextSignature !== liveSignature) {
-        scheduleLiveSpellcheck(draft);
+        scheduleLiveSpellcheck(notes);
       }
     }
   }
@@ -126,7 +113,7 @@
     clearLiveTimer();
     liveUnderlayHtml = '';
     liveLoading = false;
-    liveSignature = getLiveSignature(draft);
+    liveSignature = getLiveSignature(notes);
     liveScrollX = 0;
     liveScrollY = 0;
   }
@@ -363,11 +350,11 @@
       class="notes-editor spellcheck-input"
       id={getWorldNotesEditorId(scope)}
       bind:this={notesEditor}
-      bind:value={draft}
+      value={notes}
       lang={spellcheckLanguage}
       spellcheck="false"
       placeholder="notes for this character..."
-      on:input={() => onInput(draft)}
+      on:input={(event) => onInput((event.currentTarget as HTMLTextAreaElement).value)}
       on:scroll={syncLiveScroll}
       on:contextmenu={(event) => {
         event.preventDefault();

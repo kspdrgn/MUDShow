@@ -710,10 +710,7 @@ function createSession() {
       const tabId = tabsActions.getActiveWorldTabId();
       return tabId ? getWorldDomScope(tabId) : null;
     },
-    getWorldSession: tabsActions.getWorldSession,
-    getWorldSessionKeyForTab,
     updateWorldSession: tabsActions.updateWorldSession,
-    worldSessionContainers,
   });
 
   const shortcutActions = createWorldShortcutActions({
@@ -721,7 +718,6 @@ function createSession() {
     getWorldSession: tabsActions.getWorldSession,
     updateWorldSession: tabsActions.updateWorldSession,
     addInputBarAfter: inputActions.addInputBarAfter,
-    togglePanel: channelActions.togglePanel,
   });
 
   const appShortcutActions = createAppShortcutActions({

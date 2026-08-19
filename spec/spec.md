@@ -13,6 +13,7 @@
 - spec/di.md - Dependency injection container shape for world-session scoped resources
 - spec/svelte.md - Svelte-specific code organization guidance for component-local logic, shared helper modules, and service boundaries
 - spec/tauri.md - Tauri window, webview, and desktop shell behavior
+- spec/surfaces.md - Surface component CQRS, controller ownership, and cross-window transport rules
 
 ## Purpose
 Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with just enough features to support roleplay and day-to-day play.
@@ -27,7 +28,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can save multiple characters so I can return to different worlds or accounts quickly.
 - As a player, I can edit a character’s host, port, and connection options without recreating it.
 - As a player, I can connect to a MU* and read the live transcript in one place.
-- As a player, I can open a per-character notes channel and a per-world debug console channel to inspect or edit session-specific information.
+- As a player, I can open a per-character notes surface and a per-world debug console surface to inspect or edit session-specific information.
 - As a player, I can use a world channels bar and panel in the play screen to host reusable world-specific surfaces.
 - As a player, I can type commands in one of two inputs so I can keep a draft while continuing conversation.
 - As a player, I can switch inputs instantly when I need to pause one thought and start another.
@@ -65,7 +66,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
 - Buffer incoming world text until newline boundaries before showing it in the transcript, discarding carriage returns.
-- Preserving the raw incoming session stream in the debug console channel for troubleshooting special characters, command codes, and edge cases, even when the channel is hidden.
+- Preserving the raw incoming session stream in the debug console surface for troubleshooting special characters, command codes, and edge cases, even when the surface is hidden or popped out.
 - Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width. Preferred character width is rendered from the active output style: monospace fonts use the measured active glyph width, while proportional fonts use an estimated average glyph width.
 - Provide a modular set of command input bars, starting with one and allowing more to be added.
 - Send entered commands to the active session.
@@ -80,15 +81,15 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
 - Allow a transient transcript diagnostics toggle from the app menu's dev tools submenu that writes extra console debug output while enabled.
-- Allow opening a per-character notes channel and a per-world debug console channel that share space with the active world tab.
+- Allow opening a per-character notes surface and a per-world debug console surface that can be hosted in the window host and popped out into its own window.
 - Show a host-managed world channels bar above the PlayScreen channel panel, with Hide collapsing the panel back into the main play view.
 - Keep an explicitly opened channel panel pinned open until the user chooses Hide.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.
 - Store rolling per-character transcript history locally and reload it when reconnecting.
-- Open and close a notes channel for the active character.
-- Open and close the per-world debug console channel.
+- Open and close a notes surface for the active character.
+- Open and close the per-world debug console surface.
 - Open and close a triggers panel for simple text highlights and regexp rules.
 - Manage triggers at app, world, or character scope.
 - Add and remove highlight rules.
@@ -107,7 +108,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Let each regexp rule optionally stop later rule evaluation or highlight evaluation when it matches.
 - Support simple word completion from recently seen session text.
 - Support quick switching between the first two input bars with F1 and F2 when a world tab is active. If only one input bar exists, F2 opens a second one.
-- Support quick toggling of notes channel with F3.
+- Support quick toggling of the notes surface with F3.
 - Support quick toggling of highlighting panel with F4.
 - Play an optional activity alert when the app is unfocused and new output arrives.
 - Track focus/title attention state so the user can see unseen activity.

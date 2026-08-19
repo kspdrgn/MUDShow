@@ -1,4 +1,5 @@
 import { appendTranscriptHistory } from './playback';
+import { bumpDebugConsoleCache } from './debug-console-cache';
 import {
   appendDebugConsoleEntry,
   type DebugConsoleDirection,
@@ -113,10 +114,7 @@ export function createWorldTranscriptActions({
       sourceLabel: getDebugConsoleSourceLabel(tabId),
       text,
     });
-
-    updateWorldSession(tabId, {
-      debugConsoleRevision: session.debugConsoleRevision + 1,
-    });
+    bumpDebugConsoleCache();
   }
 
   async function appendOutputToTab(tabId: string, rawText: string): Promise<void> {

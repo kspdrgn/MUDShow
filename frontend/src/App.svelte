@@ -18,15 +18,26 @@ import {
   createDemoTreeDataWindowModel,
 } from './lib/components/tree-data/tree-data-demo-fixture';
 import {
+  type TreeDataWindowSnapshot,
+  type TreeDataWindowTransportSession,
+} from './lib/components/tree-data/tree-data-transport';
+import {
   findTreeDataNode,
   type TreeDataWindowModel,
 } from './lib/components/tree-data/tree-data-view';
 import {
-  createFuzzballStorageViewerState,
+  createTreeDataViewControllerRegistry,
+  type TreeDataWindowCommand,
+  type TreeDataWindowViewState,
+} from './lib/components/tree-data/tree-data-controller';
+import {
   buildFuzzballStorageViewerModel,
+  createFuzzballStorageViewerState,
   requestFuzzballStorageNodeLoad,
   type FuzzballStorageViewerState,
 } from './lib/fuzzball/storage-viewer';
+import { fuzzballStorageCache } from './lib/fuzzball/storage-cache';
+import { debugConsoleCache } from './lib/debug-console-cache';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
@@ -34,10 +45,51 @@ import WindowResizeHandles from './lib/components/window/WindowResizeHandles.sve
 import WorldModal from './lib/components/settings/WorldModal.svelte';
 import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
+import { createSurfaceTransportHub } from './lib/surfaces/surface-transport';
+import DebugConsoleWindow from './lib/components/debug-console/DebugConsoleWindow.svelte';
+import {
+  buildDebugConsoleWindowModel,
+  createDebugConsoleWindowPlaceholderModel,
+} from './lib/components/debug-console/debug-console-controller';
+import NotesWindow from './lib/components/notes/NotesWindow.svelte';
+import {
+  buildNotesWindowModel,
+  createNotesWindowPlaceholderModel,
+} from './lib/components/notes/notes-controller';
+import {
+  createDebugConsoleBridgeSession,
+  getDebugConsoleBridgeSnapshotEventName,
+  type DebugConsoleBridgeSession,
+} from './lib/components/debug-console/debug-console-bridge';
+import type {
+  DebugConsoleWindowCommand,
+  DebugConsoleWindowSnapshot,
+  DebugConsoleWindowTransportSession,
+} from './lib/components/debug-console/debug-console-transport';
+import {
+  createNotesBridgeSession,
+  getNotesBridgeSnapshotEventName,
+  type NotesBridgeSession,
+} from './lib/components/notes/notes-bridge';
+import type {
+  NotesWindowCommand,
+  NotesWindowSnapshot,
+  NotesWindowTransportSession,
+} from './lib/components/notes/notes-transport';
+import {
+  createTreeDataBridgeSession,
+  getTreeDataBridgeSnapshotEventName,
+  type SurfaceTransportBridgeCommandEnvelope,
+  type SurfaceTransportBridgeLifecycleEnvelope,
+} from './lib/surfaces/tree-data-bridge';
+import type { SurfaceEnvelopeBase } from './lib/surfaces/surface-transport';
 import type { AppTab } from './lib/tabs';
 import type { WorldTabSessionState } from './lib/world-session';
+import type { WorldSessionDebugConsole } from './lib/world-session-debug-console';
+import { createWorldSessionKey } from './lib/world-session-container';
 import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
-import { getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
+import { flushPendingNotesSave } from './lib/session-world-input';
+import { emit, getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
 
 const currentUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
 const initialWindowMode = currentUrl?.searchParams.get('windowMode');
@@ -60,6 +112,10 @@ const WINDOW_HOST_SINGLETON_IDS = {
   worldModal: 'world-modal',
   characterModal: 'character-modal',
 } as const;
+const DEBUG_CONSOLE_WINDOW_SURFACE_PREFIX = 'debug-console:';
+const DEBUG_CONSOLE_WINDOW_ID_PREFIX = 'debug-console-window-';
+const NOTES_WINDOW_SURFACE_PREFIX = 'notes:';
+const NOTES_WINDOW_ID_PREFIX = 'notes-window-';
 
 const appSettingsStore = appServices.settings.current;
 const appNoticeStore = appServices.notice.current;
@@ -77,24 +133,203 @@ let poppedOutWindowRecord: WindowRecord | null = null;
 let isPoppedOutWindow = initialIsPoppedOutWindow;
 let nextWindowHostId = 1;
 let fuzzballStorageWindowStates: Record<string, FuzzballStorageViewerState> = {};
+let fuzzballStorageCacheVersion = 0;
+let debugConsoleCacheVersion = 0;
+const treeDataViewController = createTreeDataViewControllerRegistry();
+const treeDataTransportHub = createSurfaceTransportHub();
+const treeDataBridgeSessions = new Map<string, TreeDataWindowTransportSession>();
+const treeDataTransportUnlisteners = new Map<string, () => void>();
+const treeDataTransportKinds = new Map<string, 'demo' | 'fuzzball'>();
+const treeDataTransportSources = new Map<string, FuzzballStorageViewerState>();
+const treeDataTransportSnapshotSignatures = new Map<string, string>();
+const treeDataBridgeSnapshotSignatures = new Map<string, string>();
+const debugConsoleTransportHub = createSurfaceTransportHub();
+const debugConsoleBridgeSessions = new Map<string, DebugConsoleBridgeSession>();
+const debugConsoleTransportUnlisteners = new Map<string, () => void>();
+const debugConsoleTransportSnapshotSignatures = new Map<string, string>();
+const debugConsoleBridgeSnapshotSignatures = new Map<string, string>();
+const notesTransportHub = createSurfaceTransportHub();
+const notesBridgeSessions = new Map<string, NotesBridgeSession>();
+const notesTransportUnlisteners = new Map<string, () => void>();
+const notesTransportSnapshotSignatures = new Map<string, string>();
+const notesBridgeSnapshotSignatures = new Map<string, string>();
 let previousWorldTabIds = new Set<string>();
 let allowWindowCloseOnce = false;
 let unlistenAppClose: (() => void) | null = null;
+let unlistenTreeBridgeEvents: Array<() => void> = [];
 
 type TreeDataWindowRenderProps = {
   model: TreeDataWindowModel;
-  onToggleNode?: (nodeId: string) => void;
+  viewState: TreeDataWindowViewState;
+  transportSession: TreeDataWindowTransportSession | null;
+  onCommand: (command: TreeDataWindowCommand) => void;
+};
+
+type DebugConsoleWindowRenderProps = {
+  model: DebugConsoleWindowSnapshot['model'];
+  transportSession: DebugConsoleWindowTransportSession | null;
+  onCommand: (command: DebugConsoleWindowCommand) => void;
+};
+
+type NotesWindowRenderProps = {
+  model: NotesWindowSnapshot['model'];
+  transportSession: NotesWindowTransportSession | null;
+  onCommand: (command: NotesWindowCommand) => void;
 };
 
 const resolvedAppStyle = appServices.style.resolved;
+const spellcheckConfig = appServices.spellcheck.config;
 
 $: {
   session.setConfirmUnloggedTabClose($appSettingsStore.confirmUnloggedTabClose);
   session.setTranscriptScrollbackChunks($appSettingsStore.transcriptScrollbackChunks);
 }
 
+$: {
+  $spellcheckConfig;
+}
+
 function toggleTranscriptDiagnostics(): void {
     session.toggleTranscriptDiagnosticsEnabled();
+}
+
+function logTreeTransport(message: string, details: Record<string, unknown>): void {
+  console.debug(`[tree-transport] ${message}`, details);
+}
+
+function logDebugConsoleTransport(message: string, details: Record<string, unknown>): void {
+  console.debug(`[debug-console-transport] ${message}`, details);
+}
+
+function logNotesTransport(message: string, details: Record<string, unknown>): void {
+  console.debug(`[notes-transport] ${message}`, details);
+}
+
+function createTreeDataWindowPlaceholderModel(title: string): TreeDataWindowModel {
+  return {
+    title,
+    description: 'waiting for surface data',
+    root: {
+      id: `${title}-placeholder-root`,
+      title: '/',
+      subtitle: 'no data yet',
+      badge: 'dir',
+      kind: 'branch',
+      valueState: 'unknown',
+      childrenState: 'missing',
+    },
+  };
+}
+
+function getDebugConsoleWindowId(tabId: string): string {
+  return `${DEBUG_CONSOLE_WINDOW_ID_PREFIX}${tabId}`;
+}
+
+function getDebugConsoleSurfaceId(tabId: string): string {
+  return `${DEBUG_CONSOLE_WINDOW_SURFACE_PREFIX}${tabId}`;
+}
+
+function getDebugConsoleTabIdFromSurfaceId(surfaceId: string): string | null {
+  if (!surfaceId.startsWith(DEBUG_CONSOLE_WINDOW_SURFACE_PREFIX)) {
+    return null;
+  }
+
+  return surfaceId.slice(DEBUG_CONSOLE_WINDOW_SURFACE_PREFIX.length) || null;
+}
+
+function isDebugConsoleWindow(windowRecord: WindowRecord | null): boolean {
+  if (!windowRecord) {
+    return false;
+  }
+
+  return windowRecord.surfaceId.startsWith(DEBUG_CONSOLE_WINDOW_SURFACE_PREFIX);
+}
+
+function createDebugConsoleWindowTitle(tabId: string): string {
+  const worldSession = $session.worldSessions[tabId] ?? null;
+  const worldName = worldSession?.currentWorld?.name ?? 'debug console';
+  const characterName = worldSession?.currentCharacter?.name ?? null;
+
+  return characterName ? `${worldName} · ${characterName} debug console` : `${worldName} debug console`;
+}
+
+function createDebugConsoleWindowDescription(tabId: string): string {
+  const worldSession = $session.worldSessions[tabId] ?? null;
+  const worldName = worldSession?.currentWorld?.name ?? 'unknown world';
+  const characterName = worldSession?.currentCharacter?.name ?? null;
+
+  return characterName ? `world: ${worldName} · character: ${characterName}` : `world: ${worldName}`;
+}
+
+function getDebugConsoleWindowSourceState(tabId: string): WorldSessionDebugConsole {
+  const worldSession = $session.worldSessions[tabId] ?? null;
+  const worldId = worldSession?.currentWorld?.id ?? '';
+  const characterId = worldSession?.currentCharacter?.id ?? null;
+
+  if (!worldId) {
+    return { entries: [], sourceLabel: null };
+  }
+
+  const worldSessionContainer = session.worldSessionContainers.debugConsole.get(
+    createWorldSessionKey(worldId, characterId),
+  );
+
+  return worldSessionContainer ?? { entries: [], sourceLabel: null };
+}
+
+function getNotesWindowId(tabId: string): string {
+  return `${NOTES_WINDOW_ID_PREFIX}${tabId}`;
+}
+
+function getNotesSurfaceId(tabId: string): string {
+  return `${NOTES_WINDOW_SURFACE_PREFIX}${tabId}`;
+}
+
+function getNotesTabIdFromSurfaceId(surfaceId: string): string | null {
+  if (!surfaceId.startsWith(NOTES_WINDOW_SURFACE_PREFIX)) {
+    return null;
+  }
+
+  return surfaceId.slice(NOTES_WINDOW_SURFACE_PREFIX.length) || null;
+}
+
+function isNotesWindow(windowRecord: WindowRecord | null): boolean {
+  if (!windowRecord) {
+    return false;
+  }
+
+  return windowRecord.surfaceId.startsWith(NOTES_WINDOW_SURFACE_PREFIX);
+}
+
+function createNotesWindowTitle(tabId: string): string {
+  const worldSession = $session.worldSessions[tabId] ?? null;
+  const worldName = worldSession?.currentWorld?.name ?? 'notes';
+  const characterName = worldSession?.currentCharacter?.name ?? null;
+
+  return characterName ? `${worldName} · ${characterName} notes` : `${worldName} notes`;
+}
+
+function createNotesWindowDescription(tabId: string): string {
+  const worldSession = $session.worldSessions[tabId] ?? null;
+  const worldName = worldSession?.currentWorld?.name ?? 'unknown world';
+  const characterName = worldSession?.currentCharacter?.name ?? null;
+
+  return characterName ? `world: ${worldName} · character: ${characterName}` : `world: ${worldName}`;
+}
+
+function getNotesWindowSourceState(tabId: string): Parameters<typeof buildNotesWindowModel>[0] {
+  const worldSession = $session.worldSessions[tabId] ?? null;
+  const worldId = worldSession?.currentWorld?.id ?? '';
+  const characterId = worldSession?.currentCharacter?.id ?? null;
+
+  return {
+    sourceTabId: tabId,
+    worldId,
+    characterId,
+    title: createNotesWindowTitle(tabId),
+    description: createNotesWindowDescription(tabId),
+    notes: session.getWorldNotes(tabId),
+  };
 }
 
 $: {
@@ -107,6 +342,8 @@ $: {
     for (const tabId of previousWorldTabIds) {
       if (!currentWorldTabIds.has(tabId)) {
         void discardFuzzballStorageWindowsForSourceTab(tabId);
+        void discardDebugConsoleWindowsForSourceTab(tabId);
+        void discardNotesWindowsForSourceTab(tabId);
       }
     }
 
@@ -128,10 +365,10 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
       onEditWorldTab: () => void session.openWorldEditorFromWorldTab(tab.id),
       onEditCharacterTab: () => void session.openCharacterEditorFromWorldTab(tab.id),
       onCloseTab: () => session.closeTab(tab.id, 'shortcut'),
-      onOpenNotes: () => void session.togglePanel('notes'),
+      onOpenNotes: () => void toggleNotesWindow(tab.id),
       onOpenTriggers: () =>
         session.openTriggersTab(worldSession.currentWorld?.id ?? null, worldSession.currentCharacter?.id ?? null),
-      onOpenDebugConsole: () => void session.togglePanel('debugConsole'),
+      onOpenDebugConsole: () => void toggleDebugConsoleWindow(tab.id),
       onOpenStyles: () => openDefaultStyleSettings(),
       onInputFocusBar: (bar: number) => session.handleInputFocus(bar),
       onInputSubmit: (bar: number, value: string) => session.handleInputSubmit(bar, value),
@@ -141,8 +378,6 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
       onInputRemoveBar: (bar: number) => void session.removeInputBar(bar),
       onInputResizeBar: (bar: number, delta: -1 | 1) => session.resizeInputBar(bar, delta),
       onSpellcheckIgnoreWord: (word: string) => void appServices.spellcheck.ignoreWord(word),
-      onNotesClose: () => void session.togglePanel('notes'),
-      onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
       onOutputScroll: () => session.handleOutputScroll(),
       onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') =>
         session.handleOutputScrollKey(action),
@@ -291,7 +526,168 @@ function openLoggingModal(tabId: string): void {
     return fuzzballStorageWindowStates[windowId] ?? createFuzzballStorageViewerState('', '', '', 'fuzzball storage viewer');
   }
 
-  function getTreeDataWindowRenderProps(windowId: string): TreeDataWindowRenderProps | null {
+  function createTreeDataSnapshotSignature(
+    model: TreeDataWindowModel,
+    viewState: TreeDataWindowViewState,
+  ): string {
+    return JSON.stringify({
+      title: model.title,
+      description: model.description ?? null,
+      rootId: model.root.id,
+      root: model.root,
+      selectedNodeId: viewState.selectedNodeId,
+      expandedNodeIds: [...viewState.expandedNodeIds],
+    });
+  }
+
+  function ensureTreeDataTransportSession(
+    windowId: string,
+    surfaceId: string,
+  ): TreeDataWindowTransportSession {
+    const session = treeDataTransportHub.ensureSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(surfaceId, windowId);
+    const currentUnlisten = treeDataTransportUnlisteners.get(windowId);
+
+    if (!currentUnlisten || treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId) !== session) {
+      currentUnlisten?.();
+      treeDataTransportUnlisteners.set(
+        windowId,
+        session.onCommand((envelope) => {
+          logTreeTransport('command received', {
+        windowId,
+        surfaceId,
+        revision: envelope.revision,
+        command: envelope.payload,
+      });
+          handleTreeDataTransportCommand(windowId, envelope.payload, envelope.revision);
+        }),
+      );
+    }
+
+    return session;
+  }
+
+  function clearTreeDataTransportSession(windowId: string): void {
+    treeDataTransportSnapshotSignatures.delete(windowId);
+    treeDataTransportKinds.delete(windowId);
+    treeDataTransportSources.delete(windowId);
+
+    const unlisten = treeDataTransportUnlisteners.get(windowId);
+    if (unlisten) {
+      unlisten();
+      treeDataTransportUnlisteners.delete(windowId);
+    }
+
+    treeDataTransportHub.deleteSession(windowId);
+  }
+
+  function rememberTreeDataTransportState(
+    windowId: string,
+    kind: 'demo' | 'fuzzball',
+    model: TreeDataWindowModel,
+    sourceState: FuzzballStorageViewerState | null = null,
+  ): void {
+    treeDataTransportKinds.set(windowId, kind);
+    if (sourceState) {
+      treeDataTransportSources.set(windowId, sourceState);
+    } else {
+      treeDataTransportSources.delete(windowId);
+    }
+
+    const currentViewState = treeDataViewController.ensure(windowId, model.root.id);
+    const session = treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId);
+
+    if (!session) {
+      return;
+    }
+
+    logTreeTransport('snapshot publish requested', {
+      windowId,
+      kind,
+      modelTitle: model.title,
+      rootChildCount: model.root.children?.length ?? 0,
+      selectedNodeId: currentViewState.selectedNodeId,
+      expandedNodeCount: currentViewState.expandedNodeIds.length,
+    });
+    publishTreeDataTransportSnapshot(windowId, session, model, currentViewState);
+  }
+
+  function maybeRequestInitialFuzzballStorageLoad(windowId: string, state: FuzzballStorageViewerState): void {
+    if (!state.sourceTabId) {
+      return;
+    }
+
+    const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
+    if (cache.hasData()) {
+      logTreeTransport('initial fuzzball load skipped', {
+        windowId,
+        worldId: state.worldId,
+        characterId: state.characterId,
+        reason: 'cache already has data',
+      });
+      return;
+    }
+
+    logTreeTransport('initial fuzzball load requested', {
+      windowId,
+      worldId: state.worldId,
+      characterId: state.characterId,
+      sourceTabId: state.sourceTabId,
+    });
+    requestFuzzballStorageNodeLoad(state, '/', session.worldSessionContainers);
+  }
+
+  function isPoppedOutTreeWindow(windowRecord: WindowRecord | null): boolean {
+    if (!windowRecord) {
+      return false;
+    }
+
+    return (
+      windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
+      || windowRecord.surfaceId.startsWith('fuzzball-storage-window-')
+    ) && windowRecord.placement === 'window';
+  }
+
+  function ensureTreeDataBridgeSession(
+    windowId: string,
+    surfaceId: string,
+  ): TreeDataWindowTransportSession {
+    const existing = treeDataBridgeSessions.get(windowId);
+    if (existing && existing.surfaceId === surfaceId && !existing.isClosed()) {
+      return existing;
+    }
+
+    existing?.close();
+    const session = createTreeDataBridgeSession(surfaceId, windowId);
+    treeDataBridgeSessions.set(windowId, session);
+    logTreeTransport('bridge session created', {
+      windowId,
+      surfaceId,
+    });
+    return session;
+  }
+
+  function clearTreeDataBridgeSession(windowId: string): void {
+    const session = treeDataBridgeSessions.get(windowId);
+    if (session) {
+      session.close();
+      treeDataBridgeSessions.delete(windowId);
+      logTreeTransport('bridge session cleared', {
+        windowId,
+      });
+    }
+    treeDataBridgeSnapshotSignatures.delete(windowId);
+  }
+
+  async function emitTreeDataBridgeSnapshot(
+    windowId: string,
+    snapshot: SurfaceEnvelopeBase<'surface.snapshot', TreeDataWindowSnapshot>,
+  ): Promise<void> {
+    if (!isPoppedOutWindow) {
+      await emit(getTreeDataBridgeSnapshotEventName(windowId), snapshot);
+    }
+  }
+
+  function createTreeDataWindowModelForSurface(windowId: string): TreeDataWindowModel | null {
     const windowRecord = windowHostWindows.find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
@@ -301,40 +697,807 @@ function openLoggingModal(tabId: string): void {
     }
 
     if (windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo) {
+      return createDemoTreeDataWindowModel();
+    }
+
+    if (windowRecord.surfaceId.startsWith('fuzzball-storage-window-')) {
+      return buildFuzzballStorageViewerModel(getFuzzballStorageWindowState(windowId));
+    }
+
+    return null;
+  }
+
+  function emitTreeDataBridgeSnapshotForWindow(
+    windowId: string,
+    windowRecord: WindowRecord,
+    force = false,
+  ): void {
+    const model = createTreeDataWindowModelForSurface(windowId);
+    if (!model) {
+      return;
+    }
+
+    const currentViewState = treeDataViewController.ensure(windowId, model.root.id);
+    const signature = createTreeDataSnapshotSignature(model, currentViewState);
+    if (!force && treeDataBridgeSnapshotSignatures.get(windowId) === signature) {
+      return;
+    }
+
+    treeDataBridgeSnapshotSignatures.set(windowId, signature);
+    const snapshot: SurfaceEnvelopeBase<'surface.snapshot', TreeDataWindowSnapshot> = {
+      surfaceId: windowRecord.surfaceId,
+      instanceId: windowId,
+      kind: 'surface.snapshot',
+      source: 'host',
+      revision: treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId)?.getRevision() ?? 0,
+      timestamp: Date.now(),
+      payload: {
+        model,
+        viewState: currentViewState,
+      },
+    };
+
+    logTreeTransport('bridge snapshot emit', {
+      windowId,
+      surfaceId: windowRecord.surfaceId,
+      revision: snapshot.revision,
+      selectedNodeId: currentViewState.selectedNodeId,
+      expandedNodeCount: currentViewState.expandedNodeIds.length,
+      force,
+    });
+    void emitTreeDataBridgeSnapshot(windowId, snapshot).catch((error) => {
+      console.error('failed to emit tree data bridge snapshot:', error);
+    });
+  }
+
+  function syncPoppedOutTreeDataSnapshots(
+    _cacheVersion: number = fuzzballStorageCacheVersion,
+    _poppedOutWindowIds: string = Object.keys(poppedOutWindowRecords).join('|'),
+    _windowCount: number = windowHostWindows.length,
+  ): void {
+    if (isPoppedOutWindow) {
+      return;
+    }
+
+    for (const [windowId, windowRecord] of Object.entries(poppedOutWindowRecords)) {
+      if (!isPoppedOutTreeWindow(windowRecord)) {
+        continue;
+      }
+
+      emitTreeDataBridgeSnapshotForWindow(windowId, windowRecord);
+    }
+  }
+
+  function publishTreeDataTransportSnapshot(
+    windowId: string,
+    session: TreeDataWindowTransportSession,
+    model: TreeDataWindowModel,
+    viewState: TreeDataWindowViewState,
+  ): SurfaceEnvelopeBase<'surface.snapshot', TreeDataWindowSnapshot> | null {
+    const signature = createTreeDataSnapshotSignature(model, viewState);
+    if (treeDataTransportSnapshotSignatures.get(windowId) === signature) {
+      logTreeTransport('snapshot skipped unchanged', {
+        windowId,
+        revision: session.getRevision(),
+        selectedNodeId: viewState.selectedNodeId,
+        expandedNodeCount: viewState.expandedNodeIds.length,
+      });
+      return session.getSnapshot();
+    }
+
+    treeDataTransportSnapshotSignatures.set(windowId, signature);
+    logTreeTransport('snapshot publish', {
+      windowId,
+      revision: session.getRevision() + 1,
+      rootChildCount: model.root.children?.length ?? 0,
+      selectedNodeId: viewState.selectedNodeId,
+      expandedNodeCount: viewState.expandedNodeIds.length,
+    });
+    const snapshot = session.publishSnapshot({
+      model,
+      viewState,
+    });
+    const windowRecord = poppedOutWindowRecords[windowId] ?? null;
+    if (!isPoppedOutWindow && windowRecord && isPoppedOutTreeWindow(windowRecord) && snapshot) {
+      treeDataBridgeSnapshotSignatures.set(windowId, signature);
+      void emitTreeDataBridgeSnapshot(windowId, snapshot).catch((error) => {
+        console.error('failed to emit tree data bridge snapshot:', error);
+      });
+    }
+
+    return snapshot;
+  }
+
+  function ensureDebugConsoleTransportSession(
+    windowId: string,
+    surfaceId: string,
+  ): DebugConsoleWindowTransportSession {
+    const session = debugConsoleTransportHub.ensureSession<DebugConsoleWindowCommand, DebugConsoleWindowSnapshot>(surfaceId, windowId);
+    const currentUnlisten = debugConsoleTransportUnlisteners.get(windowId);
+
+    if (!currentUnlisten || debugConsoleTransportHub.getSession<DebugConsoleWindowCommand, DebugConsoleWindowSnapshot>(windowId) !== session) {
+      currentUnlisten?.();
+      debugConsoleTransportUnlisteners.set(
+        windowId,
+        session.onCommand((envelope) => {
+          logDebugConsoleTransport('command received', {
+            windowId,
+            surfaceId,
+            revision: envelope.revision,
+            command: envelope.payload,
+          });
+          handleDebugConsoleTransportCommand(windowId, envelope.payload, envelope.revision);
+        }),
+      );
+    }
+
+    return session;
+  }
+
+  function clearDebugConsoleTransportSession(windowId: string): void {
+    debugConsoleTransportSnapshotSignatures.delete(windowId);
+
+    const unlisten = debugConsoleTransportUnlisteners.get(windowId);
+    if (unlisten) {
+      unlisten();
+      debugConsoleTransportUnlisteners.delete(windowId);
+    }
+
+    debugConsoleTransportHub.deleteSession(windowId);
+  }
+
+  function ensureDebugConsoleBridgeSession(
+    windowId: string,
+    surfaceId: string,
+  ): DebugConsoleBridgeSession {
+    const existing = debugConsoleBridgeSessions.get(windowId);
+    if (existing && existing.surfaceId === surfaceId && !existing.isClosed()) {
+      return existing;
+    }
+
+    existing?.close();
+    const bridgeSession = createDebugConsoleBridgeSession(surfaceId, windowId);
+    debugConsoleBridgeSessions.set(windowId, bridgeSession);
+    logDebugConsoleTransport('bridge session created', {
+      windowId,
+      surfaceId,
+    });
+    return bridgeSession;
+  }
+
+  function clearDebugConsoleBridgeSession(windowId: string): void {
+    const bridgeSession = debugConsoleBridgeSessions.get(windowId);
+    if (bridgeSession) {
+      bridgeSession.close();
+      debugConsoleBridgeSessions.delete(windowId);
+      logDebugConsoleTransport('bridge session cleared', {
+        windowId,
+      });
+    }
+
+    debugConsoleBridgeSnapshotSignatures.delete(windowId);
+  }
+
+  async function emitDebugConsoleBridgeSnapshot(
+    windowId: string,
+    snapshot: SurfaceEnvelopeBase<'surface.snapshot', DebugConsoleWindowSnapshot>,
+  ): Promise<void> {
+    if (!isPoppedOutWindow) {
+      await emit(getDebugConsoleBridgeSnapshotEventName(windowId), snapshot);
+    }
+  }
+
+  function createDebugConsoleWindowModelForSurface(windowId: string): DebugConsoleWindowSnapshot['model'] | null {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (!windowRecord || !isDebugConsoleWindow(windowRecord)) {
+      return null;
+    }
+
+    const tabId = getDebugConsoleTabIdFromSurfaceId(windowRecord.surfaceId);
+    if (!tabId) {
+      return null;
+    }
+
+    const sourceState = getDebugConsoleWindowSourceState(tabId);
+
+    return buildDebugConsoleWindowModel(
+      sourceState,
+      createDebugConsoleWindowTitle(tabId),
+      createDebugConsoleWindowDescription(tabId),
+    );
+  }
+
+  function emitDebugConsoleBridgeSnapshotForWindow(
+    windowId: string,
+    windowRecord: WindowRecord,
+    force = false,
+  ): void {
+    const model = createDebugConsoleWindowModelForSurface(windowId);
+    if (!model) {
+      return;
+    }
+
+    const signature = JSON.stringify(model);
+    if (!force && debugConsoleBridgeSnapshotSignatures.get(windowId) === signature) {
+      return;
+    }
+
+    debugConsoleBridgeSnapshotSignatures.set(windowId, signature);
+    const snapshot: SurfaceEnvelopeBase<'surface.snapshot', DebugConsoleWindowSnapshot> = {
+      surfaceId: windowRecord.surfaceId,
+      instanceId: windowId,
+      kind: 'surface.snapshot',
+      source: 'host',
+      revision: debugConsoleTransportHub.getSession<DebugConsoleWindowCommand, DebugConsoleWindowSnapshot>(windowId)?.getRevision() ?? 0,
+      timestamp: Date.now(),
+      payload: {
+        model,
+      },
+    };
+
+    logDebugConsoleTransport('bridge snapshot emit', {
+      windowId,
+      surfaceId: windowRecord.surfaceId,
+      revision: snapshot.revision,
+      entryCount: model.entries.length,
+      force,
+    });
+    void emitDebugConsoleBridgeSnapshot(windowId, snapshot).catch((error) => {
+      console.error('failed to emit debug console bridge snapshot:', error);
+    });
+  }
+
+  function syncPoppedOutDebugConsoleSnapshots(
+    _cacheVersion: number = debugConsoleCacheVersion,
+    _poppedOutWindowIds: string = Object.keys(poppedOutWindowRecords).join('|'),
+    _windowCount: number = windowHostWindows.length,
+  ): void {
+    if (isPoppedOutWindow) {
+      return;
+    }
+
+    for (const [windowId, windowRecord] of Object.entries(poppedOutWindowRecords)) {
+      if (!isDebugConsoleWindow(windowRecord)) {
+        continue;
+      }
+
+      emitDebugConsoleBridgeSnapshotForWindow(windowId, windowRecord);
+    }
+  }
+
+  function publishDebugConsoleTransportSnapshot(
+    windowId: string,
+    session: DebugConsoleWindowTransportSession,
+    model: DebugConsoleWindowSnapshot['model'],
+  ): SurfaceEnvelopeBase<'surface.snapshot', DebugConsoleWindowSnapshot> | null {
+    const signature = JSON.stringify(model);
+    if (debugConsoleTransportSnapshotSignatures.get(windowId) === signature) {
+      logDebugConsoleTransport('snapshot skipped unchanged', {
+        windowId,
+        revision: session.getRevision(),
+        entryCount: model.entries.length,
+      });
+      return session.getSnapshot();
+    }
+
+    debugConsoleTransportSnapshotSignatures.set(windowId, signature);
+    logDebugConsoleTransport('snapshot publish', {
+      windowId,
+      revision: session.getRevision() + 1,
+      entryCount: model.entries.length,
+    });
+    const snapshot = session.publishSnapshot({
+      model,
+    });
+    const windowRecord = poppedOutWindowRecords[windowId] ?? null;
+    if (!isPoppedOutWindow && windowRecord && isDebugConsoleWindow(windowRecord) && snapshot) {
+      debugConsoleBridgeSnapshotSignatures.set(windowId, signature);
+      void emitDebugConsoleBridgeSnapshot(windowId, snapshot).catch((error) => {
+        console.error('failed to emit debug console bridge snapshot:', error);
+      });
+    }
+
+    return snapshot;
+  }
+
+  function ensureNotesTransportSession(windowId: string, surfaceId: string): NotesWindowTransportSession {
+    const session = notesTransportHub.ensureSession<NotesWindowCommand, NotesWindowSnapshot>(surfaceId, windowId);
+    const currentUnlisten = notesTransportUnlisteners.get(windowId);
+
+    if (!currentUnlisten || notesTransportHub.getSession<NotesWindowCommand, NotesWindowSnapshot>(windowId) !== session) {
+      currentUnlisten?.();
+      notesTransportUnlisteners.set(
+        windowId,
+        session.onCommand((envelope) => {
+          logNotesTransport('command received', {
+            windowId,
+            surfaceId,
+            revision: envelope.revision,
+            command: envelope.payload,
+          });
+          handleNotesTransportCommand(windowId, envelope.payload, envelope.revision);
+        }),
+      );
+    }
+
+    return session;
+  }
+
+  function clearNotesTransportSession(windowId: string): void {
+    notesTransportSnapshotSignatures.delete(windowId);
+
+    const unlisten = notesTransportUnlisteners.get(windowId);
+    if (unlisten) {
+      unlisten();
+      notesTransportUnlisteners.delete(windowId);
+    }
+
+    notesTransportHub.deleteSession(windowId);
+  }
+
+  function ensureNotesBridgeSession(windowId: string, surfaceId: string): NotesBridgeSession {
+    const existing = notesBridgeSessions.get(windowId);
+    if (existing && existing.surfaceId === surfaceId && !existing.isClosed()) {
+      return existing;
+    }
+
+    existing?.close();
+    const bridgeSession = createNotesBridgeSession(surfaceId, windowId);
+    notesBridgeSessions.set(windowId, bridgeSession);
+    logNotesTransport('bridge session created', {
+      windowId,
+      surfaceId,
+    });
+    return bridgeSession;
+  }
+
+  function clearNotesBridgeSession(windowId: string): void {
+    const bridgeSession = notesBridgeSessions.get(windowId);
+    if (bridgeSession) {
+      bridgeSession.close();
+      notesBridgeSessions.delete(windowId);
+      logNotesTransport('bridge session cleared', {
+        windowId,
+      });
+    }
+
+    notesBridgeSnapshotSignatures.delete(windowId);
+  }
+
+  async function emitNotesBridgeSnapshot(
+    windowId: string,
+    snapshot: SurfaceEnvelopeBase<'surface.snapshot', NotesWindowSnapshot>,
+  ): Promise<void> {
+    if (!isPoppedOutWindow) {
+      await emit(getNotesBridgeSnapshotEventName(windowId), snapshot);
+    }
+  }
+
+  function createNotesWindowModelForSurface(windowId: string): NotesWindowSnapshot['model'] | null {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (!windowRecord || !isNotesWindow(windowRecord)) {
+      return null;
+    }
+
+    const tabId = getNotesTabIdFromSurfaceId(windowRecord.surfaceId);
+    if (!tabId) {
+      return null;
+    }
+
+    return buildNotesWindowModel(
+      getNotesWindowSourceState(tabId),
+      appServices.spellcheck.getConfig(),
+    );
+  }
+
+  function emitNotesBridgeSnapshotForWindow(
+    windowId: string,
+    windowRecord: WindowRecord,
+    force = false,
+  ): void {
+    const model = createNotesWindowModelForSurface(windowId);
+    if (!model) {
+      return;
+    }
+
+    const signature = JSON.stringify(model);
+    if (!force && notesBridgeSnapshotSignatures.get(windowId) === signature) {
+      return;
+    }
+
+    notesBridgeSnapshotSignatures.set(windowId, signature);
+    const snapshot: SurfaceEnvelopeBase<'surface.snapshot', NotesWindowSnapshot> = {
+      surfaceId: windowRecord.surfaceId,
+      instanceId: windowId,
+      kind: 'surface.snapshot',
+      source: 'host',
+      revision: notesTransportHub.getSession<NotesWindowCommand, NotesWindowSnapshot>(windowId)?.getRevision() ?? 0,
+      timestamp: Date.now(),
+      payload: {
+        model,
+      },
+    };
+
+    logNotesTransport('bridge snapshot emit', {
+      windowId,
+      surfaceId: windowRecord.surfaceId,
+      revision: snapshot.revision,
+      noteLength: model.notes.length,
+      force,
+    });
+    void emitNotesBridgeSnapshot(windowId, snapshot).catch((error) => {
+      console.error('failed to emit notes bridge snapshot:', error);
+    });
+  }
+
+  function syncPoppedOutNotesSnapshots(
+    _poppedOutWindowIds: string = Object.keys(poppedOutWindowRecords).join('|'),
+    _windowCount: number = windowHostWindows.length,
+  ): void {
+    if (isPoppedOutWindow) {
+      return;
+    }
+
+    for (const [windowId, windowRecord] of Object.entries(poppedOutWindowRecords)) {
+      if (!isNotesWindow(windowRecord)) {
+        continue;
+      }
+
+      emitNotesBridgeSnapshotForWindow(windowId, windowRecord);
+    }
+  }
+
+  function publishNotesTransportSnapshot(
+    windowId: string,
+    session: NotesWindowTransportSession,
+    model: NotesWindowSnapshot['model'],
+  ): SurfaceEnvelopeBase<'surface.snapshot', NotesWindowSnapshot> | null {
+    const signature = JSON.stringify(model);
+    if (notesTransportSnapshotSignatures.get(windowId) === signature) {
+      logNotesTransport('snapshot skipped unchanged', {
+        windowId,
+        revision: session.getRevision(),
+        noteLength: model.notes.length,
+      });
+      return session.getSnapshot();
+    }
+
+    notesTransportSnapshotSignatures.set(windowId, signature);
+    logNotesTransport('snapshot publish', {
+      windowId,
+      revision: session.getRevision() + 1,
+      noteLength: model.notes.length,
+    });
+    const snapshot = session.publishSnapshot({
+      model,
+    });
+    const windowRecord = poppedOutWindowRecords[windowId] ?? null;
+    if (!isPoppedOutWindow && windowRecord && isNotesWindow(windowRecord) && snapshot) {
+      notesBridgeSnapshotSignatures.set(windowId, signature);
+      void emitNotesBridgeSnapshot(windowId, snapshot).catch((error) => {
+        console.error('failed to emit notes bridge snapshot:', error);
+      });
+    }
+
+    return snapshot;
+  }
+
+  function handleNotesTransportCommand(
+    windowId: string,
+    command: NotesWindowCommand,
+    expectedRevision?: number,
+  ): void {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+    if (!windowRecord || !isNotesWindow(windowRecord)) {
+      return;
+    }
+
+    const tabId = getNotesTabIdFromSurfaceId(windowRecord.surfaceId);
+    if (!tabId) {
+      return;
+    }
+
+    const notesSession = notesTransportHub.getSession<NotesWindowCommand, NotesWindowSnapshot>(windowId);
+    if (!notesSession) {
+      return;
+    }
+
+    if (expectedRevision !== undefined && expectedRevision !== notesSession.getRevision()) {
+      logNotesTransport('command ignored due to stale revision', {
+        windowId,
+        expectedRevision,
+        currentRevision: notesSession.getRevision(),
+        command,
+      });
+      return;
+    }
+
+    logNotesTransport('command handling', {
+      windowId,
+      command,
+      revision: notesSession.getRevision(),
+    });
+
+    if (command.type === 'notesChanged') {
+      session.saveNotes(tabId, command.notes);
+      const model = createNotesWindowModelForSurface(windowId);
+      if (model) {
+        publishNotesTransportSnapshot(windowId, notesSession, model);
+      }
+      return;
+    }
+
+    if (command.type === 'ignoreWordRequested') {
+      void appServices.spellcheck.ignoreWord(command.word);
+      return;
+    }
+
+    if (command.type === 'closeRequested') {
+      void closeNotesWindow(tabId);
+    }
+  }
+
+  function handleTreeDataTransportCommand(
+    windowId: string,
+    command: TreeDataWindowCommand,
+    expectedRevision?: number,
+  ): void {
+    const kind = treeDataTransportKinds.get(windowId);
+    const model = kind === 'fuzzball'
+      ? buildFuzzballStorageViewerModel(treeDataTransportSources.get(windowId) ?? getFuzzballStorageWindowState(windowId))
+      : createDemoTreeDataWindowModel();
+    const treeSession = treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId);
+
+    if (!treeSession) {
+      return;
+    }
+
+    if (expectedRevision !== undefined && expectedRevision !== treeSession.getRevision()) {
+      logTreeTransport('command ignored due to stale revision', {
+        windowId,
+        kind,
+        expectedRevision,
+        currentRevision: treeSession.getRevision(),
+        command,
+      });
+      return;
+    }
+
+    logTreeTransport('command handling', {
+      windowId,
+      kind,
+      command,
+      revision: treeSession.getRevision(),
+    });
+    const nextViewState = treeDataViewController.update(windowId, model, command);
+    logTreeTransport('command reduced', {
+      windowId,
+      kind,
+      nextSelectedNodeId: nextViewState.selectedNodeId,
+      nextExpandedNodeCount: nextViewState.expandedNodeIds.length,
+    });
+    publishTreeDataTransportSnapshot(windowId, treeSession, model, nextViewState);
+
+    if (kind !== 'fuzzball' || command.type !== 'nodeExpansionToggled') {
+      return;
+    }
+
+    const sourceState = treeDataTransportSources.get(windowId);
+    if (!sourceState?.sourceTabId) {
+      return;
+    }
+
+    const node = findTreeDataNode(model.root, command.nodeId);
+    if (!node || node.kind !== 'branch' || node.childrenState !== 'unknown') {
+      return;
+    }
+
+    logTreeTransport('fuzzball load requested', {
+      windowId,
+      nodeId: command.nodeId,
+      sourceTabId: sourceState.sourceTabId,
+    });
+    requestFuzzballStorageNodeLoad(sourceState, command.nodeId, session.worldSessionContainers);
+  }
+
+  function handleDebugConsoleTransportCommand(
+    windowId: string,
+    command: DebugConsoleWindowCommand,
+    expectedRevision?: number,
+  ): void {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+    if (!windowRecord || !isDebugConsoleWindow(windowRecord)) {
+      return;
+    }
+
+    const tabId = getDebugConsoleTabIdFromSurfaceId(windowRecord.surfaceId);
+    if (!tabId) {
+      return;
+    }
+
+    const debugConsoleSession = debugConsoleTransportHub.getSession<DebugConsoleWindowCommand, DebugConsoleWindowSnapshot>(windowId);
+    if (!debugConsoleSession) {
+      return;
+    }
+
+    if (expectedRevision !== undefined && expectedRevision !== debugConsoleSession.getRevision()) {
+      logDebugConsoleTransport('command ignored due to stale revision', {
+        windowId,
+        expectedRevision,
+        currentRevision: debugConsoleSession.getRevision(),
+        command,
+      });
+      return;
+    }
+
+    logDebugConsoleTransport('command handling', {
+      windowId,
+      command,
+      revision: debugConsoleSession.getRevision(),
+    });
+
+    if (command.type === 'closeRequested') {
+      void closeDebugConsoleWindow(tabId);
+    }
+  }
+
+  function getTreeDataWindowRenderProps(
+    windowId: string,
+    _cacheVersion: number = fuzzballStorageCacheVersion,
+  ): TreeDataWindowRenderProps | null {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (!windowRecord) {
+      return null;
+    }
+
+    if (isPoppedOutWindow) {
+      if (windowRecord.surfaceId !== WINDOW_HOST_SINGLETON_IDS.treeDataDemo
+        && !windowRecord.surfaceId.startsWith('fuzzball-storage-window-')) {
+        return null;
+      }
+
+      const session = ensureTreeDataBridgeSession(windowId, windowRecord.surfaceId);
+      const placeholderModel = createTreeDataWindowPlaceholderModel(windowRecord.title);
       return {
-        model: createDemoTreeDataWindowModel(),
+        model: placeholderModel,
+        viewState: treeDataViewController.ensure(windowId, placeholderModel.root.id),
+        transportSession: session,
+        onCommand: () => {},
+      };
+    }
+
+    if (windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo) {
+      const model = createDemoTreeDataWindowModel();
+      const session = ensureTreeDataTransportSession(windowId, windowRecord.surfaceId);
+      rememberTreeDataTransportState(windowId, 'demo', model);
+      logTreeTransport('render props ready', {
+        windowId,
+        surfaceId: windowRecord.surfaceId,
+        kind: 'demo',
+        revision: session.getRevision(),
+      });
+      return {
+        model,
+        viewState: treeDataViewController.ensure(windowId, model.root.id),
+        transportSession: session,
+        onCommand: (command) => handleTreeDataTransportCommand(windowId, command),
       };
     }
 
     if (windowRecord.surfaceId.startsWith('fuzzball-storage-window-')) {
       const sourceState = getFuzzballStorageWindowState(windowId);
+      const model = buildFuzzballStorageViewerModel(sourceState);
+      const session = ensureTreeDataTransportSession(windowId, windowRecord.surfaceId);
+      rememberTreeDataTransportState(windowId, 'fuzzball', model, sourceState);
+      logTreeTransport('render props ready', {
+        windowId,
+        surfaceId: windowRecord.surfaceId,
+        kind: 'fuzzball',
+        revision: session.getRevision(),
+      });
       return {
-        model: buildFuzzballStorageViewerModel(sourceState),
-        onToggleNode: (nodeId) => handleFuzzballStorageTreeToggle(windowId, nodeId),
+        model,
+        viewState: treeDataViewController.ensure(windowId, model.root.id),
+        transportSession: session,
+        onCommand: (command) => handleTreeDataTransportCommand(windowId, command),
       };
     }
 
     return null;
   }
 
-  function handleFuzzballStorageTreeToggle(windowId: string, nodeId: string): void {
-    const sourceState = getFuzzballStorageWindowState(windowId);
-    if (!sourceState.sourceTabId) {
-      return;
+  function getDebugConsoleWindowRenderProps(
+    windowId: string,
+    _cacheVersion: number = debugConsoleCacheVersion,
+  ): DebugConsoleWindowRenderProps | null {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (!windowRecord || !isDebugConsoleWindow(windowRecord)) {
+      return null;
     }
 
-    const model = buildFuzzballStorageViewerModel(sourceState);
-    const node = model.root;
-    if (node.id !== nodeId || node.kind !== 'branch' || node.childrenState !== 'unknown') {
-      return;
+    const tabId = getDebugConsoleTabIdFromSurfaceId(windowRecord.surfaceId);
+    if (!tabId) {
+      return null;
     }
 
-    requestFuzzballStorageNodeLoad(sourceState, nodeId, session.worldSessionContainers);
+    if (isPoppedOutWindow) {
+      const session = ensureDebugConsoleBridgeSession(windowId, windowRecord.surfaceId);
+      return {
+        model: createDebugConsoleWindowPlaceholderModel(windowRecord.title),
+        transportSession: session,
+        onCommand: () => {},
+      };
+    }
+
+    const model = createDebugConsoleWindowModelForSurface(windowId)
+      ?? createDebugConsoleWindowPlaceholderModel(windowRecord.title);
+    const session = ensureDebugConsoleTransportSession(windowId, windowRecord.surfaceId);
+    publishDebugConsoleTransportSnapshot(windowId, session, model);
+    return {
+      model,
+      transportSession: session,
+      onCommand: (command) => handleDebugConsoleTransportCommand(windowId, command),
+    };
+  }
+
+  function getNotesWindowRenderProps(
+    windowId: string,
+  ): NotesWindowRenderProps | null {
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (!windowRecord || !isNotesWindow(windowRecord)) {
+      return null;
+    }
+
+    const tabId = getNotesTabIdFromSurfaceId(windowRecord.surfaceId);
+    if (!tabId) {
+      return null;
+    }
+
+    if (isPoppedOutWindow) {
+      const session = ensureNotesBridgeSession(windowId, windowRecord.surfaceId);
+      return {
+        model: createNotesWindowPlaceholderModel(windowRecord.title),
+        transportSession: session,
+        onCommand: () => {},
+      };
+    }
+
+    const model = createNotesWindowModelForSurface(windowId)
+      ?? createNotesWindowPlaceholderModel(windowRecord.title);
+    const session = ensureNotesTransportSession(windowId, windowRecord.surfaceId);
+    publishNotesTransportSnapshot(windowId, session, model);
+    return {
+      model,
+      transportSession: session,
+      onCommand: (command) => handleNotesTransportCommand(windowId, command),
+    };
   }
 
   function openDummyWindow(): void {
     const index = windowHostWindows.length;
     const id = `dummy-window-${nextWindowHostId++}`;
+    const model = createDemoTreeDataWindowModel();
+
+    treeDataViewController.ensure(id, model.root.id);
 
     windowHostWindows = [
       ...windowHostWindows,
@@ -365,6 +1528,16 @@ function openLoggingModal(tabId: string): void {
   function openTreeDataWindow(): void {
     const index = windowHostWindows.length;
     const id = `tree-data-window-${nextWindowHostId++}`;
+    const model = createDemoTreeDataWindowModel();
+
+    treeDataViewController.ensure(id, model.root.id);
+    ensureTreeDataTransportSession(id, WINDOW_HOST_SINGLETON_IDS.treeDataDemo);
+    rememberTreeDataTransportState(id, 'demo', model);
+    logTreeTransport('open tree window', {
+      windowId: id,
+      surfaceId: WINDOW_HOST_SINGLETON_IDS.treeDataDemo,
+      kind: 'demo',
+    });
 
     windowHostWindows = [
       ...windowHostWindows,
@@ -405,11 +1578,24 @@ function openLoggingModal(tabId: string): void {
 
     const index = windowHostWindows.length;
     const id = `fuzzball-storage-window-${nextWindowHostId++}`;
+    const state = createFuzzballStorageViewerState(sourceTabId, worldId, characterId, title, description);
 
     fuzzballStorageWindowStates = {
       ...fuzzballStorageWindowStates,
-      [id]: createFuzzballStorageViewerState(sourceTabId, worldId, characterId, title, description),
+      [id]: state,
     };
+
+    ensureTreeDataTransportSession(id, id);
+    rememberTreeDataTransportState(id, 'fuzzball', buildFuzzballStorageViewerModel(state), state);
+    maybeRequestInitialFuzzballStorageLoad(id, state);
+    logTreeTransport('open fuzzball storage window', {
+      windowId: id,
+      surfaceId: id,
+      kind: 'fuzzball',
+      sourceTabId,
+      worldId,
+      characterId,
+    });
 
     windowHostWindows = [
       ...windowHostWindows,
@@ -437,6 +1623,200 @@ function openLoggingModal(tabId: string): void {
     ];
   }
 
+  function openDebugConsoleWindow(tabId: string): void {
+    const windowId = getDebugConsoleWindowId(tabId);
+    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (existingWindowRecord) {
+      if (existingWindowRecord.placement === 'in-app') {
+        activateWindow(windowId);
+      }
+
+      return;
+    }
+
+    const worldSession = $session.worldSessions[tabId] ?? null;
+    if (worldSession?.currentWorld) {
+      const sourceKey = createWorldSessionKey(worldSession.currentWorld.id, worldSession.currentCharacter?.id ?? null);
+      const debugConsole = session.worldSessionContainers.debugConsole.ensure(sourceKey);
+      debugConsole.sourceLabel = worldSession.currentCharacter
+        ? `${worldSession.currentWorld.name} · ${worldSession.currentCharacter.name}`
+        : worldSession.currentWorld.name;
+    }
+
+    const surfaceId = getDebugConsoleSurfaceId(tabId);
+    const index = windowHostWindows.length;
+    const windowRecord = createWindowRecord({
+      id: windowId,
+      kind: 'builtin',
+      surfaceId,
+      title: createDebugConsoleWindowTitle(tabId),
+      isModal: false,
+      placement: 'in-app',
+      sizeToContent: false,
+      size: {
+        width: 720,
+        height: 560,
+      },
+      position: {
+        x: 120 + index * 28,
+        y: 120 + index * 28,
+      },
+      canBackdropDismiss: false,
+      canEscapeDismiss: false,
+      canPopOut: true,
+      canMoveInApp: true,
+    });
+
+    const sessionModel = buildDebugConsoleWindowModel(
+      getDebugConsoleWindowSourceState(tabId),
+      createDebugConsoleWindowTitle(tabId),
+      createDebugConsoleWindowDescription(tabId),
+    );
+
+    const transportSession = ensureDebugConsoleTransportSession(windowId, surfaceId);
+    publishDebugConsoleTransportSnapshot(windowId, transportSession, sessionModel);
+
+    windowHostWindows = [...windowHostWindows, windowRecord];
+    logDebugConsoleTransport('open debug console window', {
+      windowId,
+      surfaceId,
+      tabId,
+    });
+  }
+
+  function openNotesWindow(tabId: string): void {
+    const windowId = getNotesWindowId(tabId);
+    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (existingWindowRecord) {
+      if (existingWindowRecord.placement === 'in-app') {
+        activateWindow(windowId);
+      }
+
+      return;
+    }
+
+    const surfaceId = getNotesSurfaceId(tabId);
+    const index = windowHostWindows.length;
+    const windowRecord = createWindowRecord({
+      id: windowId,
+      kind: 'builtin',
+      surfaceId,
+      title: createNotesWindowTitle(tabId),
+      isModal: false,
+      placement: 'in-app',
+      sizeToContent: false,
+      size: {
+        width: 760,
+        height: 640,
+      },
+      position: {
+        x: 120 + index * 28,
+        y: 120 + index * 28,
+      },
+      canBackdropDismiss: false,
+      canEscapeDismiss: false,
+      canPopOut: true,
+      canMoveInApp: true,
+    });
+
+    const sessionModel = buildNotesWindowModel(
+      getNotesWindowSourceState(tabId),
+      appServices.spellcheck.getConfig(),
+    );
+
+    const transportSession = ensureNotesTransportSession(windowId, surfaceId);
+    publishNotesTransportSnapshot(windowId, transportSession, sessionModel);
+
+    windowHostWindows = [...windowHostWindows, windowRecord];
+    logNotesTransport('open notes window', {
+      windowId,
+      surfaceId,
+      tabId,
+    });
+  }
+
+  async function closeDebugConsoleWindow(tabId: string): Promise<void> {
+    const windowId = getDebugConsoleWindowId(tabId);
+    const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId) ?? poppedOutWindowRecord;
+
+    if (!windowRecord) {
+      clearDebugConsoleTransportSession(windowId);
+      clearDebugConsoleBridgeSession(windowId);
+      return;
+    }
+
+    closeWindow(windowId);
+
+    if (!poppedOutWindowRecord) {
+      return;
+    }
+
+    removePoppedOutWindowRecord(windowId);
+    await invoke('window_host_discard', { windowId }).catch((error) => {
+      console.error('failed to discard debug console window:', error);
+    });
+  }
+
+  async function closeNotesWindow(tabId: string): Promise<void> {
+    const windowId = getNotesWindowId(tabId);
+    const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
+    const windowRecord = windowHostWindows.find((record) => record.id === windowId) ?? poppedOutWindowRecord;
+
+    flushPendingNotesSave(tabId);
+
+    if (!windowRecord) {
+      clearNotesTransportSession(windowId);
+      clearNotesBridgeSession(windowId);
+      return;
+    }
+
+    closeWindow(windowId);
+
+    if (!poppedOutWindowRecord) {
+      return;
+    }
+
+    removePoppedOutWindowRecord(windowId);
+    await invoke('window_host_discard', { windowId }).catch((error) => {
+      console.error('failed to discard notes window:', error);
+    });
+  }
+
+  async function toggleDebugConsoleWindow(tabId: string): Promise<void> {
+    const windowId = getDebugConsoleWindowId(tabId);
+    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (existingWindowRecord) {
+      await closeDebugConsoleWindow(tabId);
+      return;
+    }
+
+    openDebugConsoleWindow(tabId);
+  }
+
+  async function toggleNotesWindow(tabId: string): Promise<void> {
+    const windowId = getNotesWindowId(tabId);
+    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+
+    if (existingWindowRecord) {
+      await closeNotesWindow(tabId);
+      return;
+    }
+
+    openNotesWindow(tabId);
+  }
+
   function clearFuzzballStorageWindowState(windowId: string): void {
     if (!(windowId in fuzzballStorageWindowStates)) {
       return;
@@ -461,6 +1841,11 @@ function openLoggingModal(tabId: string): void {
     fuzzballStorageWindowStates = Object.fromEntries(
       Object.entries(fuzzballStorageWindowStates).filter(([windowId]) => !windowIdSet.has(windowId)),
     );
+    for (const windowId of matchedWindowIds) {
+      clearTreeDataTransportSession(windowId);
+      clearTreeDataBridgeSession(windowId);
+      treeDataViewController.clear(windowId);
+    }
     windowHostWindows = windowHostWindows.filter((windowRecord) => !windowIdSet.has(windowRecord.id));
     poppedOutWindowRecords = Object.fromEntries(
       Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
@@ -475,8 +1860,87 @@ function openLoggingModal(tabId: string): void {
     );
   }
 
+  async function discardDebugConsoleWindowsForSourceTab(sourceTabId: string): Promise<void> {
+    const matchedWindowIds = [
+      ...windowHostWindows,
+      ...Object.values(poppedOutWindowRecords),
+    ]
+      .filter((windowRecord) => isDebugConsoleWindow(windowRecord) && getDebugConsoleTabIdFromSurfaceId(windowRecord.surfaceId) === sourceTabId)
+      .map((windowRecord) => windowRecord.id);
+
+    if (matchedWindowIds.length === 0) {
+      return;
+    }
+
+    const windowIdSet = new Set(matchedWindowIds);
+    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
+
+    windowHostWindows = windowHostWindows.filter((windowRecord) => !windowIdSet.has(windowRecord.id));
+    poppedOutWindowRecords = Object.fromEntries(
+      Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
+    );
+
+    for (const windowId of matchedWindowIds) {
+      clearDebugConsoleTransportSession(windowId);
+      clearDebugConsoleBridgeSession(windowId);
+    }
+
+    await Promise.all(
+      poppedOutWindowIds.map((windowId) =>
+        invoke('window_host_discard', { windowId }).catch((error) => {
+          console.error('failed to discard debug console window:', error);
+        }),
+      ),
+    );
+  }
+
+  async function discardNotesWindowsForSourceTab(sourceTabId: string): Promise<void> {
+    const matchedWindowIds = [
+      ...windowHostWindows,
+      ...Object.values(poppedOutWindowRecords),
+    ]
+      .filter((windowRecord) => isNotesWindow(windowRecord) && getNotesTabIdFromSurfaceId(windowRecord.surfaceId) === sourceTabId)
+      .map((windowRecord) => windowRecord.id);
+
+    if (matchedWindowIds.length === 0) {
+      return;
+    }
+
+    const windowIdSet = new Set(matchedWindowIds);
+    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
+
+    windowHostWindows = windowHostWindows.filter((windowRecord) => !windowIdSet.has(windowRecord.id));
+    poppedOutWindowRecords = Object.fromEntries(
+      Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
+    );
+
+    for (const windowId of matchedWindowIds) {
+      clearNotesTransportSession(windowId);
+      clearNotesBridgeSession(windowId);
+    }
+
+    await Promise.all(
+      poppedOutWindowIds.map((windowId) =>
+        invoke('window_host_discard', { windowId }).catch((error) => {
+          console.error('failed to discard notes window:', error);
+        }),
+      ),
+    );
+  }
+
   function closeWindow(windowId: string): void {
+    logTreeTransport('close tree window', {
+      windowId,
+      hasTransportSession: treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId) !== null,
+    });
+    clearTreeDataTransportSession(windowId);
+    clearTreeDataBridgeSession(windowId);
+    treeDataViewController.clear(windowId);
     clearFuzzballStorageWindowState(windowId);
+    clearDebugConsoleTransportSession(windowId);
+    clearDebugConsoleBridgeSession(windowId);
+    clearNotesTransportSession(windowId);
+    clearNotesBridgeSession(windowId);
 
     removeWindowRecord(windowId);
   }
@@ -539,6 +2003,9 @@ function openLoggingModal(tabId: string): void {
       ...windowRecord,
       placement: 'in-app',
     });
+    clearTreeDataBridgeSession(windowId);
+    clearDebugConsoleBridgeSession(windowId);
+    clearNotesBridgeSession(windowId);
   }
 
   function handlePoppedOutWindowDiscarded(windowId: string): void {
@@ -555,7 +2022,13 @@ function openLoggingModal(tabId: string): void {
       title: windowRecord.title,
     });
 
+    clearTreeDataBridgeSession(windowId);
+    treeDataViewController.clear(windowId);
     clearFuzzballStorageWindowState(windowId);
+    clearDebugConsoleBridgeSession(windowId);
+    clearDebugConsoleTransportSession(windowId);
+    clearNotesBridgeSession(windowId);
+    clearNotesTransportSession(windowId);
   }
 
   async function handlePopOutWindow(windowId: string): Promise<void> {
@@ -767,11 +2240,40 @@ function openLoggingModal(tabId: string): void {
             : activeWorldSession.currentWorld.name
         : 'MUDShow';
 
+  $: if (!isPoppedOutWindow) {
+    syncPoppedOutTreeDataSnapshots(
+      fuzzballStorageCacheVersion,
+      Object.keys(poppedOutWindowRecords).join('|'),
+      windowHostWindows.length,
+    );
+    syncPoppedOutDebugConsoleSnapshots(
+      debugConsoleCacheVersion,
+      Object.keys(poppedOutWindowRecords).join('|'),
+      windowHostWindows.length,
+    );
+    syncPoppedOutNotesSnapshots(
+      Object.keys(poppedOutWindowRecords).join('|'),
+      windowHostWindows.length,
+    );
+  }
+
   onMount(() => {
     console.log('[window-action] app mount state', {
       isPoppedOutWindow,
       poppedOutWindowId,
       url: typeof window !== 'undefined' ? window.location.href : null,
+    });
+    const unlistenFuzzballStorageCache = fuzzballStorageCache.subscribe(() => {
+      fuzzballStorageCacheVersion += 1;
+      logTreeTransport('fuzzball cache changed', {
+        version: fuzzballStorageCacheVersion,
+      });
+    });
+    const unlistenDebugConsoleCache = debugConsoleCache.subscribe(() => {
+      debugConsoleCacheVersion += 1;
+      logDebugConsoleTransport('debug console cache changed', {
+        version: debugConsoleCacheVersion,
+      });
     });
     const handleVisibilityChange = () => session.handleVisibilityChange();
     const handleWindowFocus = () => session.handleWindowFocus();
@@ -795,6 +2297,18 @@ function openLoggingModal(tabId: string): void {
           void session.selectNextTab();
         }
         return;
+      }
+
+      if (event.key === 'F3') {
+        const activeWorldTab = $session.tabs.find(
+          (tab): tab is AppTab & { kind: 'world' } => tab.id === $session.activeTabId && tab.kind === 'world',
+        );
+        if (activeWorldTab) {
+          event.preventDefault();
+          event.stopPropagation();
+          void toggleNotesWindow(activeWorldTab.id);
+          return;
+        }
       }
 
       session.handleGlobalKeyDown(event);
@@ -825,6 +2339,9 @@ function openLoggingModal(tabId: string): void {
           }
 
           poppedOutWindowRecord = record;
+          if (record) {
+            storePoppedOutWindowRecord(record);
+          }
           console.log('[window-action] popped-out window record loaded', {
             poppedOutWindowId,
             hasRecord: record !== null,
@@ -851,6 +2368,7 @@ function openLoggingModal(tabId: string): void {
 
         await session.load();
         await tick();
+        syncPoppedOutNotesSnapshots();
       } finally {
         if (!disposed) {
           startupOverlay?.remove();
@@ -863,6 +2381,136 @@ function openLoggingModal(tabId: string): void {
         const currentWebviewWindow = getCurrentWebviewWindow();
         if (!currentWebviewWindow) {
           return;
+        }
+
+        if (!isPoppedOutWindow) {
+          const unlistenTreeCommand = await listen<SurfaceTransportBridgeCommandEnvelope<TreeDataWindowCommand | DebugConsoleWindowCommand | NotesWindowCommand>>(
+            'surface-transport:command',
+            (event) => {
+              const payload = event.payload;
+              const windowRecord = poppedOutWindowRecords[payload.instanceId] ?? null;
+              if (!windowRecord) {
+                return;
+              }
+
+              if (isPoppedOutTreeWindow(windowRecord)) {
+                logTreeTransport('bridge command received', {
+                  windowId: payload.instanceId,
+                  surfaceId: payload.surfaceId,
+                  expectedRevision: payload.expectedRevision ?? null,
+                  command: payload.payload,
+                });
+                handleTreeDataTransportCommand(
+                  payload.instanceId,
+                  payload.payload as TreeDataWindowCommand,
+                  payload.expectedRevision ?? payload.revision,
+                );
+                return;
+              }
+
+              if (!isDebugConsoleWindow(windowRecord)) {
+                if (!isNotesWindow(windowRecord)) {
+                  return;
+                }
+
+                logNotesTransport('bridge command received', {
+                  windowId: payload.instanceId,
+                  surfaceId: payload.surfaceId,
+                  expectedRevision: payload.expectedRevision ?? null,
+                  command: payload.payload,
+                });
+                handleNotesTransportCommand(
+                  payload.instanceId,
+                  payload.payload as NotesWindowCommand,
+                  payload.expectedRevision ?? payload.revision,
+                );
+                return;
+              }
+
+              logDebugConsoleTransport('bridge command received', {
+                windowId: payload.instanceId,
+                surfaceId: payload.surfaceId,
+                expectedRevision: payload.expectedRevision ?? null,
+                command: payload.payload,
+              });
+              handleDebugConsoleTransportCommand(
+                payload.instanceId,
+                payload.payload as DebugConsoleWindowCommand,
+                payload.expectedRevision ?? payload.revision,
+              );
+            },
+          );
+
+          const unlistenTreeLifecycle = await listen<SurfaceTransportBridgeLifecycleEnvelope>(
+            'surface-transport:lifecycle',
+            (event) => {
+              const payload = event.payload;
+              const windowRecord = poppedOutWindowRecords[payload.instanceId] ?? null;
+              if (!windowRecord) {
+                return;
+              }
+
+              if (isPoppedOutTreeWindow(windowRecord)) {
+                logTreeTransport('bridge lifecycle received', {
+                  windowId: payload.instanceId,
+                  surfaceId: payload.surfaceId,
+                  kind: payload.payload.type,
+                  revision: payload.revision,
+                });
+
+                if (payload.payload.type !== 'stateReconciled') {
+                  return;
+                }
+
+                const targetWindowRecord = poppedOutWindowRecords[payload.instanceId] ?? null;
+                if (targetWindowRecord && isPoppedOutTreeWindow(targetWindowRecord)) {
+                  emitTreeDataBridgeSnapshotForWindow(payload.instanceId, targetWindowRecord, true);
+                }
+                return;
+              }
+
+              if (!isDebugConsoleWindow(windowRecord)) {
+                if (!isNotesWindow(windowRecord)) {
+                  return;
+                }
+
+                logNotesTransport('bridge lifecycle received', {
+                  windowId: payload.instanceId,
+                  surfaceId: payload.surfaceId,
+                  kind: payload.payload.type,
+                  revision: payload.revision,
+                });
+
+                if (payload.payload.type !== 'stateReconciled') {
+                  return;
+                }
+
+                const targetWindowRecord = poppedOutWindowRecords[payload.instanceId] ?? null;
+                if (targetWindowRecord && isNotesWindow(targetWindowRecord)) {
+                  emitNotesBridgeSnapshotForWindow(payload.instanceId, targetWindowRecord, true);
+                }
+                return;
+              }
+
+              logDebugConsoleTransport('bridge lifecycle received', {
+                windowId: payload.instanceId,
+                surfaceId: payload.surfaceId,
+                kind: payload.payload.type,
+                revision: payload.revision,
+              });
+
+              if (payload.payload.type !== 'stateReconciled') {
+                return;
+              }
+
+              const targetWindowRecord = poppedOutWindowRecords[payload.instanceId] ?? null;
+              if (targetWindowRecord && isDebugConsoleWindow(targetWindowRecord)) {
+                emitDebugConsoleBridgeSnapshotForWindow(payload.instanceId, targetWindowRecord, true);
+              }
+            },
+          );
+
+          unlistenTreeBridgeEvents = [unlistenTreeCommand, unlistenTreeLifecycle];
         }
 
         if (isPoppedOutWindow && poppedOutWindowId) {
@@ -914,6 +2562,8 @@ function openLoggingModal(tabId: string): void {
           if (disposed) {
             unlistenWindowHostEvents.forEach((unlisten) => unlisten());
             unlistenWindowHostEvents = [];
+            unlistenTreeBridgeEvents.forEach((unlisten) => unlisten());
+            unlistenTreeBridgeEvents = [];
             return;
           }
           document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -937,6 +2587,8 @@ function openLoggingModal(tabId: string): void {
         isPoppedOutWindow,
         poppedOutWindowId,
       });
+      unlistenFuzzballStorageCache();
+      unlistenDebugConsoleCache();
       if (!isPoppedOutWindow) {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         window.removeEventListener('focus', handleWindowFocus);
@@ -946,6 +2598,11 @@ function openLoggingModal(tabId: string): void {
       unlistenAppClose = null;
       unlistenWindowHostEvents.forEach((unlisten) => unlisten());
       unlistenWindowHostEvents = [];
+      unlistenTreeBridgeEvents.forEach((unlisten) => unlisten());
+      unlistenTreeBridgeEvents = [];
+      if (isPoppedOutWindow && poppedOutWindowId) {
+        clearTreeDataBridgeSession(poppedOutWindowId);
+      }
       session.dispose();
     };
   });
@@ -968,9 +2625,34 @@ function openLoggingModal(tabId: string): void {
       <DummyWindowContent instanceLabel={poppedOutWindowRecord.title} />
     {:else if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
       || poppedOutWindowRecord?.surfaceId.startsWith('fuzzball-storage-window-')}
-      {@const treeDataWindowProps = getTreeDataWindowRenderProps(poppedOutWindowRecord.id)}
+      {@const treeDataWindowProps = getTreeDataWindowRenderProps(poppedOutWindowRecord.id, fuzzballStorageCacheVersion)}
       {#if treeDataWindowProps}
         <TreeDataWindow {...treeDataWindowProps} />
+      {:else}
+        {@const placeholderModel = createTreeDataWindowPlaceholderModel(poppedOutWindowRecord.title)}
+        {@const placeholderViewState = treeDataViewController.ensure(poppedOutWindowRecord.id, placeholderModel.root.id)}
+        <TreeDataWindow
+          model={placeholderModel}
+          viewState={placeholderViewState}
+          onCommand={() => {}}
+          transportSession={null}
+        />
+      {/if}
+    {:else if poppedOutWindowRecord && isDebugConsoleWindow(poppedOutWindowRecord)}
+      {@const debugConsoleWindowProps = getDebugConsoleWindowRenderProps(poppedOutWindowRecord.id, debugConsoleCacheVersion)}
+      {#if debugConsoleWindowProps}
+        <DebugConsoleWindow {...debugConsoleWindowProps} />
+      {:else}
+        {@const placeholderModel = createDebugConsoleWindowPlaceholderModel(poppedOutWindowRecord.title)}
+        <DebugConsoleWindow model={placeholderModel} onCommand={() => {}} transportSession={null} />
+      {/if}
+    {:else if poppedOutWindowRecord && isNotesWindow(poppedOutWindowRecord)}
+      {@const notesWindowProps = getNotesWindowRenderProps(poppedOutWindowRecord.id)}
+      {#if notesWindowProps}
+        <NotesWindow {...notesWindowProps} />
+      {:else}
+        {@const placeholderModel = createNotesWindowPlaceholderModel(poppedOutWindowRecord.title)}
+        <NotesWindow model={placeholderModel} onCommand={() => {}} transportSession={null} />
       {/if}
     {/if}
   </PoppedOutWindowView>
@@ -1003,11 +2685,11 @@ function openLoggingModal(tabId: string): void {
     onEditCharacterTab={(tabId) => void session.openCharacterEditorFromWorldTab(tabId)}
     onOpenNotesTab={(tabId) => {
       session.activateWorldTab(tabId);
-      void session.togglePanel('notes');
+      void toggleNotesWindow(tabId);
     }}
     onOpenDebugConsoleTab={(tabId) => {
       session.activateWorldTab(tabId);
-      void session.togglePanel('debugConsole');
+      openDebugConsoleWindow(tabId);
     }}
     onOpenTriggersTab={(worldId, characterId) => session.openTriggersTab(worldId, characterId)}
     onOpenStylesTab={openDefaultStyleSettings}
@@ -1054,13 +2736,6 @@ function openLoggingModal(tabId: string): void {
         currentCharacterName: worldSession.currentCharacter?.name ?? null,
         scope: tab.id,
         activeBar: worldSession.activeBar,
-        notes: worldSession.notes,
-        onNotesInput: (notes) => session.saveNotes(notes),
-        onSpellcheckIgnoreWord: (word) => void appServices.spellcheck.ignoreWord(word),
-        onNotesClose: () => void session.togglePanel('notes'),
-        onCloseNotesTab: () => void session.closePanel('notes'),
-        onDebugConsoleClose: () => void session.togglePanel('debugConsole'),
-        onCloseDebugConsoleTab: () => void session.closePanel('debugConsole'),
         onOpenFuzzballStorageViewer: () => {
           if (!worldSession.currentWorld) {
             return;
@@ -1236,7 +2911,7 @@ function openLoggingModal(tabId: string): void {
   </AppNoticeHost>
 {/if}
 
-<WindowHost
+    <WindowHost
   open={windowHostWindows.length > 0}
   windows={windowHostWindows}
   onClose={closeWindow}
@@ -1244,14 +2919,39 @@ function openLoggingModal(tabId: string): void {
   onActivate={activateWindow}
   onMove={moveWindow}
   let:windowRecord
->
+  >
   {#if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
     <DummyWindowContent instanceLabel={windowRecord.title} />
   {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
     || windowRecord.surfaceId.startsWith('fuzzball-storage-window-')}
-    {@const treeDataWindowProps = getTreeDataWindowRenderProps(windowRecord.id)}
+    {@const treeDataWindowProps = getTreeDataWindowRenderProps(windowRecord.id, fuzzballStorageCacheVersion)}
     {#if treeDataWindowProps}
       <TreeDataWindow {...treeDataWindowProps} />
+    {:else}
+      {@const placeholderModel = createTreeDataWindowPlaceholderModel(windowRecord.title)}
+      {@const placeholderViewState = treeDataViewController.ensure(windowRecord.id, placeholderModel.root.id)}
+      <TreeDataWindow
+        model={placeholderModel}
+        viewState={placeholderViewState}
+        onCommand={() => {}}
+        transportSession={null}
+      />
+    {/if}
+  {:else if isDebugConsoleWindow(windowRecord)}
+    {@const debugConsoleWindowProps = getDebugConsoleWindowRenderProps(windowRecord.id, debugConsoleCacheVersion)}
+    {#if debugConsoleWindowProps}
+      <DebugConsoleWindow {...debugConsoleWindowProps} />
+    {:else}
+      {@const placeholderModel = createDebugConsoleWindowPlaceholderModel(windowRecord.title)}
+      <DebugConsoleWindow model={placeholderModel} onCommand={() => {}} transportSession={null} />
+    {/if}
+  {:else if isNotesWindow(windowRecord)}
+    {@const notesWindowProps = getNotesWindowRenderProps(windowRecord.id)}
+    {#if notesWindowProps}
+      <NotesWindow {...notesWindowProps} />
+    {:else}
+      {@const placeholderModel = createNotesWindowPlaceholderModel(windowRecord.title)}
+      <NotesWindow model={placeholderModel} onCommand={() => {}} transportSession={null} />
     {/if}
   {/if}
 </WindowHost>

@@ -1,82 +1,129 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import {
     flattenVisibleTreeDataNodes,
     type TreeDataWindowModel,
     type TreeDataWindowViewState,
   } from './tree-data-view';
+  import type { TreeDataWindowCommand } from './tree-data-controller';
+  import type { TreeDataWindowSnapshot, TreeDataWindowTransportSession } from './tree-data-transport';
 
   export let model: TreeDataWindowModel;
-  export let onToggleNode: (nodeId: string) => void = () => {};
+  export let viewState: TreeDataWindowViewState;
+  export let onCommand: (command: TreeDataWindowCommand) => void = () => {};
+  export let transportSession: TreeDataWindowTransportSession | null = null;
 
-  let viewState: TreeDataWindowViewState = createInitialViewState(model.root.id);
-  let activeRootId = model.root.id;
+  let transportSnapshot: TreeDataWindowSnapshot | null = null;
+  let transportViewState: TreeDataWindowViewState | null = null;
+  let activeViewState: TreeDataWindowViewState = viewState;
+  let activeModel: TreeDataWindowModel = model;
+  let unlistenSnapshot: (() => void) | null = null;
 
-  $: if (activeRootId !== model.root.id) {
-    activeRootId = model.root.id;
-    viewState = createInitialViewState(model.root.id);
+  function logTreeWindow(message: string, details: Record<string, unknown>): void {
+    console.debug(`[tree-window] ${message}`, details);
   }
 
-  $: visibleRows = flattenVisibleTreeDataNodes(model.root, new Set(viewState.expandedNodeIds));
-  $: selectedRow = visibleRows.find((row) => row.node.id === viewState.selectedNodeId) ?? null;
+  function syncTransportSession(session: TreeDataWindowTransportSession | null): void {
+    if (unlistenSnapshot) {
+      unlistenSnapshot();
+      unlistenSnapshot = null;
+    }
+
+    transportSnapshot = session?.getSnapshot()?.payload ?? null;
+    transportViewState = transportSnapshot?.viewState ?? null;
+    logTreeWindow('sync transport session', {
+      hasSession: session !== null,
+      revision: session?.getRevision() ?? null,
+      hasSnapshot: transportSnapshot !== null,
+      selectedNodeId: transportViewState?.selectedNodeId ?? null,
+      expandedNodeCount: transportViewState?.expandedNodeIds.length ?? 0,
+    });
+
+    if (!session) {
+      return;
+    }
+
+    unlistenSnapshot = session.onSnapshot((envelope) => {
+      transportSnapshot = envelope.payload;
+      transportViewState = envelope.payload.viewState;
+      logTreeWindow('snapshot received', {
+        revision: envelope.revision,
+        selectedNodeId: envelope.payload.viewState.selectedNodeId,
+        expandedNodeCount: envelope.payload.viewState.expandedNodeIds.length,
+      });
+    });
+  }
+
+  $: syncTransportSession(transportSession);
+  onDestroy(() => syncTransportSession(null));
+
+  $: activeModel = transportSnapshot?.model ?? model;
+  $: activeViewState = transportViewState ?? viewState;
+  $: visibleRows = flattenVisibleTreeDataNodes(activeModel.root, new Set(activeViewState.expandedNodeIds));
+  $: selectedRow = visibleRows.find((row) => row.node.id === activeViewState.selectedNodeId) ?? null;
 
   function selectNode(nodeId: string): void {
-    viewState = {
-      ...viewState,
-      selectedNodeId: nodeId,
-    };
+    const command = { type: 'nodeSelected', nodeId } as const;
+
+    if (transportSession) {
+      logTreeWindow('send command', {
+        command,
+        revision: transportSession.getRevision(),
+      });
+      transportSession.sendCommand(command, { expectedRevision: transportSession.getRevision() });
+      return;
+    }
+
+    logTreeWindow('fallback command', { command });
+    onCommand(command);
   }
 
   function toggleNode(nodeId: string): void {
-    const expandedNodeIds = new Set(viewState.expandedNodeIds);
-    if (expandedNodeIds.has(nodeId)) {
-      expandedNodeIds.delete(nodeId);
-    } else {
-      expandedNodeIds.add(nodeId);
+    const command = { type: 'nodeExpansionToggled', nodeId } as const;
+
+    if (transportSession) {
+      logTreeWindow('send command', {
+        command,
+        revision: transportSession.getRevision(),
+      });
+      transportSession.sendCommand(command, { expectedRevision: transportSession.getRevision() });
+      return;
     }
 
-    viewState = {
-      ...viewState,
-      expandedNodeIds: [...expandedNodeIds],
-    };
-
-    onToggleNode(nodeId);
+    logTreeWindow('fallback command', { command });
+    onCommand(command);
   }
 
   function expandAll(): void {
-    viewState = {
-      ...viewState,
-      expandedNodeIds: collectTreeDataNodeIds(model.root),
-    };
+    const command = { type: 'expandAllRequested' } as const;
+
+    if (transportSession) {
+      logTreeWindow('send command', {
+        command,
+        revision: transportSession.getRevision(),
+      });
+      transportSession.sendCommand(command, { expectedRevision: transportSession.getRevision() });
+      return;
+    }
+
+    logTreeWindow('fallback command', { command });
+    onCommand(command);
   }
 
   function collapseAll(): void {
-    viewState = {
-      ...viewState,
-      selectedNodeId: model.root.id,
-      expandedNodeIds: [model.root.id],
-    };
-  }
+    const command = { type: 'collapseAllRequested' } as const;
 
-  function collectTreeDataNodeIds(root: TreeDataWindowModel['root']): string[] {
-    const ids: string[] = [];
-
-    function visit(node: TreeDataWindowModel['root']): void {
-      ids.push(node.id);
-
-      for (const child of node.children ?? []) {
-        visit(child);
-      }
+    if (transportSession) {
+      logTreeWindow('send command', {
+        command,
+        revision: transportSession.getRevision(),
+      });
+      transportSession.sendCommand(command, { expectedRevision: transportSession.getRevision() });
+      return;
     }
 
-    visit(root);
-    return ids;
-  }
-
-  function createInitialViewState(rootId: string): TreeDataWindowViewState {
-    return {
-      selectedNodeId: rootId,
-      expandedNodeIds: [rootId],
-    };
+    logTreeWindow('fallback command', { command });
+    onCommand(command);
   }
 </script>
 
@@ -84,9 +131,9 @@
   <header class="tree-data-window-header">
     <div class="tree-data-window-copy">
       <p class="tree-data-window-kicker">tree-data view</p>
-      <h2>{model.title}</h2>
-      {#if model.description}
-        <p class="tree-data-window-description">{model.description}</p>
+      <h2>{activeModel.title}</h2>
+      {#if activeModel.description}
+        <p class="tree-data-window-description">{activeModel.description}</p>
       {/if}
     </div>
 
@@ -108,7 +155,7 @@
     {/if}
   </div>
 
-  <div class="tree-data-window-tree" role="tree" aria-label={model.title}>
+  <div class="tree-data-window-tree" role="tree" aria-label={activeModel.title}>
     {#each visibleRows as row (row.node.id)}
       {@const isBranch = row.node.kind === 'branch'}
       {@const isLoading = row.node.childrenState === 'loading'}

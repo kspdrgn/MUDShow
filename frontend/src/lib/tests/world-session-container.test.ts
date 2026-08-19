@@ -14,8 +14,6 @@ test('world session container keeps debug console state isolated per session key
   const secondKey = createWorldSessionKey('world-b', null);
 
   const firstConsole = registry.debugConsole.ensure(firstKey);
-  firstConsole.visible = true;
-  firstConsole.registered = true;
   firstConsole.entries.push({
     id: 1,
     timestamp: 1,
@@ -29,8 +27,6 @@ test('world session container keeps debug console state isolated per session key
 
   assert.strictEqual(registry.debugConsole.get(firstKey), firstConsole);
   assert.strictEqual(registry.debugConsole.get(secondKey), secondConsole);
-  assert.equal(secondConsole.visible, false);
-  assert.equal(secondConsole.registered, false);
   assert.equal(secondConsole.entries.length, 0);
   assert.equal(firstConsole.entries.length, 1);
 });

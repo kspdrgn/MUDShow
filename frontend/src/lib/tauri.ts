@@ -8,6 +8,7 @@ type TauriGlobal = Window & {
       writeText(text: string): Promise<void>;
     };
     event?: {
+      emit<T>(event: string, payload: T): Promise<void>;
       listen<T>(
         event: string,
         handler: (event: { event: string; id: number; payload: T }) => void,
@@ -91,6 +92,20 @@ export async function listen<T>(
   }
 
   return api.listen<T>(event, handler);
+}
+
+export async function emit<T>(event: string, payload: T): Promise<void> {
+  if (typeof window === 'undefined') {
+    throw new Error('Tauri APIs are only available in the desktop webview.');
+  }
+
+  const tauriWindow = window as TauriGlobal;
+  const api = tauriWindow.__TAURI__?.event;
+  if (!api) {
+    throw new Error('Tauri event APIs are not available on this page.');
+  }
+
+  await api.emit<T>(event, payload);
 }
 
 export function getCurrentWebviewWindow():

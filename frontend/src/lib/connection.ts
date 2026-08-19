@@ -1,4 +1,5 @@
 import { invoke, listen } from './tauri';
+import { bumpDebugConsoleCache } from './debug-console-cache';
 import { appendDebugConsoleEntry, type DebugConsoleDirection } from './debug-console';
 import type { WorldSessionDebugConsole } from './world-session-debug-console';
 
@@ -70,6 +71,7 @@ export class MudConnection {
         sourceLabel,
         text,
       });
+      bumpDebugConsoleCache();
     }
 
     void invoke('send_mud', { connectionId: this.connectionId, text }).catch(() => undefined);

@@ -30,8 +30,6 @@
     onOpenDebugConsole: () => void;
     onOpenStyles: () => void;
     onSpellcheckIgnoreWord: (word: string) => void;
-    onNotesClose: () => void;
-    onDebugConsoleClose: () => void;
     onInputFocusBar: (bar: InputBarId) => void;
     onInputSubmit: (bar: InputBarId, value: string) => void;
     onInputComplete: (
@@ -91,8 +89,6 @@
   let lastVisible = visible;
   let channelsPanelResizing = false;
   let channelsPanelResizeLockedHeight = 0;
-  const notesChannelId = 'notes';
-  const debugConsoleChannelId = 'debug-console';
   const spellcheckConfig = appServices.spellcheck.config;
 
   $: channelTabs = channels.tabs;
@@ -147,25 +143,10 @@
 
     channelBarAwake = true;
     clearChannelBarTimer();
-    if (tabId === notesChannelId) {
-      actions.onOpenNotes();
-    } else if (tabId === debugConsoleChannelId) {
-      actions.onOpenDebugConsole();
-    }
+    actions.onOpenNotes();
   }
 
   function closeAllChannels(): void {
-    const openTab = channelTabs.find((tab) => tab.open);
-    if (!openTab) {
-      scheduleChannelBarHide();
-      return;
-    }
-
-    if (openTab.id === notesChannelId) {
-      actions.onNotesClose();
-    } else if (openTab.id === debugConsoleChannelId) {
-      actions.onDebugConsoleClose();
-    }
     scheduleChannelBarHide();
   }
 

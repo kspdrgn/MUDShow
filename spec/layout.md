@@ -173,12 +173,12 @@ The PlayScreen is the main content and interaction space for a single world and 
 PlayScreen
   - Channels - Anchored to the top, shows tabs within each world
   - HighlightsPanel - Toggle, anchored to top
-  - Notes channel - A host-managed character channel that shows and edits the saved notes for the active character, is registered on demand, and keeps the saved text available while hidden after it has been opened once.
-  - DebugConsole channel - A host-managed world channel that shows the per-world communication stream for troubleshooting, is registered on demand, and keeps receiving raw output while hidden after it has been opened once.
   - Transcript - Fills most space below the channels surface. Shows all connection output.
   - InputBars - Anchored to the bottom, contains one or more input areas
   - Logging controls - Start, stop, and rename the active log file for the current world tab.
   - The active input bar shows the same fixed-position vertical status display as the tab: connection status, unread activity, and logging status.
+  - Notes surface - A host-managed character surface in the window host that shows and edits the saved notes for the active character, is registered on demand, can be popped out into a separate native window, and keeps receiving saved note updates while hidden or popped out after it has been opened once.
+  - DebugConsole surface - A host-managed world surface in the window host that shows the per-world communication stream for troubleshooting, is registered on demand, can be popped out into a separate native window, and keeps receiving raw output while hidden or popped out after it has been opened once.
 
   - One PlayScreen instance per world tab.
   - Each PlayScreen instance keeps its own transcript view, scroll position, input bars, panel visibility, and connection status while that tab remains open.
@@ -199,11 +199,10 @@ Channel bar
 Channel panel
   - Host-managed channel surface shown beneath the bar when a world channel is open.
   - Includes a bottom-edge resize handle so the user can adjust its height.
-  - The channel shell registers the notes channel and the debug console on demand the first time the user opens them.
-
 Channel scope
-  - Notes, highlights, and rules are now routed according to their host location model.
-  - The notes channel is character-scoped within the channels harness, and the debug console remains world-scoped.
+  - Highlights and rules are now routed according to their host location model.
+  - The debug console is world-scoped but is hosted through the window host instead of the channel harness.
+  - The notes surface is character-scoped and is hosted through the window host instead of the channel harness.
   - The channel model should be generic enough to support future world-specific panels and routed output surfaces.
 
 Channel component references

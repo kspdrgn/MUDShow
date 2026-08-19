@@ -12,7 +12,6 @@ interface WorldShortcutActionContext {
   getWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
   addInputBarAfter: (barId: InputBarId) => Promise<void>;
-  togglePanel: (panel: 'notes' | 'debugConsole') => Promise<void>;
 }
 
 export function createWorldShortcutActions({
@@ -20,7 +19,6 @@ export function createWorldShortcutActions({
   getWorldSession,
   updateWorldSession,
   addInputBarAfter,
-  togglePanel,
 }: WorldShortcutActionContext) {
   function handleWorldShortcutKeyDown(event: KeyboardEvent): boolean {
     const activeWorldTabId = getActiveWorldTabId();
@@ -60,12 +58,6 @@ export function createWorldShortcutActions({
         void addInputBarAfter(session.inputBars[0].id);
       }
 
-      return true;
-    }
-
-    if (event.key === 'F3') {
-      event.preventDefault();
-      void togglePanel('notes');
       return true;
     }
 

@@ -10,7 +10,7 @@ Incoming world text is buffered until a newline is received. The transcript only
 
 The transcript keeps only the visible rows and a small scroll buffer mounted while the history is very large, so scrolling stays responsive even with a lot of saved output.
 
-Holding `Ctrl` while using the mouse wheel over the transcript temporarily zooms the transcript text in or out without changing saved style settings. `Ctrl+-`, `Ctrl+=`, and `Ctrl+0` provide the same temporary zoom out, zoom in, and reset behavior. The transcript context menu uses the shared context menu shell, keeps logging and notes on the main menu, includes a compact zoom row with minus, percent reset, and plus controls, and places edit world, edit character, edit styles, edit triggers, and debug console in a nested Settings submenu shared with the top tab bar menu. The Settings submenu opens on hover or keyboard focus, stays accessible from a click, behaves like a side panel instead of an in-place section, uses a short close delay so the pointer can cross between panels, and clamps to the app window.
+Holding `Ctrl` while using the mouse wheel over the transcript temporarily zooms the transcript text in or out without changing saved style settings. `Ctrl+-`, `Ctrl+=`, and `Ctrl+0` provide the same temporary zoom out, zoom in, and reset behavior. The transcript context menu uses the shared context menu shell, keeps logging and notes on the main menu, includes a compact zoom row with minus, percent reset, and plus controls, and places edit world, edit character, edit styles, and edit triggers in a nested Settings submenu shared with the top tab bar menu. The notes entry opens the hosted notes surface for the active character. The Settings submenu opens on hover or keyboard focus, stays accessible from a click, behaves like a side panel instead of an in-place section, uses a short close delay so the pointer can cross between panels, and clamps to the app window.
 
 The app menu includes a transient dev tools submenu for troubleshooting. It holds a webview inspector shortcut and a transcript diagnostics toggle. When transcript diagnostics is enabled, the app writes additional console debug output about transcript scroll state, resize events, image preview loads, and render-range decisions. The toggle is off by default and does not change saved settings.
 
@@ -55,9 +55,17 @@ The output area shows a short status message for changes in connection or loggin
 
 ## Debug Console
 
-Each world tab can open a separate debug console channel inside the PlayScreen.
+Each world tab can open a separate debug console surface in the window host.
 
-- The console shows the live incoming server stream, outgoing commands, and status messages for that specific world tab, and it keeps collecting session traffic even while the channel is hidden.
+- The console shows the live incoming server stream, outgoing commands, and status messages for that specific world tab, and it keeps collecting session traffic even while the surface is hidden or popped out.
 - The console keeps about 1000 lines of recent content and drops older entries as new ones arrive.
 - Control characters and special bytes are rendered visibly so command codes and escape sequences can be inspected directly.
 - The console is read-only and is intended for troubleshooting communication rather than replacing the transcript view.
+
+## Notes Surface
+
+Each world tab can open a separate notes surface in the window host.
+
+- The notes surface shows and edits the saved per-character notes for that tab's active character, and it keeps the current note text synchronized while the surface is hidden or popped out.
+- The notes surface is hosted separately from the channel bar so it can be popped out into its own native window.
+- F3 toggles the notes surface for the active world tab.

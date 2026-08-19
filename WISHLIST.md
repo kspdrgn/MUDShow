@@ -2,6 +2,15 @@
 
 ## Top TODO
 
+cleanup surfaces
+- debug console frame sucks, close doesnt work, popout doest refresh
+- tree ui sucks, duplicates words, need trailing / after folders
+- notes extra x in ui
+- trim extra logging everywhere
+- app settings etc should show over worldsession surfaces
+
+app f3 open webui find dialog, maybe keep in transcript/notes/debug/etc textareas
+
 todo order:
 - [X] channel bar controls
   - [X] button for debug dictionary open

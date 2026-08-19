@@ -23,7 +23,8 @@ import {
 import { createWorldSessionKey, type WorldSessionContainerRegistry } from './world-session-container';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import { createInitialState, type SessionState } from './session-state';
-import { cancelPendingNotesSave, flushPendingNotesSave } from './session-world-input';
+import { cancelPendingNotesSave, clearWorldNotes, flushPendingNotesSave, setWorldNotes } from './session-world-input';
+import { loadNotes } from './storage';
 
 interface SessionTabsActionContext {
   state: Writable<SessionState>;
@@ -187,6 +188,7 @@ export function createSessionTabsActions({
 
     if (tab.kind === 'world') {
       flushPendingNotesSave(tab.id);
+      clearWorldNotes(tab.id);
       clearWorldSessionContainer(tab.worldId, tab.characterId);
     }
 
@@ -504,6 +506,7 @@ export function createSessionTabsActions({
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
     removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
+    removedTabs.forEach((tab) => clearWorldNotes(tab.id));
     removedTabs.forEach((tab) => clearWorldSessionContainer(tab.worldId, tab.characterId));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -537,6 +540,7 @@ export function createSessionTabsActions({
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
     removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
+    removedTabs.forEach((tab) => clearWorldNotes(tab.id));
     removedTabs.forEach((tab) => clearWorldSessionContainer(tab.worldId, tab.characterId));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
@@ -572,6 +576,7 @@ export function createSessionTabsActions({
     for (const tab of current.tabs) {
       if (tab.kind === 'world') {
         cancelPendingNotesSave(tab.id);
+        clearWorldNotes(tab.id);
         clearWorldSessionContainer(tab.worldId, tab.characterId);
         clearLoggingQueue(tab.id);
       }
@@ -636,6 +641,20 @@ export function createSessionTabsActions({
       const { worlds, characters, triggers } = await appServices.storage.loadSessionData();
       patch({ worlds, characters, triggers });
       setHighlightRegexes(buildHighlightRegexes(triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight')));
+      const worldTabs = getState().tabs.filter((tab): tab is WorldTab => tab.kind === 'world' && tab.characterId !== null);
+
+      await Promise.all(
+        worldTabs.map(async (tab) => {
+          const characterId = tab.characterId;
+          if (!characterId) {
+            return;
+          }
+
+          const notes = await loadNotes(characterId, false);
+          setWorldNotes(tab.id, notes);
+        }),
+      );
+
       refreshWorldTabs();
     } catch (error) {
       console.error('failed to load persisted session data:', error);

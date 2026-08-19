@@ -21,6 +21,7 @@ interface PendingNotesSave {
 }
 
 const pendingNotesSaves = new Map<string, PendingNotesSave>();
+const worldNotesByTab = new Map<string, string>();
 
 function clearPendingNotesSave(tabId: string): void {
   const pending = pendingNotesSaves.get(tabId);
@@ -76,6 +77,25 @@ export function flushPendingNotesSave(tabId: string): void {
 
 export function cancelPendingNotesSave(tabId: string): void {
   clearPendingNotesSave(tabId);
+}
+
+export function getWorldNotes(tabId: string): string {
+  return worldNotesByTab.get(tabId) ?? '';
+}
+
+export function setWorldNotes(tabId: string, notes: string): void {
+  worldNotesByTab.set(tabId, notes);
+}
+
+export function clearWorldNotes(tabId: string): void {
+  worldNotesByTab.delete(tabId);
+  clearPendingNotesSave(tabId);
+}
+
+export function clearAllWorldNotes(): void {
+  worldNotesByTab.clear();
+  pendingNotesSaves.forEach((pending) => clearTimeout(pending.timer));
+  pendingNotesSaves.clear();
 }
 
 export function createWorldInputActions({
@@ -221,18 +241,13 @@ export function createWorldInputActions({
     updateWorldSession(tabId, { inputBars: normalizeInputBars(nextBars) });
   }
 
-  function saveNotes(notes: string): void {
-    const tabId = getActiveWorldTabId();
-    if (!tabId) {
-      return;
-    }
-
+  function saveNotes(tabId: string, notes: string): void {
     const session = getWorldSession(tabId);
     if (!session.currentCharacter) {
       return;
     }
 
-    updateWorldSession(tabId, { notes });
+    setWorldNotes(tabId, notes);
     console.info('[notes] queued save', {
       tabId,
       characterId: session.currentCharacter.id,
@@ -251,5 +266,6 @@ export function createWorldInputActions({
     removeInputBar,
     resizeInputBar,
     saveNotes,
+    getWorldNotes,
   };
 }

@@ -1,0 +1,386 @@
+<script lang="ts">
+  import { onDestroy, onMount, tick } from 'svelte';
+  import { copyTextToClipboard } from '../../session-dom';
+  import {
+    renderDebugConsoleTextHtml,
+    type DebugConsoleEntry,
+  } from '../../debug-console';
+  import type { DebugConsoleWindowCommand, DebugConsoleWindowSnapshot, DebugConsoleWindowTransportSession } from './debug-console-transport';
+
+  export let model: DebugConsoleWindowSnapshot['model'];
+  export let onCommand: (command: DebugConsoleWindowCommand) => void = () => {};
+  export let transportSession: DebugConsoleWindowTransportSession | null = null;
+
+  let transportSnapshot: DebugConsoleWindowSnapshot | null = null;
+  let activeModel = model;
+  let unlistenSnapshot: (() => void) | null = null;
+  let scroller: HTMLDivElement | null = null;
+  let content: HTMLDivElement | null = null;
+  let contentResizeObserver: ResizeObserver | null = null;
+  let userScrolled = false;
+  let lastEntryCount = 0;
+
+  function logDebugConsoleWindow(message: string, details: Record<string, unknown>): void {
+    console.debug(`[debug-console-window] ${message}`, details);
+  }
+
+  function getTimestampLabel(timestamp: number): string {
+    return new Date(timestamp).toLocaleString();
+  }
+
+  function getDirectionLabel(direction: DebugConsoleEntry['direction']): string {
+    switch (direction) {
+      case 'incoming':
+        return 'incoming';
+      case 'outgoing':
+        return 'outgoing';
+      default:
+        return 'status';
+    }
+  }
+
+  function buildEntryTitle(entry: DebugConsoleEntry): string {
+    const lineLabel = entry.lineCount === 1 ? 'line' : 'lines';
+    return [
+      `Timestamp: ${getTimestampLabel(entry.timestamp)}`,
+      `Direction: ${getDirectionLabel(entry.direction)}`,
+      `Source: ${entry.sourceLabel}`,
+      `Size: ${entry.lineCount} ${lineLabel}`,
+    ].join('\n');
+  }
+
+  function syncTransportSession(session: DebugConsoleWindowTransportSession | null): void {
+    if (unlistenSnapshot) {
+      unlistenSnapshot();
+      unlistenSnapshot = null;
+    }
+
+    transportSnapshot = session?.getSnapshot()?.payload ?? null;
+    logDebugConsoleWindow('sync transport session', {
+      hasSession: session !== null,
+      revision: session?.getRevision() ?? null,
+      hasSnapshot: transportSnapshot !== null,
+      entryCount: transportSnapshot?.model.entries.length ?? 0,
+    });
+
+    if (!session) {
+      return;
+    }
+
+    unlistenSnapshot = session.onSnapshot((envelope) => {
+      transportSnapshot = envelope.payload;
+      logDebugConsoleWindow('snapshot received', {
+        revision: envelope.revision,
+        entryCount: envelope.payload.model.entries.length,
+      });
+    });
+  }
+
+  function scrollToBottom(): void {
+    if (!(scroller instanceof HTMLElement)) {
+      return;
+    }
+
+    scroller.scrollTop = scroller.scrollHeight;
+    userScrolled = false;
+  }
+
+  async function followEntries(): Promise<void> {
+    if (userScrolled || activeModel.entries.length === lastEntryCount) {
+      return;
+    }
+
+    lastEntryCount = activeModel.entries.length;
+    await tick();
+    scrollToBottom();
+  }
+
+  function handleScroll(event: Event): void {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    userScrolled = distanceFromBottom > 2;
+  }
+
+  async function handleMouseUp(): Promise<void> {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !(scroller instanceof HTMLElement)) {
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!scroller.contains(range.commonAncestorContainer)) {
+      return;
+    }
+
+    const text = selection.toString();
+    if (!text.trim()) {
+      return;
+    }
+
+    await copyTextToClipboard(text);
+  }
+
+  function requestClose(): void {
+    const command = { type: 'closeRequested' } as const;
+
+    if (transportSession) {
+      logDebugConsoleWindow('send command', {
+        command,
+        revision: transportSession.getRevision(),
+      });
+      transportSession.sendCommand(command, { expectedRevision: transportSession.getRevision() });
+      return;
+    }
+
+    onCommand(command);
+  }
+
+  function handleScrollToBottomClick(): void {
+    scrollToBottom();
+  }
+
+  onMount(() => {
+    document.addEventListener('mouseup', handleMouseUp);
+    if (content) {
+      contentResizeObserver = new ResizeObserver(() => {
+        if (!userScrolled) {
+          scrollToBottom();
+        }
+      });
+      contentResizeObserver.observe(content);
+    }
+    scrollToBottom();
+
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp);
+      contentResizeObserver?.disconnect();
+      contentResizeObserver = null;
+    };
+  });
+
+  $: syncTransportSession(transportSession);
+  onDestroy(() => syncTransportSession(null));
+
+  $: activeModel = transportSnapshot?.model ?? model;
+  $: {
+    if (!userScrolled && activeModel.entries.length !== lastEntryCount) {
+      void followEntries();
+    }
+
+    if (!transportSession) {
+      lastEntryCount = activeModel.entries.length;
+    }
+  }
+
+  onDestroy(() => {
+    contentResizeObserver?.disconnect();
+    contentResizeObserver = null;
+  });
+</script>
+
+<section class="debug-console-window">
+  <header class="debug-console-window-header">
+    <div class="debug-console-window-copy">
+      <p class="debug-console-window-kicker">debug console</p>
+      <h2>{activeModel.title}</h2>
+      {#if activeModel.description}
+        <p class="debug-console-window-description">{activeModel.description}</p>
+      {/if}
+      {#if activeModel.sourceLabel}
+        <p class="debug-console-window-source">{activeModel.sourceLabel}</p>
+      {/if}
+    </div>
+
+    <div class="debug-console-window-actions">
+      <button type="button" class="debug-console-window-action" on:click={requestClose}>close</button>
+    </div>
+  </header>
+
+  <div
+    bind:this={scroller}
+    class="debug-console-scroll"
+    role="region"
+    aria-label="Debug console output"
+    on:scroll={handleScroll}
+  >
+    <div class="debug-console-content" bind:this={content}>
+      {#if activeModel.entries.length === 0}
+        <p class="debug-console-empty-state">No debug output yet.</p>
+      {:else}
+        {#each activeModel.entries as entry (entry.id)}
+          <article
+            class="debug-console-entry"
+            class:debug-console-entry--incoming={entry.direction === 'incoming'}
+            class:debug-console-entry--outgoing={entry.direction === 'outgoing'}
+            class:debug-console-entry--status={entry.direction === 'status'}
+            title={buildEntryTitle(entry)}
+          >
+            <div class="debug-console-entry-head">
+              <span class="debug-console-entry-timestamp">{getTimestampLabel(entry.timestamp)}</span>
+              <span class="debug-console-entry-direction">{getDirectionLabel(entry.direction)}</span>
+              <span class="debug-console-entry-source">{entry.sourceLabel}</span>
+            </div>
+            <div class="debug-console-entry-body">
+              {@html renderDebugConsoleTextHtml(entry.text)}
+            </div>
+          </article>
+        {/each}
+      {/if}
+    </div>
+  </div>
+
+  {#if userScrolled}
+    <button
+      type="button"
+      class="debug-console-scroll-bottom-button"
+      aria-label="Scroll debug console to bottom"
+      on:click={handleScrollToBottomClick}
+    >
+      ↓
+    </button>
+  {/if}
+</section>
+
+<style>
+  .debug-console-window {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 1rem;
+    color: var(--text-color, #e7eef9);
+    background:
+      radial-gradient(circle at top right, rgba(107, 126, 255, 0.18), transparent 32%),
+      linear-gradient(180deg, rgba(16, 20, 28, 0.98), rgba(10, 13, 19, 0.98));
+  }
+
+  .debug-console-window-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .debug-console-window-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .debug-console-window-kicker {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    color: rgba(200, 214, 245, 0.65);
+  }
+
+  .debug-console-window h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 650;
+  }
+
+  .debug-console-window-description,
+  .debug-console-window-source {
+    margin: 0;
+    color: rgba(200, 214, 245, 0.74);
+  }
+
+  .debug-console-window-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
+  .debug-console-window-action {
+    border: 1px solid rgba(145, 164, 205, 0.24);
+    border-radius: 0.7rem;
+    padding: 0.45rem 0.7rem;
+    background: rgba(14, 18, 26, 0.72);
+    color: inherit;
+    cursor: pointer;
+    text-transform: lowercase;
+  }
+
+  .debug-console-scroll {
+    display: block;
+    min-height: 0;
+    max-height: min(72vh, 50rem);
+    overflow: auto;
+    border-radius: 0.9rem;
+    border: 1px solid rgba(145, 164, 205, 0.14);
+    background: rgba(5, 7, 10, 0.42);
+  }
+
+  .debug-console-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.7rem;
+  }
+
+  .debug-console-empty-state {
+    margin: 0;
+    padding: 1rem;
+    color: rgba(200, 214, 245, 0.72);
+  }
+
+  .debug-console-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.7rem;
+    border: 1px solid rgba(145, 164, 205, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .debug-console-entry--incoming {
+    border-color: rgba(90, 190, 255, 0.22);
+  }
+
+  .debug-console-entry--outgoing {
+    border-color: rgba(255, 196, 90, 0.22);
+  }
+
+  .debug-console-entry--status {
+    border-color: rgba(160, 170, 190, 0.18);
+  }
+
+  .debug-console-entry-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    color: rgba(200, 214, 245, 0.76);
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
+  }
+
+  .debug-console-entry-direction {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(231, 238, 249, 0.86);
+  }
+
+  .debug-console-entry-source {
+    opacity: 0.88;
+  }
+
+  .debug-console-entry-body {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .debug-console-scroll-bottom-button {
+    align-self: flex-end;
+  }
+</style>

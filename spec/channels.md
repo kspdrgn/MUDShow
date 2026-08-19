@@ -23,15 +23,15 @@ World channels are host-managed surfaces inside a PlayScreen. A shared channel c
 
 ## Current Host Use
 
-- The debug console channel is registered on demand the first time the user opens it, but it continues to receive raw output while hidden after that.
-- The notes channel is registered on demand the first time the user opens it, and it keeps the saved character text available while hidden after that.
 - Channel content is rendered as a host-managed component inside the channel panel.
-- Notes use the same channel shell as the debug console.
 - Plugin-owned systems can manage their own channel tabs through the same controller API if they need hosted channel content.
+- The debug console is no longer a channel; it is a separate host-managed surface in the window host.
+- The notes surface is no longer a channel; it is a separate host-managed surface in the window host.
 
 ## Scope
 
 - Channels are only for world PlayScreens.
 - App-level tabs and settings tabs are not channels.
-- The notes channel is character-scoped within the host-managed shell, while the debug console remains world-scoped.
+- The debug console is world-scoped but is hosted as a separate surface outside the channel bar and panel.
+- The notes surface is character-scoped but is hosted through the window host instead of the channel harness.
 - Highlights and rules are not part of the current channel system.
