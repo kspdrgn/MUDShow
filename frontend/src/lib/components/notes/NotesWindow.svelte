@@ -343,10 +343,6 @@
     closeMenu();
   }
 
-  function requestClose(): void {
-    sendCommand({ type: 'closeRequested' });
-  }
-
   function handleNotesInput(event: Event): void {
     const editor = event.currentTarget as HTMLTextAreaElement | null;
     if (!editor) {
@@ -415,31 +411,6 @@
 </script>
 
 <section class="notes-window">
-  <header class="notes-window-header">
-    <div class="notes-window-copy">
-      <p class="notes-window-kicker">notes</p>
-      <h2>{activeModel.title}</h2>
-      {#if activeModel.description}
-        <p class="notes-window-description">{activeModel.description}</p>
-      {/if}
-      <p class="notes-window-cache-id">
-        persistence cache id: {activeModel.characterId ?? 'none'}
-      </p>
-    </div>
-
-    <div class="notes-window-actions">
-      <button
-        type="button"
-        class="btn notes-window-close"
-        aria-label="Close notes"
-        title="Close notes"
-        on:click={requestClose}
-      >
-        X
-      </button>
-    </div>
-  </header>
-
   <div class="notes-editor-shell">
     <div class="spellcheck-underlay" aria-hidden="true" data-loading={liveLoading}>
       <div
@@ -492,78 +463,25 @@
 <style>
   .notes-window {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
-    gap: 0.8rem;
     width: 100%;
+    height: 100%;
+    min-height: 0;
     min-width: 0;
     box-sizing: border-box;
-    padding: 1rem;
+    overflow: hidden;
     color: var(--text-color, #e7eef9);
     background:
       radial-gradient(circle at top right, rgba(107, 126, 255, 0.18), transparent 32%),
       linear-gradient(180deg, rgba(16, 20, 28, 0.98), rgba(10, 13, 19, 0.98));
   }
 
-  .notes-window-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .notes-window-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .notes-window-kicker {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-size: 0.72rem;
-    color: rgba(200, 214, 245, 0.65);
-  }
-
-  .notes-window h2 {
-    margin: 0;
-    font-size: 1.3rem;
-    font-weight: 650;
-  }
-
-  .notes-window-description {
-    margin: 0;
-    max-width: 34rem;
-    color: rgba(231, 238, 249, 0.72);
-  }
-
-  .notes-window-cache-id {
-    margin: 0;
-    max-width: 34rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.78rem;
-    color: rgba(200, 214, 245, 0.58);
-    word-break: break-all;
-  }
-
-  .notes-window-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.45rem;
-  }
-
-  .notes-window-close {
-    min-width: 2rem;
-    padding: 0.2rem 0.55rem;
-    line-height: 1;
-  }
-
   .notes-editor-shell {
     position: relative;
-    min-height: 18rem;
     display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   .spellcheck-underlay,
@@ -589,7 +507,7 @@
 
   .notes-editor {
     width: 100%;
-    min-height: 18rem;
+    min-height: 0;
     resize: vertical;
     border-radius: 0.9rem;
     border: 1px solid rgba(145, 164, 205, 0.14);

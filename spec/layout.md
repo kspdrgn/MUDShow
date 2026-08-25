@@ -42,6 +42,7 @@ App notices are always modal:
 - Clicking the backdrop cancels the active notice.
 - Escape cancels the active notice.
 - App notices never pop out into separate windows.
+- Enabled neutral action buttons in app notices use the bright text color for readability; primary and danger actions keep their accent colors, and disabled actions remain dimmed.
 
 ## Hosted Windows
 

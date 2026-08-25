@@ -9,9 +9,16 @@ import HomePanel from './lib/components/window/HomePanel.svelte';
 import LoggingModal from './lib/components/play/LoggingModal.svelte';
 import NoticeModal from './lib/components/window/NoticeModal.svelte';
 import PlayScreen from './lib/components/play/PlayScreen.svelte';
+import type {
+  DockviewDebugConsolePanelDefinition,
+  DockviewDummyWindowPanelDefinition,
+  DockviewFuzzballStoragePanelDefinition,
+  DockviewNotesPanelDefinition,
+  DockviewTreeDataPanelDefinition,
+} from './lib/components/play/dockview-panel-props';
+import type { DockviewPanelPlacement } from './lib/components/play/dockview-panel-types';
 import SettingsPage from './lib/components/settings/SettingsPage.svelte';
 import TriggersPane from './lib/components/settings/TriggersPane.svelte';
-import WindowHost from './lib/components/window-host/WindowHost.svelte';
 import DummyWindowContent from './lib/components/window-host/DummyWindowContent.svelte';
 import TreeDataWindow from './lib/components/tree-data/TreeDataWindow.svelte';
 import {
@@ -39,13 +46,14 @@ import {
 import { fuzzballStorageCache } from './lib/fuzzball/storage-cache';
 import { debugConsoleCache } from './lib/debug-console-cache';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
-import { createWindowRecord, type WindowPoint, type WindowRecord } from './lib/components/window-host/window-host';
+import { createWindowRecord, type WindowRecord } from './lib/components/window-host/window-host';
 import TopBar from './lib/components/window/TopBar.svelte';
 import WindowResizeHandles from './lib/components/window/WindowResizeHandles.svelte';
 import WorldModal from './lib/components/settings/WorldModal.svelte';
 import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import { createSurfaceTransportHub } from './lib/surfaces/surface-transport';
+import type { SurfaceEdge } from './lib/surfaces/surface-registry';
 import DebugConsoleWindow from './lib/components/debug-console/DebugConsoleWindow.svelte';
 import {
   buildDebugConsoleWindowModel,
@@ -116,6 +124,7 @@ const DEBUG_CONSOLE_WINDOW_SURFACE_PREFIX = 'debug-console:';
 const DEBUG_CONSOLE_WINDOW_ID_PREFIX = 'debug-console-window-';
 const NOTES_WINDOW_SURFACE_PREFIX = 'notes:';
 const NOTES_WINDOW_ID_PREFIX = 'notes-window-';
+const FUZZBALL_STORAGE_SURFACE_ID = 'fuzzball-storage-viewer';
 
 const appSettingsStore = appServices.settings.current;
 const appNoticeStore = appServices.notice.current;
@@ -126,14 +135,17 @@ let loggingModalSession: WorldTabSessionState | null = null;
 let loggingModalTab: AppTab | null = null;
 let loggingModalInitialFileName = '';
 let loggingModalRefreshNonce = 0;
-let windowHostWindows: WindowRecord[] = [];
 let poppedOutWindowRecords: Record<string, WindowRecord> = {};
 let poppedOutWindowId: string | null = initialPoppedOutWindowId ?? null;
 let poppedOutWindowRecord: WindowRecord | null = null;
 let isPoppedOutWindow = initialIsPoppedOutWindow;
 let nextWindowHostId = 1;
+let surfaceRegistryVersion = 0;
+let focusSurfaceId: string | null = null;
+let focusSurfaceRequestVersion = 0;
 let fuzzballStorageWindowStates: Record<string, FuzzballStorageViewerState> = {};
 let fuzzballStorageCacheVersion = 0;
+let treeDataRefreshVersion = 0;
 let debugConsoleCacheVersion = 0;
 const treeDataViewController = createTreeDataViewControllerRegistry();
 const treeDataTransportHub = createSurfaceTransportHub();
@@ -164,6 +176,33 @@ type TreeDataWindowRenderProps = {
   transportSession: TreeDataWindowTransportSession | null;
   onCommand: (command: TreeDataWindowCommand) => void;
 };
+
+function getRegisteredWindowRecords(): WindowRecord[] {
+  const registeredRecords = appServices.surfaces.getSnapshot().instances
+    .filter((instance) => instance.placement.host === 'dockview')
+    .map((instance) => {
+      const registration = appServices.surfaces.getRegistration(instance.surfaceId);
+      return createWindowRecord({
+        id: instance.instanceId,
+        kind: registration?.kind ?? 'builtin',
+        surfaceId: instance.surfaceId,
+        title: instance.title,
+        isModal: registration?.capabilities.isModal ?? false,
+        placement: 'in-app',
+        position: instance.position,
+        size: instance.size,
+        canBackdropDismiss: false,
+        canEscapeDismiss: false,
+        canPopOut: registration?.capabilities.canPopOut ?? false,
+        canMoveInApp: registration?.capabilities.canDock ?? false,
+      });
+    });
+
+  return [
+    ...registeredRecords,
+    ...Object.values(poppedOutWindowRecords),
+  ];
+}
 
 type DebugConsoleWindowRenderProps = {
   model: DebugConsoleWindowSnapshot['model'];
@@ -301,6 +340,10 @@ function isNotesWindow(windowRecord: WindowRecord | null): boolean {
   return windowRecord.surfaceId.startsWith(NOTES_WINDOW_SURFACE_PREFIX);
 }
 
+function isFuzzballStorageWindow(windowRecord: WindowRecord | null): boolean {
+  return windowRecord?.surfaceId === FUZZBALL_STORAGE_SURFACE_ID;
+}
+
 function createNotesWindowTitle(tabId: string): string {
   const worldSession = $session.worldSessions[tabId] ?? null;
   const worldName = worldSession?.currentWorld?.name ?? 'notes';
@@ -344,6 +387,7 @@ $: {
         void discardFuzzballStorageWindowsForSourceTab(tabId);
         void discardDebugConsoleWindowsForSourceTab(tabId);
         void discardNotesWindowsForSourceTab(tabId);
+        void discardTreeDataWindows();
       }
     }
 
@@ -365,13 +409,35 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
       onEditWorldTab: () => void session.openWorldEditorFromWorldTab(tab.id),
       onEditCharacterTab: () => void session.openCharacterEditorFromWorldTab(tab.id),
       onCloseTab: () => session.closeTab(tab.id, 'shortcut'),
-      onOpenNotes: () => void toggleNotesWindow(tab.id),
+      onOpenNotes: () => openOrFocusNotesWindow(tab.id),
       onOpenTriggers: () =>
         session.openTriggersTab(worldSession.currentWorld?.id ?? null, worldSession.currentCharacter?.id ?? null),
-      onOpenDebugConsole: () => void toggleDebugConsoleWindow(tab.id),
-      onOpenStyles: () => openDefaultStyleSettings(),
-      onInputFocusBar: (bar: number) => session.handleInputFocus(bar),
-      onInputSubmit: (bar: number, value: string) => session.handleInputSubmit(bar, value),
+      onOpenDebugConsole: () => openOrFocusDebugConsoleWindow(tab.id),
+        onOpenStyles: () => openDefaultStyleSettings(),
+        onOpenFuzzballStorageViewer: () => {
+          if (!worldSession.currentWorld) {
+            return;
+          }
+
+          const currentWorldName = worldSession.currentWorld.name;
+          const currentCharacterName = worldSession.currentCharacter?.name ?? null;
+          const fuzzballStorageTitle = currentCharacterName
+            ? `${currentWorldName} · ${currentCharacterName} storage`
+            : `${currentWorldName} storage`;
+          const fuzzballStorageDescription = currentCharacterName
+            ? `world: ${currentWorldName} · character: ${currentCharacterName}`
+            : `world: ${currentWorldName}`;
+
+          openFuzzballStorageWindow(
+            tab.id,
+            worldSession.currentWorld.id,
+            worldSession.currentCharacter?.id ?? '',
+            fuzzballStorageTitle,
+            fuzzballStorageDescription,
+          );
+        },
+        onInputFocusBar: (bar: number) => session.handleInputFocus(bar),
+        onInputSubmit: (bar: number, value: string) => session.handleInputSubmit(bar, value),
       onInputComplete: (_bar: number, value: string, selectionStart: number) =>
         session.completeInput(value, selectionStart),
       onInputAddBar: (bar: number) => void session.addInputBarAfter(bar),
@@ -394,133 +460,20 @@ function openLoggingModal(tabId: string): void {
     });
   }
 
-  function openDefaultStyleSettings(): void {
+function openDefaultStyleSettings(): void {
     session.selectTab('settings');
     session.setSettingsActiveTab('style');
-  }
+}
 
-  function isSameWindowRecord(left: WindowRecord, right: WindowRecord): boolean {
-    return (
-      left.id === right.id &&
-      left.kind === right.kind &&
-      left.surfaceId === right.surfaceId &&
-      left.title === right.title &&
-      left.isModal === right.isModal &&
-      left.sizeToContent === right.sizeToContent &&
-      left.placement === right.placement &&
-      left.position.x === right.position.x &&
-      left.position.y === right.position.y &&
-      left.size.width === right.size.width &&
-      left.size.height === right.size.height &&
-      left.canBackdropDismiss === right.canBackdropDismiss &&
-      left.canEscapeDismiss === right.canEscapeDismiss &&
-      left.canPopOut === right.canPopOut &&
-      left.canMoveInApp === right.canMoveInApp
-    );
-  }
-
-  function upsertWindowRecord(windowRecord: WindowRecord): void {
-    const index = windowHostWindows.findIndex((entry) => entry.id === windowRecord.id);
-    if (index < 0) {
-      windowHostWindows = [...windowHostWindows, windowRecord];
-      return;
-    }
-
-    if (isSameWindowRecord(windowHostWindows[index], windowRecord)) {
-      return;
-    }
-
-    const next = [...windowHostWindows];
-    next[index] = windowRecord;
-    windowHostWindows = next;
-  }
+function requestSurfaceFocus(instanceId: string): void {
+  focusSurfaceId = instanceId;
+  focusSurfaceRequestVersion += 1;
+}
 
   function removeWindowRecord(windowId: string): void {
-    const next = windowHostWindows.filter((windowRecord) => windowRecord.id !== windowId);
-    if (next.length === windowHostWindows.length) {
-      return;
-    }
-
-    windowHostWindows = next;
+    appServices.surfaces.close(windowId);
   }
 
-  function createSingletonModalWindowRecord(windowId: string, title: string): WindowRecord {
-    return createWindowRecord({
-      id: windowId,
-      kind: 'builtin',
-      surfaceId: windowId,
-      title,
-      isModal: true,
-      sizeToContent: true,
-      placement: 'in-app',
-      canBackdropDismiss: true,
-      canEscapeDismiss: true,
-      canPopOut: false,
-      canMoveInApp: false,
-    });
-  }
-
-  function createLoggingWindowRecord(): WindowRecord {
-    return createWindowRecord({
-      id: WINDOW_HOST_SINGLETON_IDS.loggingModal,
-      kind: 'builtin',
-      surfaceId: WINDOW_HOST_SINGLETON_IDS.loggingModal,
-      title: 'session logging',
-      isModal: true,
-      sizeToContent: true,
-      placement: 'in-app',
-      canBackdropDismiss: true,
-      canEscapeDismiss: true,
-      canPopOut: false,
-      canMoveInApp: false,
-    });
-  }
-
-  function createWorldWindowRecord(title: string): WindowRecord {
-    return createWindowRecord({
-      id: WINDOW_HOST_SINGLETON_IDS.worldModal,
-      kind: 'builtin',
-      surfaceId: WINDOW_HOST_SINGLETON_IDS.worldModal,
-      title,
-      isModal: true,
-      sizeToContent: true,
-      placement: 'in-app',
-      canBackdropDismiss: true,
-      canEscapeDismiss: true,
-      canPopOut: false,
-      canMoveInApp: false,
-    });
-  }
-
-  function createCharacterWindowRecord(title: string): WindowRecord {
-    return createWindowRecord({
-      id: WINDOW_HOST_SINGLETON_IDS.characterModal,
-      kind: 'builtin',
-      surfaceId: WINDOW_HOST_SINGLETON_IDS.characterModal,
-      title,
-      isModal: true,
-      sizeToContent: true,
-      placement: 'in-app',
-      canBackdropDismiss: true,
-      canEscapeDismiss: true,
-      canPopOut: false,
-      canMoveInApp: false,
-    });
-  }
-
-  function handleEditorModalOpened(kind: 'world' | 'character', title: string): void {
-    if (kind === 'world') {
-      upsertWindowRecord(createWorldWindowRecord(title));
-    } else {
-      upsertWindowRecord(createCharacterWindowRecord(title));
-    }
-  }
-
-  function handleEditorModalClosed(kind: 'world' | 'character'): void {
-    removeWindowRecord(kind === 'world'
-      ? WINDOW_HOST_SINGLETON_IDS.worldModal
-      : WINDOW_HOST_SINGLETON_IDS.characterModal);
-  }
 
   function getFuzzballStorageWindowState(windowId: string): FuzzballStorageViewerState {
     return fuzzballStorageWindowStates[windowId] ?? createFuzzballStorageViewerState('', '', '', 'fuzzball storage viewer');
@@ -643,7 +596,7 @@ function openLoggingModal(tabId: string): void {
 
     return (
       windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
-      || windowRecord.surfaceId.startsWith('fuzzball-storage-window-')
+      || isFuzzballStorageWindow(windowRecord)
     ) && windowRecord.placement === 'window';
   }
 
@@ -688,7 +641,7 @@ function openLoggingModal(tabId: string): void {
   }
 
   function createTreeDataWindowModelForSurface(windowId: string): TreeDataWindowModel | null {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
@@ -700,7 +653,7 @@ function openLoggingModal(tabId: string): void {
       return createDemoTreeDataWindowModel();
     }
 
-    if (windowRecord.surfaceId.startsWith('fuzzball-storage-window-')) {
+    if (isFuzzballStorageWindow(windowRecord)) {
       return buildFuzzballStorageViewerModel(getFuzzballStorageWindowState(windowId));
     }
 
@@ -753,7 +706,7 @@ function openLoggingModal(tabId: string): void {
   function syncPoppedOutTreeDataSnapshots(
     _cacheVersion: number = fuzzballStorageCacheVersion,
     _poppedOutWindowIds: string = Object.keys(poppedOutWindowRecords).join('|'),
-    _windowCount: number = windowHostWindows.length,
+    _windowCount: number = getRegisteredWindowRecords().length,
   ): void {
     if (isPoppedOutWindow) {
       return;
@@ -888,7 +841,7 @@ function openLoggingModal(tabId: string): void {
   }
 
   function createDebugConsoleWindowModelForSurface(windowId: string): DebugConsoleWindowSnapshot['model'] | null {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
@@ -953,7 +906,7 @@ function openLoggingModal(tabId: string): void {
   function syncPoppedOutDebugConsoleSnapshots(
     _cacheVersion: number = debugConsoleCacheVersion,
     _poppedOutWindowIds: string = Object.keys(poppedOutWindowRecords).join('|'),
-    _windowCount: number = windowHostWindows.length,
+    _windowCount: number = getRegisteredWindowRecords().length,
   ): void {
     if (isPoppedOutWindow) {
       return;
@@ -1077,7 +1030,7 @@ function openLoggingModal(tabId: string): void {
   }
 
   function createNotesWindowModelForSurface(windowId: string): NotesWindowSnapshot['model'] | null {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
@@ -1138,7 +1091,7 @@ function openLoggingModal(tabId: string): void {
 
   function syncPoppedOutNotesSnapshots(
     _poppedOutWindowIds: string = Object.keys(poppedOutWindowRecords).join('|'),
-    _windowCount: number = windowHostWindows.length,
+    _windowCount: number = getRegisteredWindowRecords().length,
   ): void {
     if (isPoppedOutWindow) {
       return;
@@ -1193,7 +1146,7 @@ function openLoggingModal(tabId: string): void {
     command: NotesWindowCommand,
     expectedRevision?: number,
   ): void {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
     if (!windowRecord || !isNotesWindow(windowRecord)) {
@@ -1278,6 +1231,7 @@ function openLoggingModal(tabId: string): void {
       revision: treeSession.getRevision(),
     });
     const nextViewState = treeDataViewController.update(windowId, model, command);
+    treeDataRefreshVersion += 1;
     logTreeTransport('command reduced', {
       windowId,
       kind,
@@ -1313,7 +1267,7 @@ function openLoggingModal(tabId: string): void {
     command: DebugConsoleWindowCommand,
     expectedRevision?: number,
   ): void {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
     if (!windowRecord || !isDebugConsoleWindow(windowRecord)) {
@@ -1355,7 +1309,7 @@ function openLoggingModal(tabId: string): void {
     windowId: string,
     _cacheVersion: number = fuzzballStorageCacheVersion,
   ): TreeDataWindowRenderProps | null {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
@@ -1365,7 +1319,7 @@ function openLoggingModal(tabId: string): void {
 
     if (isPoppedOutWindow) {
       if (windowRecord.surfaceId !== WINDOW_HOST_SINGLETON_IDS.treeDataDemo
-        && !windowRecord.surfaceId.startsWith('fuzzball-storage-window-')) {
+        && !isFuzzballStorageWindow(windowRecord)) {
         return null;
       }
 
@@ -1397,7 +1351,7 @@ function openLoggingModal(tabId: string): void {
       };
     }
 
-    if (windowRecord.surfaceId.startsWith('fuzzball-storage-window-')) {
+    if (isFuzzballStorageWindow(windowRecord)) {
       const sourceState = getFuzzballStorageWindowState(windowId);
       const model = buildFuzzballStorageViewerModel(sourceState);
       const session = ensureTreeDataTransportSession(windowId, windowRecord.surfaceId);
@@ -1423,7 +1377,7 @@ function openLoggingModal(tabId: string): void {
     windowId: string,
     _cacheVersion: number = debugConsoleCacheVersion,
   ): DebugConsoleWindowRenderProps | null {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
@@ -1456,10 +1410,198 @@ function openLoggingModal(tabId: string): void {
     };
   }
 
+  function getDebugConsoleDockviewPanel(tabId: string, _surfaceRegistryVersion = 0): DockviewDebugConsolePanelDefinition | null {
+    const windowId = getDebugConsoleWindowId(tabId);
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? null;
+    const surfaceInstance = appServices.surfaces.getInstance(windowId);
+
+    if (!windowRecord || windowRecord.placement !== 'in-app' || !isDebugConsoleWindow(windowRecord) || !surfaceInstance) {
+      return null;
+    }
+
+    const model = createDebugConsoleWindowModelForSurface(windowId);
+    if (!model) {
+      return null;
+    }
+
+    return {
+      kind: 'debug-console',
+      instanceId: windowId,
+      title: windowRecord.title,
+      model,
+      onCommand: (command) => handleDebugConsoleTransportCommand(windowId, command),
+      getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowId)?.previousDockedEdge,
+      onClose: () => void closeDebugConsoleWindow(tabId),
+      onPopOutNative: () => void handlePopOutWindow(windowId),
+      onPlacementChange: (placement, edge) => {
+        appServices.surfaces.update(windowId, {
+          placement: placement === 'floating'
+            ? { host: 'dockview', mode: 'floating' }
+            : placement === 'edge'
+              ? { host: 'dockview', mode: 'edge', edge: edge ?? 'top' }
+              : { host: 'dockview', mode: 'grid' },
+        });
+      },
+    };
+  }
+
+  function getNotesDockviewPanel(tabId: string, _surfaceRegistryVersion = 0): DockviewNotesPanelDefinition | null {
+    const windowId = getNotesWindowId(tabId);
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? null;
+    const surfaceInstance = appServices.surfaces.getInstance(windowId);
+
+    if (!windowRecord || windowRecord.placement !== 'in-app' || !isNotesWindow(windowRecord) || !surfaceInstance) {
+      return null;
+    }
+
+    const model = createNotesWindowModelForSurface(windowId);
+    if (!model) {
+      return null;
+    }
+
+    return {
+      kind: 'notes',
+      instanceId: windowId,
+      title: windowRecord.title,
+      model,
+      onCommand: (command) => handleNotesTransportCommand(windowId, command),
+      getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowId)?.previousDockedEdge,
+      onClose: () => void closeNotesWindow(tabId),
+      onPopOutNative: () => void handlePopOutWindow(windowId),
+      onPlacementChange: (placement, edge) => {
+        appServices.surfaces.update(windowId, {
+          placement: placement === 'floating'
+            ? { host: 'dockview', mode: 'floating' }
+            : placement === 'edge'
+              ? { host: 'dockview', mode: 'edge', edge: edge ?? 'top' }
+              : { host: 'dockview', mode: 'grid' },
+        });
+      },
+    };
+  }
+
+  function getFuzzballStorageDockviewPanels(
+    sourceTabId: string,
+    _surfaceRegistryVersion = 0,
+    _treeDataRefreshVersion = treeDataRefreshVersion,
+  ): DockviewFuzzballStoragePanelDefinition[] {
+    return getRegisteredWindowRecords()
+      .filter((windowRecord) => isFuzzballStorageWindow(windowRecord))
+      .filter((windowRecord) => windowRecord.placement === 'in-app')
+      .filter((windowRecord) => fuzzballStorageWindowStates[windowRecord.id]?.sourceTabId === sourceTabId)
+      .flatMap((windowRecord) => {
+        const state = fuzzballStorageWindowStates[windowRecord.id];
+        const surfaceInstance = appServices.surfaces.getInstance(windowRecord.id);
+        if (!state || !surfaceInstance) {
+          return [];
+        }
+
+        const model = buildFuzzballStorageViewerModel(state);
+        const viewState = treeDataViewController.ensure(windowRecord.id, model.root.id);
+        rememberTreeDataTransportState(windowRecord.id, 'fuzzball', model, state);
+
+        return [{
+          kind: 'fuzzball-storage' as const,
+          instanceId: windowRecord.id,
+          title: windowRecord.title,
+          model,
+          viewState,
+          onCommand: (command: TreeDataWindowCommand) => handleTreeDataTransportCommand(windowRecord.id, command),
+          getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowRecord.id)?.previousDockedEdge,
+          onClose: () => void closeFuzzballStorageWindow(windowRecord.id),
+          onPopOutNative: () => void handlePopOutWindow(windowRecord.id),
+          onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => {
+            appServices.surfaces.update(windowRecord.id, {
+              placement: placement === 'floating'
+                ? { host: 'dockview', mode: 'floating' }
+                : placement === 'edge'
+                  ? { host: 'dockview', mode: 'edge', edge: edge ?? 'top' }
+                  : { host: 'dockview', mode: 'grid' },
+            });
+          },
+        }];
+      });
+  }
+
+  function getTreeDataDockviewPanels(
+    isHostTab: boolean,
+    _surfaceRegistryVersion = 0,
+    _treeDataRefreshVersion = treeDataRefreshVersion,
+  ): DockviewTreeDataPanelDefinition[] {
+    if (!isHostTab) {
+      return [];
+    }
+
+    return getRegisteredWindowRecords()
+      .filter((windowRecord) => windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo)
+      .filter((windowRecord) => windowRecord.placement === 'in-app')
+      .flatMap((windowRecord) => {
+        const surfaceInstance = appServices.surfaces.getInstance(windowRecord.id);
+        if (!surfaceInstance) {
+          return [];
+        }
+
+        const model = createDemoTreeDataWindowModel();
+        const viewState = treeDataViewController.ensure(windowRecord.id, model.root.id);
+        rememberTreeDataTransportState(windowRecord.id, 'demo', model);
+
+        return [{
+          kind: 'tree-data' as const,
+          instanceId: windowRecord.id,
+          title: windowRecord.title,
+          model,
+          viewState,
+          onCommand: (command: TreeDataWindowCommand) => handleTreeDataTransportCommand(windowRecord.id, command),
+          getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowRecord.id)?.previousDockedEdge,
+          onClose: () => void closeTreeDataWindow(windowRecord.id),
+          onPopOutNative: () => void handlePopOutWindow(windowRecord.id),
+          onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => {
+            appServices.surfaces.update(windowRecord.id, {
+              placement: placement === 'floating'
+                ? { host: 'dockview', mode: 'floating' }
+                : placement === 'edge'
+                  ? { host: 'dockview', mode: 'edge', edge: edge ?? 'top' }
+                  : { host: 'dockview', mode: 'grid' },
+            });
+          },
+        }];
+      });
+  }
+
+  function getDummyDockviewPanels(isHostTab: boolean, _surfaceRegistryVersion = 0): DockviewDummyWindowPanelDefinition[] {
+    if (!isHostTab) {
+      return [];
+    }
+
+    return getRegisteredWindowRecords()
+      .filter((windowRecord) => windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow)
+      .filter((windowRecord) => windowRecord.placement === 'in-app')
+      .map((windowRecord) => ({
+        kind: 'dummy-window' as const,
+        instanceId: windowRecord.id,
+        title: windowRecord.title,
+        eyebrow: 'developer surface',
+        description: 'Static placeholder content for the hosted window test.',
+        tone: 'muted' as const,
+        getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowRecord.id)?.previousDockedEdge,
+        onClose: () => void closeDummyWindow(windowRecord.id),
+        onPopOutNative: () => void handlePopOutWindow(windowRecord.id),
+        onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => {
+          appServices.surfaces.update(windowRecord.id, {
+            placement: placement === 'floating'
+              ? { host: 'dockview', mode: 'floating' }
+              : placement === 'edge'
+                ? { host: 'dockview', mode: 'edge', edge: edge ?? 'top' }
+                : { host: 'dockview', mode: 'grid' },
+          });
+        },
+      }));
+  }
+
   function getNotesWindowRenderProps(
     windowId: string,
   ): NotesWindowRenderProps | null {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
@@ -1492,41 +1634,72 @@ function openLoggingModal(tabId: string): void {
     };
   }
 
+  function ensureDummySurfaceRegistration(): string {
+    const surfaceId = WINDOW_HOST_SINGLETON_IDS.dummyWindow;
+    if (!appServices.surfaces.getRegistration(surfaceId)) {
+      appServices.surfaces.register({
+        surfaceId,
+        kind: 'builtin',
+        defaultTitle: 'dummy window',
+        capabilities: {
+          canClose: true,
+          canDock: true,
+          canFloat: true,
+          canPopOut: true,
+          canPopIn: true,
+          isModal: false,
+          allowsMultipleInstances: true,
+        },
+      });
+    }
+
+    return surfaceId;
+  }
+
   function openDummyWindow(): void {
-    const index = windowHostWindows.length;
+    const surfaceId = ensureDummySurfaceRegistration();
+    const index = getRegisteredWindowRecords().length;
     const id = `dummy-window-${nextWindowHostId++}`;
     const model = createDemoTreeDataWindowModel();
 
     treeDataViewController.ensure(id, model.root.id);
 
-    windowHostWindows = [
-      ...windowHostWindows,
-      createWindowRecord({
-        id,
+    appServices.surfaces.open({
+      instanceId: id,
+      surfaceId,
+      title: `dummy window ${index + 1}`,
+      placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+      position: { x: 120 + index * 28, y: 120 + index * 28 },
+      size: { width: 560, height: 360 },
+    });
+
+  }
+
+  function ensureTreeDataSurfaceRegistration(): string {
+    const surfaceId = WINDOW_HOST_SINGLETON_IDS.treeDataDemo;
+    if (!appServices.surfaces.getRegistration(surfaceId)) {
+      appServices.surfaces.register({
+        surfaceId,
         kind: 'builtin',
-        surfaceId: WINDOW_HOST_SINGLETON_IDS.dummyWindow,
-        title: `dummy window ${index + 1}`,
-        isModal: false,
-        placement: 'in-app',
-        sizeToContent: false,
-        size: {
-          width: 560,
-          height: 360,
+        defaultTitle: 'tree data viewer',
+        capabilities: {
+          canClose: true,
+          canDock: true,
+          canFloat: true,
+          canPopOut: true,
+          canPopIn: true,
+          isModal: false,
+          allowsMultipleInstances: true,
         },
-        position: {
-          x: 120 + index * 28,
-          y: 120 + index * 28,
-        },
-        canBackdropDismiss: false,
-        canEscapeDismiss: false,
-        canPopOut: true,
-        canMoveInApp: true,
-      }),
-    ];
+      });
+    }
+
+    return surfaceId;
   }
 
   function openTreeDataWindow(): void {
-    const index = windowHostWindows.length;
+    const surfaceId = ensureTreeDataSurfaceRegistration();
+    const index = getRegisteredWindowRecords().length;
     const id = `tree-data-window-${nextWindowHostId++}`;
     const model = createDemoTreeDataWindowModel();
 
@@ -1539,30 +1712,36 @@ function openLoggingModal(tabId: string): void {
       kind: 'demo',
     });
 
-    windowHostWindows = [
-      ...windowHostWindows,
-      createWindowRecord({
-        id,
+    appServices.surfaces.open({
+      instanceId: id,
+      surfaceId,
+      title: `tree data window ${index + 1}`,
+      placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+      position: { x: 120 + index * 28, y: 120 + index * 28 },
+      size: { width: 720, height: 560 },
+    });
+
+  }
+
+  function ensureFuzzballStorageSurfaceRegistration(): string {
+    if (!appServices.surfaces.getRegistration(FUZZBALL_STORAGE_SURFACE_ID)) {
+      appServices.surfaces.register({
+        surfaceId: FUZZBALL_STORAGE_SURFACE_ID,
         kind: 'builtin',
-        surfaceId: WINDOW_HOST_SINGLETON_IDS.treeDataDemo,
-        title: `tree data window ${index + 1}`,
-        isModal: false,
-        placement: 'in-app',
-        sizeToContent: false,
-        size: {
-          width: 720,
-          height: 560,
+        defaultTitle: 'fuzzball storage viewer',
+        capabilities: {
+          canClose: true,
+          canDock: true,
+          canFloat: true,
+          canPopOut: true,
+          canPopIn: true,
+          isModal: false,
+          allowsMultipleInstances: true,
         },
-        position: {
-          x: 120 + index * 28,
-          y: 120 + index * 28,
-        },
-        canBackdropDismiss: false,
-        canEscapeDismiss: false,
-        canPopOut: true,
-        canMoveInApp: true,
-      }),
-    ];
+      });
+    }
+
+    return FUZZBALL_STORAGE_SURFACE_ID;
   }
 
   function openFuzzballStorageWindow(
@@ -1576,8 +1755,19 @@ function openLoggingModal(tabId: string): void {
       return;
     }
 
-    const index = windowHostWindows.length;
-    const id = `fuzzball-storage-window-${nextWindowHostId++}`;
+    const existingWindowRecord = getRegisteredWindowRecords().find((windowRecord) =>
+      isFuzzballStorageWindow(windowRecord)
+      && fuzzballStorageWindowStates[windowRecord.id]?.sourceTabId === sourceTabId,
+    ) ?? null;
+    if (existingWindowRecord) {
+      appServices.surfaces.update(existingWindowRecord.id, { isActive: true });
+      requestSurfaceFocus(existingWindowRecord.id);
+      return;
+    }
+
+    const surfaceId = ensureFuzzballStorageSurfaceRegistration();
+    const index = getRegisteredWindowRecords().length;
+    const id = `fuzzball-storage-window-${sourceTabId}`;
     const state = createFuzzballStorageViewerState(sourceTabId, worldId, characterId, title, description);
 
     fuzzballStorageWindowStates = {
@@ -1585,53 +1775,71 @@ function openLoggingModal(tabId: string): void {
       [id]: state,
     };
 
-    ensureTreeDataTransportSession(id, id);
+    ensureTreeDataTransportSession(id, surfaceId);
     rememberTreeDataTransportState(id, 'fuzzball', buildFuzzballStorageViewerModel(state), state);
     maybeRequestInitialFuzzballStorageLoad(id, state);
     logTreeTransport('open fuzzball storage window', {
       windowId: id,
-      surfaceId: id,
+      surfaceId,
       kind: 'fuzzball',
       sourceTabId,
       worldId,
       characterId,
     });
 
-    windowHostWindows = [
-      ...windowHostWindows,
-      createWindowRecord({
-        id,
+    appServices.surfaces.open({
+      instanceId: id,
+      surfaceId,
+      title,
+      placement: { host: 'dockview', mode: 'floating' },
+      position: { x: 120 + index * 28, y: 120 + index * 28 },
+      size: { width: 720, height: 560 },
+    });
+
+  }
+
+  function ensureDebugConsoleSurfaceRegistration(tabId: string): string {
+    const surfaceId = getDebugConsoleSurfaceId(tabId);
+    if (!appServices.surfaces.getRegistration(surfaceId)) {
+      appServices.surfaces.register({
+        surfaceId,
         kind: 'builtin',
-        surfaceId: id,
-        title,
-        isModal: false,
-        placement: 'in-app',
-        sizeToContent: false,
-        size: {
-          width: 720,
-          height: 560,
+        defaultTitle: createDebugConsoleWindowTitle(tabId),
+        capabilities: {
+          canClose: true,
+          canDock: true,
+          canFloat: true,
+          canPopOut: true,
+          canPopIn: true,
+          isModal: false,
+          allowsMultipleInstances: false,
         },
-        position: {
-          x: 120 + index * 28,
-          y: 120 + index * 28,
-        },
-        canBackdropDismiss: false,
-        canEscapeDismiss: false,
-        canPopOut: true,
-        canMoveInApp: true,
-      }),
-    ];
+      });
+    }
+
+    return surfaceId;
   }
 
   function openDebugConsoleWindow(tabId: string): void {
     const windowId = getDebugConsoleWindowId(tabId);
-    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const surfaceId = ensureDebugConsoleSurfaceRegistration(tabId);
+    const existingWindowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
     if (existingWindowRecord) {
-      if (existingWindowRecord.placement === 'in-app') {
-        activateWindow(windowId);
+      appServices.surfaces.update(windowId, { isActive: true });
+      requestSurfaceFocus(windowId);
+
+      if (!appServices.surfaces.getInstance(windowId)) {
+        appServices.surfaces.open({
+          instanceId: windowId,
+          surfaceId,
+          title: existingWindowRecord.title,
+          placement: existingWindowRecord.placement === 'window'
+            ? { host: 'native', windowId }
+            : { host: 'dockview', mode: 'edge', edge: 'top' },
+        });
       }
 
       return;
@@ -1646,8 +1854,7 @@ function openLoggingModal(tabId: string): void {
         : worldSession.currentWorld.name;
     }
 
-    const surfaceId = getDebugConsoleSurfaceId(tabId);
-    const index = windowHostWindows.length;
+    const index = getRegisteredWindowRecords().length;
     const windowRecord = createWindowRecord({
       id: windowId,
       kind: 'builtin',
@@ -1679,7 +1886,15 @@ function openLoggingModal(tabId: string): void {
     const transportSession = ensureDebugConsoleTransportSession(windowId, surfaceId);
     publishDebugConsoleTransportSnapshot(windowId, transportSession, sessionModel);
 
-    windowHostWindows = [...windowHostWindows, windowRecord];
+    appServices.surfaces.open({
+      instanceId: windowId,
+      surfaceId,
+      title: windowRecord.title,
+      placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+      position: windowRecord.position,
+      size: windowRecord.size,
+    });
+
     logDebugConsoleTransport('open debug console window', {
       windowId,
       surfaceId,
@@ -1687,22 +1902,53 @@ function openLoggingModal(tabId: string): void {
     });
   }
 
+  function ensureNotesSurfaceRegistration(tabId: string): string {
+    const surfaceId = getNotesSurfaceId(tabId);
+    if (!appServices.surfaces.getRegistration(surfaceId)) {
+      appServices.surfaces.register({
+        surfaceId,
+        kind: 'builtin',
+        defaultTitle: createNotesWindowTitle(tabId),
+        capabilities: {
+          canClose: true,
+          canDock: true,
+          canFloat: true,
+          canPopOut: true,
+          canPopIn: true,
+          isModal: false,
+          allowsMultipleInstances: false,
+        },
+      });
+    }
+
+    return surfaceId;
+  }
+
   function openNotesWindow(tabId: string): void {
     const windowId = getNotesWindowId(tabId);
-    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const surfaceId = ensureNotesSurfaceRegistration(tabId);
+    const existingWindowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
     if (existingWindowRecord) {
-      if (existingWindowRecord.placement === 'in-app') {
-        activateWindow(windowId);
+      appServices.surfaces.update(windowId, { isActive: true });
+      requestSurfaceFocus(windowId);
+      if (!appServices.surfaces.getInstance(windowId)) {
+        appServices.surfaces.open({
+          instanceId: windowId,
+          surfaceId,
+          title: existingWindowRecord.title,
+          placement: existingWindowRecord.placement === 'window'
+            ? { host: 'native', windowId }
+            : { host: 'dockview', mode: 'edge', edge: 'top' },
+        });
       }
 
       return;
     }
 
-    const surfaceId = getNotesSurfaceId(tabId);
-    const index = windowHostWindows.length;
+    const index = getRegisteredWindowRecords().length;
     const windowRecord = createWindowRecord({
       id: windowId,
       kind: 'builtin',
@@ -1733,7 +1979,15 @@ function openLoggingModal(tabId: string): void {
     const transportSession = ensureNotesTransportSession(windowId, surfaceId);
     publishNotesTransportSnapshot(windowId, transportSession, sessionModel);
 
-    windowHostWindows = [...windowHostWindows, windowRecord];
+    appServices.surfaces.open({
+      instanceId: windowId,
+      surfaceId,
+      title: windowRecord.title,
+      placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+      position: windowRecord.position,
+      size: windowRecord.size,
+    });
+
     logNotesTransport('open notes window', {
       windowId,
       surfaceId,
@@ -1744,15 +1998,17 @@ function openLoggingModal(tabId: string): void {
   async function closeDebugConsoleWindow(tabId: string): Promise<void> {
     const windowId = getDebugConsoleWindowId(tabId);
     const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId) ?? poppedOutWindowRecord;
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? poppedOutWindowRecord;
 
     if (!windowRecord) {
       clearDebugConsoleTransportSession(windowId);
       clearDebugConsoleBridgeSession(windowId);
+      appServices.surfaces.close(windowId);
       return;
     }
 
     closeWindow(windowId);
+    appServices.surfaces.close(windowId);
 
     if (!poppedOutWindowRecord) {
       return;
@@ -1767,17 +2023,19 @@ function openLoggingModal(tabId: string): void {
   async function closeNotesWindow(tabId: string): Promise<void> {
     const windowId = getNotesWindowId(tabId);
     const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId) ?? poppedOutWindowRecord;
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? poppedOutWindowRecord;
 
     flushPendingNotesSave(tabId);
 
     if (!windowRecord) {
       clearNotesTransportSession(windowId);
       clearNotesBridgeSession(windowId);
+      appServices.surfaces.close(windowId);
       return;
     }
 
     closeWindow(windowId);
+    appServices.surfaces.close(windowId);
 
     if (!poppedOutWindowRecord) {
       return;
@@ -1789,32 +2047,106 @@ function openLoggingModal(tabId: string): void {
     });
   }
 
-  async function toggleDebugConsoleWindow(tabId: string): Promise<void> {
+  function openOrFocusDebugConsoleWindow(tabId: string): void {
     const windowId = getDebugConsoleWindowId(tabId);
-    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const existingWindowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
     if (existingWindowRecord) {
-      await closeDebugConsoleWindow(tabId);
+      appServices.surfaces.update(windowId, { isActive: true });
+      requestSurfaceFocus(windowId);
       return;
     }
 
     openDebugConsoleWindow(tabId);
   }
 
-  async function toggleNotesWindow(tabId: string): Promise<void> {
+  function openOrFocusNotesWindow(tabId: string): void {
     const windowId = getNotesWindowId(tabId);
-    const existingWindowRecord = windowHostWindows.find((record) => record.id === windowId)
+    const existingWindowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
       ?? null;
 
     if (existingWindowRecord) {
-      await closeNotesWindow(tabId);
+      appServices.surfaces.update(windowId, { isActive: true });
+      requestSurfaceFocus(windowId);
       return;
     }
 
     openNotesWindow(tabId);
+  }
+
+  async function closeFuzzballStorageWindow(windowId: string): Promise<void> {
+    const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? poppedOutWindowRecord;
+
+    if (!windowRecord || !isFuzzballStorageWindow(windowRecord)) {
+      clearTreeDataTransportSession(windowId);
+      clearTreeDataBridgeSession(windowId);
+      clearFuzzballStorageWindowState(windowId);
+      appServices.surfaces.close(windowId);
+      return;
+    }
+
+    closeWindow(windowId);
+    appServices.surfaces.close(windowId);
+
+    if (!poppedOutWindowRecord) {
+      return;
+    }
+
+    removePoppedOutWindowRecord(windowId);
+    await invoke('window_host_discard', { windowId }).catch((error) => {
+      console.error('failed to discard fuzzball storage window:', error);
+    });
+  }
+
+  async function closeTreeDataWindow(windowId: string): Promise<void> {
+    const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? poppedOutWindowRecord;
+
+    if (!windowRecord || windowRecord.surfaceId !== WINDOW_HOST_SINGLETON_IDS.treeDataDemo) {
+      clearTreeDataTransportSession(windowId);
+      clearTreeDataBridgeSession(windowId);
+      treeDataViewController.clear(windowId);
+      appServices.surfaces.close(windowId);
+      return;
+    }
+
+    closeWindow(windowId);
+    appServices.surfaces.close(windowId);
+
+    if (!poppedOutWindowRecord) {
+      return;
+    }
+
+    removePoppedOutWindowRecord(windowId);
+    await invoke('window_host_discard', { windowId }).catch((error) => {
+      console.error('failed to discard tree data window:', error);
+    });
+  }
+
+  async function closeDummyWindow(windowId: string): Promise<void> {
+    const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? poppedOutWindowRecord;
+
+    if (!windowRecord || windowRecord.surfaceId !== WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
+      appServices.surfaces.close(windowId);
+      return;
+    }
+
+    closeWindow(windowId);
+    appServices.surfaces.close(windowId);
+
+    if (!poppedOutWindowRecord) {
+      return;
+    }
+
+    removePoppedOutWindowRecord(windowId);
+    await invoke('window_host_discard', { windowId }).catch((error) => {
+      console.error('failed to discard dummy window:', error);
+    });
   }
 
   function clearFuzzballStorageWindowState(windowId: string): void {
@@ -1845,8 +2177,8 @@ function openLoggingModal(tabId: string): void {
       clearTreeDataTransportSession(windowId);
       clearTreeDataBridgeSession(windowId);
       treeDataViewController.clear(windowId);
+      appServices.surfaces.close(windowId);
     }
-    windowHostWindows = windowHostWindows.filter((windowRecord) => !windowIdSet.has(windowRecord.id));
     poppedOutWindowRecords = Object.fromEntries(
       Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
     );
@@ -1860,11 +2192,41 @@ function openLoggingModal(tabId: string): void {
     );
   }
 
+  async function discardTreeDataWindows(): Promise<void> {
+    const matchedWindowIds = getRegisteredWindowRecords()
+      .filter((windowRecord) =>
+        windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
+        || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow,
+      )
+      .map((windowRecord) => windowRecord.id);
+
+    if (matchedWindowIds.length === 0) {
+      return;
+    }
+
+    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
+    for (const windowId of matchedWindowIds) {
+      clearTreeDataTransportSession(windowId);
+      clearTreeDataBridgeSession(windowId);
+      treeDataViewController.clear(windowId);
+      appServices.surfaces.close(windowId);
+    }
+
+    poppedOutWindowRecords = Object.fromEntries(
+      Object.entries(poppedOutWindowRecords).filter(([windowId]) => !matchedWindowIds.includes(windowId)),
+    );
+
+    await Promise.all(
+      poppedOutWindowIds.map((windowId) =>
+        invoke('window_host_discard', { windowId }).catch((error) => {
+          console.error('failed to discard tree data window:', error);
+        }),
+      ),
+    );
+  }
+
   async function discardDebugConsoleWindowsForSourceTab(sourceTabId: string): Promise<void> {
-    const matchedWindowIds = [
-      ...windowHostWindows,
-      ...Object.values(poppedOutWindowRecords),
-    ]
+    const matchedWindowIds = getRegisteredWindowRecords()
       .filter((windowRecord) => isDebugConsoleWindow(windowRecord) && getDebugConsoleTabIdFromSurfaceId(windowRecord.surfaceId) === sourceTabId)
       .map((windowRecord) => windowRecord.id);
 
@@ -1875,7 +2237,6 @@ function openLoggingModal(tabId: string): void {
     const windowIdSet = new Set(matchedWindowIds);
     const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
 
-    windowHostWindows = windowHostWindows.filter((windowRecord) => !windowIdSet.has(windowRecord.id));
     poppedOutWindowRecords = Object.fromEntries(
       Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
     );
@@ -1883,6 +2244,7 @@ function openLoggingModal(tabId: string): void {
     for (const windowId of matchedWindowIds) {
       clearDebugConsoleTransportSession(windowId);
       clearDebugConsoleBridgeSession(windowId);
+      appServices.surfaces.close(windowId);
     }
 
     await Promise.all(
@@ -1895,10 +2257,7 @@ function openLoggingModal(tabId: string): void {
   }
 
   async function discardNotesWindowsForSourceTab(sourceTabId: string): Promise<void> {
-    const matchedWindowIds = [
-      ...windowHostWindows,
-      ...Object.values(poppedOutWindowRecords),
-    ]
+    const matchedWindowIds = getRegisteredWindowRecords()
       .filter((windowRecord) => isNotesWindow(windowRecord) && getNotesTabIdFromSurfaceId(windowRecord.surfaceId) === sourceTabId)
       .map((windowRecord) => windowRecord.id);
 
@@ -1909,7 +2268,6 @@ function openLoggingModal(tabId: string): void {
     const windowIdSet = new Set(matchedWindowIds);
     const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
 
-    windowHostWindows = windowHostWindows.filter((windowRecord) => !windowIdSet.has(windowRecord.id));
     poppedOutWindowRecords = Object.fromEntries(
       Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
     );
@@ -1917,6 +2275,7 @@ function openLoggingModal(tabId: string): void {
     for (const windowId of matchedWindowIds) {
       clearNotesTransportSession(windowId);
       clearNotesBridgeSession(windowId);
+      appServices.surfaces.close(windowId);
     }
 
     await Promise.all(
@@ -1945,24 +2304,6 @@ function openLoggingModal(tabId: string): void {
     removeWindowRecord(windowId);
   }
 
-  function activateWindow(windowId: string): void {
-    const index = windowHostWindows.findIndex((windowRecord) => windowRecord.id === windowId);
-    if (index < 0 || index === windowHostWindows.length - 1) {
-      return;
-    }
-
-    const next = [...windowHostWindows];
-    const [active] = next.splice(index, 1);
-    next.push(active);
-    windowHostWindows = next;
-  }
-
-  function moveWindow(windowId: string, position: WindowPoint): void {
-    windowHostWindows = windowHostWindows.map((windowRecord) =>
-      windowRecord.id === windowId ? { ...windowRecord, position } : windowRecord,
-    );
-  }
-
   function storePoppedOutWindowRecord(windowRecord: WindowRecord): void {
     poppedOutWindowRecords = {
       ...poppedOutWindowRecords,
@@ -1981,10 +2322,6 @@ function openLoggingModal(tabId: string): void {
     return windowRecord;
   }
 
-  function restoreWindowRecordToHost(windowRecord: WindowRecord): void {
-    windowHostWindows = [...windowHostWindows, windowRecord];
-  }
-
   function handlePoppedOutWindowReturned(windowId: string): void {
     const windowRecord = removePoppedOutWindowRecord(windowId);
     if (!windowRecord) {
@@ -1999,10 +2336,12 @@ function openLoggingModal(tabId: string): void {
       title: windowRecord.title,
     });
 
-    restoreWindowRecordToHost({
-      ...windowRecord,
-      placement: 'in-app',
-    });
+    if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isFuzzballStorageWindow(windowRecord)
+      || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
+      appServices.surfaces.update(windowId, {
+        placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+      });
+    }
     clearTreeDataBridgeSession(windowId);
     clearDebugConsoleBridgeSession(windowId);
     clearNotesBridgeSession(windowId);
@@ -2027,12 +2366,13 @@ function openLoggingModal(tabId: string): void {
     clearFuzzballStorageWindowState(windowId);
     clearDebugConsoleBridgeSession(windowId);
     clearDebugConsoleTransportSession(windowId);
+    appServices.surfaces.close(windowId);
     clearNotesBridgeSession(windowId);
     clearNotesTransportSession(windowId);
   }
 
   async function handlePopOutWindow(windowId: string): Promise<void> {
-    const windowRecord = windowHostWindows.find((record) => record.id === windowId);
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId);
     if (!windowRecord || !windowRecord.canPopOut || windowRecord.placement !== 'in-app') {
       return;
     }
@@ -2043,14 +2383,24 @@ function openLoggingModal(tabId: string): void {
     };
 
     try {
-      windowHostWindows = windowHostWindows.filter((record) => record.id !== windowId);
       storePoppedOutWindowRecord(nextWindowRecord);
+      if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isFuzzballStorageWindow(windowRecord)
+        || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
+        appServices.surfaces.update(windowId, {
+          placement: { host: 'native', windowId },
+        });
+      }
       await invoke('window_host_pop_out', {
         windowRecord: nextWindowRecord,
       });
     } catch (error) {
-      restoreWindowRecordToHost(windowRecord);
       removePoppedOutWindowRecord(windowId);
+      if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isFuzzballStorageWindow(windowRecord)
+        || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
+        appServices.surfaces.update(windowId, {
+          placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+        });
+      }
       console.error('failed to pop out window:', error);
     }
   }
@@ -2099,7 +2449,7 @@ function openLoggingModal(tabId: string): void {
   }
 
   function hasBlockingWindow(): boolean {
-    return windowHostWindows.some((windowRecord) => windowRecord.isModal);
+    return getRegisteredWindowRecords().some((windowRecord) => windowRecord.isModal);
   }
 
   function isModalOpen(): boolean {
@@ -2151,6 +2501,40 @@ function openLoggingModal(tabId: string): void {
     };
   }
 
+  async function closePoppedOutSurfaceWindows(): Promise<void> {
+    const poppedOutWindowIds = Object.keys(poppedOutWindowRecords);
+    if (poppedOutWindowIds.length === 0) {
+      return;
+    }
+
+    poppedOutWindowIds.forEach((windowId) => closeWindow(windowId));
+    poppedOutWindowRecords = {};
+
+    await Promise.all(
+      poppedOutWindowIds.map((windowId) =>
+        invoke('window_host_discard', { windowId }).catch((error) => {
+          console.error('failed to discard popped-out surface during app close:', error);
+        }),
+      ),
+    );
+  }
+
+  async function closeAppAfterCleanup(): Promise<void> {
+    try {
+      await closePoppedOutSurfaceWindows();
+      const currentWindow = getCurrentWebviewWindow();
+      if (!currentWindow) {
+        return;
+      }
+
+      allowWindowCloseOnce = true;
+      await currentWindow.close();
+    } catch (error) {
+      allowWindowCloseOnce = false;
+      console.error('failed to close the app window:', error);
+    }
+  }
+
   function handleAppCloseRequest(event: { preventDefault: () => void }): void {
     console.log('[window-action] app close requested', {
       allowWindowCloseOnce,
@@ -2174,7 +2558,9 @@ function openLoggingModal(tabId: string): void {
     }
 
     if (!hasConnectedWorldTabs()) {
-      console.log('[window-action] app close allowed without confirmation');
+      event.preventDefault();
+      void closeAppAfterCleanup();
+      console.log('[window-action] app close cleanup started without confirmation');
       return;
     }
 
@@ -2194,24 +2580,8 @@ function openLoggingModal(tabId: string): void {
   }
 
   async function confirmAppClose(): Promise<void> {
-    if (!hasConnectedWorldTabs()) {
-      return;
-    }
-
-    try {
-      const currentWindow = getCurrentWebviewWindow();
-      if (!currentWindow) {
-        return;
-      }
-
-      console.log('[window-action] app close confirm requested via native close');
-      allowWindowCloseOnce = true;
-      await currentWindow.close();
-      console.log('[window-action] app close confirm native close completed');
-    } catch (error) {
-      allowWindowCloseOnce = false;
-      console.error('failed to close the app window:', error);
-    }
+    console.log('[window-action] app close confirm cleanup started');
+    await closeAppAfterCleanup();
   }
 
   $: activeTab = $session.tabs.find((tab) => tab.id === $session.activeTabId) ?? null;
@@ -2244,20 +2614,23 @@ function openLoggingModal(tabId: string): void {
     syncPoppedOutTreeDataSnapshots(
       fuzzballStorageCacheVersion,
       Object.keys(poppedOutWindowRecords).join('|'),
-      windowHostWindows.length,
+      getRegisteredWindowRecords().length,
     );
     syncPoppedOutDebugConsoleSnapshots(
       debugConsoleCacheVersion,
       Object.keys(poppedOutWindowRecords).join('|'),
-      windowHostWindows.length,
+      getRegisteredWindowRecords().length,
     );
     syncPoppedOutNotesSnapshots(
       Object.keys(poppedOutWindowRecords).join('|'),
-      windowHostWindows.length,
+      getRegisteredWindowRecords().length,
     );
   }
 
   onMount(() => {
+    const unlistenSurfaceRegistry = appServices.surfaces.subscribe(() => {
+      surfaceRegistryVersion += 1;
+    });
     console.log('[window-action] app mount state', {
       isPoppedOutWindow,
       poppedOutWindowId,
@@ -2265,6 +2638,7 @@ function openLoggingModal(tabId: string): void {
     });
     const unlistenFuzzballStorageCache = fuzzballStorageCache.subscribe(() => {
       fuzzballStorageCacheVersion += 1;
+      treeDataRefreshVersion += 1;
       logTreeTransport('fuzzball cache changed', {
         version: fuzzballStorageCacheVersion,
       });
@@ -2306,7 +2680,7 @@ function openLoggingModal(tabId: string): void {
         if (activeWorldTab) {
           event.preventDefault();
           event.stopPropagation();
-          void toggleNotesWindow(activeWorldTab.id);
+          openOrFocusNotesWindow(activeWorldTab.id);
           return;
         }
       }
@@ -2589,6 +2963,7 @@ function openLoggingModal(tabId: string): void {
       });
       unlistenFuzzballStorageCache();
       unlistenDebugConsoleCache();
+      unlistenSurfaceRegistry();
       if (!isPoppedOutWindow) {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         window.removeEventListener('focus', handleWindowFocus);
@@ -2623,8 +2998,9 @@ function openLoggingModal(tabId: string): void {
   >
     {#if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
       <DummyWindowContent instanceLabel={poppedOutWindowRecord.title} />
-    {:else if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
-      || poppedOutWindowRecord?.surfaceId.startsWith('fuzzball-storage-window-')}
+    {:else if poppedOutWindowRecord
+      && (poppedOutWindowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
+        || isFuzzballStorageWindow(poppedOutWindowRecord))}
       {@const treeDataWindowProps = getTreeDataWindowRenderProps(poppedOutWindowRecord.id, fuzzballStorageCacheVersion)}
       {#if treeDataWindowProps}
         <TreeDataWindow {...treeDataWindowProps} />
@@ -2685,7 +3061,7 @@ function openLoggingModal(tabId: string): void {
     onEditCharacterTab={(tabId) => void session.openCharacterEditorFromWorldTab(tabId)}
     onOpenNotesTab={(tabId) => {
       session.activateWorldTab(tabId);
-      void toggleNotesWindow(tabId);
+      openOrFocusNotesWindow(tabId);
     }}
     onOpenDebugConsoleTab={(tabId) => {
       session.activateWorldTab(tabId);
@@ -2760,6 +3136,11 @@ function openLoggingModal(tabId: string): void {
         },
       })}
       {@const playScreenActions = createPlayScreenActions(tab, worldSession)}
+      {@const debugConsolePanel = getDebugConsoleDockviewPanel(tab.id, surfaceRegistryVersion)}
+      {@const notesPanel = getNotesDockviewPanel(tab.id, surfaceRegistryVersion)}
+      {@const fuzzballPanels = getFuzzballStorageDockviewPanels(tab.id, surfaceRegistryVersion, treeDataRefreshVersion)}
+      {@const treeDataPanels = getTreeDataDockviewPanels(tab.id === $session.activeTabId, surfaceRegistryVersion, treeDataRefreshVersion)}
+      {@const dummyPanels = getDummyDockviewPanels(tab.id === $session.activeTabId, surfaceRegistryVersion)}
       <PlayScreen
         scope={tab.id}
         visible={tab.id === $session.activeTabId}
@@ -2768,6 +3149,14 @@ function openLoggingModal(tabId: string): void {
         connectionStatus={worldSession.connectionStatus}
         hasNewActivity={worldSession.hasNewActivity}
         bars={worldSession.inputBars}
+        onOpenFuzzballStorageViewer={playScreenActions.onOpenFuzzballStorageViewer}
+        {debugConsolePanel}
+        {notesPanel}
+        {fuzzballPanels}
+        {treeDataPanels}
+        {dummyPanels}
+        focusSurfaceId={tab.id === $session.activeTabId ? focusSurfaceId : null}
+        {focusSurfaceRequestVersion}
         triggers={worldSession.currentCharacter
           ? getTriggersForCharacter($session.triggers, worldSession.currentCharacter)
           : worldSession.currentWorld
@@ -2910,50 +3299,5 @@ function openLoggingModal(tabId: string): void {
     {/if}
   </AppNoticeHost>
 {/if}
-
-    <WindowHost
-  open={windowHostWindows.length > 0}
-  windows={windowHostWindows}
-  onClose={closeWindow}
-  onPopOut={(windowId) => void handlePopOutWindow(windowId)}
-  onActivate={activateWindow}
-  onMove={moveWindow}
-  let:windowRecord
-  >
-  {#if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
-    <DummyWindowContent instanceLabel={windowRecord.title} />
-  {:else if windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
-    || windowRecord.surfaceId.startsWith('fuzzball-storage-window-')}
-    {@const treeDataWindowProps = getTreeDataWindowRenderProps(windowRecord.id, fuzzballStorageCacheVersion)}
-    {#if treeDataWindowProps}
-      <TreeDataWindow {...treeDataWindowProps} />
-    {:else}
-      {@const placeholderModel = createTreeDataWindowPlaceholderModel(windowRecord.title)}
-      {@const placeholderViewState = treeDataViewController.ensure(windowRecord.id, placeholderModel.root.id)}
-      <TreeDataWindow
-        model={placeholderModel}
-        viewState={placeholderViewState}
-        onCommand={() => {}}
-        transportSession={null}
-      />
-    {/if}
-  {:else if isDebugConsoleWindow(windowRecord)}
-    {@const debugConsoleWindowProps = getDebugConsoleWindowRenderProps(windowRecord.id, debugConsoleCacheVersion)}
-    {#if debugConsoleWindowProps}
-      <DebugConsoleWindow {...debugConsoleWindowProps} />
-    {:else}
-      {@const placeholderModel = createDebugConsoleWindowPlaceholderModel(windowRecord.title)}
-      <DebugConsoleWindow model={placeholderModel} onCommand={() => {}} transportSession={null} />
-    {/if}
-  {:else if isNotesWindow(windowRecord)}
-    {@const notesWindowProps = getNotesWindowRenderProps(windowRecord.id)}
-    {#if notesWindowProps}
-      <NotesWindow {...notesWindowProps} />
-    {:else}
-      {@const placeholderModel = createNotesWindowPlaceholderModel(windowRecord.title)}
-      <NotesWindow model={placeholderModel} onCommand={() => {}} transportSession={null} />
-    {/if}
-  {/if}
-</WindowHost>
 
 {/if}

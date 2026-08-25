@@ -8,7 +8,7 @@
   import type { DebugConsoleWindowCommand, DebugConsoleWindowSnapshot, DebugConsoleWindowTransportSession } from './debug-console-transport';
 
   export let model: DebugConsoleWindowSnapshot['model'];
-  export let onCommand: (command: DebugConsoleWindowCommand) => void = () => {};
+  export const onCommand: (command: DebugConsoleWindowCommand) => void = () => {};
   export let transportSession: DebugConsoleWindowTransportSession | null = null;
 
   let transportSnapshot: DebugConsoleWindowSnapshot | null = null;
@@ -124,25 +124,6 @@
     await copyTextToClipboard(text);
   }
 
-  function requestClose(): void {
-    const command = { type: 'closeRequested' } as const;
-
-    if (transportSession) {
-      logDebugConsoleWindow('send command', {
-        command,
-        revision: transportSession.getRevision(),
-      });
-      transportSession.sendCommand(command, { expectedRevision: transportSession.getRevision() });
-      return;
-    }
-
-    onCommand(command);
-  }
-
-  function handleScrollToBottomClick(): void {
-    scrollToBottom();
-  }
-
   onMount(() => {
     document.addEventListener('mouseup', handleMouseUp);
     if (content) {
@@ -183,23 +164,6 @@
 </script>
 
 <section class="debug-console-window">
-  <header class="debug-console-window-header">
-    <div class="debug-console-window-copy">
-      <p class="debug-console-window-kicker">debug console</p>
-      <h2>{activeModel.title}</h2>
-      {#if activeModel.description}
-        <p class="debug-console-window-description">{activeModel.description}</p>
-      {/if}
-      {#if activeModel.sourceLabel}
-        <p class="debug-console-window-source">{activeModel.sourceLabel}</p>
-      {/if}
-    </div>
-
-    <div class="debug-console-window-actions">
-      <button type="button" class="debug-console-window-action" on:click={requestClose}>close</button>
-    </div>
-  </header>
-
   <div
     bind:this={scroller}
     class="debug-console-scroll"
@@ -233,98 +197,45 @@
     </div>
   </div>
 
-  {#if userScrolled}
-    <button
-      type="button"
-      class="debug-console-scroll-bottom-button"
-      aria-label="Scroll debug console to bottom"
-      on:click={handleScrollToBottomClick}
-    >
-      ↓
-    </button>
-  {/if}
 </section>
 
 <style>
   .debug-console-window {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
-    gap: 0.8rem;
     width: 100%;
+    height: 100%;
+    min-height: 0;
     min-width: 0;
     box-sizing: border-box;
-    padding: 1rem;
+    overflow: hidden;
     color: var(--text-color, #e7eef9);
     background:
       radial-gradient(circle at top right, rgba(107, 126, 255, 0.18), transparent 32%),
       linear-gradient(180deg, rgba(16, 20, 28, 0.98), rgba(10, 13, 19, 0.98));
   }
 
-  .debug-console-window-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .debug-console-window-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .debug-console-window-kicker {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-size: 0.72rem;
-    color: rgba(200, 214, 245, 0.65);
-  }
-
-  .debug-console-window h2 {
-    margin: 0;
-    font-size: 1.3rem;
-    font-weight: 650;
-  }
-
-  .debug-console-window-description,
-  .debug-console-window-source {
-    margin: 0;
-    color: rgba(200, 214, 245, 0.74);
-  }
-
-  .debug-console-window-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.45rem;
-  }
-
-  .debug-console-window-action {
-    border: 1px solid rgba(145, 164, 205, 0.24);
-    border-radius: 0.7rem;
-    padding: 0.45rem 0.7rem;
-    background: rgba(14, 18, 26, 0.72);
-    color: inherit;
-    cursor: pointer;
-    text-transform: lowercase;
-  }
-
   .debug-console-scroll {
-    display: block;
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
     min-height: 0;
-    max-height: min(72vh, 50rem);
+    min-width: 0;
     overflow: auto;
-    border-radius: 0.9rem;
-    border: 1px solid rgba(145, 164, 205, 0.14);
+    border: 0;
+    border-radius: 0;
     background: rgba(5, 7, 10, 0.42);
   }
 
   .debug-console-content {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 0.35rem;
+    min-width: 0;
+    min-height: 100%;
     padding: 0.7rem;
   }
 
@@ -380,7 +291,4 @@
     word-break: break-word;
   }
 
-  .debug-console-scroll-bottom-button {
-    align-self: flex-end;
-  }
 </style>

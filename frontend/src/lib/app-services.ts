@@ -57,6 +57,7 @@ import {
   type SpellcheckQueryOptions,
 } from './spellcheck';
 import { windowAttention, type WindowAttentionService } from './window-attention';
+import { createSurfaceRegistry, type SurfaceRegistry } from './surfaces/surface-registry';
 import {
   listSystemFonts,
   type FontShelfEntry,
@@ -189,6 +190,7 @@ export interface AppServices {
   spellcheck: AppSpellcheckService;
   notice: AppNoticeService;
   windowAttention: WindowAttentionService;
+  surfaces: SurfaceRegistry;
 }
 
 function createAppLifecycleService(): AppLifecycleService {
@@ -593,6 +595,7 @@ export function createAppServices(): AppServices {
   const noticeService = createAppNoticeService();
   const storageService = createAppStorageService(settingsService, lifecycle);
   const styleService = createAppStyleService(lifecycle);
+  const surfaceRegistry = createSurfaceRegistry();
 
   return {
     lifecycle,
@@ -602,6 +605,7 @@ export function createAppServices(): AppServices {
     spellcheck: spellcheckService,
     notice: noticeService,
     windowAttention,
+    surfaces: surfaceRegistry,
   };
 }
 

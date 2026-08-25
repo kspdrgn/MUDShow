@@ -1,5 +1,6 @@
 import App from './App.svelte';
 import { mount } from 'svelte';
+import 'dockview/dist/styles/dockview.css';
 import '../app.css';
 
 console.log('[window-action] frontend main boot', {

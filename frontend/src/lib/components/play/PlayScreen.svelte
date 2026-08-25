@@ -3,10 +3,15 @@
   import { onMount } from 'svelte';
   import type { Trigger } from '../../types';
   import type { PlayTranscript, RenderCache } from '../../playback';
-  import Transcript from './Transcript.svelte';
   import InputBars from './InputBars.svelte';
-  import WorldChannelsBar from './WorldChannelsBar.svelte';
-  import WorldChannelsPanel from './WorldChannelsPanel.svelte';
+import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
+  import type {
+    DockviewDebugConsolePanelDefinition,
+    DockviewDummyWindowPanelDefinition,
+    DockviewFuzzballStoragePanelDefinition,
+  DockviewNotesPanelDefinition,
+  DockviewTreeDataPanelDefinition,
+} from './dockview-panel-props';
   import type { AppStyleValues } from '../styles/style-settings';
   import { getSquiggleDecorationStyle } from '../../spellcheck-style';
   import {
@@ -58,6 +63,14 @@
     tabs: [],
     controls: [],
   };
+  export let onOpenFuzzballStorageViewer: (() => void) | undefined = undefined;
+  export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
+  export let notesPanel: DockviewNotesPanelDefinition | null = null;
+  export let fuzzballPanels: DockviewFuzzballStoragePanelDefinition[] = [];
+  export let treeDataPanels: DockviewTreeDataPanelDefinition[] = [];
+  export let dummyPanels: DockviewDummyWindowPanelDefinition[] = [];
+  export let focusSurfaceId: string | null = null;
+  export let focusSurfaceRequestVersion = 0;
   export let linkImagePreviews = false;
   export let imagePreviewCacheVersion = 0;
   export let showCurrentOutputWhenScrollingUp = true;
@@ -83,71 +96,26 @@
   let screenElement: HTMLDivElement | null = null;
   let measuredPlayWidth = 'none';
   let measurementToken = 0;
-  let channelBarHovered = false;
-  let channelBarAwake = false;
-  let channelBarHideTimer: ReturnType<typeof setTimeout> | null = null;
-  let lastVisible = visible;
-  let channelsPanelResizing = false;
-  let channelsPanelResizeLockedHeight = 0;
   const spellcheckConfig = appServices.spellcheck.config;
 
-  $: channelTabs = channels.tabs;
-  $: channelBarControls = channels.controls;
-
-  $: channelPanelOpen = channelTabs.some((tab) => tab.open);
-  $: channelBarHasEntries = channelTabs.length > 0 || channelBarControls.length > 0;
-  $: channelBarPinned = channelPanelOpen;
-  $: channelBarVisible = channelBarHasEntries && (channelBarPinned || channelBarHovered || channelBarAwake);
-
-  function clearChannelBarTimer(): void {
-    if (channelBarHideTimer !== null) {
-      clearTimeout(channelBarHideTimer);
-      channelBarHideTimer = null;
-    }
-  }
-
-  function showChannelBar(): void {
-    if (!channelBarHasEntries) {
-      return;
-    }
-
-    channelBarHovered = true;
-    channelBarAwake = true;
-    clearChannelBarTimer();
-  }
-
-  function scheduleChannelBarHide(): void {
-    clearChannelBarTimer();
-    channelBarHideTimer = setTimeout(() => {
-      if (!channelPanelOpen && !channelBarHovered) {
-        channelBarAwake = false;
-      }
-    }, 1000);
-  }
-
-  function hideChannelBar(): void {
-    channelBarHovered = false;
-    scheduleChannelBarHide();
-  }
-
-  function toggleChannel(tabId: ChannelTabId): void {
-    const tab = channelTabs.find((entry) => entry.id === tabId);
-    if (!tab) {
-      return;
-    }
-
-    if (tab.open) {
-      closeAllChannels();
-      return;
-    }
-
-    channelBarAwake = true;
-    clearChannelBarTimer();
-    actions.onOpenNotes();
-  }
-
-  function closeAllChannels(): void {
-    scheduleChannelBarHide();
+  $: {
+    void channels;
+    void triggers;
+    void linkImagePreviews;
+    void imagePreviewCacheVersion;
+    void showCurrentOutputWhenScrollingUp;
+    void transcriptDiagnosticsEnabled;
+    void userScrolled;
+    void transcript;
+    void outputRevision;
+    void renderCache;
+    void outputFontSize;
+    void canReconnect;
+    void canDisconnect;
+    void canQuickLog;
+    void canStopLogging;
+    void canEditWorld;
+    void canEditCharacter;
   }
 
   async function updateMeasuredPlayWidth(): Promise<void> {
@@ -178,31 +146,8 @@
     void updateMeasuredPlayWidth();
   }
 
-  $: {
-    if (visible && !lastVisible) {
-      channelBarAwake = true;
-      clearChannelBarTimer();
-      hideChannelBar();
-    } else if (!visible && lastVisible) {
-      channelBarHovered = false;
-      channelBarAwake = false;
-      clearChannelBarTimer();
-    }
-
-    lastVisible = visible;
-  }
-
   onMount(() => {
     void updateMeasuredPlayWidth();
-
-    if (visible) {
-      channelBarAwake = true;
-      hideChannelBar();
-    }
-
-    return () => {
-      clearChannelBarTimer();
-    };
   });
 </script>
 
@@ -230,61 +175,36 @@
   style:--spellcheck-squiggle-style={getSquiggleDecorationStyle(squiggleStyle)}
   style:--spellcheck-squiggle-size={`${squiggleSize}`}
 >
-  <div
-    class="world-channels-hover-zone"
-    aria-hidden="true"
-    on:mouseenter={showChannelBar}
-    on:mouseleave={hideChannelBar}
-  ></div>
 
-  <WorldChannelsBar
-    visible={channelBarVisible}
-    tabs={channelTabs}
-    controls={channelBarControls}
-    onHide={closeAllChannels}
-    onToggleChannel={toggleChannel}
-    onMouseEnter={showChannelBar}
-    onMouseLeave={hideChannelBar}
-  />
-
-  <div
-    class="world-channels-panel-stage"
-    class:resizing={channelsPanelResizing}
-    style:--world-channels-panel-height={`${channelsPanelResizeLockedHeight}px`}
-  >
-    <WorldChannelsPanel
-      tabs={channelTabs}
-      onResizeStart={(height) => {
-        channelsPanelResizeLockedHeight = height;
-        channelsPanelResizing = true;
-      }}
-      onResizeEnd={() => {
-        channelsPanelResizing = false;
-      }}
-    />
-  </div>
-
-  <Transcript
-    {activeBar}
-    {transcript}
-    {outputRevision}
-    width={measuredPlayWidth}
-    {outputFontSize}
-    {scope}
-    {visible}
-    {triggers}
-    {linkImagePreviews}
-    {transcriptDiagnosticsEnabled}
-    {imagePreviewCacheVersion}
-    {renderCache}
-    {showCurrentOutputWhenScrollingUp}
-    {userScrolled}
-    {canReconnect}
-    {canDisconnect}
-    {canQuickLog}
-    {canStopLogging}
-    {canEditWorld}
-    {canEditCharacter}
+  <PlayDockviewSandbox
+    visible={visible}
+    onOpenFuzzballStorageViewer={onOpenFuzzballStorageViewer}
+    {debugConsolePanel}
+    {notesPanel}
+    {fuzzballPanels}
+    {treeDataPanels}
+    {dummyPanels}
+    {focusSurfaceId}
+    {focusSurfaceRequestVersion}
+    activeBar={activeBar}
+    transcript={transcript}
+    outputRevision={outputRevision}
+    workspaceWidth={measuredPlayWidth}
+    outputFontSize={outputFontSize}
+    scope={scope}
+    triggers={triggers}
+    linkImagePreviews={linkImagePreviews}
+    imagePreviewCacheVersion={imagePreviewCacheVersion}
+    renderCache={renderCache}
+    showCurrentOutputWhenScrollingUp={showCurrentOutputWhenScrollingUp}
+    transcriptDiagnosticsEnabled={transcriptDiagnosticsEnabled}
+    userScrolled={userScrolled}
+    canReconnect={canReconnect}
+    canDisconnect={canDisconnect}
+    canQuickLog={canQuickLog}
+    canStopLogging={canStopLogging}
+    canEditWorld={canEditWorld}
+    canEditCharacter={canEditCharacter}
     onReconnect={actions.onReconnectTab}
     onDisconnect={actions.onDisconnectTab}
     onQuickLog={actions.onQuickLogTab}

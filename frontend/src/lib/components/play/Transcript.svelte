@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
+  import type { Readable } from 'svelte/store';
   import {
     buildHighlightRegexes,
     buildRuleRegexes,
@@ -72,6 +73,7 @@
   export let onCloseRequest: (anchorRect: DOMRect) => void;
   export let onScroll: () => void;
   export let onScrollToBottom: () => void;
+  export let workspaceState: Readable<Record<string, unknown>> | null = null;
 
   let highlights: HighlightRule[] = [];
   let rules: Rule[] = [];
@@ -97,6 +99,7 @@
   let contextMenuPosition = { x: 0, y: 0 };
   let transcriptZoom = 1;
   let removeZoomKeydownListener: (() => void) | null = null;
+  let removeWorkspaceStateListener: (() => void) | null = null;
   let userScrollIntent = false;
   let lastSyncedTranscript: PlayTranscript | null = null;
   let lastSyncedRevision = -1;
@@ -189,6 +192,47 @@
 
     removeZoomKeydownListener?.();
     removeZoomKeydownListener = null;
+  }
+
+  function applyWorkspaceState(nextState: Record<string, unknown>): void {
+    if (nextState.activeBar !== undefined) activeBar = nextState.activeBar as InputBarId;
+    if (nextState.transcript !== undefined) transcript = nextState.transcript as PlayTranscript;
+    if (nextState.outputRevision !== undefined) outputRevision = nextState.outputRevision as number;
+    if (nextState.width !== undefined) width = nextState.width as string;
+    if (nextState.outputFontSize !== undefined) outputFontSize = nextState.outputFontSize as number;
+    if (nextState.scope !== undefined) scope = nextState.scope as string;
+    if (nextState.visible !== undefined) visible = nextState.visible as boolean;
+    if (nextState.triggers !== undefined) triggers = nextState.triggers as Trigger[];
+    if (nextState.linkImagePreviews !== undefined) linkImagePreviews = nextState.linkImagePreviews as boolean;
+    if (nextState.imagePreviewCacheVersion !== undefined) imagePreviewCacheVersion = nextState.imagePreviewCacheVersion as number;
+    if (nextState.renderCache !== undefined) renderCache = nextState.renderCache as RenderCache | null;
+    if (nextState.showCurrentOutputWhenScrollingUp !== undefined) {
+      showCurrentOutputWhenScrollingUp = nextState.showCurrentOutputWhenScrollingUp as boolean;
+    }
+    if (nextState.transcriptDiagnosticsEnabled !== undefined) {
+      transcriptDiagnosticsEnabled = nextState.transcriptDiagnosticsEnabled as boolean;
+    }
+    if (nextState.userScrolled !== undefined) userScrolled = nextState.userScrolled as boolean;
+    if (nextState.canReconnect !== undefined) canReconnect = nextState.canReconnect as boolean;
+    if (nextState.canDisconnect !== undefined) canDisconnect = nextState.canDisconnect as boolean;
+    if (nextState.canQuickLog !== undefined) canQuickLog = nextState.canQuickLog as boolean;
+    if (nextState.canStopLogging !== undefined) canStopLogging = nextState.canStopLogging as boolean;
+    if (nextState.canEditWorld !== undefined) canEditWorld = nextState.canEditWorld as boolean;
+    if (nextState.canEditCharacter !== undefined) canEditCharacter = nextState.canEditCharacter as boolean;
+    if (nextState.onReconnect !== undefined) onReconnect = nextState.onReconnect as () => void;
+    if (nextState.onDisconnect !== undefined) onDisconnect = nextState.onDisconnect as () => void;
+    if (nextState.onQuickLog !== undefined) onQuickLog = nextState.onQuickLog as () => void;
+    if (nextState.onStopLogging !== undefined) onStopLogging = nextState.onStopLogging as () => void;
+    if (nextState.onOpenLogging !== undefined) onOpenLogging = nextState.onOpenLogging as () => void;
+    if (nextState.onEditWorld !== undefined) onEditWorld = nextState.onEditWorld as () => void;
+    if (nextState.onEditCharacter !== undefined) onEditCharacter = nextState.onEditCharacter as () => void;
+    if (nextState.onOpenNotes !== undefined) onOpenNotes = nextState.onOpenNotes as () => void;
+    if (nextState.onOpenDebugConsole !== undefined) onOpenDebugConsole = nextState.onOpenDebugConsole as () => void;
+    if (nextState.onOpenTriggers !== undefined) onOpenTriggers = nextState.onOpenTriggers as () => void;
+    if (nextState.onOpenStyles !== undefined) onOpenStyles = nextState.onOpenStyles as () => void;
+    if (nextState.onCloseRequest !== undefined) onCloseRequest = nextState.onCloseRequest as (anchorRect: DOMRect) => void;
+    if (nextState.onScroll !== undefined) onScroll = nextState.onScroll as () => void;
+    if (nextState.onScrollToBottom !== undefined) onScrollToBottom = nextState.onScrollToBottom as () => void;
   }
 
   $: highlights = triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight');
@@ -730,7 +774,18 @@
   onMount(() => {
     syncTranscriptZoomListener();
 
-    return setupTranscriptObservers({
+    removeWorkspaceStateListener = workspaceState?.subscribe(applyWorkspaceState) ?? null;
+
+    // Dockview can finish sizing the panel one frame after this component mounts.
+    // Recheck after layout so virtualization does not remain stuck at a zero height.
+    const firstLayoutFrame = requestAnimationFrame(() => {
+      syncTranscriptRenderState();
+    });
+    const secondLayoutFrame = requestAnimationFrame(() => {
+      syncTranscriptRenderState();
+    });
+
+    const disposeObservers = setupTranscriptObservers({
       contentElement: transcriptContentElement,
       historyElement: transcriptHistoryScrollerElement,
       onContentResize: () => {
@@ -751,6 +806,14 @@
         syncTranscriptRenderState();
       },
     });
+
+    return () => {
+      cancelAnimationFrame(firstLayoutFrame);
+      cancelAnimationFrame(secondLayoutFrame);
+      disposeObservers();
+      removeWorkspaceStateListener?.();
+      removeWorkspaceStateListener = null;
+    };
   });
 
   onDestroy(() => {

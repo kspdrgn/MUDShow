@@ -2,16 +2,6 @@
 
 ## Top TODO
 
-cleanup surfaces
-- debug console frame sucks, close doesnt work, popout doest refresh
-- tree ui sucks, duplicates words, need trailing / after folders
-- notes extra x in ui
-- trim extra logging everywhere
-- app settings etc should show over worldsession surfaces
-
-app f3 open webui find dialog, maybe keep in transcript/notes/debug/etc textareas
-
-todo order:
 - [X] channel bar controls
   - [X] button for debug dictionary open
 - [X] fuzzball plugin skeleton
@@ -23,7 +13,7 @@ todo order:
     - [ ] capture pipeline filter system to omit contents from transcript
 - [X] app notice modals system separate from hosted popout windows
 - [X] app DI, slim down App.svelte
-- [X] worldsession DI, slim down component plumbing
+- [X] worldSession DI, slim down component plumbing
 - [ ] plugin architecture
 - [ ] taps plugin skeleton
   - [ ] desc editor first candidate window
@@ -32,11 +22,17 @@ todo order:
   - [ ] page popouts to channels
   - [ ] WS side channel
   - [ ] ridemode dropdown control
-- [ ] surfaces
-  - [ ] Dockview
-    - [ ] consolidated channels? move channels from top to side to pop-in to pop-out?
-    - [ ] side channels
-  - [ ] message bus
+- [X] surfaces
+  - [X] Dockview
+  - [X] consolidated channels? move channels from top to side to pop-in to pop-out?
+  - [X] side channels
+  - [X] message bus
+  - [ ] dockview tabs should have less gutter on top and bottom.
+  - [ ] tree ui sucks, duplicates words, need trailing / after folders
+  - [ ] trim extra logging everywhere
+  - [ ] clicking dock panels doesn't refocus to input area
+  - [ ] dock panel auto-hide doesn't always activate, not sure why
+  - [ ] 'f3' key in some places opens native webUi find dialog, maybe keep in transcript/notes/debug/etc text areas? move notes key to another key if keeping?
 
 MVP Features:
 - [X] Notes persistence
@@ -44,15 +40,17 @@ MVP Features:
   - [X] Notes
   - [X] Debug console
   - [ ] Trigger routing to channel
-- [ ] Windows!
-  - [X] Move all modal popup windows to shared window host
+- [X] Move all modal popups to dedicated modal notice host
+- [ ] Surfaces!
+  - [X] Dockable panels as tabs
+  - [X] Pop-out to floating panel
   - [X] Pop-out to native window
   - [X] Dummy testing windows
 - [ ] Channel bar controls
   - [ ] Modular plugin-owned UI controls
   - [ ] Dropdown menus
   - [ ] Menu menus
-  - [ ] Buttons
+  - [X] Buttons
 - [X] Session logging.
 - [X] Style. See "MUD Text > Appearance"
 - [X] Regexp triggers, want to dim traffic messages and color pages/whispers to make them stand out
@@ -89,7 +87,7 @@ Bugs:
 - [X] Fix image previews not triggering scroll-to-bottom consistently
 - [X] Fix extra blank line after Taps "Somewhere on the muck, * has connected." Maybe related to PD blank lines at end of +watch and other places. Now gathers lines until a newline character.
 - [X] Fix window not flashing on activity
-- [X] Fix unmodified home/end keys not working in input window, the passthru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
+- [X] Fix unmodified home/end keys not working in input window, the pass-thru to output scrolling should be CTRL+Home and CTRL+End forwarded to output window and unmodified home/end kept to the input text.
 - [X] Linux: Fix resize frame, can't see while mousing over
 
 Release:
@@ -139,7 +137,7 @@ Release:
     - [X] Clickable links
     - [X] Auto-preview image links with hide button
     - [X] Automatic clipboard copy when selecting text
-    - [ ] Timestamps visible on mouse-over lines
+    - [X] Timestamps visible on mouse-over lines
     - [ ] Visible timestamps customizable
     - [X] Output history - Buffer of previous session contents restored for context
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
@@ -190,7 +188,7 @@ Release:
     - [X] One-click session logging. Start logging and auto-name log file.
     - [X] Visual indicator that logging is enabled
     - [X] On-the-fly log renaming of active session log file
-    - [ ] Auto-log everything to separate log file
+    - [ ] Auto-log everything to separate log file with rolling log management
     - [ ] Customize log name format, incl folders
     - [X] Show log name that will be used next to quick log button, user can edit the filename before starting, show indicator if file exists and will be appended to
     - [ ] Global option to offset date by 5 hours to record as the previous day if logging at 3am

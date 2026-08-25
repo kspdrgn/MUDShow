@@ -640,15 +640,22 @@
           {/if}
         {:else}
           <div class="triggers-empty-title">nothing selected</div>
+          <b>Highlights</b>
           <p>
-            Highlights style words and phrases with simple controls.
+            <span>w</span>
+            - Highlights style words and phrases with simple controls.
           </p>
+          <b>Rules</b>
           <p>
-            Rules offer full regular expression matching for advanced style and trigger behavior.
+            <span>r</span>
+            - Rules offer full regular expression matching for advanced style and trigger behavior.
           </p>
-          <p>
-            App triggers apply everywhere. World triggers apply to every character in that world. Character triggers apply only to that character.
-          </p>
+          <b>Levels</b>
+          <ul>
+            <li>App triggers apply everywhere.</li>
+            <li>World triggers apply to every character in that world, and connections not using a saved character.</li>
+            <li>Character triggers apply only to that character.</li>
+          </ul>
         {/if}
       </div>
     {/if}

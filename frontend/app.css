@@ -17,7 +17,7 @@
   --accent-dim: #1a3a5c;
   --warning: #d4ac0d;
   --warning-dim: #3b2f08;
-  --danger: #c0392b;
+  --danger: #ff5a52;
   --danger-dim: #3a0a08;
   --input-bg: #050505;
   --input-active: #0d0d10;
@@ -1551,6 +1551,11 @@ body {
   border-color: var(--danger);
 }
 
+/* Modal notice actions need a readable neutral state against the modal surface. */
+.app-notice-shell .btn:not(.primary):not(.danger):not(:disabled) {
+  color: var(--text-bright);
+}
+
 #list-footer {
   width: 100%;
   max-width: 480px;
@@ -1568,30 +1573,10 @@ body {
   border: 1px solid var(--border);
 }
 
-.window-host-root {
-  position: fixed;
-  inset: 0;
-  z-index: 140;
-  pointer-events: none;
-}
-
-.window-host-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  pointer-events: auto;
-}
-
-.window-host-stack {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
 .app-notice-root {
   position: fixed;
   inset: 0;
-  z-index: 340;
+  z-index: 10000;
   pointer-events: none;
 }
 
@@ -1634,90 +1619,6 @@ body {
   overflow: auto;
 }
 
-.window-shell {
-  position: fixed;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border-active);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
-  pointer-events: auto;
-}
-
-.window-shell.windowed {
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6);
-}
-
-.window-shell.content-sized {
-  width: fit-content;
-  height: fit-content;
-  max-width: calc(100vw - 48px);
-  max-height: calc(100vh - 48px);
-}
-
-.window-titlebar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 0.8rem 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
-  cursor: move;
-  user-select: none;
-}
-
-.window-titlebar.locked {
-  cursor: default;
-}
-
-.window-shell:not(.movable) .window-titlebar {
-  cursor: default;
-}
-
-.window-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  color: var(--text-bright);
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.window-titlebar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex: 0 0 auto;
-}
-
-.window-pop-out {
-  min-width: 1.9rem;
-  padding: 0.2rem 0.5rem;
-  line-height: 1;
-}
-
-.window-close {
-  min-width: 1.9rem;
-  padding: 0.2rem 0.55rem;
-  line-height: 1;
-}
-
-.window-body {
-  min-width: 0;
-  min-height: 0;
-  flex: 1 1 auto;
-  padding: 1rem 1.1rem 1.1rem;
-  overflow: auto;
-}
-
-.window-shell.content-sized .window-body {
-  flex: 0 1 auto;
-}
-
 .host-modal-content {
   display: flex;
   flex-direction: column;
@@ -1727,7 +1628,10 @@ body {
 
 .popped-out-window-view {
   position: relative;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
   background: var(--surface);
   color: var(--text);
 }
@@ -1744,7 +1648,7 @@ body {
 
 .popped-out-window-content {
   min-height: 100vh;
-  padding: 1rem 1.1rem 1.1rem;
+  padding: 0;
   overflow: auto;
 }
 
@@ -1896,6 +1800,7 @@ body {
 
 .screen-play {
   position: relative;
+  min-height: 0;
 }
 
 .world-channels-hover-zone {
@@ -2006,6 +1911,295 @@ body {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+}
+
+.play-dockview-sandbox {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.play-dockview-sandbox .dockview-theme-abyss,
+.play-dockview-sandbox .dockview-theme-abyss-spaced {
+  --dv-spacing-padding: 0px;
+}
+
+.play-dockview-sandbox-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.play-dockview-sandbox.hidden {
+  display: none;
+}
+
+.play-dockview-sandbox-root {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(74, 158, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(9, 9, 11, 0.98) 0%, rgba(5, 5, 6, 1) 100%);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.play-dockview-sandbox-root > div {
+  width: 100%;
+  height: 100%;
+}
+
+.play-dockview-sandbox .dockview-theme-abyss,
+.play-dockview-sandbox .dockview-theme-abyss-spaced {
+  width: 100%;
+  height: 100%;
+}
+
+.play-dockview-sandbox .dv-groupview > .dv-content-container {
+  background: transparent;
+}
+
+/* Make floating-panel resize targets easier to grab without changing the visible frame. */
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-top,
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-bottom {
+  width: calc(100% - 20px);
+  height: 10px;
+  left: 10px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-top {
+  top: -5px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-bottom {
+  bottom: -5px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-left,
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-right {
+  width: 10px;
+  height: calc(100% - 20px);
+  top: 10px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-left {
+  left: -5px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-right {
+  right: -5px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-topleft,
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-topright,
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-bottomleft,
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-bottomright {
+  width: 10px;
+  height: 10px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-topleft {
+  top: -5px;
+  left: -5px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-topright {
+  top: -5px;
+  right: -5px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-bottomleft {
+  bottom: -5px;
+  left: -5px;
+}
+
+.play-dockview-sandbox-root .dv-resize-container .dv-resize-handle-bottomright {
+  right: -5px;
+  bottom: -5px;
+}
+
+.play-dockview-workspace-shell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.play-dockview-workspace-shell .screen-play {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: transparent;
+}
+
+.play-dockview-panel-shell {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.play-dockview-panel-shell__content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.play-dockview-panel-shell__actions {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: row-reverse;
+}
+
+.play-dockview-panel-shell__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.45rem;
+  background: rgba(5, 5, 6, 0.82);
+  color: var(--text-bright);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.play-dockview-panel-shell__action:hover {
+  border-color: rgba(74, 158, 255, 0.6);
+  background: rgba(22, 37, 58, 0.95);
+}
+
+.play-dockview-edge-activator {
+  position: absolute;
+  z-index: 2;
+  pointer-events: auto;
+  background: linear-gradient(180deg, rgba(74, 158, 255, 0.12), rgba(74, 158, 255, 0.03));
+}
+
+.play-dockview-edge-activator--top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+}
+
+.play-dockview-edge-activator--right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: ew-resize;
+}
+
+.play-dockview-header-action-shell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 100%;
+  padding-inline: 0.25rem;
+}
+
+.play-dockview-header-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  padding: 0 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-bright);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.play-dockview-header-action:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.play-dockview-placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.7rem;
+  padding: 1rem 1rem 1.1rem;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(0, 0, 0, 0.22);
+  color: var(--text-bright);
+}
+
+.play-dockview-placeholder__eyebrow {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.play-dockview-placeholder__title {
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.play-dockview-placeholder__description {
+  max-width: 28rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.play-dockview-placeholder--workspace {
+  border: 1px solid rgba(74, 158, 255, 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(74, 158, 255, 0.14), transparent 22%),
+    linear-gradient(180deg, rgba(11, 16, 24, 0.98), rgba(5, 7, 12, 0.98));
+}
+
+.play-dockview-placeholder--accent {
+  border: 1px solid rgba(74, 158, 255, 0.14);
+}
+
+.play-dockview-placeholder--muted {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.play-dockview-placeholder--warning {
+  border: 1px solid rgba(212, 172, 13, 0.18);
 }
 
 .world-channel-hide {

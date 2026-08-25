@@ -163,12 +163,12 @@
         class="tree-data-row"
         class:branch={isBranch}
         class:loading={isLoading}
-        class:selected={viewState.selectedNodeId === row.node.id}
+        class:selected={activeViewState.selectedNodeId === row.node.id}
         style={`--tree-depth: ${row.depth};`}
         role="treeitem"
         aria-level={row.depth + 1}
         aria-expanded={isBranch ? (row.expanded ? 'true' : 'false') : undefined}
-        aria-selected={viewState.selectedNodeId === row.node.id ? 'true' : 'false'}
+        aria-selected={activeViewState.selectedNodeId === row.node.id ? 'true' : 'false'}
       >
         {#if isBranch}
           <button
@@ -194,7 +194,7 @@
         <button
           type="button"
           class="tree-data-node"
-          class:selected={viewState.selectedNodeId === row.node.id}
+          class:selected={activeViewState.selectedNodeId === row.node.id}
           on:click={() => selectNode(row.node.id)}
         >
           <span class="tree-data-node-title">{row.node.title}</span>
@@ -215,9 +215,12 @@
   .tree-data-window {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
     gap: 0.8rem;
     width: 100%;
+    height: 100%;
     min-width: 0;
+    min-height: 0;
     max-width: none;
     box-sizing: border-box;
     padding: 1rem;
@@ -301,9 +304,12 @@
   .tree-data-window-tree {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
     gap: 0.24rem;
     width: 100%;
     min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
     padding: 0.2rem;
     border-radius: 0.9rem;
     border: 1px solid rgba(145, 164, 205, 0.14);

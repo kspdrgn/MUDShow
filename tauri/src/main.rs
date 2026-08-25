@@ -587,11 +587,22 @@ fn window_host_discard(
     window_id: String,
 ) -> Result<(), String> {
     eprintln!("[window-action] host discard requested: id={window_id}");
-    let mut records = registry
-        .records
-        .lock()
-        .map_err(|_| String::from("window host registry is unavailable"))?;
-    records.remove(&window_id);
+    {
+        let mut records = registry
+            .records
+            .lock()
+            .map_err(|_| String::from("window host registry is unavailable"))?;
+        records.remove(&window_id);
+    }
+
+    let label = create_window_label(&window_id);
+    if let Some(webview_window) = app.get_webview_window(&label) {
+        eprintln!("[window-action] destroying discarded native window: id={window_id} label={label}");
+        if let Err(error) = webview_window.destroy() {
+            eprintln!("[window-action] discarded native window destroy failed: id={window_id} error={error}");
+        }
+    }
+
     app.emit("window-host:discarded", window_id.clone())
         .map_err(|error| error.to_string())?;
     eprintln!("[window-action] host discard completed: id={window_id}");
