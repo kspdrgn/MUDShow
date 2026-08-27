@@ -24,6 +24,17 @@ test('session caches are keyed by world id and character id', () => {
   assert.ok(store.hasSessionCache('world-b', ''));
 });
 
+test('clearing a session cache removes transient fuzzball data for that character', () => {
+  const store = new FuzzBallPropertyCacheStore();
+  const cache = store.getSessionCache('world-a', 'character-a');
+  cache.upsertNode({ path: '/prefs/theme', type: 'str', value: 'dark' });
+
+  store.clearSessionCache('world-a', 'character-a');
+
+  assert.equal(store.hasSessionCache('world-a', 'character-a'), false);
+  assert.equal(store.getSessionCache('world-a', 'character-a').hasData(), false);
+});
+
 test('upserting a child synthesizes missing parents and preserves tree structure', () => {
   const cache = new FuzzBallPropertyTreeCache();
 
@@ -38,9 +49,10 @@ test('upserting a child synthesizes missing parents and preserves tree structure
   assert.ok(theme);
 
   assert.equal(prefs?.type, 'dir');
+  assert.equal(prefs?.name, 'prefs/');
   assert.equal(prefs?.isValueLoaded, false);
   assert.equal(prefs?.hasChildren, true);
-  assert.equal(prefs?.label, 'prefs · dir · no value');
+  assert.equal(prefs?.label, 'prefs/ · dir · no value');
 
   assert.equal(colors?.type, 'dir');
   assert.equal(colors?.isValueLoaded, false);
@@ -53,8 +65,23 @@ test('upserting a child synthesizes missing parents and preserves tree structure
   assert.equal(theme?.label, 'theme · str · dark');
 
   const rootChildren = cache.getChildren('/');
-  assert.deepEqual(rootChildren.map((node) => node.name), ['prefs']);
+  assert.deepEqual(rootChildren.map((node) => node.name), ['prefs/']);
   assert.equal(cache.getTree().hasChildren, true);
+});
+
+test('children are sorted alphabetically by character', () => {
+  const cache = new FuzzBallPropertyTreeCache();
+
+  cache.upsertNode({ path: '/zeta', type: 'str', value: 'z' });
+  cache.upsertNode({ path: '/_private', type: 'str', value: '_' });
+  cache.upsertNode({ path: '/!system', type: 'str', value: '!' });
+  cache.upsertNode({ path: '/alpha', type: 'str', value: 'a' });
+  cache.upsertNode({ path: '/Alpha', type: 'str', value: 'A' });
+
+  assert.deepEqual(
+    cache.getChildren('/').map((node) => node.name),
+    ['!system', '_private', 'alpha', 'Alpha', 'zeta'],
+  );
 });
 
 test('upserting the same path replaces the node data', () => {
@@ -84,6 +111,7 @@ test('upserting a slash-suffixed node marks it as a known branch before children
   const children = cache.getChildren('/prefs');
 
   assert.ok(prefs);
+  assert.equal(prefs?.name, 'prefs/');
   assert.equal(prefs?.path, '/prefs');
   assert.equal(prefs?.hasChildren, true);
   assert.equal(prefs?.areChildrenLoaded, false);

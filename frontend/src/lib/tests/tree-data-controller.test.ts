@@ -46,8 +46,27 @@ test('tree data controller updates selection and expansion from typed commands',
 
   assert.deepEqual(collapsed, {
     selectedNodeId: model.root.id,
-    expandedNodeIds: [model.root.id],
+    expandedNodeIds: [],
   });
+});
+
+test('tree data controller can collapse and expand the root again', () => {
+  const model = createDemoTreeDataWindowModel();
+  const initial = createInitialTreeDataWindowViewState(model.root.id);
+
+  const collapsed = reduceTreeDataWindowViewState(initial, {
+    type: 'nodeExpansionToggled',
+    nodeId: model.root.id,
+  }, model);
+
+  assert.deepEqual(collapsed.expandedNodeIds, []);
+
+  const expanded = reduceTreeDataWindowViewState(collapsed, {
+    type: 'nodeExpansionToggled',
+    nodeId: model.root.id,
+  }, model);
+
+  assert.deepEqual(expanded.expandedNodeIds, [model.root.id]);
 });
 
 test('tree data controller reconciles invalid selection back to root', () => {

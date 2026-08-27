@@ -42,7 +42,7 @@ function buildTreeNode(cache: FuzzBallPropertyTreeCache, path: string): TreeData
 
   return {
     id: snapshot.path,
-    title: snapshot.path,
+    title: snapshot.name,
     subtitle: renderSnapshotSubtitle(snapshot),
     badge: snapshot.type,
     kind: snapshot.hasChildren ? 'branch' : 'leaf',
@@ -103,7 +103,7 @@ export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerStat
     badge: 'dir',
     kind: 'branch',
     valueState: 'unknown',
-    childrenState: 'missing',
+    childrenState: 'unknown',
   };
 
   return {

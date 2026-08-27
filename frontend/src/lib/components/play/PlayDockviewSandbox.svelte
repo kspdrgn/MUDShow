@@ -30,6 +30,7 @@
 
   export let visible = true;
   export let onOpenFuzzballStorageViewer: (() => void) | undefined = undefined;
+  export let showFuzzballStorageViewerButton = false;
   export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
   export let notesPanel: DockviewNotesPanelDefinition | null = null;
   export let fuzzballPanels: DockviewFuzzballStoragePanelDefinition[] = [];
@@ -825,7 +826,11 @@
         function render(): void {
           element.replaceChildren();
 
-          if (currentLocation.type === 'edge' && currentLocation.position === 'top') {
+          if (
+            showFuzzballStorageViewerButton
+            && currentLocation.type === 'edge'
+            && currentLocation.position === 'top'
+          ) {
             edgeGroupCustomActionIds.add(group.id);
             element.appendChild(button);
           } else {

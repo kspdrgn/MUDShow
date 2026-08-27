@@ -50,13 +50,14 @@ function normalizePropertyPath(path: string): string {
   return collapsedSlashes.replace(/\/+$/g, '');
 }
 
-function getNodeName(path: string): string {
+function getNodeName(path: string, isDirectory = false): string {
   if (path === '/') {
     return '/';
   }
 
   const lastSlash = path.lastIndexOf('/');
-  return lastSlash >= 0 ? path.slice(lastSlash + 1) : path;
+  const name = lastSlash >= 0 ? path.slice(lastSlash + 1) : path;
+  return isDirectory ? `${name}/` : name;
 }
 
 function getParentPath(path: string): string | null {
@@ -75,6 +76,12 @@ function getParentPath(path: string): string | null {
 function formatNodeLabel(node: Pick<FuzzBallPropertyNodeSnapshot, 'name' | 'type' | 'value'>): string {
   const renderedValue = node.value ?? 'no value';
   return `${node.name} · ${node.type} · ${renderedValue}`;
+}
+
+function compareStorageNodeNames(left: string, right: string): number {
+  const normalizedLeft = left.toLowerCase();
+  const normalizedRight = right.toLowerCase();
+  return normalizedLeft < normalizedRight ? -1 : normalizedLeft > normalizedRight ? 1 : 0;
 }
 
 function toSnapshot(node: InternalPropertyNode, areChildrenLoaded: boolean): FuzzBallPropertyNodeSnapshot {
@@ -119,10 +126,17 @@ export class FuzzBallPropertyTreeCache {
     this.ensureAncestors(normalizedPath, now);
 
     const areChildrenLoaded = this.hasLoadedChildren(normalizedPath);
-    const hasChildren = (input.hasChildren ?? false) || areChildrenLoaded;
+    const listedAsDirectory = input.path.trim().length > 1 && /\/+$/u.test(input.path.trim());
+    const hasChildren = (input.hasChildren ?? false) || listedAsDirectory || areChildrenLoaded;
+    const existingNode = this.nodes.get(normalizedPath);
+    const isKnownDirectory = input.type === 'dir'
+      || input.hasChildren === true
+      || listedAsDirectory
+      || existingNode?.type === 'dir'
+      || existingNode?.name.endsWith('/') === true;
     const nextNode: InternalPropertyNode = {
       path: normalizedPath,
-      name: normalizedPath === '/' ? '/' : getNodeName(normalizedPath),
+      name: normalizedPath === '/' ? '/' : getNodeName(normalizedPath, isKnownDirectory),
       type: input.type,
       value: input.type === 'dir' ? null : (input.value ?? null),
       isValueLoaded: true,
@@ -165,8 +179,8 @@ export class FuzzBallPropertyTreeCache {
     const children = [...this.nodes.values()]
       .filter((node) => getParentPath(node.path) === normalizedPath)
       .sort((left, right) => {
-        const nameCompare = left.name.localeCompare(right.name);
-        return nameCompare !== 0 ? nameCompare : left.path.localeCompare(right.path);
+        const nameCompare = compareStorageNodeNames(left.name, right.name);
+        return nameCompare !== 0 ? nameCompare : 0;
       });
 
     return children.map((child) => toSnapshot(child, this.hasLoadedChildren(child.path)));
@@ -218,7 +232,7 @@ export class FuzzBallPropertyTreeCache {
       } else {
         this.nodes.set(current, {
           path: current,
-          name: current === '/' ? '/' : getNodeName(current),
+          name: current === '/' ? '/' : getNodeName(current, true),
           type: 'dir',
           value: null,
           isValueLoaded: false,

@@ -17,6 +17,7 @@ interface WorldChannelActionContext {
 export interface WorldChannelViewContext {
   currentWorldName: string;
   currentCharacterName: string | null;
+  showFuzzballStorageViewer: boolean;
   scope: string;
   activeBar: InputBarId;
   onOpenFuzzballStorageViewer: () => void;
@@ -35,16 +36,16 @@ export function createWorldChannelActions({
   let suppressTranscriptScrollState = false;
 
   function getWorldChannelsViewModel(_tabId: string, context: WorldChannelViewContext): WorldChannelsViewModel {
-    const controls: ChannelBarControlVM[] = [
-      {
-        id: 'fuzzball-storage-viewer',
-        label: 'exa me=/',
-        title: context.currentCharacterName
-          ? `world: ${context.currentWorldName} · character: ${context.currentCharacterName}`
-          : `world: ${context.currentWorldName}`,
-        onClick: context.onOpenFuzzballStorageViewer,
-      },
-    ];
+    const controls: ChannelBarControlVM[] = context.showFuzzballStorageViewer
+      ? [{
+          id: 'fuzzball-storage-viewer',
+          label: 'exa me=/',
+          title: context.currentCharacterName
+            ? `world: ${context.currentWorldName} · character: ${context.currentCharacterName}`
+            : `world: ${context.currentWorldName}`,
+          onClick: context.onOpenFuzzballStorageViewer,
+        }]
+      : [];
 
     return {
       tabs: [],

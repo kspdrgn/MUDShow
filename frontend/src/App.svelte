@@ -166,6 +166,7 @@ const notesTransportUnlisteners = new Map<string, () => void>();
 const notesTransportSnapshotSignatures = new Map<string, string>();
 const notesBridgeSnapshotSignatures = new Map<string, string>();
 let previousWorldTabIds = new Set<string>();
+const previousWorldTabStorageKeys = new Map<string, { worldId: string; characterId: string }>();
 let allowWindowCloseOnce = false;
 let unlistenAppClose: (() => void) | null = null;
 let unlistenTreeBridgeEvents: Array<() => void> = [];
@@ -384,6 +385,11 @@ $: {
 
     for (const tabId of previousWorldTabIds) {
       if (!currentWorldTabIds.has(tabId)) {
+        const storageKey = previousWorldTabStorageKeys.get(tabId);
+        if (storageKey) {
+          fuzzballStorageCache.clearSessionCache(storageKey.worldId, storageKey.characterId);
+          previousWorldTabStorageKeys.delete(tabId);
+        }
         void discardFuzzballStorageWindowsForSourceTab(tabId);
         void discardDebugConsoleWindowsForSourceTab(tabId);
         void discardNotesWindowsForSourceTab(tabId);
@@ -391,6 +397,14 @@ $: {
       }
     }
 
+    for (const tab of $session.tabs) {
+      if (tab.kind === 'world') {
+        previousWorldTabStorageKeys.set(tab.id, {
+          worldId: tab.worldId,
+          characterId: tab.characterId ?? '',
+        });
+      }
+    }
     previousWorldTabIds = currentWorldTabIds;
 }
 
@@ -3110,6 +3124,7 @@ function requestSurfaceFocus(instanceId: string): void {
       {@const channels = session.channels.getWorldChannelsViewModel(tab.id, {
         currentWorldName: worldSession.currentWorld?.name ?? 'fuzzball storage viewer',
         currentCharacterName: worldSession.currentCharacter?.name ?? null,
+        showFuzzballStorageViewer: worldSession.currentWorld?.compatibility === 'fuzzball',
         scope: tab.id,
         activeBar: worldSession.activeBar,
         onOpenFuzzballStorageViewer: () => {
@@ -3150,6 +3165,7 @@ function requestSurfaceFocus(instanceId: string): void {
         hasNewActivity={worldSession.hasNewActivity}
         bars={worldSession.inputBars}
         onOpenFuzzballStorageViewer={playScreenActions.onOpenFuzzballStorageViewer}
+        showFuzzballStorageViewerButton={worldSession.currentWorld?.compatibility === 'fuzzball'}
         {debugConsolePanel}
         {notesPanel}
         {fuzzballPanels}

@@ -1,23 +1,24 @@
-import { fuzzballStorageCache } from './storage-cache';
-import { parseFuzzballPropertyLine } from './property-line-parser';
+import { fuzzballStorageCache } from './storage-cache.js';
+import { parseFuzzballPropertyLine } from './property-line-parser.js';
 
 export function captureFuzzballWorldLine(
   worldId: string,
   characterId: string,
   text: string,
 ): boolean {
-  const parsed = parseFuzzballPropertyLine(text);
-  if (!parsed) {
-    return false;
+  const lines = text.split(/\r\n|\n|\r/u);
+  const cache = fuzzballStorageCache.getSessionCache(worldId, characterId);
+  let parsedCount = 0;
+
+  for (const line of lines) {
+    const parsed = parseFuzzballPropertyLine(line);
+    if (!parsed) {
+      continue;
+    }
+
+    cache.upsertNode(parsed);
+    parsedCount += 1;
   }
 
-  console.debug('[fuzzball capture] cached property line', {
-    worldId,
-    characterId,
-    type: parsed.type,
-    path: parsed.path,
-    value: parsed.value,
-  });
-  fuzzballStorageCache.getSessionCache(worldId, characterId).upsertNode(parsed);
-  return true;
+  return parsedCount > 0;
 }

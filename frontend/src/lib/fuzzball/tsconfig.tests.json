@@ -15,8 +15,11 @@
   },
   "include": [
     "./storage-cache.ts",
+    "./property-line-parser.ts",
+    "./capture.ts",
     "./tests/storage-cache.test.ts",
-    "./tests/storage-viewer.test.ts"
+    "./tests/storage-viewer.test.ts",
+    "./tests/capture.test.ts"
   ],
   "exclude": ["../../../../node_modules", "../../../../dist", "../../../../tauri"]
 }

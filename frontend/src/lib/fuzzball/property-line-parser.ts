@@ -1,4 +1,4 @@
-import type { FuzzBallPropertyNodeInput, FuzzBallPropertyNodeType } from './storage-cache';
+import type { FuzzBallPropertyNodeInput, FuzzBallPropertyNodeType } from './storage-cache.js';
 
 const SUMMARY_LINE_PATTERN = /^\d+\s+properties?\s+listed\.$/i;
 const PROPERTY_LINE_PATTERN = /^(dir|str|int)\s+([^:]+?)(?::(.*))?$/i;

@@ -64,6 +64,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     controls: [],
   };
   export let onOpenFuzzballStorageViewer: (() => void) | undefined = undefined;
+  export let showFuzzballStorageViewerButton = false;
   export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
   export let notesPanel: DockviewNotesPanelDefinition | null = null;
   export let fuzzballPanels: DockviewFuzzballStoragePanelDefinition[] = [];
@@ -179,6 +180,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   <PlayDockviewSandbox
     visible={visible}
     onOpenFuzzballStorageViewer={onOpenFuzzballStorageViewer}
+    {showFuzzballStorageViewerButton}
     {debugConsolePanel}
     {notesPanel}
     {fuzzballPanels}

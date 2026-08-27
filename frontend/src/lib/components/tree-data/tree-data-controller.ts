@@ -39,7 +39,6 @@ export function reconcileTreeDataWindowViewState(
       ? viewState.selectedNodeId
       : model.root.id;
   const expandedNodeIds = [
-    model.root.id,
     ...viewState.expandedNodeIds.filter((nodeId) => findTreeDataNode(model.root, nodeId)),
   ];
 
@@ -91,7 +90,7 @@ export function reduceTreeDataWindowViewState(
     case 'collapseAllRequested':
       return {
         selectedNodeId: model.root.id,
-        expandedNodeIds: [model.root.id],
+        expandedNodeIds: [],
       };
     default:
       return current;

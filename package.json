@@ -14,7 +14,7 @@
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.json",
-    "test:fuzzball-cache": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/fuzzball/tsconfig.tests.json && node --test dist/fuzzball-cache-tests/tests/storage-cache.test.js",
+    "test:fuzzball-cache": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/fuzzball/tsconfig.tests.json && node --test dist/fuzzball-cache-tests/tests/*.test.js",
     "clean": "rimraf dist tauri/target tauri/.mudshow-tauri-dev-*.json",
     "test": "npm run test:fuzzball-cache"
   },

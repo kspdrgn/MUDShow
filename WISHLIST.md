@@ -2,18 +2,31 @@
 
 ## Top TODO
 
+bugs:
+- selecting while scrolling can get transcript stuck in two-pane mode
+- transcript
+  - output lag, things not appearing as soon as they should
+  - select lots of text misses some because of virtualization?
+- fuzzball storage viewer
+  - cache isn't cleared when closing the world tab, should erase any world tab state that isn't explicitly persisted to storage, including plugin state.
+  - doesn't work with real exa me=/ outputs
+  - doesn't work with multiple worlds at once, maybe just be broken after above error though.
+
 - [X] channel bar controls
   - [X] button for debug dictionary open
 - [X] fuzzball plugin skeleton
   - [X] generic prop tree debug view
   - [X] parsing exa props
   - [X] get
+  - [ ] fix handling of real output
   - [ ] set
   - [ ] filter out captured props from transcript IF they are from plugin requests (not manual user requests)
     - [ ] capture pipeline filter system to omit contents from transcript
 - [X] app notice modals system separate from hosted popout windows
 - [X] app DI, slim down App.svelte
 - [X] worldSession DI, slim down component plumbing
+- [X] debug console to debug raw input/output
+- [ ] debug console input to impersonate world input
 - [ ] plugin architecture
 - [ ] taps plugin skeleton
   - [ ] desc editor first candidate window

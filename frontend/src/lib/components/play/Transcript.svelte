@@ -617,9 +617,11 @@
 
   function handleScroll(event: Event): void {
     const outputEl = event.currentTarget;
+    let nextUserScrolled = userScrolled;
     if (outputEl instanceof HTMLElement) {
       historyScrollTop = outputEl.scrollTop;
       historyViewportHeight = outputEl.clientHeight;
+      nextUserScrolled = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight > 2;
     }
 
     logTranscriptDiagnostics('scroll', {
@@ -631,14 +633,23 @@
       splitView,
     });
 
+    userScrollIntent = false;
+    // Parent store updates are batched. Keep the local render pass in sync
+    // with the actual scroll position so it cannot re-anchor an upward scroll
+    // to the bottom before the parent update is applied.
+    userScrolled = nextUserScrolled;
+    onScroll();
     syncTranscriptRenderState();
 
-    if (!userScrolled && !userScrollIntent) {
-      return;
-    }
-
-    userScrollIntent = false;
-    onScroll();
+    // Let the parent update userScrolled before recalculating the virtualized
+    // range. If virtualization runs first while userScrolled is false, it
+    // anchors the range to the bottom and makes an upward scroll look like a
+    // no-op. The second check also lets split view collapse after the new
+    // range has been applied when the user reaches the real bottom.
+    void nextFrame().then(() => {
+      syncTranscriptRenderState();
+      onScroll();
+    });
   }
 
   function handleWheel(event: WheelEvent): void {
@@ -780,9 +791,11 @@
     // Recheck after layout so virtualization does not remain stuck at a zero height.
     const firstLayoutFrame = requestAnimationFrame(() => {
       syncTranscriptRenderState();
+      scrollTranscriptToBottomIfFollowing(scope, userScrolled);
     });
     const secondLayoutFrame = requestAnimationFrame(() => {
       syncTranscriptRenderState();
+      scrollTranscriptToBottomIfFollowing(scope, userScrolled);
     });
 
     const disposeObservers = setupTranscriptObservers({

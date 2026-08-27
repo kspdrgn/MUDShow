@@ -96,6 +96,8 @@ The Dockview library gates auto-hide behavior behind an Enterprise subscription 
 
 ### Tree Viewer Surfaces
 - Tree-style surfaces show hierarchical data with selection and expansion behavior.
+- Any branch, including the root branch, can be collapsed and expanded again.
+- The collapse-all action collapses the root as well as every descendant branch.
 - The dummy tree viewer can be opened in the active world tab’s Dockview host, floated in-app, or popped out into a native window.
 - Closing the owning world tab closes the dummy tree viewer and clears any popped-out native-window state.
 - The controller owns the tree model and the current view state.
@@ -103,13 +105,17 @@ The Dockview library gates auto-hide behavior behind an Enterprise subscription 
 
 ### Fuzzball Storage Viewer
 - The fuzzball storage viewer shows live hierarchical storage data for a world connection.
+- The fuzzball storage viewer action is shown only when the active world uses `fuzzball` compatibility.
 - It has one surface instance per world tab and can be opened in the per-world Dockview host, floated in-app, or popped out into a native window.
 - A newly opened viewer defaults to an in-app floating panel rather than the top edge tab group.
 - When first opened as an in-app floating panel, it targets 600 pixels wide by 900 pixels high, clamped to the available window area.
 - Opening the viewer again for the same world tab focuses the existing instance rather than creating a duplicate.
 - Closing the owning world tab closes the viewer instance and clears any popped-out native-window state; reopening the world creates no viewer automatically.
 - The controller owns both the storage data and the view state needed to browse it.
+- Storage data loaded by the viewer is transient world-tab state: closing the owning world tab clears the in-memory cache for that world and character, while any explicitly persisted application storage remains unchanged.
 - The component renders the current storage snapshot and emits typed browse/load intent.
+- Storage nodes known to be directories display a trailing `/` in their node name, including nodes whose source listing used a trailing slash even when their type is not `dir`.
+- Storage nodes are sorted alphabetically by character.
 
 ### Standalone Dummy Window
 - The standalone dummy window is a developer test surface with static content.
