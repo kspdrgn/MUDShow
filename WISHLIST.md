@@ -5,12 +5,13 @@
 bugs:
 - selecting while scrolling can get transcript stuck in two-pane mode
 - transcript
-  - output lag, things not appearing as soon as they should
+  - output lag, things not appearing as soon as they should. debug console updates immediately, but transcript doesn't.
   - select lots of text misses some because of virtualization?
+- surfaces
+  - resizing top dock can move bottom of transcript off screen, or trigger split scrolling.
 - fuzzball storage viewer
-  - cache isn't cleared when closing the world tab, should erase any world tab state that isn't explicitly persisted to storage, including plugin state.
-  - doesn't work with real exa me=/ outputs
-  - doesn't work with multiple worlds at once, maybe just be broken after above error though.
+  - test with multiple worlds at once.
+  - expand all doesn't send requests for unloaded nodes.
 
 - [X] channel bar controls
   - [X] button for debug dictionary open
@@ -18,15 +19,15 @@ bugs:
   - [X] generic prop tree debug view
   - [X] parsing exa props
   - [X] get
-  - [ ] fix handling of real output
-  - [ ] set
+  - [ ] set, revamp ui...
   - [ ] filter out captured props from transcript IF they are from plugin requests (not manual user requests)
     - [ ] capture pipeline filter system to omit contents from transcript
 - [X] app notice modals system separate from hosted popout windows
 - [X] app DI, slim down App.svelte
 - [X] worldSession DI, slim down component plumbing
-- [X] debug console to debug raw input/output
-- [ ] debug console input to impersonate world input
+- [ ] debug console
+  - [X] display raw input/output
+  - [ ] input to impersonate world input
 - [ ] plugin architecture
 - [ ] taps plugin skeleton
   - [ ] desc editor first candidate window
@@ -41,7 +42,7 @@ bugs:
   - [X] side channels
   - [X] message bus
   - [ ] dockview tabs should have less gutter on top and bottom.
-  - [ ] tree ui sucks, duplicates words, need trailing / after folders
+  - [ ] tree ui sucks, duplicates words, selection box not responsive
   - [ ] trim extra logging everywhere
   - [ ] clicking dock panels doesn't refocus to input area
   - [ ] dock panel auto-hide doesn't always activate, not sure why
@@ -124,7 +125,9 @@ Release:
   - [X] Resize input height by lines
   - [X] TAB auto-complete of names/objects seen in MUD text
   - [X] CTRL+Enter to make new line without sending
-  - [X] Spellcheck, native from browser
+  - [ ] Automatic expand input box when filling it up. Beip does this with automatic contraction back to previous size.
+  - [ ] Drag to resize input box instead of needing buttons. Beip does this, has no buttons.
+  - [X] Spellcheck
     - [ ] Better spellcheck timing? When done with a word or when moving past it? I think BeipMU is when you move past it. Currently doing it every character for early squiggles, don't like.
     - [X] Better spellcheck - `spellbook` library
     - [ ] Better spellcheck - `hunspell-rs` library
@@ -132,6 +135,7 @@ Release:
   - [ ] Character count - Buffer indicator
   - [ ] Duplicate word indicator? Suggest alternates? Search past lines? hmm...
   - [ ] Automatic fixing of misplaced space or obvious typos? idk.. confidence score for autocorrects?
+  - [ ] Automatic conversion of tab/newline to %r%t for worlds that need it.
 
 ## MUD Text
   - Appearance - Fonts/colors customization, not app UI theming.
@@ -196,6 +200,7 @@ Release:
 
   - Name awareness
     - [ ] Automatic name color even if they're not in your wf/database
+    - [ ] Temporarily filter only select names to read a scene thru the spam. Maybe in a separate tab view?
 
   - Logging
     - [X] One-click session logging. Start logging and auto-name log file.

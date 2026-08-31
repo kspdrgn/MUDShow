@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import type { Readable } from 'svelte/store';
   import {
     buildHighlightRegexes,
@@ -109,6 +109,8 @@
   let lastSyncedWidth = width;
   let renderDependencyKey = '';
   let lastRenderDependencyKey = '';
+  let resizeReconcileFrame: number | null = null;
+  let transcriptDestroyed = false;
   const MIN_TRANSCRIPT_ZOOM = 0.6;
   const MAX_TRANSCRIPT_ZOOM = 2;
   const TRANSCRIPT_ZOOM_STEP = 0.1;
@@ -451,6 +453,58 @@
     distanceFromBottom: number;
   } | null {
     return getTranscriptScrollMetrics(document.getElementById(`${scope}-output-area`) as HTMLElement | null);
+  }
+
+  function syncTranscriptScrollMetrics(): void {
+    const historyElement = transcriptHistoryScrollerElement
+      ?? document.getElementById(`${scope}-output-area`);
+
+    if (historyElement instanceof HTMLElement) {
+      historyScrollTop = historyElement.scrollTop;
+      historyViewportHeight = historyElement.clientHeight;
+    }
+
+    if (splitView && transcriptLiveElement instanceof HTMLElement) {
+      liveViewportHeight = transcriptLiveElement.clientHeight;
+    }
+  }
+
+  function scheduleTranscriptResizeReconcile(): void {
+    if (resizeReconcileFrame !== null || transcriptDestroyed) {
+      return;
+    }
+
+    resizeReconcileFrame = requestAnimationFrame(() => {
+      resizeReconcileFrame = null;
+
+      if (transcriptDestroyed) {
+        return;
+      }
+
+      const scrollBefore = isTranscriptDiagnosticsEnabled() ? getScrollMetrics() : null;
+      syncTranscriptScrollMetrics();
+      syncTranscriptRenderState();
+
+      void tick().then(() => {
+        if (transcriptDestroyed) {
+          return;
+        }
+
+        syncTranscriptRenderState();
+        scrollTranscriptToBottomIfFollowing(scope, userScrolled);
+        syncTranscriptScrollMetrics();
+
+        logTranscriptDiagnostics('resize reconcile', {
+          scope,
+          userScrolled,
+          scrollBefore,
+          scrollAfter: getScrollMetrics(),
+          historyScrollTop,
+          historyViewportHeight,
+          liveViewportHeight,
+        });
+      });
+    });
   }
 
   async function handleMouseUp(): Promise<void> {
@@ -801,28 +855,16 @@
     const disposeObservers = setupTranscriptObservers({
       contentElement: transcriptContentElement,
       historyElement: transcriptHistoryScrollerElement,
-      onContentResize: () => {
-        logTranscriptDiagnostics('content resize', {
-          scope,
-          scrollState: getScrollMetrics(),
-          userScrolled,
-        });
-        scrollTranscriptToBottomIfFollowing(scope, userScrolled);
-      },
-      onHistoryResize: () => {
-        logTranscriptDiagnostics('history resize', {
-          scope,
-          scrollState: getScrollMetrics(),
-          historyScrollTop,
-          historyViewportHeight,
-        });
-        syncTranscriptRenderState();
-      },
+      onResize: scheduleTranscriptResizeReconcile,
     });
 
     return () => {
       cancelAnimationFrame(firstLayoutFrame);
       cancelAnimationFrame(secondLayoutFrame);
+      if (resizeReconcileFrame !== null) {
+        cancelAnimationFrame(resizeReconcileFrame);
+        resizeReconcileFrame = null;
+      }
       disposeObservers();
       removeWorkspaceStateListener?.();
       removeWorkspaceStateListener = null;
@@ -830,6 +872,11 @@
   });
 
   onDestroy(() => {
+    transcriptDestroyed = true;
+    if (resizeReconcileFrame !== null) {
+      cancelAnimationFrame(resizeReconcileFrame);
+      resizeReconcileFrame = null;
+    }
     removeZoomKeydownListener?.();
     removeZoomKeydownListener = null;
   });

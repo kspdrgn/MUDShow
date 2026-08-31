@@ -1,8 +1,7 @@
 export interface TranscriptObserverTargets {
   contentElement: HTMLElement | null;
   historyElement: HTMLElement | null;
-  onContentResize: () => void;
-  onHistoryResize: () => void;
+  onResize: () => void;
 }
 
 export function setupTranscriptObservers(targets: TranscriptObserverTargets): () => void {
@@ -11,14 +10,14 @@ export function setupTranscriptObservers(targets: TranscriptObserverTargets): ()
 
   if (targets.contentElement) {
     contentResizeObserver = new ResizeObserver(() => {
-      targets.onContentResize();
+      targets.onResize();
     });
     contentResizeObserver.observe(targets.contentElement);
   }
 
   if (targets.historyElement) {
     historyResizeObserver = new ResizeObserver(() => {
-      targets.onHistoryResize();
+      targets.onResize();
     });
     historyResizeObserver.observe(targets.historyElement);
   }
