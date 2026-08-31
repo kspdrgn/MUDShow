@@ -15,8 +15,9 @@
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.json",
     "test:fuzzball-cache": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/fuzzball/tsconfig.tests.json && node --test dist/fuzzball-cache-tests/tests/*.test.js",
+    "test:input-bar-sizing": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.tests.json && node --test dist/input-bar-sizing-tests/tests/*.test.js",
     "clean": "rimraf dist tauri/target tauri/.mudshow-tauri-dev-*.json",
-    "test": "npm run test:fuzzball-cache"
+    "test": "npm run test:fuzzball-cache && npm run test:input-bar-sizing"
   },
   "author": "",
   "license": "ISC",

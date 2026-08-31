@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "outDir": "../../../dist/input-bar-sizing-tests",
+    "rootDir": "."
+  },
+  "include": [
+    "./input-bars.ts",
+    "./input-bar-sizing.ts",
+    "./tests/input-bar-sizing.test.ts"
+  ],
+  "exclude": ["../../../node_modules", "../../../dist", "../../../tauri"]
+}

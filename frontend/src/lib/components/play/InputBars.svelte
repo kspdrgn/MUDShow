@@ -3,6 +3,7 @@ import { tick } from 'svelte';
 import { onDestroy, onMount } from 'svelte';
 import StatusDot from './StatusDot.svelte';
 import SpellcheckContextMenu from './SpellcheckContextMenu.svelte';
+import { calculateInputBarHeight } from '../../input-bar-sizing';
 import {
   clampInputBarLines,
   getScopedInputBarContainerId,
@@ -55,12 +56,14 @@ import {
   const CONTROL_FADE_DELAY = 1400;
 
   let values: Record<InputBarId, string> = {};
+  let effectiveHeights: Record<InputBarId, number> = {};
   let history: string[] = [];
   let historyState: Record<InputBarId, HistoryBrowseState> = {};
   let controlsVisible: Record<InputBarId, boolean> = {};
   let spellcheck: InputBarsSpellcheckState = createInputBarsSpellcheckState();
   let lastSelectedBar: InputBarId = activeBar;
   const controlTimers = new Map<InputBarId, number>();
+  const resizeFrames = new Map<InputBarId, number>();
   const spellcheckController = createInputBarsSpellcheckController({
     getInput,
     onIgnoreWord,
@@ -83,6 +86,63 @@ import {
 
   function focusBar(bar: InputBarId): void {
     getInput(bar)?.focus();
+  }
+
+  function parseCssPixels(value: string): number {
+    const pixels = Number.parseFloat(value);
+    return Number.isFinite(pixels) ? pixels : 0;
+  }
+
+  function resizeInputToContent(
+    bar: InputBarConfig,
+    input: HTMLTextAreaElement | null = getInput(bar.id),
+  ): void {
+    if (!input) {
+      return;
+    }
+
+    const styles = window.getComputedStyle(input);
+    const fontSize = parseCssPixels(styles.fontSize) || 13;
+    const lineHeight = styles.lineHeight === 'normal'
+      ? fontSize * 1.55
+      : parseCssPixels(styles.lineHeight) || fontSize * 1.55;
+    const verticalPadding = parseCssPixels(styles.paddingTop) + parseCssPixels(styles.paddingBottom);
+    const verticalBorder = parseCssPixels(styles.borderTopWidth) + parseCssPixels(styles.borderBottomWidth);
+    // A textarea's scrollHeight cannot shrink below its current explicit
+    // height. Collapse the live control and finish the read/write before paint.
+    input.style.height = '0px';
+    input.style.overflowY = 'hidden';
+    const contentHeight = input.scrollHeight;
+    const height = calculateInputBarHeight({
+      lines: bar.lines,
+      contentHeight,
+      lineHeight,
+      verticalPadding,
+      verticalBorder,
+    });
+
+    input.style.height = `${Math.ceil(height.effectiveHeight)}px`;
+    input.style.overflowY = height.shouldScroll ? 'auto' : 'hidden';
+    if (!height.shouldScroll) {
+      input.scrollTop = 0;
+    }
+    effectiveHeights = {
+      ...effectiveHeights,
+      [bar.id]: Math.ceil(height.effectiveHeight),
+    };
+  }
+
+  function scheduleInputResize(bar: InputBarConfig): void {
+    const existingFrame = resizeFrames.get(bar.id);
+    if (existingFrame !== undefined) {
+      cancelAnimationFrame(existingFrame);
+    }
+
+    const frame = requestAnimationFrame(() => {
+      resizeFrames.delete(bar.id);
+      resizeInputToContent(bar);
+    });
+    resizeFrames.set(bar.id, frame);
   }
 
   async function restoreFocus(): Promise<void> {
@@ -179,6 +239,15 @@ import {
       }
     }
 
+    const nextEffectiveHeights = { ...effectiveHeights };
+    for (const key of Object.keys(nextEffectiveHeights)) {
+      const barId = Number(key) as InputBarId;
+      if (!barIds.has(barId)) {
+        delete nextEffectiveHeights[barId];
+      }
+    }
+    effectiveHeights = nextEffectiveHeights;
+
     if (changed) {
       values = nextValues;
       historyState = nextHistoryState;
@@ -202,6 +271,9 @@ import {
     if (nextSignature !== previousBarSignature) {
       previousBarSignature = nextSignature;
       syncBars();
+      for (const bar of bars) {
+        scheduleInputResize(bar);
+      }
     }
   }
 
@@ -222,6 +294,10 @@ import {
   onMount(() => {
     const initialBar = bars.find((bar) => bar.id === lastSelectedBar) ?? bars[0];
 
+    for (const bar of bars) {
+      scheduleInputResize(bar);
+    }
+
     if (initialBar) {
       focusBar(initialBar.id);
     }
@@ -233,6 +309,10 @@ import {
     }
 
     controlTimers.clear();
+    for (const frame of resizeFrames.values()) {
+      cancelAnimationFrame(frame);
+    }
+    resizeFrames.clear();
     spellcheckController.destroy();
   });
 
@@ -245,6 +325,11 @@ import {
       ...values,
       [bar]: value,
     };
+
+    const config = bars.find((entry) => entry.id === bar);
+    if (config) {
+      scheduleInputResize(config);
+    }
   }
 
   function getEntry(bar: InputBarId): HistoryBrowseState {
@@ -483,6 +568,11 @@ import {
       return;
     }
 
+    const config = bars.find((entry) => entry.id === bar);
+    if (config) {
+      resizeInputToContent(config, target);
+    }
+
     const entry = getEntry(bar);
 
     if (entry.cursor === null) {
@@ -586,6 +676,7 @@ import {
             class="mud-input spellcheck-input"
             id={getScopedInputBarInputId(scope, bar.id)}
             rows={clampInputBarLines(bar.lines)}
+            style={effectiveHeights[bar.id] ? `height: ${effectiveHeights[bar.id]}px` : ''}
             bind:value={values[bar.id]}
             autocomplete="off"
             lang={spellcheckLanguage}

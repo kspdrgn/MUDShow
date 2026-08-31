@@ -3382,13 +3382,6 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.mud-input.spellcheck-input::-webkit-scrollbar {
-  width: 0;
-  height: 0;
 }
 
 .status-dot-slot {

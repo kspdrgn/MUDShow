@@ -9,6 +9,7 @@ export interface InputBarConfig {
 
 export const MIN_INPUT_BAR_LINES = 1;
 export const MAX_INPUT_BAR_LINES = 10;
+export const MAX_AUTO_INPUT_BAR_LINES = 6;
 
 export function clampInputBarLines(lines: number): number {
   return Math.min(MAX_INPUT_BAR_LINES, Math.max(MIN_INPUT_BAR_LINES, Math.trunc(lines)));
