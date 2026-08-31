@@ -24,6 +24,8 @@ If the user manually scrolls away from the bottom, automatic scrolling pauses an
 
 When the transcript viewport changes size because of window, input-area, Dockview, panel, or edge-group layout changes, the client preserves the current user-scroll state. If the user was following the bottom, the transcript re-anchors to the bottom after layout settles. If the user had scrolled away, the history position and split view remain unchanged. Multiple resize notifications in one layout cycle are reconciled together.
 
+Layout-generated scroll events caused by those size changes do not count as manual scrolling. Only direct scrollbar, mouse-wheel, or forwarded page-scroll input can change the user-scroll state.
+
 Clicking the scroll-to-bottom button scrolls the output panel to the bottom and restores automatic scrolling for new transcript content.
 
 While the command input area is focused, Page Up and Page Down scroll the transcript output by a page without moving focus away from the input. `Ctrl+Home` scrolls the transcript output to the top of the document, and `Ctrl+End` scrolls to the bottom and restores automatic scrolling. Plain `Home` and `End` stay in the input text.

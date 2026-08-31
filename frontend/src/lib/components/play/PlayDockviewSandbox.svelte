@@ -69,7 +69,7 @@
   export let onOpenTriggers: () => void = () => {};
   export let onOpenStyles: () => void = () => {};
   export let onCloseRequest: (anchorRect: DOMRect) => void = () => {};
-  export let onScroll: () => void = () => {};
+  export let onScroll: (userInitiated?: boolean) => void = () => {};
   export let onScrollToBottom: () => void = () => {};
 
   type SandboxPanelDefinition = {

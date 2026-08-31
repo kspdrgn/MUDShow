@@ -45,7 +45,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     onInputAddBar: (bar: InputBarId) => void;
     onInputRemoveBar: (bar: InputBarId) => void;
     onInputResizeBar: (bar: InputBarId, delta: -1 | 1) => void;
-    onOutputScroll: () => void;
+    onOutputScroll: (userInitiated?: boolean) => void;
     onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') => void;
     onScrollToBottom: () => void;
   };

@@ -458,7 +458,7 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
       onInputRemoveBar: (bar: number) => void session.removeInputBar(bar),
       onInputResizeBar: (bar: number, delta: -1 | 1) => session.resizeInputBar(bar, delta),
       onSpellcheckIgnoreWord: (word: string) => void appServices.spellcheck.ignoreWord(word),
-      onOutputScroll: () => session.handleOutputScroll(),
+      onOutputScroll: (userInitiated?: boolean) => session.handleOutputScroll(userInitiated),
       onOutputScrollKey: (action: 'top' | 'bottom' | 'page-up' | 'page-down') =>
         session.handleOutputScrollKey(action),
       onScrollToBottom: () => session.handleScrollToBottom(),

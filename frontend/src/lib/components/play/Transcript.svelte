@@ -71,7 +71,7 @@
   export let onOpenTriggers: () => void;
   export let onOpenStyles: () => void;
   export let onCloseRequest: (anchorRect: DOMRect) => void;
-  export let onScroll: () => void;
+  export let onScroll: (userInitiated?: boolean) => void;
   export let onScrollToBottom: () => void;
   export let workspaceState: Readable<Record<string, unknown>> | null = null;
 
@@ -671,8 +671,9 @@
 
   function handleScroll(event: Event): void {
     const outputEl = event.currentTarget;
+    const wasUserScrollIntent = userScrollIntent;
     let nextUserScrolled = userScrolled;
-    if (outputEl instanceof HTMLElement) {
+    if (wasUserScrollIntent && outputEl instanceof HTMLElement) {
       historyScrollTop = outputEl.scrollTop;
       historyViewportHeight = outputEl.clientHeight;
       nextUserScrolled = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight > 2;
@@ -692,7 +693,7 @@
     // with the actual scroll position so it cannot re-anchor an upward scroll
     // to the bottom before the parent update is applied.
     userScrolled = nextUserScrolled;
-    onScroll();
+    onScroll(wasUserScrollIntent);
     syncTranscriptRenderState();
 
     // Let the parent update userScrolled before recalculating the virtualized
@@ -702,7 +703,7 @@
     // range has been applied when the user reaches the real bottom.
     void nextFrame().then(() => {
       syncTranscriptRenderState();
-      onScroll();
+      onScroll(false);
     });
   }
 
@@ -833,6 +834,7 @@
       deltaMode: event.deltaMode,
     });
 
+    userScrollIntent = true;
     scrollElementBy(mainOutputId, delta);
   }
 

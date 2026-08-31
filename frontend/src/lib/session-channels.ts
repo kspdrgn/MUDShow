@@ -58,7 +58,11 @@ export function createWorldChannelActions({
     updateWorldSession(tabId, { userScrolled: distance > 2 });
   }
 
-  function handleOutputScroll(): void {
+  function handleOutputScroll(userInitiated = false): void {
+    if (!userInitiated) {
+      return;
+    }
+
     if (suppressTranscriptScrollState) {
       return;
     }
