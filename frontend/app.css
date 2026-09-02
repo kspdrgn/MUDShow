@@ -1923,6 +1923,14 @@ body {
   --dv-spacing-padding: 0px;
 }
 
+/* The spaced Dockview theme allocates a 10px split gap but positions its
+   default 4px sash 3px into that gap. Cover the full gap with the resize
+   target so there is no dead zone above or below it. */
+.play-dockview-sandbox-root .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
+  height: 10px;
+  margin-top: -3px;
+}
+
 .play-dockview-sandbox-shell {
   position: relative;
   width: 100%;

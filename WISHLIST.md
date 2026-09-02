@@ -5,10 +5,11 @@
 bugs:
 - selecting while scrolling can get transcript stuck in two-pane mode
 - transcript
-  - output lag, things not appearing as soon as they should. debug console updates immediately, but transcript doesn't.
-  - select lots of text misses some because of virtualization?
+  - [X] fixed? output lag, things not appearing as soon as they should. debug console updates immediately, but transcript doesn't.
+  - [ ] select lots of text misses some because of virtualization?
 - surfaces
-  - resizing top dock can move bottom of transcript off screen, or trigger split scrolling.
+  - [X] fixed? resizing top dock can trigger split scrolling.
+  - [ ] not fixed? resizing top dock can move bottom of transcript off screen.
 - fuzzball storage viewer
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.
