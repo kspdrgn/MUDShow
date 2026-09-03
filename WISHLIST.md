@@ -14,6 +14,12 @@ bugs:
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.
 
+- image previews not working in linux?
+- change char connect string to password style with reveal button
+- logging separate action buttons, show full text of what they do
+- logging show log location when stop logging
+- logging include timestamp in log when starting? ending?
+
 - [X] channel bar controls
   - [X] button for debug dictionary open
 - [X] fuzzball plugin skeleton
