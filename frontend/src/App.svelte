@@ -98,6 +98,7 @@ import { createWorldSessionKey } from './lib/world-session-container';
 import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
 import { flushPendingNotesSave } from './lib/session-world-input';
 import { emit, getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
+import { getDockviewTheme } from './lib/dockview-themes';
 
 const currentUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
 const initialWindowMode = currentUrl?.searchParams.get('windowMode');
@@ -127,6 +128,7 @@ const NOTES_WINDOW_ID_PREFIX = 'notes-window-';
 const FUZZBALL_STORAGE_SURFACE_ID = 'fuzzball-storage-viewer';
 
 const appSettingsStore = appServices.settings.current;
+$: appThemeClassName = getDockviewTheme($appSettingsStore.colorScheme).className;
 const appNoticeStore = appServices.notice.current;
 let loggingModalTabId: string | null = null;
 let activeTab: AppTab | null = null;
@@ -3047,7 +3049,7 @@ function requestSurfaceFocus(instanceId: string): void {
     {/if}
   </PoppedOutWindowView>
 {:else}
-<div id="app-shell">
+<div id="app-shell" class={appThemeClassName}>
   <TopBar
     tabs={$session.tabs}
     activeTabId={$session.activeTabId}
