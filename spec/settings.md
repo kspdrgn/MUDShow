@@ -81,7 +81,8 @@ While the app settings tab stays open, it remembers the last selected tab. If th
 - See `spec/style.md` for details on how styles can be customized and the UI for it
 
 ## UI
-- App color and font scheme - locked to 'midnight' for now, which is a dark mode
+- Dockview theme - selected from the built-in Dockview theme list and persisted with app settings
+- The Dockview theme setting currently affects only Dockview surfaces; the surrounding app UI keeps its existing styling
 
 ## Triggers
 - Simple highlights and regexp rules are stored together in the top-level `triggers` collection.

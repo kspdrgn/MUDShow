@@ -56,10 +56,11 @@
 
 The Dockview library gates auto-hide behavior behind an Enterprise subscription which we do not have. We have created a small custom auto-hide functionality for edge groups:
 - Edge tab groups may use the custom in-app auto-hide behavior when the Dockview auto-hide module is unavailable.
-- Each hidden edge group has a reveal trigger along its edge: a wider top-edge trigger for the top group and a wider right-edge trigger for the right group.
+- Each hidden edge group has a reveal trigger along its edge: wider top, right, and left edge triggers are available for their respective groups.
 - Hovering a reveal trigger makes that edge group visible while keeping it collapsed. Selecting a tab expands the group normally.
-- Reveal triggers are disabled for edge groups with no tabs and no custom action controls; a group with either tabs or rendered custom actions remains revealable.
-- The hide timer is two seconds. It starts when a populated edge group becomes collapsed, when the pointer leaves that edge group, or when the pointer leaves the Dockview sandbox.
+- Reveal triggers are disabled for edge groups with no tabs or custom UI; a group containing either tabs or rendered custom UI remains revealable.
+- While a panel tab is being dragged, all edge groups remain visible as drop targets for the duration of the drag. Their normal auto-hide and empty-group cleanup are restored when the drag ends.
+- The hide timer is two seconds. It starts when an edge group becomes empty and collapsed, when a populated edge group becomes collapsed, when the pointer leaves that edge group, or when the pointer leaves the Dockview sandbox.
 - The timer resets when the pointer enters the edge group, when the pointer enters the Dockview sandbox, when the group is expanded, or when the reveal trigger makes the group visible.
 - Auto-hide may only hide a group that is currently collapsed. Expanded groups must remain visible.
 - An edge group with no registered tabs is hidden immediately and does not start an auto-hide timer.

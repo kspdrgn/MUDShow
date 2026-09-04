@@ -12,6 +12,7 @@ bugs:
   - [ ] not fixed? resizing top dock can move bottom of transcript off screen.
 - dockview
   - [X] grab handle should be full size on all docks.
+  - [X] left hand dock too. unify grab handle, collapse, expand, autohide and reveal behavior.
 - fuzzball storage viewer
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.

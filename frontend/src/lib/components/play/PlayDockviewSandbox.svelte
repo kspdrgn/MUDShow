@@ -92,15 +92,19 @@
   let dockview: DockviewComponent | null = null;
   let topEdgeGroup: ReturnType<DockviewComponent['addEdgeGroup']> | null = null;
   let rightEdgeGroup: ReturnType<DockviewComponent['addEdgeGroup']> | null = null;
+  let leftEdgeGroup: ReturnType<DockviewComponent['addEdgeGroup']> | null = null;
   let workspaceTranscriptHost: Record<string, unknown> | null = null;
   let updateWorkspaceTranscript: (() => void) | null = null;
   const workspaceTranscriptState = writable<Record<string, unknown>>({});
   let topEdgeHidden = false;
   let rightEdgeHidden = false;
+  let leftEdgeHidden = false;
   let topHideTimer: ReturnType<typeof setTimeout> | null = null;
   let rightHideTimer: ReturnType<typeof setTimeout> | null = null;
+  let leftHideTimer: ReturnType<typeof setTimeout> | null = null;
   let removeTopEdgePointerListeners: (() => void) | null = null;
   let removeRightEdgePointerListeners: (() => void) | null = null;
+  let removeLeftEdgePointerListeners: (() => void) | null = null;
   let floatingGroupDisposables: Array<{ dispose: () => void }> = [];
   type FloatingContainerBounds = Pick<DOMRect, 'top' | 'bottom' | 'left' | 'right'>;
   type FloatingGroupSnapshot = {
@@ -119,6 +123,7 @@
   let tabDragVisibility: {
     top: { visible: boolean; hasContent: boolean };
     right: { visible: boolean; hasContent: boolean };
+    left: { visible: boolean; hasContent: boolean };
   } | null = null;
   let removeTabDragEndListeners: (() => void) | null = null;
   let tabDragRestoreFrame: number | null = null;
@@ -155,6 +160,23 @@
   const DEFAULT_FLOATING_OFFSET = 100;
 
   const AUTO_HIDE_DELAY_MS = 2000;
+  type EdgeGroupPosition = 'top' | 'right' | 'left';
+
+  function getEdgeGroup(position: EdgeGroupPosition) {
+    if (position === 'top') return topEdgeGroup;
+    return position === 'right' ? rightEdgeGroup : leftEdgeGroup;
+  }
+
+  function setEdgeGroupHidden(position: EdgeGroupPosition, hidden: boolean): void {
+    if (position === 'top') {
+      topEdgeHidden = hidden;
+    } else if (position === 'right') {
+      rightEdgeHidden = hidden;
+    } else {
+      leftEdgeHidden = hidden;
+    }
+  }
+
   const dropPositionResolver: PositionResolver = {
     resolve(args: PositionResolverArgs) {
       if (args.zones.has('center')) {
@@ -276,7 +298,7 @@
     }
   }
 
-  function clearHideTimer(position: 'top' | 'right'): void {
+  function clearHideTimer(position: EdgeGroupPosition): void {
     if (position === 'top') {
       if (topHideTimer !== null) {
         clearTimeout(topHideTimer);
@@ -285,14 +307,18 @@
       return;
     }
 
-    if (rightHideTimer !== null) {
+    if (position === 'right' && rightHideTimer !== null) {
       clearTimeout(rightHideTimer);
       rightHideTimer = null;
     }
+    if (position === 'left' && leftHideTimer !== null) {
+      clearTimeout(leftHideTimer);
+      leftHideTimer = null;
+    }
   }
 
-  function revealEdgeGroup(position: 'top' | 'right'): void {
-    const group = position === 'top' ? topEdgeGroup : rightEdgeGroup;
+  function revealEdgeGroup(position: EdgeGroupPosition): void {
+    const group = getEdgeGroup(position);
     if (!dockview || !group) {
       return;
     }
@@ -309,17 +335,27 @@
     clearHideTimer(position);
     dockview.setEdgeGroupVisible(position, true);
 
-    if (position === 'top') {
-      topEdgeHidden = false;
+    setEdgeGroupHidden(position, false);
+  }
+
+  function keepEdgeGroupVisibleDuringTabDrag(position: EdgeGroupPosition): boolean {
+    if (!tabDragVisibility || !dockview) {
+      return false;
+    }
+
+    clearHideTimer(position);
+    dockview.setEdgeGroupVisible(position, true);
+    setEdgeGroupHidden(position, false);
+    return true;
+  }
+
+  function hideEdgeGroup(position: EdgeGroupPosition): void {
+    const group = getEdgeGroup(position);
+    if (!dockview || !group) {
       return;
     }
 
-    rightEdgeHidden = false;
-  }
-
-  function hideEdgeGroup(position: 'top' | 'right'): void {
-    const group = position === 'top' ? topEdgeGroup : rightEdgeGroup;
-    if (!dockview || !group) {
+    if (keepEdgeGroupVisibleDuringTabDrag(position)) {
       return;
     }
 
@@ -335,22 +371,16 @@
     clearHideTimer(position);
     dockview.setEdgeGroupVisible(position, false);
 
-    if (position === 'top') {
-      topEdgeHidden = true;
-      return;
-    }
-
-    rightEdgeHidden = true;
+    setEdgeGroupHidden(position, true);
   }
 
-  function scheduleHideEdgeGroup(position: 'top' | 'right'): void {
-    const group = position === 'top' ? topEdgeGroup : rightEdgeGroup;
+  function scheduleHideEdgeGroup(position: EdgeGroupPosition): void {
+    const group = getEdgeGroup(position);
     if (!group || !group.isCollapsed()) {
       return;
     }
 
-    if (!hasEdgeGroupContent(position)) {
-      hideEmptyEdgeGroup(position);
+    if (keepEdgeGroupVisibleDuringTabDrag(position)) {
       return;
     }
 
@@ -362,20 +392,26 @@
       return;
     }
 
-    rightHideTimer = setTimeout(handleHide, AUTO_HIDE_DELAY_MS);
+    if (position === 'right') {
+      rightHideTimer = setTimeout(handleHide, AUTO_HIDE_DELAY_MS);
+    } else {
+      leftHideTimer = setTimeout(handleHide, AUTO_HIDE_DELAY_MS);
+    }
   }
 
   function handleSandboxMouseEnter(): void {
     clearHideTimer('top');
     clearHideTimer('right');
+    clearHideTimer('left');
   }
 
   function handleSandboxMouseLeave(): void {
     scheduleHideEdgeGroup('top');
     scheduleHideEdgeGroup('right');
+    scheduleHideEdgeGroup('left');
   }
 
-  function attachEdgeGroupPointerListeners(position: 'top' | 'right', id: string): void {
+  function attachEdgeGroupPointerListeners(position: EdgeGroupPosition, id: string): void {
     const groupElement = dockRoot?.querySelector<HTMLElement>(`[data-testid="dv-edge-group-${id}"]`);
     if (!groupElement) {
       return;
@@ -394,29 +430,31 @@
 
     if (position === 'top') {
       removeTopEdgePointerListeners = removeListeners;
-    } else {
+    } else if (position === 'right') {
       removeRightEdgePointerListeners = removeListeners;
+    } else {
+      removeLeftEdgePointerListeners = removeListeners;
     }
   }
 
-  function hasEdgeGroupContent(position: 'top' | 'right'): boolean {
+  function hasEdgeGroupContent(position: EdgeGroupPosition): boolean {
     const group = dockview?.getEdgeGroupPanel(position);
     return (group?.panels.length ?? 0) > 0 || (group ? edgeGroupCustomActionIds.has(group.id) : false);
   }
 
-  function hideEmptyEdgeGroup(position: 'top' | 'right'): void {
+  function hideEmptyEdgeGroup(position: EdgeGroupPosition): void {
+    if (keepEdgeGroupVisibleDuringTabDrag(position)) {
+      return;
+    }
+
     clearHideTimer(position);
     dockview?.setEdgeGroupVisible(position, false);
 
-    if (position === 'top') {
-      topEdgeHidden = false;
-    } else {
-      rightEdgeHidden = false;
-    }
+    setEdgeGroupHidden(position, false);
   }
 
   function initializeEdgeGroup(
-    position: 'top' | 'right',
+    position: EdgeGroupPosition,
     group: ReturnType<DockviewComponent['addEdgeGroup']>,
     id: string,
   ): void {
@@ -444,20 +482,20 @@
         visible: dockview.isEdgeGroupVisible('right'),
         hasContent: hasEdgeGroupContent('right'),
       },
+      left: {
+        visible: dockview.isEdgeGroupVisible('left'),
+        hasContent: hasEdgeGroupContent('left'),
+      },
     };
 
-    for (const position of ['top', 'right'] as const) {
+    for (const position of ['top', 'right', 'left'] as const) {
       clearHideTimer(position);
-      const group = position === 'top' ? topEdgeGroup : rightEdgeGroup;
+      const group = getEdgeGroup(position);
       if (group && !dockview.isEdgeGroupVisible(position)) {
         group.collapse();
       }
       dockview.setEdgeGroupVisible(position, true);
-      if (position === 'top') {
-        topEdgeHidden = false;
-      } else {
-        rightEdgeHidden = false;
-      }
+      setEdgeGroupHidden(position, false);
     }
   }
 
@@ -471,13 +509,17 @@
     removeTabDragEndListeners?.();
     removeTabDragEndListeners = null;
 
-    for (const position of ['top', 'right'] as const) {
+    for (const position of ['top', 'right', 'left'] as const) {
+      const group = getEdgeGroup(position);
+      const hasContent = hasEdgeGroupContent(position);
+
       if (previousVisibility[position].visible) {
+        if (group?.isCollapsed()) {
+          scheduleHideEdgeGroup(position);
+        }
         continue;
       }
 
-      const group = position === 'top' ? topEdgeGroup : rightEdgeGroup;
-      const hasContent = hasEdgeGroupContent(position);
       if (!group) {
         continue;
       }
@@ -485,11 +527,7 @@
       if (!previousVisibility[position].hasContent && hasContent) {
         clearHideTimer(position);
         dockview.setEdgeGroupVisible(position, true);
-        if (position === 'top') {
-          topEdgeHidden = false;
-        } else {
-          rightEdgeHidden = false;
-        }
+        setEdgeGroupHidden(position, false);
 
         if (group.isCollapsed()) {
           scheduleHideEdgeGroup(position);
@@ -826,11 +864,12 @@
         function render(): void {
           element.replaceChildren();
 
-          if (
+          const hasCustomAction =
             showFuzzballStorageViewerButton
             && currentLocation.type === 'edge'
-            && currentLocation.position === 'top'
-          ) {
+            && currentLocation.position === 'top';
+
+          if (hasCustomAction) {
             edgeGroupCustomActionIds.add(group.id);
             element.appendChild(button);
           } else {
@@ -1283,6 +1322,23 @@
     });
     rightEdgeGroup.setHeaderPosition('right');
 
+    leftEdgeGroup = dockview.addEdgeGroup('left', {
+      id: 'play-dockview-left',
+      initialSize: 280,
+      minimumSize: 200,
+    });
+    leftEdgeGroup.onDidCollapsedChange((event) => {
+      leftEdgeHidden = false;
+      dockview?.setEdgeGroupVisible('left', true);
+
+      if (event.isCollapsed) {
+        scheduleHideEdgeGroup('left');
+      } else {
+        clearHideTimer('left');
+      }
+    });
+    leftEdgeGroup.setHeaderPosition('left');
+
     const removeFloatingLayoutListener = dockview.onDidLayoutChange(() => {
       scheduleFloatingGroupReposition();
     });
@@ -1297,10 +1353,11 @@
     const dockviewInstance = dockview;
     const topEdgeGroupInstance = topEdgeGroup;
     const rightEdgeGroupInstance = rightEdgeGroup;
+    const leftEdgeGroupInstance = leftEdgeGroup;
 
     function findPanel(panelId: string) {
-      const edgePanels = ['top', 'right']
-        .flatMap((position) => dockviewInstance.getEdgeGroupPanel(position as 'top' | 'right')?.panels ?? []);
+      const edgePanels = ['top', 'right', 'left']
+        .flatMap((position) => dockviewInstance.getEdgeGroupPanel(position as EdgeGroupPosition)?.panels ?? []);
       const floatingPanels = dockviewInstance.floatingGroups
         .flatMap((floatingGroup) => floatingGroup.group.panels);
 
@@ -1315,23 +1372,25 @@
       }
 
       const location = panel.group.api.location;
-      if (location.type === 'edge' && (location.position === 'top' || location.position === 'right')) {
+      if (location.type === 'edge' && (location.position === 'top' || location.position === 'right' || location.position === 'left')) {
         revealEdgeGroupForPanel(location.position);
       }
       panel.api.setActive();
     };
 
-    function revealEdgeGroupForPanel(position: 'top' | 'right'): void {
-      const group = position === 'top' ? topEdgeGroupInstance : rightEdgeGroupInstance;
+    function revealEdgeGroupForPanel(position: EdgeGroupPosition): void {
+      const group = position === 'top'
+        ? topEdgeGroupInstance
+        : position === 'right'
+          ? rightEdgeGroupInstance
+          : leftEdgeGroupInstance;
+      if (!group) {
+        return;
+      }
       group.expand();
       dockviewInstance.setEdgeGroupVisible(position, true);
       clearHideTimer(position);
-
-      if (position === 'top') {
-        topEdgeHidden = false;
-      } else {
-        rightEdgeHidden = false;
-      }
+      setEdgeGroupHidden(position, false);
     }
 
     syncDebugConsolePanel = () => {
@@ -1339,8 +1398,8 @@
       const isNewPanel = panelId !== null && debugConsolePanelId !== panelId;
       const existingPanel = [
         ...dockviewInstance.panels,
-        ...['top', 'right'].flatMap((position) => dockviewInstance
-          .getEdgeGroupPanel(position as 'top' | 'right')?.panels ?? []),
+        ...['top', 'right', 'left'].flatMap((position) => dockviewInstance
+          .getEdgeGroupPanel(position as EdgeGroupPosition)?.panels ?? []),
         ...dockviewInstance.floatingGroups.flatMap((floatingGroup) => floatingGroup.group.panels),
       ]
         .find((panel) => panel.id === (panelId ?? debugConsolePanelId));
@@ -1385,8 +1444,8 @@
       const isNewPanel = panelId !== null && notesPanelId !== panelId;
       const existingPanel = [
         ...dockviewInstance.panels,
-        ...['top', 'right'].flatMap((position) => dockviewInstance
-          .getEdgeGroupPanel(position as 'top' | 'right')?.panels ?? []),
+        ...['top', 'right', 'left'].flatMap((position) => dockviewInstance
+          .getEdgeGroupPanel(position as EdgeGroupPosition)?.panels ?? []),
         ...dockviewInstance.floatingGroups.flatMap((floatingGroup) => floatingGroup.group.panels),
       ]
         .find((panel) => panel.id === (panelId ?? notesPanelId));
@@ -1446,8 +1505,8 @@
         const panelId = fuzzballPanel.instanceId;
         const existingPanel = [
           ...dockviewInstance.panels,
-          ...['top', 'right'].flatMap((position) => dockviewInstance
-            .getEdgeGroupPanel(position as 'top' | 'right')?.panels ?? []),
+          ...['top', 'right', 'left'].flatMap((position) => dockviewInstance
+            .getEdgeGroupPanel(position as EdgeGroupPosition)?.panels ?? []),
           ...dockviewInstance.floatingGroups.flatMap((floatingGroup) => floatingGroup.group.panels),
         ]
           .find((panel) => panel.id === panelId);
@@ -1477,8 +1536,9 @@
       if (suppressFuzzballClose.delete(panel.id)) {
         fuzzballPanelIds.delete(panel.id);
         queueMicrotask(() => {
-          if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-          if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
         });
         return;
       }
@@ -1490,8 +1550,9 @@
       fuzzballPanelIds.delete(panel.id);
       fuzzballPanels.find((fuzzballPanel) => fuzzballPanel.instanceId === panel.id)?.onClose();
       queueMicrotask(() => {
-        if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-        if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
       });
     });
 
@@ -1515,8 +1576,8 @@
         const panelId = treeDataPanel.instanceId;
         const existingPanel = [
           ...dockviewInstance.panels,
-          ...['top', 'right'].flatMap((position) => dockviewInstance
-            .getEdgeGroupPanel(position as 'top' | 'right')?.panels ?? []),
+          ...['top', 'right', 'left'].flatMap((position) => dockviewInstance
+            .getEdgeGroupPanel(position as EdgeGroupPosition)?.panels ?? []),
           ...dockviewInstance.floatingGroups.flatMap((floatingGroup) => floatingGroup.group.panels),
         ]
           .find((panel) => panel.id === panelId);
@@ -1547,8 +1608,9 @@
       if (suppressTreeDataClose.delete(panel.id)) {
         treeDataPanelIds.delete(panel.id);
         queueMicrotask(() => {
-          if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-          if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
         });
         return;
       }
@@ -1560,8 +1622,9 @@
       treeDataPanelIds.delete(panel.id);
       treeDataPanels.find((treeDataPanel) => treeDataPanel.instanceId === panel.id)?.onClose();
       queueMicrotask(() => {
-        if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-        if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
       });
     });
 
@@ -1585,8 +1648,8 @@
         const panelId = dummyPanel.instanceId;
         const existingPanel = [
           ...dockviewInstance.panels,
-          ...['top', 'right'].flatMap((position) => dockviewInstance
-            .getEdgeGroupPanel(position as 'top' | 'right')?.panels ?? []),
+          ...['top', 'right', 'left'].flatMap((position) => dockviewInstance
+            .getEdgeGroupPanel(position as EdgeGroupPosition)?.panels ?? []),
           ...dockviewInstance.floatingGroups.flatMap((floatingGroup) => floatingGroup.group.panels),
         ].find((panel) => panel.id === panelId);
 
@@ -1614,8 +1677,9 @@
       if (suppressDummyWindowClose.delete(panel.id)) {
         dummyWindowPanelIds.delete(panel.id);
         queueMicrotask(() => {
-          if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-          if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
         });
         return;
       }
@@ -1627,8 +1691,9 @@
       dummyWindowPanelIds.delete(panel.id);
       dummyPanels.find((dummyPanel) => dummyPanel.instanceId === panel.id)?.onClose();
       queueMicrotask(() => {
-        if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-        if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
       });
     });
 
@@ -1636,8 +1701,9 @@
       if (suppressNotesClose.delete(panel.id)) {
         notesPanelId = null;
         queueMicrotask(() => {
-          if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-          if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
         });
         return;
       }
@@ -1649,8 +1715,9 @@
       notesPanelId = null;
       notesPanel?.onClose();
       queueMicrotask(() => {
-        if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-        if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
+          scheduleHideEdgeGroup('left');
       });
     });
 
@@ -1658,8 +1725,8 @@
       if (suppressDebugConsoleClose.delete(panel.id)) {
         debugConsolePanelId = null;
         queueMicrotask(() => {
-          if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-          if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
         });
         return;
       }
@@ -1671,8 +1738,8 @@
       debugConsolePanelId = null;
       debugConsolePanel?.onClose();
       queueMicrotask(() => {
-        if (!hasEdgeGroupContent('top')) hideEmptyEdgeGroup('top');
-        if (!hasEdgeGroupContent('right')) hideEmptyEdgeGroup('right');
+          scheduleHideEdgeGroup('top');
+          scheduleHideEdgeGroup('right');
       });
     });
 
@@ -1693,6 +1760,7 @@
 
     dockviewInstance.setEdgeGroupVisible('top', true);
     dockviewInstance.setEdgeGroupVisible('right', true);
+    dockviewInstance.setEdgeGroupVisible('left', true);
 
     dockviewInstance.panels.forEach(updatePanelPlacement);
     syncDebugConsolePanel?.();
@@ -1703,8 +1771,10 @@
 
     attachEdgeGroupPointerListeners('top', topEdgeGroupInstance.id);
     attachEdgeGroupPointerListeners('right', rightEdgeGroupInstance.id);
+    attachEdgeGroupPointerListeners('left', leftEdgeGroupInstance.id);
     initializeEdgeGroup('top', topEdgeGroupInstance, topEdgeGroupInstance.id);
     initializeEdgeGroup('right', rightEdgeGroupInstance, rightEdgeGroupInstance.id);
+    initializeEdgeGroup('left', leftEdgeGroupInstance, leftEdgeGroupInstance.id);
     previousTopEdgeBounds = getTopEdgeBounds();
     previousFloatingContainerBounds = getFloatingContainerBounds();
     captureFloatingGroupBounds();
@@ -1712,10 +1782,13 @@
     return () => {
       clearHideTimer('top');
       clearHideTimer('right');
+      clearHideTimer('left');
       removeTopEdgePointerListeners?.();
       removeTopEdgePointerListeners = null;
       removeRightEdgePointerListeners?.();
       removeRightEdgePointerListeners = null;
+      removeLeftEdgePointerListeners?.();
+      removeLeftEdgePointerListeners = null;
       if (floatingLayoutFrame !== null) {
         cancelAnimationFrame(floatingLayoutFrame);
         floatingLayoutFrame = null;
@@ -1770,6 +1843,7 @@
       dockview = null;
       topEdgeGroup = null;
       rightEdgeGroup = null;
+      leftEdgeGroup = null;
     };
   });
 </script>
@@ -1794,6 +1868,14 @@
       class="play-dockview-edge-activator play-dockview-edge-activator--right"
       aria-hidden="true"
       on:mouseenter={() => revealEdgeGroup('right')}
+    ></div>
+  {/if}
+
+  {#if leftEdgeHidden}
+    <div
+      class="play-dockview-edge-activator play-dockview-edge-activator--left"
+      aria-hidden="true"
+      on:mouseenter={() => revealEdgeGroup('left')}
     ></div>
   {/if}
 

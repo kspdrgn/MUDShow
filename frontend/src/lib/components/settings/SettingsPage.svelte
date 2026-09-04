@@ -2,6 +2,7 @@
   import { appServices } from '../../app-services';
   import type { AppSettings } from '../../app-settings';
   import { session } from '../../session';
+  import { DOCKVIEW_THEMES, normalizeDockviewThemeId } from '../../dockview-themes';
   import StyleSettingsPane from '../styles/StyleSettingsPane.svelte';
   import {
     SETTINGS_PAGE_PLACEHOLDER_TABS,
@@ -32,7 +33,9 @@
   });
 
   let squiggleStyleMenuOpen = false;
+  let dockviewThemeMenuOpen = false;
   $: currentSquiggleStyle = normalizeSquiggleStyle(settings.squiggleStyle);
+  $: currentDockviewTheme = DOCKVIEW_THEMES.find((option) => option.id === settings.colorScheme) ?? DOCKVIEW_THEMES[0];
 
   function updateSettings(patch: Partial<AppSettings>): void {
     appServices.settings.updateSettings(patch);
@@ -710,19 +713,74 @@
       {:else if activeTab === 'ui'}
         <section class="settings-card">
           <h2>ui</h2>
-          <p>crossed out settings do not work yet.</p>
-          <label class="field disabled-field">
-            <span>color scheme</span>
-            <select
-              value={settings.colorScheme}
-              disabled
-              on:change={(event) =>
-                updateSettings({ colorScheme: (event.currentTarget as HTMLSelectElement).value })}
-            >
-              <option value="midnight">midnight</option>
-              <option value="graphite">graphite</option>
-              <option value="amber">amber</option>
-            </select>
+          <label class="field">
+            <span>dockview theme</span>
+            <div class="dockview-theme-picker" data-open={dockviewThemeMenuOpen}>
+              <button
+                type="button"
+                class="dockview-theme-picker-button"
+                aria-label={`dockview theme ${currentDockviewTheme.label}`}
+                aria-expanded={dockviewThemeMenuOpen}
+                on:click={() => (dockviewThemeMenuOpen = !dockviewThemeMenuOpen)}
+                on:keydown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    dockviewThemeMenuOpen = true;
+                  }
+                }}
+              >
+                <span
+                  class="dockview-theme-preview dockview-theme-preview--button"
+                  style:--dockview-preview-surface={currentDockviewTheme.preview.surface}
+                  style:--dockview-preview-tab={currentDockviewTheme.preview.tab}
+                  style:--dockview-preview-active={currentDockviewTheme.preview.active}
+                  style:--dockview-preview-accent={currentDockviewTheme.preview.accent}
+                  style:--dockview-preview-foreground={currentDockviewTheme.preview.foreground}
+                  aria-hidden="true"
+                >
+                  <span class="dockview-theme-preview-tab dockview-theme-preview-tab--inactive">a</span>
+                  <span class="dockview-theme-preview-tab dockview-theme-preview-tab--active">b</span>
+                  <span class="dockview-theme-preview-panel">· · ·</span>
+                </span>
+                <span class="dockview-theme-picker-label">{currentDockviewTheme.label}</span>
+                <span class="spellcheck-style-picker-caret" aria-hidden="true">▾</span>
+              </button>
+
+              {#if dockviewThemeMenuOpen}
+                <div class="dockview-theme-menu" role="menu" aria-label="Dockview theme options">
+                  {#each DOCKVIEW_THEMES as option}
+                    <button
+                      type="button"
+                      class="dockview-theme-menu-item"
+                      class:active={currentDockviewTheme.id === option.id}
+                      role="menuitemradio"
+                      aria-checked={currentDockviewTheme.id === option.id}
+                      aria-label={`Dockview theme ${option.label}`}
+                      title={option.label}
+                      on:click={() => {
+                        updateSettings({ colorScheme: normalizeDockviewThemeId(option.id) });
+                        dockviewThemeMenuOpen = false;
+                      }}
+                    >
+                      <span
+                        class="dockview-theme-preview dockview-theme-preview--menu"
+                        style:--dockview-preview-surface={option.preview.surface}
+                        style:--dockview-preview-tab={option.preview.tab}
+                        style:--dockview-preview-active={option.preview.active}
+                        style:--dockview-preview-accent={option.preview.accent}
+                        style:--dockview-preview-foreground={option.preview.foreground}
+                        aria-hidden="true"
+                      >
+                        <span class="dockview-theme-preview-tab dockview-theme-preview-tab--inactive">a</span>
+                        <span class="dockview-theme-preview-tab dockview-theme-preview-tab--active">b</span>
+                        <span class="dockview-theme-preview-panel">· · ·</span>
+                      </span>
+                      <span class="dockview-theme-menu-label">{option.label}</span>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
           </label>
         </section>
       {/if}

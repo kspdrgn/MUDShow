@@ -1,5 +1,10 @@
 import { DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS } from './playback';
 import { setDesktopStorageMode, type DesktopStorageMode } from './storage';
+import {
+  DEFAULT_DOCKVIEW_THEME,
+  normalizeDockviewThemeId,
+  type DockviewThemeId,
+} from './dockview-themes';
 
 const SETTINGS_KEY = 'mudshow_app_settings';
 
@@ -27,7 +32,7 @@ export interface AppSettings {
   squiggleColor: string;
   squiggleStyle: string;
   squiggleSize: number;
-  colorScheme: string;
+  colorScheme: DockviewThemeId;
   alwaysOnTop: boolean;
   transparency: number;
 }
@@ -56,7 +61,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   squiggleColor: '#ff0000',
   squiggleStyle: 'wavy',
   squiggleSize: 1,
-  colorScheme: 'midnight',
+  colorScheme: DEFAULT_DOCKVIEW_THEME,
   alwaysOnTop: false,
   transparency: 100,
 };
@@ -243,9 +248,7 @@ export function loadAppSettings(): AppSettings {
     squiggleColor: normalizeSpellcheckColor(raw.squiggleColor),
     squiggleStyle: normalizeSpellcheckStyle(raw.squiggleStyle),
     squiggleSize: normalizeSpellcheckSize(raw.squiggleSize),
-    colorScheme: typeof raw.colorScheme === 'string' && raw.colorScheme.trim()
-      ? raw.colorScheme.trim()
-      : DEFAULT_APP_SETTINGS.colorScheme,
+    colorScheme: normalizeDockviewThemeId(raw.colorScheme),
     alwaysOnTop: raw.alwaysOnTop === true,
     transparency: clampTransparency(
       typeof raw.transparency === 'number' ? raw.transparency : DEFAULT_APP_SETTINGS.transparency,
@@ -307,7 +310,7 @@ export function saveAppSettings(settings: AppSettings): AppSettings {
     squiggleColor: normalizeSpellcheckColor(settings.squiggleColor),
     squiggleStyle: normalizeSpellcheckStyle(settings.squiggleStyle),
     squiggleSize: normalizeSpellcheckSize(settings.squiggleSize),
-    colorScheme: settings.colorScheme.trim() || DEFAULT_APP_SETTINGS.colorScheme,
+    colorScheme: normalizeDockviewThemeId(settings.colorScheme),
     alwaysOnTop: settings.alwaysOnTop === true,
     transparency: clampTransparency(settings.transparency),
   };
