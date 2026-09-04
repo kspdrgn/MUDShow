@@ -83,6 +83,8 @@ While the app settings tab stays open, it remembers the last selected tab. If th
 ## UI
 - Dockview theme - selected from the built-in Dockview theme list and persisted with app settings
 - The Dockview theme setting currently affects only Dockview surfaces; the surrounding app UI keeps its existing styling
+- Changing the Dockview theme rebuilds each in-app Dockview host while preserving its current in-memory layout and active surfaces
+- Native pop-out windows remain open and are not included in the Dockview rebuild
 
 ## Triggers
 - Simple highlights and regexp rules are stored together in the top-level `triggers` collection.

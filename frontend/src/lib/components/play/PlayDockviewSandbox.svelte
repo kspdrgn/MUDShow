@@ -7,8 +7,9 @@
     FloatingGroupDragContext,
     PositionResolver,
     PositionResolverArgs,
+    SerializedDockview,
   } from 'dockview';
-  import { DockviewComponent, themeAbyssSpaced } from 'dockview';
+  import { DockviewComponent } from 'dockview';
   import Transcript from './Transcript.svelte';
   import DockviewDummyPanel from './DockviewDummyPanel.svelte';
   import DockviewDebugConsolePanel from './DockviewDebugConsolePanel.svelte';
@@ -27,8 +28,12 @@
   import type { PlayTranscript, RenderCache } from '../../playback';
   import type { Trigger } from '../../types';
   import type { SurfaceEdge } from '../../surfaces/surface-registry';
+  import { DEFAULT_DOCKVIEW_THEME, getDockviewTheme, type DockviewThemeId } from '../../dockview-themes';
 
   export let visible = true;
+  export let dockviewThemeId: DockviewThemeId = DEFAULT_DOCKVIEW_THEME;
+  export let initialLayout: SerializedDockview | null = null;
+  export let onLayoutSnapshot: (layout: SerializedDockview) => void = () => {};
   export let onOpenFuzzballStorageViewer: (() => void) | undefined = undefined;
   export let showFuzzballStorageViewerButton = false;
   export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
@@ -835,8 +840,8 @@
     }
 
     dockview = new DockviewComponent(dockRoot, {
-      theme: themeAbyssSpaced,
-      className: 'dockview-theme-abyss',
+      theme: getDockviewTheme(dockviewThemeId),
+      className: getDockviewTheme(dockviewThemeId).className,
       defaultHeaderPosition: 'top',
       dndStrategy: 'pointer',
       dropPositionResolver,
@@ -1755,8 +1760,17 @@
         tone: 'workspace',
       },
     });
-    workspacePanel.group.header.hidden = true;
-    workspacePanel.group.locked = true;
+    const enforceTranscriptWorkspaceInvariant = () => {
+      workspacePanel.group.header.hidden = true;
+      workspacePanel.group.locked = true;
+    };
+    enforceTranscriptWorkspaceInvariant();
+
+    const removeWorkspaceDropListener = dockviewInstance.onWillDrop((event) => {
+      if (event.group?.id === workspacePanel.group.id) {
+        event.preventDefault();
+      }
+    });
 
     dockviewInstance.setEdgeGroupVisible('top', true);
     dockviewInstance.setEdgeGroupVisible('right', true);
@@ -1769,17 +1783,36 @@
     syncTreeDataPanels?.();
     syncDummyWindowPanels?.();
 
+    if (initialLayout) {
+      dockviewInstance.fromJSON(initialLayout, { reuseExistingPanels: true });
+      enforceTranscriptWorkspaceInvariant();
+    }
+
     attachEdgeGroupPointerListeners('top', topEdgeGroupInstance.id);
     attachEdgeGroupPointerListeners('right', rightEdgeGroupInstance.id);
     attachEdgeGroupPointerListeners('left', leftEdgeGroupInstance.id);
     initializeEdgeGroup('top', topEdgeGroupInstance, topEdgeGroupInstance.id);
     initializeEdgeGroup('right', rightEdgeGroupInstance, rightEdgeGroupInstance.id);
     initializeEdgeGroup('left', leftEdgeGroupInstance, leftEdgeGroupInstance.id);
+    dockviewInstance.panels.forEach(updatePanelPlacement);
     previousTopEdgeBounds = getTopEdgeBounds();
     previousFloatingContainerBounds = getFloatingContainerBounds();
     captureFloatingGroupBounds();
 
     return () => {
+      captureFloatingGroupBounds();
+      const layoutSnapshot = dockviewInstance.toJSON();
+      onLayoutSnapshot({
+        ...layoutSnapshot,
+        popoutGroups: undefined,
+      });
+
+      if (debugConsolePanelId) suppressDebugConsoleClose.add(debugConsolePanelId);
+      if (notesPanelId) suppressNotesClose.add(notesPanelId);
+      fuzzballPanelIds.forEach((panelId) => suppressFuzzballClose.add(panelId));
+      treeDataPanelIds.forEach((panelId) => suppressTreeDataClose.add(panelId));
+      dummyWindowPanelIds.forEach((panelId) => suppressDummyWindowClose.add(panelId));
+
       clearHideTimer('top');
       clearHideTimer('right');
       clearHideTimer('left');
@@ -1839,6 +1872,7 @@
       removeFuzzballPanelListener.dispose();
       removeTreeDataPanelListener.dispose();
       removeDummyWindowPanelListener.dispose();
+      removeWorkspaceDropListener.dispose();
       dockviewInstance.dispose();
       dockview = null;
       topEdgeGroup = null;

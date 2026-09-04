@@ -3,6 +3,8 @@
   import { onMount } from 'svelte';
   import type { Trigger } from '../../types';
   import type { PlayTranscript, RenderCache } from '../../playback';
+  import type { SerializedDockview } from 'dockview';
+  import type { DockviewThemeId } from '../../dockview-themes';
   import InputBars from './InputBars.svelte';
 import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   import type {
@@ -51,6 +53,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   };
 
   export let scope = 'world';
+  export let dockviewThemeId: DockviewThemeId;
   export let visible = true;
   export let styleValues: AppStyleValues;
   export let bars: InputBarConfig[] = [];
@@ -95,6 +98,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   export let canEditCharacter = false;
 
   let screenElement: HTMLDivElement | null = null;
+  let dockviewLayoutSnapshot: SerializedDockview | null = null;
   let measuredPlayWidth = 'none';
   let measurementToken = 0;
   const spellcheckConfig = appServices.spellcheck.config;
@@ -117,6 +121,10 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     void canStopLogging;
     void canEditWorld;
     void canEditCharacter;
+  }
+
+  function handleDockviewLayoutSnapshot(layout: SerializedDockview): void {
+    dockviewLayoutSnapshot = layout;
   }
 
   async function updateMeasuredPlayWidth(): Promise<void> {
@@ -177,8 +185,12 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   style:--spellcheck-squiggle-size={`${squiggleSize}`}
 >
 
-  <PlayDockviewSandbox
+  {#key dockviewThemeId}
+    <PlayDockviewSandbox
     visible={visible}
+    {dockviewThemeId}
+    initialLayout={dockviewLayoutSnapshot}
+    onLayoutSnapshot={handleDockviewLayoutSnapshot}
     onOpenFuzzballStorageViewer={onOpenFuzzballStorageViewer}
     {showFuzzballStorageViewerButton}
     {debugConsolePanel}
@@ -221,7 +233,8 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     onCloseRequest={actions.onCloseTab}
     onScroll={actions.onOutputScroll}
     onScrollToBottom={actions.onScrollToBottom}
-  />
+    />
+  {/key}
 
   <InputBars
     {bars}

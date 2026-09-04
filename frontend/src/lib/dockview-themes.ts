@@ -60,6 +60,11 @@ export type DockviewThemeId = (typeof DOCKVIEW_THEMES)[number]['id'];
 
 export const DEFAULT_DOCKVIEW_THEME: DockviewThemeId = 'abyssSpaced';
 
+export function getDockviewTheme(id: DockviewThemeId): DockviewTheme {
+  return DOCKVIEW_THEMES.find((option) => option.id === id)?.theme
+    ?? DOCKVIEW_THEMES.find((option) => option.id === DEFAULT_DOCKVIEW_THEME)!.theme;
+}
+
 export function isDockviewThemeId(value: unknown): value is DockviewThemeId {
   return DOCKVIEW_THEMES.some((option) => option.id === value);
 }

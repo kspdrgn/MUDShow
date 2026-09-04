@@ -2,7 +2,7 @@
 
 ## Top TODO
 
-bugs:
+todo:
 - selecting while scrolling can get transcript stuck in two-pane mode
 - transcript
   - [X] fixed? output lag, things not appearing as soon as they should. debug console updates immediately, but transcript doesn't.
@@ -13,11 +13,10 @@ bugs:
 - dockview
   - [X] grab handle should be full size on all docks.
   - [X] left hand dock too. unify grab handle, collapse, expand, autohide and reveal behavior.
+  - [X] change dockview theme from available. rebuild ux.
 - fuzzball storage viewer
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.
-
-todo
 - [ ] image previews not working in linux?
 - [ ] test split scrolling while using zoom, came unsynced sometimes.
 - [X] change char connect string to password style with reveal button
@@ -30,8 +29,9 @@ todo
 - [X] fuzzball plugin skeleton
   - [X] generic prop tree debug view
   - [X] parsing exa props
+  - [ ] revamp ui. de-dupe prop labels. de-dupe slash. move value display to be more prominent. keep little datatype button, but maybe move it.
+  - [ ] set
   - [X] get
-  - [ ] set, revamp ui...
   - [ ] filter out captured props from transcript IF they are from plugin requests (not manual user requests)
     - [ ] capture pipeline filter system to omit contents from transcript
 - [X] app notice modals system separate from hosted popout windows

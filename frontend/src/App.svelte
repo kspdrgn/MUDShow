@@ -3158,6 +3158,7 @@ function requestSurfaceFocus(instanceId: string): void {
       {@const dummyPanels = getDummyDockviewPanels(tab.id === $session.activeTabId, surfaceRegistryVersion)}
       <PlayScreen
         scope={tab.id}
+        dockviewThemeId={$appSettingsStore.colorScheme}
         visible={tab.id === $session.activeTabId}
         styleValues={$resolvedAppStyle}
         activeBar={worldSession.activeBar}
