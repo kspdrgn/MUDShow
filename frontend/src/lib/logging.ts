@@ -47,3 +47,8 @@ export function stripTranscriptForLog(text: string): string {
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
 }
 
+/** Add an unambiguous UTC timestamp to an app-generated status message. */
+export function formatStatusMessageForLog(text: string, date = new Date()): string {
+  return `[${date.toISOString()}] ${text}`;
+}
+

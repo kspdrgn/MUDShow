@@ -1673,11 +1673,12 @@ body {
   color: #fff;
 }
 
-.logging-modal .storage-location-actions .btn.warning {
+.btn.warning {
+  border-color: var(--warning-dim);
   color: var(--warning);
 }
 
-.logging-modal .storage-location-actions .btn.warning:hover {
+.btn.warning:hover {
   color: var(--warning);
   border-color: var(--warning);
   background: var(--warning-dim);
@@ -1948,12 +1949,39 @@ body {
   --dv-spacing-padding: 0px;
 }
 
-/* The spaced Dockview theme allocates a 10px split gap but positions its
-   default 4px sash 3px into that gap. Cover the full gap with the resize
-   target so there is no dead zone above or below it. */
-.play-dockview-sandbox-root .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
-  height: 10px;
-  margin-top: -3px;
+/* Dockview's spaced theme allocates a 10px split gap around its native 4px
+   sash. Keep the native sash geometry, but make the remaining gap part of the
+   same interactive and visible affordance. */
+.play-dockview-sandbox-root {
+  --mud-dockview-sash-hit-inset: 3px;
+}
+
+.play-dockview-sandbox-root .dv-split-view-container .dv-sash:not(.dv-disabled)::before {
+  content: '';
+  position: absolute;
+  background: transparent;
+  cursor: inherit;
+  transition:
+    background-color var(--dv-active-sash-transition-duration, 0.1s) ease-in-out;
+}
+
+.play-dockview-sandbox-root .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash:not(.dv-disabled)::before {
+  top: calc(-1 * var(--mud-dockview-sash-hit-inset));
+  bottom: calc(-1 * var(--mud-dockview-sash-hit-inset));
+  left: 0;
+  right: 0;
+}
+
+.play-dockview-sandbox-root .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash:not(.dv-disabled)::before {
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--mud-dockview-sash-hit-inset));
+  right: calc(-1 * var(--mud-dockview-sash-hit-inset));
+}
+
+.play-dockview-sandbox-root .dv-split-view-container .dv-sash:not(.dv-disabled):hover::before,
+.play-dockview-sandbox-root .dv-split-view-container .dv-sash:not(.dv-disabled):active::before {
+  background-color: var(--dv-active-sash-color, transparent);
 }
 
 .play-dockview-sandbox-shell {

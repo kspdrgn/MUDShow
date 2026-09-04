@@ -60,5 +60,6 @@ An app notice will provide options for the current world tab
 
 - The log file contains the same transcript the user would read in the session output view.
 - Logging captures the transcript in display order.
+- Every app-generated status message written to a log is prefixed with an ISO 8601 UTC timestamp, including connection, logging, rename, and error status messages.
 - The log should remain readable as plain text.
 - The log file will not contain any ANSI codes such as color, and will not contain any content injected by this app such as image file previews

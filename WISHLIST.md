@@ -10,17 +10,19 @@ bugs:
 - surfaces
   - [X] fixed? resizing top dock can trigger split scrolling.
   - [ ] not fixed? resizing top dock can move bottom of transcript off screen.
+- dockview
+  - [X] grab handle should be full size on all docks.
 - fuzzball storage viewer
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.
 
 todo
 - [ ] image previews not working in linux?
-- [X] change char connect string to password style with reveal button
 - [ ] test split scrolling while using zoom, came unsynced sometimes.
-- [ ] planning mode. separate logging ui action buttons into normal size buttons, they should have text labels not just friendly colors and icons. keep the tooltip, but summarize into button labels that are specific of what they do.
-- [X] planning mode. show log location when stopping logging logging, similar to the existing location display when starting or renaming logging.
-- planning mode. logging include timestamp in log when starting? ending?
+- [X] change char connect string to password style with reveal button
+- [X] separate logging ui action buttons into normal size buttons.
+- [X] show log location when stopping logging logging.
+- [X] use an explicit timestamp for all status messages written to a log.
 
 - [X] channel bar controls
   - [X] button for debug dictionary open

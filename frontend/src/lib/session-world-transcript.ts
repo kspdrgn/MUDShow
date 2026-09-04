@@ -5,7 +5,12 @@ import {
   type DebugConsoleDirection,
 } from './debug-console';
 import { appServices } from './app-services';
-import { generateLogFilename, getLogFileName, stripTranscriptForLog } from './logging';
+import {
+  formatStatusMessageForLog,
+  generateLogFilename,
+  getLogFileName,
+  stripTranscriptForLog,
+} from './logging';
 import { isTauriAvailable, invoke } from './tauri';
 import { nextFrame, scrollElementToBottom } from './session-dom';
 import type { SessionState } from './session-state';
@@ -163,7 +168,8 @@ export function createWorldTranscriptActions({
     });
     noteOutputActivity(tabId);
 
-    const logText = stripTranscriptForLog(text);
+    const strippedText = stripTranscriptForLog(text);
+    const logText = strippedText.length > 0 ? formatStatusMessageForLog(strippedText) : '';
     if (isTauriAvailable() && session.loggingActive && session.logFilePath && logText.length > 0) {
       void enqueueLogWrite(tabId, async () => {
         await invoke('append_session_log', {
