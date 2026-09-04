@@ -155,7 +155,7 @@ World Connection Settings
 
 Character Settings
   - Name, shown in tab
-  - Connection string - Optional, command sent upon connection to log in character
+  - Connection string - Optional, command sent upon connection to log in character. The value is hidden as a password-style input by default and can be temporarily revealed with a reveal button.
   - Output-History enabled and how many lines to save/restore
   - Activity notification sound per character
   - Renaming a saved character will migrate any persisted history and settings to stay associated to the new character name

@@ -14,11 +14,13 @@ bugs:
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.
 
-- image previews not working in linux?
-- change char connect string to password style with reveal button
-- logging separate action buttons, show full text of what they do
-- logging show log location when stop logging
-- logging include timestamp in log when starting? ending?
+todo
+- [ ] image previews not working in linux?
+- [X] change char connect string to password style with reveal button
+- [ ] test split scrolling while using zoom, came unsynced sometimes.
+- [ ] planning mode. separate logging ui action buttons into normal size buttons, they should have text labels not just friendly colors and icons. keep the tooltip, but summarize into button labels that are specific of what they do.
+- [X] planning mode. show log location when stopping logging logging, similar to the existing location display when starting or renaming logging.
+- planning mode. logging include timestamp in log when starting? ending?
 
 - [X] channel bar controls
   - [X] button for debug dictionary open

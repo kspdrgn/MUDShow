@@ -24,6 +24,7 @@ An app notice will provide options for the current world tab
 - Provide a button to open the logging settings tab in app settings.
 - User may edit the log file name to rename the file on-the-fly. The file will be copied to the new name, and logging will continue in the new file. Logging must queue pending log entries until the log file move is successful.
 - Provide buttons to start logging, stop logging, reveal the active log file, and rename the file while logging is active.
+- The reveal and rename file actions are normal text buttons labeled "reveal log" and "rename log"; each keeps a tooltip with its fuller action description.
 - Clicking outside the notice or pressing Escape closes the notice.
 
 ## File Naming
@@ -46,7 +47,7 @@ An app notice will provide options for the current world tab
 
 - When logging is active, the UI shows a second status indicator dot beneath the connection status dot on the input bar and the tab.
 - The logging indicator is visible whenever the tab is actively recording to a file.
-- The output window displays a status message when logging starts and when logging stops.
+- The output window displays a status message when logging starts and when logging stops; the stop message includes the exact log file path that was just closed.
 - Those same status messages also appear in the per-world debug console.
 
 ## User Actions

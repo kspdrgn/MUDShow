@@ -20,12 +20,18 @@
   let sound = false;
   let outputHistoryLines = String(DEFAULT_OUTPUT_HISTORY_LINES);
   let connectString = '';
+  let showConnectString = false;
+  let lastDraft: CharacterDraft | null = null;
 
   $: name = draft.name;
   $: width = draft.width;
   $: sound = draft.sound;
   $: outputHistoryLines = draft.outputHistoryLines ?? String(DEFAULT_OUTPUT_HISTORY_LINES);
   $: connectString = draft.connectString ?? '';
+  $: if (draft !== lastDraft) {
+    lastDraft = draft;
+    showConnectString = false;
+  }
 
   function handleSave(): void {
     onSave({
@@ -76,7 +82,24 @@
     </div>
     <div class="field">
       <label for="field-connect-string">connect string (optional)</label>
-      <input id="field-connect-string" bind:value={connectString} autocomplete="off" />
+      <div class="secret-field-row">
+        <input
+          id="field-connect-string"
+          type={showConnectString ? 'text' : 'password'}
+          bind:value={connectString}
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button
+          class="btn secret-field-toggle"
+          type="button"
+          aria-controls="field-connect-string"
+          aria-pressed={showConnectString}
+          on:click={() => (showConnectString = !showConnectString)}
+        >
+          {showConnectString ? 'hide' : 'reveal'}
+        </button>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" type="button" on:click={onCancel}>cancel</button>

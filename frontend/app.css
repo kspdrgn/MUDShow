@@ -1673,6 +1673,16 @@ body {
   color: #fff;
 }
 
+.logging-modal .storage-location-actions .btn.warning {
+  color: var(--warning);
+}
+
+.logging-modal .storage-location-actions .btn.warning:hover {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: var(--warning-dim);
+}
+
 .logging-modal .btn:disabled {
   border-color: var(--text-dim);
   color: var(--text-dim);
@@ -1736,6 +1746,21 @@ body {
 .field select:focus,
 .field textarea:focus {
   border-color: var(--border-active);
+}
+
+.secret-field-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.secret-field-row input {
+  flex: 1 1 auto;
+}
+
+.secret-field-toggle {
+  flex: 0 0 auto;
+  min-width: 4.5rem;
 }
 
 .field-check label {

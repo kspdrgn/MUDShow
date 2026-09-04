@@ -201,8 +201,8 @@ export function createWorldTranscriptActions({
     return `\x1b[90m[logging started] ${filename}${appended ? ' [appending]' : ''}\x1b[0m\n`;
   }
 
-  function buildLogStopMessage(): string {
-    return '\x1b[90m[logging stopped]\x1b[0m\n';
+  function buildLogStopMessage(path: string): string {
+    return `\x1b[90m[logging stopped] ${path}\x1b[0m\n`;
   }
 
   function buildLogRenameMessage(filename: string): string {
@@ -254,6 +254,7 @@ export function createWorldTranscriptActions({
 
   async function stopLogging(tabId: string): Promise<void> {
     const session = getWorldSession(tabId);
+    const currentPath = session.logFilePath;
     if (!session.loggingActive) {
       return;
     }
@@ -266,7 +267,7 @@ export function createWorldTranscriptActions({
       return;
     }
 
-    await appendSystemMessageToTab(tabId, buildLogStopMessage());
+    await appendSystemMessageToTab(tabId, buildLogStopMessage(currentPath ?? 'unknown log file'));
     updateWorldSession(tabId, {
       loggingActive: false,
       logError: null,
