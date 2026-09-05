@@ -83,6 +83,7 @@
       <select id="world-compatibility" bind:value={compatibility}>
         <option value="telnet">telnet</option>
         <option value="fuzzball">fuzzball</option>
+        <option value="taps">taps</option>
       </select>
     </div>
     <div class="modal-actions">

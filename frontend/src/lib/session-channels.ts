@@ -15,12 +15,9 @@ interface WorldChannelActionContext {
 }
 
 export interface WorldChannelViewContext {
-  currentWorldName: string;
-  currentCharacterName: string | null;
-  showFuzzballStorageViewer: boolean;
+  controls: ChannelBarControlVM[];
   scope: string;
   activeBar: InputBarId;
-  onOpenFuzzballStorageViewer: () => void;
 }
 
 export interface WorldChannelsViewModel {
@@ -36,20 +33,9 @@ export function createWorldChannelActions({
   let suppressTranscriptScrollState = false;
 
   function getWorldChannelsViewModel(_tabId: string, context: WorldChannelViewContext): WorldChannelsViewModel {
-    const controls: ChannelBarControlVM[] = context.showFuzzballStorageViewer
-      ? [{
-          id: 'fuzzball-storage-viewer',
-          label: 'exa me=/',
-          title: context.currentCharacterName
-            ? `world: ${context.currentWorldName} · character: ${context.currentCharacterName}`
-            : `world: ${context.currentWorldName}`,
-          onClick: context.onOpenFuzzballStorageViewer,
-        }]
-      : [];
-
     return {
       tabs: [],
-      controls,
+      controls: context.controls,
     };
   }
 
@@ -109,7 +95,10 @@ export function createWorldChannelActions({
 
     if (action === 'bottom') {
       scrollElementToBottom(getWorldOutputAreaId(scope));
-      updateOutputScrollState(tabId, outputEl);
+      // Ctrl+End/Page-end is an explicit request to resume following output;
+      // do not depend on a possibly stale virtualized scrollHeight reading to
+      // decide whether split view should collapse.
+      updateWorldSession(tabId, { userScrolled: false });
       return;
     }
 

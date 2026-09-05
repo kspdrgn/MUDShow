@@ -33,8 +33,9 @@ todo:
   - [ ] revamp ui. de-dupe prop labels. de-dupe slash. move value display to be more prominent. keep little datatype button, but maybe move it.
   - [ ] set
   - [X] get
-  - [ ] filter out captured props from transcript IF they are from plugin requests (not manual user requests)
-    - [ ] capture pipeline filter system to omit contents from transcript
+  - [ ] capture pipeline
+    - [ ] capture pipeline filter system to allow capture hooks to cause contents to be omitted from transcript. omitted contents are put into the history storage but with metadata that will hide them from the visible transcript.
+    - [ ] filter out captured props from transcript IF they are from plugin requests (not manual user requests)
 - [X] app notice modals system separate from hosted popout windows
 - [X] app DI, slim down App.svelte
 - [X] worldSession DI, slim down component plumbing
@@ -138,7 +139,7 @@ Release:
   - [X] Resize input height by lines
   - [X] TAB auto-complete of names/objects seen in MUD text
   - [X] CTRL+Enter to make new line without sending
-  - [ ] Automatic expand input box when filling it up. Beip does this with automatic contraction back to previous size.
+  - [X] Automatic expand/contract input box to user minimum when filling it up.
   - [ ] Drag to resize input box instead of needing buttons. Beip does this, has no buttons.
   - [X] Spellcheck
     - [ ] Better spellcheck timing? When done with a word or when moving past it? I think BeipMU is when you move past it. Currently doing it every character for early squiggles, don't like.
@@ -214,6 +215,7 @@ Release:
   - Name awareness
     - [ ] Automatic name color even if they're not in your wf/database
     - [ ] Temporarily filter only select names to read a scene thru the spam. Maybe in a separate tab view?
+    - [ ] Name scoped actions like initiate PM in popped out panel, dim text
 
   - Logging
     - [X] One-click session logging. Start logging and auto-name log file.
@@ -269,9 +271,9 @@ This would support:
 
 ## Settings
   - [ ] two-pane world/character settings, no modals
-    - [ ] route-able to each place when selecting edit world/character from menus
+    - [X] route-able to each place when selecting edit world/character from menus
   - [X] tabbed/two-pane app settings, instead of everything in one page
-    - [ ] route-able to each sub-tab
+    - [X] route-able to each sub-tab
 
 ## Taps Integrations
   - Plugin System

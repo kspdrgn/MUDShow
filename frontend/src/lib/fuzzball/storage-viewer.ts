@@ -92,6 +92,18 @@ export function requestFuzzballStorageNodeLoad(
     ?.send(command);
 }
 
+export interface FuzzballStorageViewerService {
+  createState(
+    sourceTabId: string,
+    worldId: string,
+    characterId: string,
+    title: string,
+    description?: string,
+  ): FuzzballStorageViewerState;
+  requestNodeLoad(state: FuzzballStorageViewerState, nodePath: string): void;
+  buildModel(state: FuzzballStorageViewerState): TreeDataWindowModel;
+}
+
 export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerState): TreeDataWindowModel {
   const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
   const root = buildTreeNode(cache, '/') ?? {
@@ -109,5 +121,15 @@ export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerStat
     description: state.description,
     presentation: 'fuzzball-storage',
     root,
+  };
+}
+
+export function createFuzzballStorageViewerService(
+  worldSessionContainers: WorldSessionContainerRegistry,
+): FuzzballStorageViewerService {
+  return {
+    createState: createFuzzballStorageViewerState,
+    requestNodeLoad: (state, nodePath) => requestFuzzballStorageNodeLoad(state, nodePath, worldSessionContainers),
+    buildModel: buildFuzzballStorageViewerModel,
   };
 }

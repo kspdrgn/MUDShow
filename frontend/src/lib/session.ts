@@ -38,6 +38,10 @@ import {
 } from './world-session-container';
 import type { WorldSessionKey } from './world-session-registry';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
+import { createWorldPluginRegistryForSession } from './world-plugins.js';
+import type { WorldPluginSession } from './world-plugin-registry.js';
+import type { WorldSessionAction } from './world-session-action.js';
+import type { WorldPluginSurfaceContribution } from './world-plugin.js';
 
 interface ModalWindowHandlers {
   onOpen: (kind: 'world' | 'character', title: string) => void;
@@ -53,6 +57,8 @@ function createSession() {
   let nextConnectionId = 1;
   let transcriptScrollbackChunks = DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS;
   const worldSessionContainers = createWorldSessionContainerRegistry();
+  const worldPluginRegistry = createWorldPluginRegistryForSession(worldSessionContainers);
+  let worldPluginActionHandler: (tabId: string, pluginId: string, actionId: string) => void = () => {};
   let clearLoggingQueue = (_tabId: string): void => {};
   let modalWindowHandlers: ModalWindowHandlers = {
     onOpen: () => {},
@@ -91,6 +97,77 @@ function createSession() {
 
   function getWorldSession(tabId: string): WorldTabSessionState {
     return getWorldSessions()[tabId] ?? createWorldTabSessionState(transcriptScrollbackChunks);
+  }
+
+  function getWorldPluginSession(
+    tabId: string,
+    world: WorldRecord,
+    character: CharacterRecord | null,
+  ): WorldPluginSession | null {
+    const tab = getTab(tabId);
+    if (!tab || tab.kind !== 'world') {
+      return null;
+    }
+
+    const key = createWorldSessionKey(world.id, character?.id ?? null);
+    const container = worldSessionContainers.container.ensure(key);
+    if (container.pluginSession) {
+      return container.pluginSession;
+    }
+
+    const connection = worldSessionContainers.connection.get(key);
+    if (!connection) {
+      return null;
+    }
+
+    container.pluginSession = worldPluginRegistry.createSession({
+      world,
+      character,
+      sessionKey: key,
+      connection: {
+        send: (command) => connection.send(command),
+      },
+      services: {
+        get: <T>(pluginId: string) => container.pluginSessionServices?.get<T>(pluginId) ?? null,
+        set: <T>(pluginId: string, service: T) => container.pluginSessionServices?.set(pluginId, service),
+      },
+      host: {
+        invokeAction: (pluginId, actionId) => worldPluginActionHandler(tabId, pluginId, actionId),
+      },
+    });
+    return container.pluginSession;
+  }
+
+  function getWorldPluginActions(tabId: string): WorldSessionAction[] {
+    return getWorldSession(tabId).currentWorld
+      ? getWorldPluginSession(
+        tabId,
+        getWorldSession(tabId).currentWorld as WorldRecord,
+        getWorldSession(tabId).currentCharacter,
+      )?.getActions() ?? []
+      : [];
+  }
+
+  function getWorldPluginSurfaces(tabId: string): WorldPluginSurfaceContribution[] {
+    const worldSession = getWorldSession(tabId);
+    return worldSession.currentWorld
+      ? getWorldPluginSession(tabId, worldSession.currentWorld, worldSession.currentCharacter)?.getSurfaces() ?? []
+      : [];
+  }
+
+  function getWorldPluginService<T>(tabId: string, pluginId: string): T | null {
+    const worldSession = getWorldSession(tabId);
+    if (!worldSession.currentWorld) {
+      return null;
+    }
+    const key = createWorldSessionKey(worldSession.currentWorld.id, worldSession.currentCharacter?.id ?? null);
+    return worldSessionContainers.container.get(key)?.pluginSessionServices.get<T>(pluginId) ?? null;
+  }
+
+  function setWorldPluginActionHandler(
+    handler: (tabId: string, pluginId: string, actionId: string) => void,
+  ): void {
+    worldPluginActionHandler = handler;
   }
 
   function syncWorldSessionContainer(
@@ -654,6 +731,12 @@ function createSession() {
 
   const captureActions = createWorldCaptureActions({
     getWorldSession: tabsActions.getWorldSession,
+    getWorldPluginSession: (tabId) => {
+      const worldSession = tabsActions.getWorldSession(tabId);
+      return worldSession.currentWorld
+        ? getWorldPluginSession(tabId, worldSession.currentWorld, worldSession.currentCharacter)
+        : null;
+    },
   });
 
   const characterActions = createCharacterActions({
@@ -682,6 +765,7 @@ function createSession() {
     updateWorldSession: tabsActions.updateWorldSession,
     activateWorldTab: tabsActions.activateWorldTab,
     worldSessionContainers,
+    getWorldPluginSession,
     ensureWorldTab: tabsActions.ensureWorldTab,
     appendOutputToTab: transcriptActions.appendOutputToTab,
     appendIncomingRawMessageToTab: transcriptActions.appendIncomingRawMessageToTab,
@@ -797,6 +881,10 @@ function createSession() {
     deleteWorldTabsForCharacter: tabsActions.deleteWorldTabsForCharacter,
     deleteWorldTabsForWorld: tabsActions.deleteWorldTabsForWorld,
     worldSessionContainers,
+    getWorldPluginActions,
+    getWorldPluginSurfaces,
+    getWorldPluginService,
+    setWorldPluginActionHandler,
     openWorldEditorFromWorldTab,
     openCharacterEditorFromWorldTab,
     setModalWindowHandlers,

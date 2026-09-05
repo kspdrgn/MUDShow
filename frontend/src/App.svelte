@@ -38,11 +38,9 @@ import {
   type TreeDataWindowViewState,
 } from './lib/components/tree-data/tree-data-controller';
 import {
-  buildFuzzballStorageViewerModel,
-  createFuzzballStorageViewerState,
-  requestFuzzballStorageNodeLoad,
   type FuzzballStorageViewerState,
 } from './lib/fuzzball/storage-viewer';
+import type { FuzzballStorageViewerService } from './lib/fuzzball/storage-viewer';
 import { fuzzballStorageCache } from './lib/fuzzball/storage-cache';
 import { debugConsoleCache } from './lib/debug-console-cache';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
@@ -99,6 +97,7 @@ import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
 import { flushPendingNotesSave } from './lib/session-world-input';
 import { emit, getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
 import { getDockviewTheme } from './lib/dockview-themes';
+import { FUZZBALL_STORAGE_SURFACE_ID } from './lib/fuzzball/plugin';
 
 const currentUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
 const initialWindowMode = currentUrl?.searchParams.get('windowMode');
@@ -125,7 +124,6 @@ const DEBUG_CONSOLE_WINDOW_SURFACE_PREFIX = 'debug-console:';
 const DEBUG_CONSOLE_WINDOW_ID_PREFIX = 'debug-console-window-';
 const NOTES_WINDOW_SURFACE_PREFIX = 'notes:';
 const NOTES_WINDOW_ID_PREFIX = 'notes-window-';
-const FUZZBALL_STORAGE_SURFACE_ID = 'fuzzball-storage-viewer';
 
 const appSettingsStore = appServices.settings.current;
 $: appThemeClassName = getDockviewTheme($appSettingsStore.colorScheme).className;
@@ -430,24 +428,6 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
         session.openTriggersTab(worldSession.currentWorld?.id ?? null, worldSession.currentCharacter?.id ?? null),
       onOpenDebugConsole: () => openOrFocusDebugConsoleWindow(tab.id),
         onOpenStyles: () => openDefaultStyleSettings(),
-        onOpenFuzzballStorageViewer: () => {
-          if (!worldSession.currentWorld) {
-            return;
-          }
-
-          const currentWorldName = worldSession.currentWorld.name;
-          const currentCharacterName = worldSession.currentCharacter?.name ?? null;
-          const fuzzballStorageTitle = currentCharacterName
-            ? `${currentWorldName} · ${currentCharacterName} storage`
-            : `${currentWorldName} storage`;
-          openFuzzballStorageWindow(
-            tab.id,
-            worldSession.currentWorld.id,
-            worldSession.currentCharacter?.id ?? '',
-            fuzzballStorageTitle,
-            undefined,
-          );
-        },
         onInputFocusBar: (bar: number) => session.handleInputFocus(bar),
         onInputSubmit: (bar: number, value: string) => session.handleInputSubmit(bar, value),
       onInputComplete: (_bar: number, value: string, selectionStart: number) =>
@@ -461,6 +441,30 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
         session.handleOutputScrollKey(action),
       onScrollToBottom: () => session.handleScrollToBottom(),
     };
+}
+
+function handleWorldPluginAction(tabId: string, pluginId: string, actionId: string): void {
+  if (pluginId !== 'fuzzball' || actionId !== 'open-storage-viewer') {
+    return;
+  }
+
+  const worldSession = $session.worldSessions[tabId];
+  if (!worldSession?.currentWorld) {
+    return;
+  }
+
+  const worldName = worldSession.currentWorld.name;
+  const characterName = worldSession.currentCharacter?.name ?? null;
+  const title = characterName
+    ? `${worldName} · ${characterName} storage`
+    : `${worldName} storage`;
+  openFuzzballStorageWindow(
+    tabId,
+    worldSession.currentWorld.id,
+    worldSession.currentCharacter?.id ?? '',
+    title,
+    undefined,
+  );
 }
 
 function openLoggingModal(tabId: string): void {
@@ -488,7 +492,16 @@ function requestSurfaceFocus(instanceId: string): void {
 
 
   function getFuzzballStorageWindowState(windowId: string): FuzzballStorageViewerState {
-    return fuzzballStorageWindowStates[windowId] ?? createFuzzballStorageViewerState('', '', '', 'fuzzball storage viewer');
+    return fuzzballStorageWindowStates[windowId] ?? {
+      sourceTabId: '',
+      worldId: '',
+      characterId: '',
+      title: 'fuzzball storage viewer',
+    };
+  }
+
+  function getFuzzballStorageViewerService(sourceTabId: string): FuzzballStorageViewerService | null {
+    return session.getWorldPluginService<FuzzballStorageViewerService>(sourceTabId, 'fuzzball:storage-viewer');
   }
 
   function createTreeDataSnapshotSignature(
@@ -598,7 +611,7 @@ function requestSurfaceFocus(instanceId: string): void {
       characterId: state.characterId,
       sourceTabId: state.sourceTabId,
     });
-    requestFuzzballStorageNodeLoad(state, '/', session.worldSessionContainers);
+    getFuzzballStorageViewerService(state.sourceTabId)?.requestNodeLoad(state, '/');
   }
 
   function isPoppedOutTreeWindow(windowRecord: WindowRecord | null): boolean {
@@ -666,7 +679,8 @@ function requestSurfaceFocus(instanceId: string): void {
     }
 
     if (isFuzzballStorageWindow(windowRecord)) {
-      return buildFuzzballStorageViewerModel(getFuzzballStorageWindowState(windowId));
+      const state = getFuzzballStorageWindowState(windowId);
+      return getFuzzballStorageViewerService(state.sourceTabId)?.buildModel(state) ?? createDemoTreeDataWindowModel();
     }
 
     return null;
@@ -1217,7 +1231,10 @@ function requestSurfaceFocus(instanceId: string): void {
   ): void {
     const kind = treeDataTransportKinds.get(windowId);
     const model = kind === 'fuzzball'
-      ? buildFuzzballStorageViewerModel(treeDataTransportSources.get(windowId) ?? getFuzzballStorageWindowState(windowId))
+      ? (() => {
+          const state = treeDataTransportSources.get(windowId) ?? getFuzzballStorageWindowState(windowId);
+          return getFuzzballStorageViewerService(state.sourceTabId)?.buildModel(state) ?? createDemoTreeDataWindowModel();
+        })()
       : createDemoTreeDataWindowModel();
     const treeSession = treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId);
 
@@ -1271,7 +1288,7 @@ function requestSurfaceFocus(instanceId: string): void {
       nodeId: command.nodeId,
       sourceTabId: sourceState.sourceTabId,
     });
-    requestFuzzballStorageNodeLoad(sourceState, command.nodeId, session.worldSessionContainers);
+    getFuzzballStorageViewerService(sourceState.sourceTabId)?.requestNodeLoad(sourceState, command.nodeId);
   }
 
   function handleDebugConsoleTransportCommand(
@@ -1365,7 +1382,10 @@ function requestSurfaceFocus(instanceId: string): void {
 
     if (isFuzzballStorageWindow(windowRecord)) {
       const sourceState = getFuzzballStorageWindowState(windowId);
-      const model = buildFuzzballStorageViewerModel(sourceState);
+      const model = getFuzzballStorageViewerService(sourceState.sourceTabId)?.buildModel(sourceState);
+      if (!model) {
+        return null;
+      }
       const session = ensureTreeDataTransportSession(windowId, windowRecord.surfaceId);
       rememberTreeDataTransportState(windowId, 'fuzzball', model, sourceState);
       logTreeTransport('render props ready', {
@@ -1508,7 +1528,10 @@ function requestSurfaceFocus(instanceId: string): void {
           return [];
         }
 
-        const model = buildFuzzballStorageViewerModel(state);
+        const model = getFuzzballStorageViewerService(state.sourceTabId)?.buildModel(state);
+        if (!model) {
+          return [];
+        }
         const viewState = treeDataViewController.ensure(windowRecord.id, model.root.id);
         rememberTreeDataTransportState(windowRecord.id, 'fuzzball', model, state);
 
@@ -1735,25 +1758,23 @@ function requestSurfaceFocus(instanceId: string): void {
 
   }
 
-  function ensureFuzzballStorageSurfaceRegistration(): string {
-    if (!appServices.surfaces.getRegistration(FUZZBALL_STORAGE_SURFACE_ID)) {
+  function ensureFuzzballStorageSurfaceRegistration(sourceTabId: string): string {
+    const surface = session.getWorldPluginSurfaces(sourceTabId)
+      .find((entry) => entry.id === FUZZBALL_STORAGE_SURFACE_ID);
+    if (!surface) {
+      throw new Error('FuzzBall storage surface is not contributed by the active world plugin');
+    }
+
+    if (!appServices.surfaces.getRegistration(surface.id)) {
       appServices.surfaces.register({
-        surfaceId: FUZZBALL_STORAGE_SURFACE_ID,
-        kind: 'builtin',
-        defaultTitle: 'fuzzball storage viewer',
-        capabilities: {
-          canClose: true,
-          canDock: true,
-          canFloat: true,
-          canPopOut: true,
-          canPopIn: true,
-          isModal: false,
-          allowsMultipleInstances: true,
-        },
+        surfaceId: surface.id,
+        kind: surface.kind,
+        defaultTitle: surface.defaultTitle,
+        capabilities: surface.capabilities,
       });
     }
 
-    return FUZZBALL_STORAGE_SURFACE_ID;
+    return surface.id;
   }
 
   function openFuzzballStorageWindow(
@@ -1777,10 +1798,14 @@ function requestSurfaceFocus(instanceId: string): void {
       return;
     }
 
-    const surfaceId = ensureFuzzballStorageSurfaceRegistration();
+    const surfaceId = ensureFuzzballStorageSurfaceRegistration(sourceTabId);
     const index = getRegisteredWindowRecords().length;
     const id = `fuzzball-storage-window-${sourceTabId}`;
-    const state = createFuzzballStorageViewerState(sourceTabId, worldId, characterId, title, description);
+    const viewerService = getFuzzballStorageViewerService(sourceTabId);
+    if (!viewerService) {
+      return;
+    }
+    const state = viewerService.createState(sourceTabId, worldId, characterId, title, description);
 
     fuzzballStorageWindowStates = {
       ...fuzzballStorageWindowStates,
@@ -1788,7 +1813,7 @@ function requestSurfaceFocus(instanceId: string): void {
     };
 
     ensureTreeDataTransportSession(id, surfaceId);
-    rememberTreeDataTransportState(id, 'fuzzball', buildFuzzballStorageViewerModel(state), state);
+    rememberTreeDataTransportState(id, 'fuzzball', viewerService.buildModel(state), state);
     maybeRequestInitialFuzzballStorageLoad(id, state);
     logTreeTransport('open fuzzball storage window', {
       windowId: id,
@@ -2746,6 +2771,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
       try {
         session.setConfirmUnloggedTabClose($appSettingsStore.confirmUnloggedTabClose);
+        session.setWorldPluginActionHandler(handleWorldPluginAction);
         await appServices.lifecycle.runHooks('startup');
         session.setTranscriptScrollbackChunks($appSettingsStore.transcriptScrollbackChunks);
         if (disposed) {
@@ -3122,29 +3148,17 @@ function requestSurfaceFocus(instanceId: string): void {
     {#each $session.tabs.filter((tab) => tab.kind === 'world') as tab (tab.id)}
       {@const worldSession = $session.worldSessions[tab.id] ?? session.getWorldSession(tab.id)}
       {@const channels = session.channels.getWorldChannelsViewModel(tab.id, {
-        currentWorldName: worldSession.currentWorld?.name ?? 'fuzzball storage viewer',
-        currentCharacterName: worldSession.currentCharacter?.name ?? null,
-        showFuzzballStorageViewer: worldSession.currentWorld?.compatibility === 'fuzzball',
+        controls: session.getWorldPluginActions(tab.id)
+          .filter((action) => action.kind === 'button')
+          .map((action) => ({
+            id: action.id,
+            label: action.label,
+            title: action.title,
+            disabled: action.disabled,
+            onClick: action.onClick,
+          })),
         scope: tab.id,
         activeBar: worldSession.activeBar,
-        onOpenFuzzballStorageViewer: () => {
-          if (!worldSession.currentWorld) {
-            return;
-          }
-
-          const currentWorldName = worldSession.currentWorld.name;
-          const currentCharacterName = worldSession.currentCharacter?.name ?? null;
-          const fuzzballStorageTitle = currentCharacterName
-            ? `${currentWorldName} · ${currentCharacterName} storage`
-            : `${currentWorldName} storage`;
-          openFuzzballStorageWindow(
-            tab.id,
-            worldSession.currentWorld.id,
-            worldSession.currentCharacter?.id ?? '',
-            fuzzballStorageTitle,
-            undefined,
-          );
-        },
       })}
       {@const playScreenActions = createPlayScreenActions(tab, worldSession)}
       {@const debugConsolePanel = getDebugConsoleDockviewPanel(tab.id, surfaceRegistryVersion)}
@@ -3161,8 +3175,7 @@ function requestSurfaceFocus(instanceId: string): void {
         connectionStatus={worldSession.connectionStatus}
         hasNewActivity={worldSession.hasNewActivity}
         bars={worldSession.inputBars}
-        onOpenFuzzballStorageViewer={playScreenActions.onOpenFuzzballStorageViewer}
-        showFuzzballStorageViewerButton={worldSession.currentWorld?.compatibility === 'fuzzball'}
+        topActions={session.getWorldPluginActions(tab.id)}
         {debugConsolePanel}
         {notesPanel}
         {fuzzballPanels}

@@ -95,7 +95,11 @@ function normalizeWorldRecord(value: unknown): WorldRecord | null {
 
   const tls = toBooleanValue(value.tls, true);
   const verifyCertificate = tls && toBooleanValue(value.verifyCertificate, true);
-  const compatibility = value.compatibility === 'fuzzball' ? 'fuzzball' : 'telnet';
+  const compatibility = value.compatibility === 'fuzzball'
+    ? 'fuzzball'
+    : value.compatibility === 'taps'
+      ? 'taps'
+      : 'telnet';
 
   return {
     id: toStringValue(value.id).trim() || createId('world'),

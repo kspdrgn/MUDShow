@@ -10,6 +10,7 @@ import { createWorldSessionKey } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import { setWorldNotes } from './session-world-input';
+import type { WorldPluginSession } from './world-plugin-registry';
 
 interface WorldConnectionActionContext {
   getState: () => SessionState;
@@ -24,6 +25,7 @@ interface WorldConnectionActionContext {
   captureIncomingWorldLine: (tabId: string, text: string) => void;
   appendConnectionStatusToTab: (tabId: string, rawText: string) => Promise<void>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
+  getWorldPluginSession: (tabId: string, world: WorldRecord, character: CharacterRecord | null) => WorldPluginSession | null;
 }
 
 function isAppFocused(): boolean {
@@ -47,6 +49,7 @@ export function createWorldConnectionActions({
   captureIncomingWorldLine,
   appendConnectionStatusToTab,
   setHighlightRegexes,
+  getWorldPluginSession,
 }: WorldConnectionActionContext) {
   async function connectToTarget(world: WorldRecord, character: CharacterRecord | null): Promise<void> {
     const tabId = ensureWorldTab(world, character);
@@ -63,6 +66,8 @@ export function createWorldConnectionActions({
     if (!connection) {
       return;
     }
+
+    const pluginSession = getWorldPluginSession(tabId, world, character);
 
     const debugConsole = worldSessionContainers.debugConsole.ensure(createWorldSessionKey(world.id, character?.id ?? null));
     debugConsole.sourceLabel = character ? `${world.name} · ${character.name}` : world.name;
@@ -123,9 +128,11 @@ export function createWorldConnectionActions({
             connection.send(`${character.connectString}\r\n`);
           }
           updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });
+          pluginSession?.handleConnected();
           void appendConnectionStatusToTab(tabId, `\x1b[90m[connected to ${world.host}:${world.port}]\x1b[0m\n`);
         },
         onRawMessage: (text) => {
+          pluginSession?.handleRawMessage(text);
           appendIncomingRawMessageToTab(tabId, text);
         },
         onMessage: (text) => {
@@ -141,10 +148,12 @@ export function createWorldConnectionActions({
         },
         onClose: () => {
           updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'remote' });
+          pluginSession?.handleDisconnected();
           void appendConnectionStatusToTab(tabId, '\x1b[90m[disconnected - reconnect available]\x1b[0m\n');
         },
         onError: (message) => {
           updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'error' });
+          pluginSession?.handleDisconnected();
           void appendConnectionStatusToTab(tabId, `\x1b[31m[connection error] ${message}\x1b[0m\n`);
         },
       },

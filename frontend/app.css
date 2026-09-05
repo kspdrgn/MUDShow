@@ -2161,6 +2161,89 @@ body {
   color: var(--text-bright);
 }
 
+/* Trigger settings use the active Dockview palette for both editor variants. */
+#screen-settings .triggers-tree,
+#screen-settings .triggers-editor,
+#screen-settings .rule-group,
+#screen-settings .highlight-group {
+  border-color: var(--dv-separator-border, var(--border));
+  background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+}
+
+#screen-settings .triggers-tree-item,
+#screen-settings .triggers-tree-item > span:not(.triggers-tree-icon),
+#screen-settings .triggers-context-menu-item,
+#screen-settings .triggers-empty-title,
+#screen-settings .triggers-editor h2,
+#screen-settings .triggers-editor p,
+#screen-settings .triggers-editor label,
+#screen-settings .triggers-editor legend,
+#screen-settings .rule-cheatsheet,
+#screen-settings .rule-cheatsheet code,
+#screen-settings .rule-action-header label,
+#screen-settings .highlight-action-header label {
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+}
+
+#screen-settings .triggers-tree-item:hover,
+#screen-settings .triggers-context-menu-item:hover:not(:disabled),
+#screen-settings .triggers-context-menu-item:focus-visible:not(:disabled) {
+  background: var(--dv-icon-hover-background-color, var(--ui-surface-hover));
+}
+
+#screen-settings .triggers-tree-item.active {
+  border-color: var(--dv-paneview-active-outline-color, var(--border-active));
+  background: var(--dv-activegroup-visiblepanel-tab-background-color, var(--accent-dim));
+}
+
+#screen-settings .triggers-tree-actions,
+#screen-settings .rule-editor-actions,
+#screen-settings .highlight-editor-actions {
+  border-color: var(--dv-separator-border, var(--border));
+  background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+}
+
+#screen-settings .triggers-context-menu {
+  border-color: var(--dv-separator-border, var(--border));
+  background: var(--dv-group-view-background-color, var(--bg));
+  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--bg) 35%, transparent);
+}
+
+#screen-settings .triggers-empty-state {
+  border-color: var(--dv-separator-border, var(--border));
+  background: var(--dv-group-view-background-color, var(--bg));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+}
+
+#screen-settings .rule-sample-preview {
+  border-color: var(--dv-separator-border, var(--border));
+  background: var(--dv-group-view-background-color, var(--bg));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+}
+
+#screen-settings .rule-editor-header h2,
+#screen-settings .highlight-editor-header h2,
+#screen-settings .rule-editor-header p,
+#screen-settings .highlight-editor-header p,
+#screen-settings .rule-group legend,
+#screen-settings .highlight-group legend,
+#screen-settings .rule-group label,
+#screen-settings .highlight-group label,
+#screen-settings .rule-cheatsheet,
+#screen-settings .rule-cheatsheet > div {
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright)) !important;
+}
+
+#screen-settings .rule-action-header label,
+#screen-settings .highlight-action-header label {
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright)) !important;
+}
+
+#screen-settings .style-slide-toggle {
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright)) !important;
+}
+
 #app-shell[class*='dockview-theme-light'] #screen-settings .style-select,
 #app-shell[class*='dockview-theme-solarized-light'] #screen-settings .style-select,
 #app-shell[class*='dockview-theme-github-light'] #screen-settings .style-select {

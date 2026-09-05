@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "outDir": "../../../dist/plugin-contract-tests",
+    "rootDir": "."
+  },
+  "include": [
+    "./types.ts",
+    "./world-capabilities.ts",
+    "./world-session-registry.ts",
+    "./world-session-action.ts",
+    "./world-plugin.ts",
+    "./world-plugin-registry.ts",
+    "./taps/ride-mode.ts",
+    "./tests/world-capabilities.test.ts",
+    "./tests/ride-mode.test.ts",
+    "./tests/world-plugin-registry.test.ts"
+  ],
+  "exclude": ["../../../node_modules", "../../../dist", "../../../tauri"]
+}

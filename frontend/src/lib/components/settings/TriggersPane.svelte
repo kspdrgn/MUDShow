@@ -729,7 +729,7 @@
     border: 1px solid transparent;
     border-radius: 0.45rem;
     background: transparent;
-    color: var(--text-main);
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
     font-size: 0.9rem;
     text-align: left;
     user-select: none;
@@ -852,7 +852,7 @@
     padding: 0.25rem 0.55rem;
     border: 0;
     background: transparent;
-    color: var(--text-main);
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
     font-family: var(--font-ui);
     font-size: 0.82rem;
     text-align: left;
@@ -887,7 +887,7 @@
     font-size: 0.76rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--text-main);
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   }
 
   .triggers-empty-state p {

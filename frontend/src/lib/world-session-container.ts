@@ -1,20 +1,24 @@
-import { MudConnection } from './connection';
+import { MudConnection } from './connection.js';
 import {
   createWorldSessionKey,
   createWorldSessionRegistry,
   type WorldSessionKey,
   type WorldSessionRegistry,
   type WorldSessionRegistryEntry,
-} from './world-session-registry';
+} from './world-session-registry.js';
 import {
   createWorldSessionDebugConsole,
   type WorldSessionDebugConsole,
-} from './world-session-debug-console';
+} from './world-session-debug-console.js';
+import type { WorldPluginSession } from './world-plugin-registry.js';
+import type { WorldPluginServiceBag } from './world-plugin.js';
 
 export interface WorldSessionContainer {
   key: WorldSessionKey;
   connection: MudConnection | null;
   debugConsole: WorldSessionDebugConsole;
+  pluginSession: WorldPluginSession | null;
+  pluginSessionServices: WorldPluginServiceBag;
 }
 
 export interface WorldSessionContainerRegistry {
@@ -42,12 +46,29 @@ export function createWorldSessionContainer(key: WorldSessionKey): WorldSessionC
     key: createWorldSessionKey(key.worldId, key.characterId),
     connection: null,
     debugConsole: createWorldSessionDebugConsole(),
+    pluginSession: null,
+    pluginSessionServices: createWorldPluginServiceBag(),
+  };
+}
+
+function createWorldPluginServiceBag(): WorldPluginServiceBag {
+  const services = new Map<string, unknown>();
+  return {
+    get<T>(pluginId: string): T | null {
+      return (services.get(pluginId) as T | undefined) ?? null;
+    },
+    set<T>(pluginId: string, service: T): void {
+      services.set(pluginId, service);
+    },
   };
 }
 
 export function createWorldSessionContainerRegistry(): WorldSessionContainerRegistry {
   const registry: WorldSessionRegistry<WorldSessionContainer> = createWorldSessionRegistry<WorldSessionContainer>({
-    dispose: (container) => container.connection?.close(),
+    dispose: async (container: WorldSessionContainer) => {
+      await container.pluginSession?.dispose();
+      await container.connection?.close();
+    },
   });
 
   function getContainer(key: WorldSessionKey): WorldSessionContainer | null {

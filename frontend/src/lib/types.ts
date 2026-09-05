@@ -1,4 +1,4 @@
-export type WorldCompatibility = 'telnet' | 'fuzzball';
+export type WorldCompatibility = 'telnet' | 'fuzzball' | 'taps';
 
 export interface WorldRecord {
   id: string;

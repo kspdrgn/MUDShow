@@ -38,7 +38,7 @@
     -webkit-user-select: none;
     -moz-user-select: none;
     line-height: 1;
-    color: var(--text-dim);
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
     transition: color 0.12s ease;
   }
 

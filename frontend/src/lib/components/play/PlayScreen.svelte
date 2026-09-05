@@ -21,6 +21,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     normalizeCharacterWidth,
   } from './play-width';
   import { type ChannelBarControlVM, type ChannelTabVM, type ChannelTabId } from './channel';
+  import type { WorldSessionAction } from '../../world-session-action';
   import { appServices } from '../../app-services';
 
   type PlayScreenActions = {
@@ -66,8 +67,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     tabs: [],
     controls: [],
   };
-  export let onOpenFuzzballStorageViewer: (() => void) | undefined = undefined;
-  export let showFuzzballStorageViewerButton = false;
+  export let topActions: WorldSessionAction[] = [];
   export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
   export let notesPanel: DockviewNotesPanelDefinition | null = null;
   export let fuzzballPanels: DockviewFuzzballStoragePanelDefinition[] = [];
@@ -191,8 +191,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     {dockviewThemeId}
     initialLayout={dockviewLayoutSnapshot}
     onLayoutSnapshot={handleDockviewLayoutSnapshot}
-    onOpenFuzzballStorageViewer={onOpenFuzzballStorageViewer}
-    {showFuzzballStorageViewerButton}
+    {topActions}
     {debugConsolePanel}
     {notesPanel}
     {fuzzballPanels}

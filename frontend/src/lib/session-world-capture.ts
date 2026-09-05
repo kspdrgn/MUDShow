@@ -1,20 +1,19 @@
-import { captureFuzzballWorldLine } from './fuzzball/capture';
 import type { WorldTabSessionState } from './world-session';
+import type { WorldPluginSession } from './world-plugin-registry';
 
 interface WorldCaptureActionContext {
   getWorldSession: (tabId: string) => WorldTabSessionState;
+  getWorldPluginSession: (tabId: string) => WorldPluginSession | null;
 }
 
-export function createWorldCaptureActions({ getWorldSession }: WorldCaptureActionContext) {
+export function createWorldCaptureActions({ getWorldSession, getWorldPluginSession }: WorldCaptureActionContext) {
   function captureIncomingWorldLine(tabId: string, text: string): void {
     const session = getWorldSession(tabId);
-    const world = session.currentWorld;
-
-    if (!world || world.compatibility !== 'fuzzball') {
+    if (!session.currentWorld) {
       return;
     }
 
-    captureFuzzballWorldLine(world.id, session.currentCharacter?.id ?? '', text);
+    getWorldPluginSession(tabId)?.handleIncomingLine(text);
   }
 
   return {

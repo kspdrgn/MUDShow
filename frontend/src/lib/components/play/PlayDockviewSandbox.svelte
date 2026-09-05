@@ -27,6 +27,7 @@
   import type { InputBarId } from '../../input-bars';
   import type { PlayTranscript, RenderCache } from '../../playback';
   import type { Trigger } from '../../types';
+  import type { WorldSessionAction } from '../../world-session-action';
   import type { SurfaceEdge } from '../../surfaces/surface-registry';
   import { DEFAULT_DOCKVIEW_THEME, getDockviewTheme, type DockviewThemeId } from '../../dockview-themes';
 
@@ -34,8 +35,7 @@
   export let dockviewThemeId: DockviewThemeId = DEFAULT_DOCKVIEW_THEME;
   export let initialLayout: SerializedDockview | null = null;
   export let onLayoutSnapshot: (layout: SerializedDockview) => void = () => {};
-  export let onOpenFuzzballStorageViewer: (() => void) | undefined = undefined;
-  export let showFuzzballStorageViewerButton = false;
+  export let topActions: WorldSessionAction[] = [];
   export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
   export let notesPanel: DockviewNotesPanelDefinition | null = null;
   export let fuzzballPanels: DockviewFuzzballStoragePanelDefinition[] = [];
@@ -148,6 +148,7 @@
   const suppressTreeDataClose = new Set<string>();
   const suppressDummyWindowClose = new Set<string>();
   const edgeGroupCustomActionIds = new Set<string>();
+  const headerActionRenderers = new Set<() => void>();
   let syncDebugConsolePanel: (() => void) | null = null;
   let syncNotesPanel: (() => void) | null = null;
   let syncFuzzballPanels: (() => void) | null = null;
@@ -298,6 +299,8 @@
     syncFuzzballPanels?.();
     syncTreeDataPanels?.();
     syncDummyWindowPanels?.();
+    topActions;
+    headerActionRenderers.forEach((render) => render());
     if (focusSurfaceId) {
       focusDockviewPanel?.(focusSurfaceId);
     }
@@ -856,12 +859,6 @@
       createRightHeaderActionComponent: (group) => {
         const element = document.createElement('div');
         element.className = 'play-dockview-header-action-shell';
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'play-dockview-header-action';
-        button.textContent = 'exa me=/';
-        button.title = 'Open fuzzball storage viewer';
         let removeClickListener: (() => void) | null = null;
         let removeLocationListener: { dispose: () => void } | null = null;
         let currentLocation = group.api.location;
@@ -870,13 +867,40 @@
           element.replaceChildren();
 
           const hasCustomAction =
-            showFuzzballStorageViewerButton
+            topActions.length > 0
             && currentLocation.type === 'edge'
             && currentLocation.position === 'top';
 
           if (hasCustomAction) {
             edgeGroupCustomActionIds.add(group.id);
-            element.appendChild(button);
+            for (const action of topActions) {
+              if (action.kind === 'button') {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'play-dockview-header-action';
+                button.textContent = action.label;
+                button.title = action.title ?? action.label;
+                button.disabled = action.disabled ?? false;
+                button.addEventListener('click', action.onClick);
+                element.appendChild(button);
+                continue;
+              }
+
+              const select = document.createElement('select');
+              select.className = 'play-dockview-header-action play-dockview-header-select';
+              select.title = action.title ?? action.label;
+              select.setAttribute('aria-label', action.title ?? action.label);
+              select.disabled = action.disabled ?? false;
+              for (const option of action.options) {
+                const optionElement = document.createElement('option');
+                optionElement.value = option.value;
+                optionElement.textContent = option.label;
+                optionElement.selected = option.value === action.value;
+                select.appendChild(optionElement);
+              }
+              select.addEventListener('change', () => action.onChange(select.value));
+              element.appendChild(select);
+            }
           } else {
             edgeGroupCustomActionIds.delete(group.id);
           }
@@ -886,13 +910,9 @@
           element,
           init() {
             render();
-
-            const handleClick = () => {
-              onOpenFuzzballStorageViewer?.();
-            };
-
-            button.addEventListener('click', handleClick);
-            removeClickListener = () => button.removeEventListener('click', handleClick);
+            const refresh = () => render();
+            headerActionRenderers.add(refresh);
+            removeClickListener = () => headerActionRenderers.delete(refresh);
 
             removeLocationListener = group.api.onDidLocationChange((event) => {
               currentLocation = event.location;

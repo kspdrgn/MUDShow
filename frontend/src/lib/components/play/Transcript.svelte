@@ -15,6 +15,7 @@
     focusElement,
     nextFrame,
     scrollElementBy,
+    scrollElementToBottom,
   } from '../../session-dom';
   import { openExternalUrl } from '../../tauri';
   import { getScopedInputBarInputId, type InputBarId } from '../../input-bars';
@@ -768,7 +769,24 @@
   }
 
   function handleScrollToBottomClick(): void {
+    // The button is an explicit request to resume following the live output.
+    // Clear the local copy immediately so split view cannot remain mounted
+    // while the parent store update and Dockview workspace sync are settling.
+    userScrollIntent = false;
+    userScrolled = false;
     onScrollToBottom();
+
+    void tick().then(() => {
+      if (transcriptDestroyed) {
+        return;
+      }
+
+      userScrollIntent = false;
+      userScrolled = false;
+      scrollElementToBottom(`${scope}-output-area`);
+      syncTranscriptScrollMetrics();
+      syncTranscriptRenderState();
+    });
   }
 
   function handleContextMenu(event: MouseEvent): void {
