@@ -14,6 +14,7 @@ todo:
   - [X] grab handle should be full size on all docks.
   - [X] left hand dock too. unify grab handle, collapse, expand, autohide and reveal behavior.
   - [X] change dockview theme from available. rebuild ux.
+  - [X] theme with app
 - fuzzball storage viewer
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.
@@ -53,11 +54,11 @@ todo:
   - [X] consolidated channels? move channels from top to side to pop-in to pop-out?
   - [X] side channels
   - [X] message bus
-  - [ ] dockview tabs should have less gutter on top and bottom.
+  - [X] dockview tabs should have less gutter on top and bottom.
   - [ ] tree ui sucks, duplicates words, selection box not responsive
-  - [ ] trim extra logging everywhere
+  - [ ] trim extra console logging everywhere
   - [ ] clicking dock panels doesn't refocus to input area
-  - [ ] dock panel auto-hide doesn't always activate, not sure why
+  - [X] dock panel auto-hide doesn't always activate, not sure why
   - [ ] 'f3' key in some places opens native webUi find dialog, maybe keep in transcript/notes/debug/etc text areas? move notes key to another key if keeping?
 
 MVP Features:

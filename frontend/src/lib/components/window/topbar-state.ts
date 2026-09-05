@@ -27,7 +27,7 @@ export function shouldStartTitlebarDrag(target: EventTarget | null): boolean {
   }
 
   return target.closest(
-    '.world-tab-group, .titlebar-quick-connect, .titlebar-dropdown, #titlebar-actions, button, input, textarea, select, a',
+    '.world-tab-group, .app-dockview .dv-tab, .app-dockview .app-dockview-tab, .app-dockview .app-dockview-tab-close, .titlebar-quick-connect, .titlebar-dropdown, #titlebar-actions, button, input, textarea, select, a',
   ) === null;
 }
 

@@ -3054,6 +3054,7 @@ function requestSurfaceFocus(instanceId: string): void {
     tabs={$session.tabs}
     activeTabId={$session.activeTabId}
     worldSessions={$session.worldSessions}
+    dockviewThemeId={$appSettingsStore.colorScheme}
     closeConfirmTabId={$session.closeConfirmTabId}
     closeConfirmMode={$session.closeConfirmMode}
     confirmUnloggedTabClose={$appSettingsStore.confirmUnloggedTabClose}
@@ -3234,7 +3235,12 @@ function requestSurfaceFocus(instanceId: string): void {
 <WindowResizeHandles />
 
 {#if $appNoticeStore}
-  <AppNoticeHost open={true} title={$appNoticeStore.title} onClose={closeActiveNotice}>
+  <AppNoticeHost
+    open={true}
+    title={$appNoticeStore.title}
+    themeClassName={appThemeClassName}
+    onClose={closeActiveNotice}
+  >
     {#if $appNoticeStore.kind === 'custom' && $appNoticeStore.surfaceId === APP_NOTICE_SURFACE_IDS.characterModal}
       <CharacterModal
         draft={$session.modalDraft}

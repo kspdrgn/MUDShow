@@ -35,4 +35,4 @@ export const SETTINGS_PAGE_TAB_ICONS: Record<SettingsTabId, string> = {
   ui: `<svg class="settings-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="4.5" width="15" height="15" rx="2"/><path d="M8 8h8"/><path d="M8 12h5"/><path d="M8 16h3"/></svg>`,
 };
 
-export const SETTINGS_PAGE_PLACEHOLDER_TABS = new Set<SettingsTabId>(['connections', 'ui']);
+export const SETTINGS_PAGE_PLACEHOLDER_TABS = new Set<SettingsTabId>(['connections']);

@@ -4,6 +4,7 @@
   export let open = false;
   export let title = 'modal notice';
   export let onClose: () => void;
+  export let themeClassName = '';
 
   function closeFromBackdrop(event: MouseEvent): void {
     if (event.currentTarget !== event.target) {
@@ -41,7 +42,7 @@
 </script>
 
 {#if open}
-  <div class="app-notice-root" aria-live="polite">
+  <div class={`app-notice-root ${themeClassName}`} aria-live="polite">
     <div
       class="app-notice-backdrop"
       role="button"

@@ -12,7 +12,9 @@
   import StatusDot from '../play/StatusDot.svelte';
   import WorldContextMenu from '../play/WorldContextMenu.svelte';
   import type { WorldTabSessionState } from '../../world-session';
+  import type { DockviewThemeId } from '../../dockview-themes';
   import QuickConnectPanel from './QuickConnectPanel.svelte';
+  import AppDockview from './AppDockview.svelte';
   import {
     getCloseConfirmState,
     getQuickConnectSide,
@@ -38,6 +40,7 @@
   export let tabs: AppTab[] = [];
   export let activeTabId: string | null = null;
   export let worldSessions: Record<string, WorldTabSessionState> = {};
+  export let dockviewThemeId: DockviewThemeId;
   export let closeConfirmTabId: string | null = null;
   export let closeConfirmMode: 'modal' | 'dropdown' | null = null;
   export let confirmUnloggedTabClose = false;
@@ -515,69 +518,21 @@
   </div>
 
   <div id="titlebar-tabs" bind:this={titlebarTabsElement}>
-    <div class="world-tabs" aria-label="app tabs" bind:this={worldTabsElement} class:dragging={tabDragState?.isDragging}>
-      {#each tabs as tab (tab.id)}
-        {@const worldSession = tab.kind === 'world' ? worldSessions[tab.id] ?? null : null}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-        <div
-          bind:this={tabGroupElements[tab.id]}
-          class="world-tab-group"
-          class:active={tab.id === activeTabId}
-          class:confirming={closeConfirmMode === 'dropdown' && closeConfirmTabId === tab.id}
-          class:drag-source={tabDragState?.tabId === tab.id && tabDragState.isDragging}
-          role="group"
-          aria-label={`${tab.title} tab`}
-          on:pointerdown={(event) => beginTabDrag(event, tab)}
-          on:pointermove={moveTabDrag}
-          on:pointerup={(event) => finishTabDrag(event)}
-          on:pointercancel={cancelTabDrag}
-          on:click={(event) => handleTabClick(event, tab)}
-          on:contextmenu={(event) => handleTabContextMenu(event, tab)}
-        >
-          <button
-            type="button"
-            class="world-tab"
-            data-tauri-drag-region="false"
-            title={tab.title}
-            aria-label={tab.title}
-            aria-grabbed={tabDragState?.tabId === tab.id && tabDragState.isDragging}
-          >
-            {tab.title}
-          </button>
-
-          {#if tab.closable}
-            <button
-              bind:this={tabCloseButtons[tab.id]}
-              type="button"
-              class="world-tab-close"
-              data-tauri-drag-region="false"
-              title={`close ${tab.title}`}
-              aria-label={`close ${tab.title}`}
-              on:pointerdown|stopPropagation
-              on:click|stopPropagation={(event) => beginWorldTabClose(event, tab)}
-            >
-              X
-            </button>
-          {/if}
-
-          {#if tab.kind === 'world'}
-            <div class="world-tab-status" aria-hidden="true">
-              <StatusDot status={worldSession?.connectionStatus ?? 'idle'} />
-              <StatusDot status="connected" variant="activity" active={worldSession?.hasNewActivity === true} />
-              <StatusDot status="connected" variant="logging" active={worldSession?.loggingActive === true} />
-            </div>
-          {/if}
-        </div>
-      {/each}
-    </div>
-
-    {#if tabDragState?.isDragging}
-      <div
-        class="world-tab-drop-indicator"
-        aria-hidden="true"
-        style={`left: ${tabDragState.indicatorLeft}px;`}
-      ></div>
-    {/if}
+    {#key dockviewThemeId}
+      <AppDockview
+        {tabs}
+        {activeTabId}
+        {worldSessions}
+        {dockviewThemeId}
+        onSelectTab={onSelectTab}
+        onReorderTab={onReorderTab}
+        onCloseTab={(tabId) => onCloseTab(tabId, 'mouse')}
+        onContextMenu={(tabId, event) => {
+          const tab = tabs.find((entry) => entry.id === tabId);
+          if (tab) handleTabContextMenu(event, tab);
+        }}
+      />
+    {/key}
 
     {#if isCloseConfirmDropdownOpen() && closeConfirmState.tab}
       <div

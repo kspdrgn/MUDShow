@@ -11,7 +11,7 @@ Closing the app shows a confirmation prompt when any world tab is connected or c
 
 Anchored to the left:
 - Static app title as a guaranteed draggable area
-- App tabs display, occupies all available width:
+- App tabs display, implemented by one app-owned Dockview container and occupying all available width:
   - From left to right, show each open world as a tab
   - At the end of the tabs list is a '+' button to add new tabs
 
@@ -82,7 +82,7 @@ Modal dismissal is handled by the host shell:
   - If no tabs are open, the Home Panel should be shown centered in the empty content space.
   - Connection tabs are not restored between app sessions.
   - Characters and App Settings are opened only when the user chooses them and are not instantiated until then.
-  - Tabs will have an X button anchored on their right side to close a tab.
+  - Tabs use Dockview's standard close control to close a tab.
   - CTRL+F4 will close the active tab.
   - Closing a connected or connecting world tab requires confirmation. Clicking the tab X shows a small dropdown anchored to that X, while Ctrl+F4 uses a centered modal confirmation.
   - If the logging reminder is enabled in app settings, closing a disconnected world tab that is not currently being logged also requires confirmation.
