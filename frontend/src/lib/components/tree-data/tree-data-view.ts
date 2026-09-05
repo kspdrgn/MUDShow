@@ -20,6 +20,7 @@ export interface TreeDataWindowViewState {
 export interface TreeDataWindowModel {
   title: string;
   description?: string;
+  presentation?: 'default' | 'fuzzball-storage';
   root: TreeDataNode;
 }
 

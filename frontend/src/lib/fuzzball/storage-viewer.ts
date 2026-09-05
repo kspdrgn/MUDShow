@@ -14,9 +14,7 @@ export interface FuzzballStorageViewerState {
   description?: string;
 }
 
-function renderSnapshotSubtitle(snapshot: {
-  name: string;
-  type: string;
+function renderSnapshotValue(snapshot: {
   value: string | null;
   isValueLoaded: boolean;
 }): string {
@@ -24,7 +22,7 @@ function renderSnapshotSubtitle(snapshot: {
     ? snapshot.value ?? 'no value'
     : 'unloaded';
 
-  return `${snapshot.name} · ${snapshot.type} · ${value}`;
+  return value;
 }
 
 function buildTreeNode(cache: FuzzBallPropertyTreeCache, path: string): TreeDataNode | null {
@@ -43,7 +41,7 @@ function buildTreeNode(cache: FuzzBallPropertyTreeCache, path: string): TreeData
   return {
     id: snapshot.path,
     title: snapshot.name,
-    subtitle: renderSnapshotSubtitle(snapshot),
+    subtitle: renderSnapshotValue(snapshot),
     badge: snapshot.type,
     kind: snapshot.hasChildren ? 'branch' : 'leaf',
     valueState: snapshot.isValueLoaded ? 'loaded' : 'unknown',
@@ -99,7 +97,7 @@ export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerStat
   const root = buildTreeNode(cache, '/') ?? {
     id: '/',
     title: '/',
-    subtitle: '/ · dir · unloaded',
+    subtitle: 'unloaded',
     badge: 'dir',
     kind: 'branch',
     valueState: 'unknown',
@@ -109,6 +107,7 @@ export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerStat
   return {
     title: state.title,
     description: state.description,
+    presentation: 'fuzzball-storage',
     root,
   };
 }

@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte';
   import {
     flattenVisibleTreeDataNodes,
+    type TreeDataNode,
     type TreeDataWindowModel,
     type TreeDataWindowViewState,
   } from './tree-data-view';
@@ -125,6 +126,15 @@
     logTreeWindow('fallback command', { command });
     onCommand(command);
   }
+
+  function formatSelectedNodePreview(node: TreeDataNode): string {
+    const type = node.badge ?? 'str';
+    const path = type === 'dir' && !node.id.endsWith('/') ? `${node.id}/` : node.id;
+
+    return type === 'dir'
+      ? path
+      : `${path}:${node.subtitle ?? 'no value'}`;
+  }
 </script>
 
 <section class="tree-data-window">
@@ -145,10 +155,14 @@
 
   <div class="tree-data-window-summary" aria-live="polite">
     {#if selectedRow}
-      <span class="tree-data-window-summary-label">selected:</span>
-      <span class="tree-data-window-summary-value">{selectedRow.node.title}</span>
-      {#if selectedRow.node.subtitle}
-        <span class="tree-data-window-summary-detail">{selectedRow.node.subtitle}</span>
+      {#if activeModel.presentation === 'fuzzball-storage'}
+        <span class="tree-data-window-summary-value">{formatSelectedNodePreview(selectedRow.node)}</span>
+      {:else}
+        <span class="tree-data-window-summary-label">selected:</span>
+        <span class="tree-data-window-summary-value">{selectedRow.node.title}</span>
+        {#if selectedRow.node.subtitle}
+          <span class="tree-data-window-summary-detail">{selectedRow.node.subtitle}</span>
+        {/if}
       {/if}
     {:else}
       <span class="tree-data-window-summary-detail">no row selected</span>
@@ -194,16 +208,23 @@
         <button
           type="button"
           class="tree-data-node"
+          class:fuzzball={activeModel.presentation === 'fuzzball-storage'}
           class:selected={activeViewState.selectedNodeId === row.node.id}
           on:click={() => selectNode(row.node.id)}
         >
           <span class="tree-data-node-title">{row.node.title}</span>
+          {#if activeModel.presentation === 'fuzzball-storage' && row.node.badge}
+            <span class="tree-data-node-badge">{row.node.badge}</span>
+          {/if}
           {#if row.node.subtitle}
-            <span class="tree-data-node-subtitle">{row.node.subtitle}</span>
+            <span
+              class="tree-data-node-subtitle"
+              class:empty={row.node.valueState !== 'loaded' || row.node.subtitle === 'no value'}
+            >{row.node.subtitle}</span>
           {/if}
         </button>
 
-        {#if row.node.badge}
+        {#if row.node.badge && activeModel.presentation !== 'fuzzball-storage'}
           <span class="tree-data-node-badge">{row.node.badge}</span>
         {/if}
       </div>
@@ -224,10 +245,8 @@
     max-width: none;
     box-sizing: border-box;
     padding: 1rem;
-    color: var(--text-color, #e7eef9);
-    background:
-      radial-gradient(circle at top right, rgba(107, 126, 255, 0.18), transparent 32%),
-      linear-gradient(180deg, rgba(16, 20, 28, 0.98), rgba(10, 13, 19, 0.98));
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+    background: var(--dv-group-view-background-color, var(--bg));
   }
 
   .tree-data-window-header {
@@ -249,7 +268,7 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     font-size: 0.72rem;
-    color: rgba(200, 214, 245, 0.65);
+    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
   }
 
   .tree-data-window h2 {
@@ -261,7 +280,7 @@
   .tree-data-window-description {
     margin: 0;
     max-width: 34rem;
-    color: rgba(231, 238, 249, 0.72);
+    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
   }
 
   .tree-data-window-actions {
@@ -272,11 +291,11 @@
   }
 
   .tree-data-window-action {
-    border: 1px solid rgba(145, 164, 205, 0.24);
+    border: 1px solid var(--dv-separator-border, var(--border));
     border-radius: 0.7rem;
     padding: 0.45rem 0.7rem;
-    background: rgba(14, 18, 26, 0.72);
-    color: inherit;
+    background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
     cursor: pointer;
     text-transform: lowercase;
   }
@@ -287,18 +306,18 @@
     gap: 0.35rem;
     align-items: center;
     border-radius: 0.75rem;
-    border: 1px solid rgba(145, 164, 205, 0.16);
+    border: 1px solid var(--dv-separator-border, var(--border));
     padding: 0.6rem 0.75rem;
-    background: rgba(8, 11, 16, 0.7);
-    color: rgba(231, 238, 249, 0.88);
+    background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   }
 
   .tree-data-window-summary-label {
-    color: rgba(200, 214, 245, 0.68);
+    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
   }
 
   .tree-data-window-summary-detail {
-    color: rgba(200, 214, 245, 0.74);
+    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
   }
 
   .tree-data-window-tree {
@@ -312,8 +331,8 @@
     overflow-y: auto;
     padding: 0.2rem;
     border-radius: 0.9rem;
-    border: 1px solid rgba(145, 164, 205, 0.14);
-    background: rgba(5, 7, 10, 0.42);
+    border: 1px solid var(--dv-separator-border, var(--border));
+    background: var(--dv-group-view-background-color, var(--bg));
   }
 
   .tree-data-row {
@@ -326,7 +345,7 @@
   }
 
   .tree-data-row:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--dv-icon-hover-background-color, var(--ui-surface-hover));
   }
 
   .tree-data-row.branch .tree-data-node-title {
@@ -334,11 +353,11 @@
   }
 
   .tree-data-row.selected {
-    background: rgba(107, 126, 255, 0.16);
+    background: var(--dv-activegroup-visiblepanel-tab-background-color, var(--accent-dim));
   }
 
   .tree-data-row.loading {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
   }
 
   .tree-data-toggle {
@@ -357,7 +376,7 @@
   }
 
   .tree-data-toggle--branch {
-    color: rgba(200, 214, 245, 0.88);
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   }
 
   .tree-data-toggle--branch:disabled {
@@ -383,30 +402,59 @@
     min-width: 0;
   }
 
+  .tree-data-node.fuzzball {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.45rem;
+    row-gap: 0.06rem;
+  }
+
+  .tree-data-node.fuzzball .tree-data-node-title {
+    grid-column: 1 / -1;
+  }
+
+  .tree-data-node.fuzzball .tree-data-node-badge {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .tree-data-node.fuzzball .tree-data-node-subtitle {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+  }
+
+  .tree-data-node.fuzzball .tree-data-node-subtitle.empty {
+    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
+  }
+
   .tree-data-node-title {
     font-size: 0.96rem;
     font-weight: 600;
-    color: rgba(240, 245, 255, 0.96);
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   }
 
   .tree-data-node-subtitle {
     font-size: 0.8rem;
-    color: rgba(200, 214, 245, 0.68);
+    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
   }
 
   .tree-data-node-badge {
     justify-self: end;
     padding: 0.18rem 0.45rem;
     border-radius: 999px;
-    border: 1px solid rgba(145, 164, 205, 0.18);
-    background: rgba(255, 255, 255, 0.03);
-    color: rgba(200, 214, 245, 0.74);
+    border: 1px solid var(--dv-separator-border, var(--border));
+    background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
 
   .tree-data-node.selected .tree-data-node-title {
-    color: #ffffff;
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   }
 </style>

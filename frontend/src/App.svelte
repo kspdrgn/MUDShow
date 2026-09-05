@@ -440,16 +440,12 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
           const fuzzballStorageTitle = currentCharacterName
             ? `${currentWorldName} · ${currentCharacterName} storage`
             : `${currentWorldName} storage`;
-          const fuzzballStorageDescription = currentCharacterName
-            ? `world: ${currentWorldName} · character: ${currentCharacterName}`
-            : `world: ${currentWorldName}`;
-
           openFuzzballStorageWindow(
             tab.id,
             worldSession.currentWorld.id,
             worldSession.currentCharacter?.id ?? '',
             fuzzballStorageTitle,
-            fuzzballStorageDescription,
+            undefined,
           );
         },
         onInputFocusBar: (bar: number) => session.handleInputFocus(bar),
@@ -3010,6 +3006,7 @@ function requestSurfaceFocus(instanceId: string): void {
       surfaceId: WINDOW_HOST_SINGLETON_IDS.dummyWindow,
       title: 'window',
     })}
+    themeClassName={appThemeClassName}
     onPopIn={(windowId) => void handlePopInWindow(windowId)}
   >
     {#if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
@@ -3140,16 +3137,12 @@ function requestSurfaceFocus(instanceId: string): void {
           const fuzzballStorageTitle = currentCharacterName
             ? `${currentWorldName} · ${currentCharacterName} storage`
             : `${currentWorldName} storage`;
-          const fuzzballStorageDescription = currentCharacterName
-            ? `world: ${currentWorldName} · character: ${currentCharacterName}`
-            : `world: ${currentWorldName}`;
-
           openFuzzballStorageWindow(
             tab.id,
             worldSession.currentWorld.id,
             worldSession.currentCharacter?.id ?? '',
             fuzzballStorageTitle,
-            fuzzballStorageDescription,
+            undefined,
           );
         },
       })}

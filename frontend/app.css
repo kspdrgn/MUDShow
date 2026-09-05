@@ -72,6 +72,28 @@
   --ui-shadow: color-mix(in srgb, var(--bg) 55%, transparent);
 }
 
+.popped-out-window-view[class*='dockview-theme-'] {
+  padding: 0 !important;
+  --dockview-font-family: var(--font-ui);
+  --bg: var(--dv-group-view-background-color, #000);
+  --surface: var(--dv-tabs-and-actions-container-background-color, #0a0a0a);
+  --border: var(--dv-tab-divider-color, var(--dv-separator-border, #1e1e1e));
+  --border-active: var(--dv-paneview-active-outline-color, var(--dv-separator-border, #333));
+  --text: var(--dv-activegroup-visiblepanel-tab-color, #c8c8c8);
+  --text-dim: var(--dv-activegroup-hiddenpanel-tab-color, #9b9b9b);
+  --text-bright: var(--dv-activegroup-visiblepanel-tab-color, #e8e8e8);
+  --accent: var(--dv-edge-dock-indicator-color, var(--dv-paneview-active-outline-color, #4a9eff));
+  --accent-dim: color-mix(in srgb, var(--accent) 24%, var(--bg));
+  --input-bg: var(--dv-group-view-background-color, #050505);
+  --input-active: var(--dv-icon-hover-background-color, var(--surface));
+  --ui-border-soft: color-mix(in srgb, var(--text-bright) 16%, transparent);
+  --ui-border-faint: color-mix(in srgb, var(--text-bright) 9%, transparent);
+  --ui-surface-soft: color-mix(in srgb, var(--text-bright) 5%, var(--surface));
+  --ui-surface-hover: color-mix(in srgb, var(--text-bright) 10%, var(--surface));
+  --ui-overlay: color-mix(in srgb, var(--bg) 82%, transparent);
+  --ui-shadow: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
 html,
 body,
 #app {
@@ -2021,18 +2043,58 @@ body {
 
 .popped-out-window-pop-in {
   position: fixed;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 0;
+  right: 0;
   z-index: 5;
   min-width: 2rem;
   padding: 0.2rem 0.55rem;
+  border: 1px solid var(--dv-separator-border, var(--border-active));
+  border-radius: 0.45rem;
+  background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+  cursor: pointer;
   line-height: 1;
 }
 
+.popped-out-window-pop-in:hover,
+.popped-out-window-pop-in:focus-visible {
+  border-color: var(--dv-paneview-active-outline-color, var(--border-active));
+  background: var(--dv-icon-hover-background-color, var(--ui-surface-hover));
+}
+
 .popped-out-window-content {
-  min-height: 100vh;
-  padding: 0;
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0 !important;
   overflow: auto;
+}
+
+.popped-out-window-content > * {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+/* Popped-out surfaces use the native window edge as their frame. Their
+   in-app layouts keep their normal inset when rendered inside Dockview. */
+.popped-out-window-content > .tree-data-window {
+  padding: 0;
+}
+
+.popped-out-window-content > .debug-console-window .debug-console-content {
+  padding: 0;
+}
+
+.popped-out-window-content > .tree-data-window .tree-data-window-actions {
+  margin-right: 3.5rem;
 }
 
 .logging-modal-status {
@@ -2576,10 +2638,10 @@ body {
   width: 1.8rem;
   height: 1.8rem;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--dv-separator-border, var(--border-active));
   border-radius: 0.45rem;
-  background: rgba(5, 5, 6, 0.82);
-  color: var(--text-bright);
+  background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   font-family: var(--font-ui);
   font-size: 1rem;
   line-height: 1;
@@ -2588,8 +2650,22 @@ body {
 }
 
 .play-dockview-panel-shell__action:hover {
-  border-color: rgba(74, 158, 255, 0.6);
-  background: rgba(22, 37, 58, 0.95);
+  border-color: var(--dv-paneview-active-outline-color, var(--border-active));
+  background: var(--dv-icon-hover-background-color, var(--ui-surface-hover));
+}
+
+.play-dockview-panel-shell__action-glyph {
+  display: inline-block;
+}
+
+.play-dockview-panel-shell__action-glyph--return-to-dock {
+  transform: rotate(-90deg);
+}
+
+/* Keep tree-data actions clear of the panel-host controls. Floating panels
+   can expose the dock, native pop-out, and close buttons at the same time. */
+.play-dockview-panel-shell .tree-data-window-actions {
+  margin-right: 6.25rem;
 }
 
 .play-dockview-edge-activator {
@@ -2637,10 +2713,10 @@ body {
   justify-content: center;
   min-height: 1.9rem;
   padding: 0 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--dv-separator-border, var(--border));
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-bright);
+  background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   font-family: var(--font-ui);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
@@ -2650,8 +2726,8 @@ body {
 }
 
 .play-dockview-header-action:hover {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--dv-paneview-active-outline-color, var(--border-active));
+  background: var(--dv-icon-hover-background-color, var(--ui-surface-hover));
 }
 
 .play-dockview-placeholder {

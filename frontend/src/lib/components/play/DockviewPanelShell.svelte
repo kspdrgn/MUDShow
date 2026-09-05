@@ -36,7 +36,7 @@
         on:mousedown|stopPropagation
         on:click={onDockToEdge}
       >
-        ⇥
+        <span class="play-dockview-panel-shell__action-glyph play-dockview-panel-shell__action-glyph--return-to-dock">⇥</span>
       </button>
     {:else if placement !== 'popout'}
       <button
@@ -47,7 +47,7 @@
         on:mousedown|stopPropagation
         on:click={onPromoteToFloating}
       >
-        ↧
+        <span class="play-dockview-panel-shell__action-glyph">↧</span>
       </button>
     {/if}
 
@@ -60,7 +60,7 @@
         on:mousedown|stopPropagation
         on:click={onPopInNative}
       >
-        ⤴
+        <span class="play-dockview-panel-shell__action-glyph">⤴</span>
       </button>
     {:else if placement === 'floating'}
       <button
@@ -71,7 +71,7 @@
         on:mousedown|stopPropagation
         on:click={onPopOutNative}
       >
-        ⤵
+        <span class="play-dockview-panel-shell__action-glyph">⤵</span>
       </button>
     {/if}
 
@@ -84,7 +84,7 @@
         on:mousedown|stopPropagation
         on:click={onClose}
       >
-        ×
+        <span class="play-dockview-panel-shell__action-glyph">×</span>
       </button>
     {/if}
   </div>
