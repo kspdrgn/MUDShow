@@ -43,14 +43,18 @@ todo:
 - [ ] debug console
   - [X] display raw input/output
   - [ ] input to impersonate world input
-- [ ] plugin architecture
-- [ ] taps plugin skeleton
+- [X] plugin architecture
+- [X] plugin seam
+- [X] fuzzball plugin
+  - [X] surface: `exa me=/` fuzzball storage viewer
+  - [ ] storage editor
+- [X] taps plugin
   - [ ] desc editor first candidate window
   - [ ] morph list
   - [ ] morph editor
   - [ ] page popouts to channels
   - [ ] WS side channel
-  - [ ] ridemode dropdown control
+  - [X] ridemode dropdown control
 - [X] surfaces
   - [X] Dockview
   - [X] consolidated channels? move channels from top to side to pop-in to pop-out?

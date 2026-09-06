@@ -453,7 +453,7 @@ The implementation is incomplete until the behavior is represented in the canoni
 - [x] Display `ride`, `hand`, `walk`, and `fly` when known.
 - [x] Show an explicit unavailable/loading state for missing or invalid values.
 - [x] Send `@set me=/ride/_mode:<rideMode>` on selection.
-- [x] Track pending writes and reconcile them from cache updates.
+- [x] Track pending writes, keep the selector editable after send completion, and treat later cache updates as authoritative.
 - [x] React to externally changed server values.
 - [x] Handle disconnect, reconnect, and write/refresh errors safely.
 - [x] Refresh the generic ride-mode action when Taps state changes.
