@@ -2813,6 +2813,29 @@ body {
   background: var(--dv-icon-hover-background-color, var(--ui-surface-hover));
 }
 
+/* Native select controls otherwise use the browser's default light popup
+   palette, which is especially visible while the Dockview header is hovered. */
+.play-dockview-header-select {
+  color-scheme: dark;
+  appearance: auto;
+}
+
+.play-dockview-header-select option {
+  background: var(--dv-group-view-background-color, var(--surface));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+}
+
+.play-dockview-header-select option:checked {
+  background: var(--dv-activegroup-visiblepanel-tab-background-color, var(--accent-dim));
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+}
+
+#app-shell[class*='dockview-theme-light'] .play-dockview-header-select,
+#app-shell[class*='dockview-theme-solarized-light'] .play-dockview-header-select,
+#app-shell[class*='dockview-theme-github-light'] .play-dockview-header-select {
+  color-scheme: light;
+}
+
 .play-dockview-placeholder {
   height: 100%;
   display: flex;

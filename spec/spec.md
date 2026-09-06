@@ -91,6 +91,7 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Open and close a notes surface for the active character.
 - Open and close the per-world debug console surface.
 - Open and close a triggers panel for simple text highlights and regexp rules.
+- Remember each surface's last placement, floating position, and native-window size and restore them when the surface is opened again.
 - Manage triggers at app, world, or character scope.
 - Add and remove highlight rules.
 - Edit the text for an existing highlight rule.
@@ -114,3 +115,5 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Track focus/title attention state so the user can see unseen activity.
 - Store a rolling per-character transcript history locally and reload it when reconnecting.
 - Provide a small, low-clutter interface optimized for reading and typing.
+- Ensure a frozen frontend cannot permanently prevent the user from closing the desktop app.
+- Reserve a native-shell diagnostics extension point for future crash reporting or telemetry without collecting or sending data yet.

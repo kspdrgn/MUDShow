@@ -5,6 +5,8 @@ import type {
   WorldPluginSessionContribution,
   WorldPluginServiceBag,
   WorldPluginSurfaceContribution,
+  WorldPluginServiceKey,
+  WorldPluginProvider,
 } from './world-plugin.js';
 import type { WorldSessionAction } from './world-session-action.js';
 
@@ -23,6 +25,7 @@ export interface WorldPluginSession {
   readonly contributions: readonly WorldPluginSessionContribution[];
   getActions(): WorldSessionAction[];
   getSurfaces(): WorldPluginSurfaceContribution[];
+  subscribe(listener: () => void): () => void;
   handleIncomingLine(line: string): void;
   handleRawMessage(text: string): void;
   handleConnected(): void;
@@ -32,6 +35,7 @@ export interface WorldPluginSession {
 
 export interface WorldPluginRegistry {
   register(plugin: WorldPlugin): () => void;
+  registerProvider(provider: WorldPluginProvider): () => void;
   unregister(pluginId: string): void;
   get(pluginId: string): WorldPlugin | null;
   list(): readonly WorldPlugin[];
@@ -49,6 +53,12 @@ function createPluginSession(
   onError: (context: WorldPluginErrorContext) => void,
 ): WorldPluginSession {
   let disposed = false;
+  const listeners = new Set<() => void>();
+  const contributionUnsubscribers = contributions
+    .map((contribution) => contribution.subscribe?.(() => {
+      listeners.forEach((listener) => listener());
+    }) ?? null)
+    .filter((unsubscribe): unsubscribe is () => void => unsubscribe !== null);
 
   function dispatch(
     hook: WorldPluginErrorContext['hook'],
@@ -83,6 +93,10 @@ function createPluginSession(
     getSurfaces() {
       return contributions.flatMap((contribution) => contribution.surfaces ?? []);
     },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     handleIncomingLine(line: string) {
       dispatch('incomingLine', (contribution) => contribution.onIncomingLine?.(line));
     },
@@ -101,6 +115,8 @@ function createPluginSession(
       }
 
       disposed = true;
+      listeners.clear();
+      contributionUnsubscribers.forEach((unsubscribe) => unsubscribe());
       for (let index = contributions.length - 1; index >= 0; index -= 1) {
         const contribution = contributions[index];
         try {
@@ -183,6 +199,9 @@ export function createWorldPluginRegistry({
       plugins.set(plugin.id, plugin);
       return () => unregister(plugin.id);
     },
+    registerProvider(provider: WorldPluginProvider): () => void {
+      return this.register(provider.createPlugin());
+    },
     unregister,
     get(pluginId: string): WorldPlugin | null {
       return plugins.get(pluginId) ?? null;
@@ -221,11 +240,11 @@ function createServiceBag(): WorldPluginServiceBag {
   const services = new Map<string, unknown>();
 
   return {
-    get<T>(pluginId: string): T | null {
-      return (services.get(pluginId) as T | undefined) ?? null;
+    get<T>(key: WorldPluginServiceKey<T>): T | null {
+      return (services.get(key.id) as T | undefined) ?? null;
     },
-    set<T>(pluginId: string, service: T): void {
-      services.set(pluginId, service);
+    set<T>(key: WorldPluginServiceKey<T>, service: T): void {
+      services.set(key.id, service);
     },
   };
 }

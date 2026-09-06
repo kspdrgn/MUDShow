@@ -6,10 +6,11 @@ todo:
 - selecting while scrolling can get transcript stuck in two-pane mode
 - transcript
   - [X] fixed? output lag, things not appearing as soon as they should. debug console updates immediately, but transcript doesn't.
-  - [ ] select lots of text misses some because of virtualization?
+  - [ ] select lots of text misses some because of virtualization. need custom selection mode/controls?
 - surfaces
   - [X] fixed? resizing top dock can trigger split scrolling.
-  - [ ] not fixed? resizing top dock can move bottom of transcript off screen.
+  - [X] fixed? resizing top dock can move bottom of transcript off screen.
+  - [X] surfaces should remember their last placement (local storage, not db file). floating panels and native windows should remember their last location and size. opening surfaces that have a saved last placement/location/size should restore there even if the surface definition has a different default spawn placement.
 - dockview
   - [X] grab handle should be full size on all docks.
   - [X] left hand dock too. unify grab handle, collapse, expand, autohide and reveal behavior.

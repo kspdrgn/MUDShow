@@ -39,6 +39,10 @@
 - The in-app placement model may include multiple layout styles as long as they behave as a single surface contract.
 - Placement changes must not change the surface’s type contract.
 - Opening, closing, focusing, resizing, and visibility changes are surface lifecycle concerns, not component-local implementation details.
+- A surface instance persists its last placement and, for floating or native-window hosts, its last position and size locally on the device.
+- When an instance is opened again, saved placement, position, and size take precedence over the registration or opener's default spawn values.
+- Saved native-window placement is reopened as a native window with its saved bounds; saved floating placement is restored in Dockview and clamped to the current viewport.
+- Closing a surface does not discard its saved placement metadata. Invalid or unavailable bounds are ignored in favor of safe defaults.
 
 ### Surface Registry
 - The surface registry owns host-neutral registration metadata and open surface-instance lifecycle state.
@@ -72,6 +76,7 @@ The Dockview library gates auto-hide behavior behind an Enterprise subscription 
 - The Dockview host translates each floating panel’s anchored bounds when the floating overlay moves, then reapplies them after the layout settles.
 - Floating-panel dragging clamps the title bar to the app window while allowing the panel body to overlap edge dock groups.
 - User drag and resize operations update the saved anchored bounds before later edge-group repositioning.
+- Reopening a floating surface restores its saved anchored bounds even when its surface definition now specifies a different default size or spawn placement.
 - Dockview remains responsible for normal viewport clamping; native pop-out windows are outside this behavior.
 - During a Dockview tab drag, configured edge groups are temporarily made visible as drop targets. Their prior hidden state is restored when the drag ends, except that a newly populated target remains available for its new surface.
 
@@ -108,13 +113,19 @@ The Dockview library gates auto-hide behavior behind an Enterprise subscription 
 - The fuzzball storage viewer shows live hierarchical storage data for a world connection.
 - The fuzzball storage viewer action is shown only when the active world uses `fuzzball` compatibility.
 - It has one surface instance per world tab and can be opened in the per-world Dockview host, floated in-app, or popped out into a native window.
+- Invoking an action that opens a surface activates and focuses it; if its Dockview edge group is collapsed, the group is expanded and made visible first.
 - A newly opened viewer defaults to an in-app floating panel rather than the top edge tab group.
-- When first opened as an in-app floating panel, it targets 600 pixels wide by 900 pixels high, clamped to the available window area.
+- Dockview tabs and floating-panel tooltips use the surface name without repeating the owning world-session name; native windows retain the full world-session title.
+- Docked surface tabs show only the re-docking instruction tooltip; floating grab bars include the surface title as context, and custom Dockview actions retain their own tooltips.
+- When first opened as an in-app floating panel, it targets 375 pixels wide by 900 pixels high, clamped to the available window area.
 - Opening the viewer again for the same world tab focuses the existing instance rather than creating a duplicate.
 - Closing the owning world tab closes the viewer instance and clears any popped-out native-window state; reopening the world creates no viewer automatically.
 - The controller owns both the storage data and the view state needed to browse it.
 - Storage data loaded by the viewer is transient world-tab state: closing the owning world tab clears the in-memory cache for that world and character, while any explicitly persisted application storage remains unchanged.
 - The component renders the current storage snapshot and emits typed browse/load intent.
+- The viewer does not repeat a generic tree-view label or the owning connection name inside the content area; those are represented by the surrounding surface or native window chrome.
+- The hierarchical tree is shown above the selected-node detail viewer.
+- Storage node datatype pills appear on the same line as their node names and use the active surface foreground color.
 - Storage nodes known to be directories display a trailing `/` in their node name, including nodes whose source listing used a trailing slash even when their type is not `dir`.
 - Storage nodes are sorted alphabetically by character.
 

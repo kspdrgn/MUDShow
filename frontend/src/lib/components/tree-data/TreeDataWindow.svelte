@@ -139,35 +139,11 @@
 
 <section class="tree-data-window">
   <header class="tree-data-window-header">
-    <div class="tree-data-window-copy">
-      <p class="tree-data-window-kicker">tree-data view</p>
-      <h2>{activeModel.title}</h2>
-      {#if activeModel.description}
-        <p class="tree-data-window-description">{activeModel.description}</p>
-      {/if}
-    </div>
-
     <div class="tree-data-window-actions">
       <button type="button" class="tree-data-window-action" on:click={expandAll}>expand all</button>
       <button type="button" class="tree-data-window-action" on:click={collapseAll}>collapse all</button>
     </div>
   </header>
-
-  <div class="tree-data-window-summary" aria-live="polite">
-    {#if selectedRow}
-      {#if activeModel.presentation === 'fuzzball-storage'}
-        <span class="tree-data-window-summary-value">{formatSelectedNodePreview(selectedRow.node)}</span>
-      {:else}
-        <span class="tree-data-window-summary-label">selected:</span>
-        <span class="tree-data-window-summary-value">{selectedRow.node.title}</span>
-        {#if selectedRow.node.subtitle}
-          <span class="tree-data-window-summary-detail">{selectedRow.node.subtitle}</span>
-        {/if}
-      {/if}
-    {:else}
-      <span class="tree-data-window-summary-detail">no row selected</span>
-    {/if}
-  </div>
 
   <div class="tree-data-window-tree" role="tree" aria-label={activeModel.title}>
     {#each visibleRows as row (row.node.id)}
@@ -208,12 +184,12 @@
         <button
           type="button"
           class="tree-data-node"
-          class:fuzzball={activeModel.presentation === 'fuzzball-storage'}
+          class:inline-badge={activeModel.display?.badgePlacement === 'inline'}
           class:selected={activeViewState.selectedNodeId === row.node.id}
           on:click={() => selectNode(row.node.id)}
         >
           <span class="tree-data-node-title">{row.node.title}</span>
-          {#if activeModel.presentation === 'fuzzball-storage' && row.node.badge}
+          {#if activeModel.display?.badgePlacement === 'inline' && row.node.badge}
             <span class="tree-data-node-badge">{row.node.badge}</span>
           {/if}
           {#if row.node.subtitle}
@@ -224,11 +200,27 @@
           {/if}
         </button>
 
-        {#if row.node.badge && activeModel.presentation !== 'fuzzball-storage'}
+        {#if row.node.badge && activeModel.display?.badgePlacement !== 'inline'}
           <span class="tree-data-node-badge">{row.node.badge}</span>
         {/if}
       </div>
     {/each}
+  </div>
+
+  <div class="tree-data-window-summary" aria-live="polite">
+    {#if selectedRow}
+      {#if activeModel.display?.selectedSummary === 'preview'}
+        <span class="tree-data-window-summary-value">{formatSelectedNodePreview(selectedRow.node)}</span>
+      {:else}
+        <span class="tree-data-window-summary-label">selected:</span>
+        <span class="tree-data-window-summary-value">{selectedRow.node.title}</span>
+        {#if selectedRow.node.subtitle}
+          <span class="tree-data-window-summary-detail">{selectedRow.node.subtitle}</span>
+        {/if}
+      {/if}
+    {:else}
+      <span class="tree-data-window-summary-detail">no row selected</span>
+    {/if}
   </div>
 </section>
 
@@ -257,32 +249,6 @@
     flex-wrap: wrap;
   }
 
-  .tree-data-window-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .tree-data-window-kicker {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-size: 0.72rem;
-    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
-  }
-
-  .tree-data-window h2 {
-    margin: 0;
-    font-size: 1.3rem;
-    font-weight: 650;
-  }
-
-  .tree-data-window-description {
-    margin: 0;
-    max-width: 34rem;
-    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
-  }
-
   .tree-data-window-actions {
     display: flex;
     flex-wrap: wrap;
@@ -291,13 +257,26 @@
   }
 
   .tree-data-window-action {
-    border: 1px solid var(--dv-separator-border, var(--border));
-    border-radius: 0.7rem;
-    padding: 0.45rem 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.8rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--dv-separator-border, var(--border-active));
+    border-radius: 0.45rem;
     background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
     color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    line-height: 1;
     cursor: pointer;
     text-transform: lowercase;
+    -webkit-app-region: no-drag;
+  }
+
+  .tree-data-window-action:hover {
+    border-color: var(--dv-paneview-active-outline-color, var(--border-active));
+    background: var(--dv-icon-hover-background-color, var(--ui-surface-hover));
   }
 
   .tree-data-window-summary {
@@ -402,32 +381,33 @@
     min-width: 0;
   }
 
-  .tree-data-node.fuzzball {
+  .tree-data-node.inline-badge {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     column-gap: 0.45rem;
     row-gap: 0.06rem;
   }
 
-  .tree-data-node.fuzzball .tree-data-node-title {
-    grid-column: 1 / -1;
+  .tree-data-node.inline-badge .tree-data-node-title {
+    grid-column: 1;
+    grid-row: 1;
   }
 
-  .tree-data-node.fuzzball .tree-data-node-badge {
-    grid-column: 1;
-    grid-row: 2;
+  .tree-data-node.inline-badge .tree-data-node-badge {
+    grid-column: 2;
+    grid-row: 1;
     justify-self: start;
   }
 
-  .tree-data-node.fuzzball .tree-data-node-subtitle {
-    grid-column: 2;
+  .tree-data-node.inline-badge .tree-data-node-subtitle {
+    grid-column: 1 / -1;
     grid-row: 2;
     min-width: 0;
     color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
   }
 
-  .tree-data-node.fuzzball .tree-data-node-subtitle.empty {
+  .tree-data-node.inline-badge .tree-data-node-subtitle.empty {
     color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
   }
 
@@ -448,7 +428,7 @@
     border-radius: 999px;
     border: 1px solid var(--dv-separator-border, var(--border));
     background: var(--dv-tabs-and-actions-container-background-color, var(--surface));
-    color: var(--dv-activegroup-hiddenpanel-tab-color, var(--text-dim));
+    color: var(--dv-activegroup-visiblepanel-tab-color, var(--text-bright));
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;

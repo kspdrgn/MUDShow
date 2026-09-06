@@ -16,6 +16,10 @@ export interface DockviewDebugConsolePanelDefinition {
   onClose: () => void;
   onPopOutNative: () => void;
   onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void;
+  onBoundsChange: (position: { x: number; y: number }, size: { width: number; height: number }) => void;
+  initialPlacement: DockviewPanelPlacement;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
 }
 
 export interface DockviewNotesPanelDefinition {
@@ -28,19 +32,10 @@ export interface DockviewNotesPanelDefinition {
   onClose: () => void;
   onPopOutNative: () => void;
   onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void;
-}
-
-export interface DockviewFuzzballStoragePanelDefinition {
-  kind: 'fuzzball-storage';
-  instanceId: string;
-  title: string;
-  model: TreeDataWindowSnapshot['model'];
-  viewState: TreeDataWindowViewState;
-  onCommand: (command: TreeDataWindowCommand) => void;
-  getPreviousDockedEdge: () => SurfaceEdge | undefined;
-  onClose: () => void;
-  onPopOutNative: () => void;
-  onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void;
+  onBoundsChange: (position: { x: number; y: number }, size: { width: number; height: number }) => void;
+  initialPlacement: DockviewPanelPlacement;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
 }
 
 export interface DockviewTreeDataPanelDefinition {
@@ -54,6 +49,10 @@ export interface DockviewTreeDataPanelDefinition {
   onClose: () => void;
   onPopOutNative: () => void;
   onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void;
+  onBoundsChange: (position: { x: number; y: number }, size: { width: number; height: number }) => void;
+  initialPlacement: DockviewPanelPlacement;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
 }
 
 export interface DockviewDummyWindowPanelDefinition {
@@ -67,4 +66,8 @@ export interface DockviewDummyWindowPanelDefinition {
   onClose: () => void;
   onPopOutNative: () => void;
   onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void;
+  onBoundsChange: (position: { x: number; y: number }, size: { width: number; height: number }) => void;
+  initialPlacement: DockviewPanelPlacement;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
 }

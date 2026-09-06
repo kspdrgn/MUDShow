@@ -1,6 +1,6 @@
 import type { WorldPlugin } from '../world-plugin.js';
 import type { WorldSessionAction } from '../world-session-action.js';
-import type { FuzzBallPropertyService } from '../fuzzball/property-service.js';
+import { FUZZBALL_PROPERTY_SERVICE_KEY } from '../fuzzball/plugin.js';
 import {
   createRideModeQuery,
   createRideModeUpdate,
@@ -26,7 +26,7 @@ export function createTapsPlugin(): WorldPlugin {
     dependencies: ['fuzzball'],
     canActivate: ({ world }) => world.compatibility === 'taps',
     createSessionContribution: ({ connection, services }) => {
-      const fuzzball = services.get<FuzzBallPropertyService>('fuzzball');
+      const fuzzball = services.get(FUZZBALL_PROPERTY_SERVICE_KEY);
       if (!fuzzball) {
         throw new Error('Taps requires the FuzzBall property service');
       }
@@ -42,9 +42,10 @@ export function createTapsPlugin(): WorldPlugin {
       const unsubscribe = fuzzball.subscribe(() => {
         const nextValue = parseRideMode(fuzzball.get(RIDE_MODE_PROPERTY_PATH)?.value);
         state.value = nextValue;
-        if (state.pendingValue === nextValue) {
-          state.pendingValue = null;
-        }
+        // The property cache is authoritative when a server response arrives.
+        // Clear any optimistic value even if the server normalizes or rejects it;
+        // otherwise the action remains disabled indefinitely.
+        state.pendingValue = null;
         state.loading = false;
         notify();
       });
@@ -58,11 +59,23 @@ export function createTapsPlugin(): WorldPlugin {
         state.pendingValue = mode;
         state.error = null;
         notify();
-        void fuzzball.set(RIDE_MODE_PROPERTY_PATH, mode).catch((error: unknown) => {
-          state.pendingValue = null;
-          state.error = error instanceof Error ? error.message : 'ride mode update failed';
-          notify();
-        });
+        void fuzzball.set(RIDE_MODE_PROPERTY_PATH, mode)
+          .then(() => {
+            // Fuzzball's setter acknowledges that the command was sent, not that
+            // an examine response has already populated the cache. Do not leave
+            // the select disabled while waiting for an optional echo.
+            if (state.pendingValue === mode) {
+              state.value = mode;
+              state.pendingValue = null;
+              state.loading = false;
+              notify();
+            }
+          })
+          .catch((error: unknown) => {
+            state.pendingValue = null;
+            state.error = error instanceof Error ? error.message : 'ride mode update failed';
+            notify();
+          });
       };
 
       const getActions = (): readonly WorldSessionAction[] => [{
@@ -78,6 +91,10 @@ export function createTapsPlugin(): WorldPlugin {
 
       return {
         getActions,
+        subscribe: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
         onConnected: () => {
           state.loading = true;
           state.error = null;

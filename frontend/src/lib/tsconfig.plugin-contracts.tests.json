@@ -20,10 +20,14 @@
     "./world-session-action.ts",
     "./world-plugin.ts",
     "./world-plugin-registry.ts",
+    "./world-surface-protocol.ts",
     "./taps/ride-mode.ts",
     "./tests/world-capabilities.test.ts",
     "./tests/ride-mode.test.ts",
-    "./tests/world-plugin-registry.test.ts"
+    "./tests/world-plugin-registry.test.ts",
+    "./tests/world-surface-protocol.test.ts",
+    "./fuzzball/storage-surface-controller.ts",
+    "./tests/fuzzball-storage-surface-controller.test.ts"
   ],
   "exclude": ["../../../node_modules", "../../../dist", "../../../tauri"]
 }

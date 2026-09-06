@@ -4,6 +4,8 @@
   import { writable } from 'svelte/store';
   import type {
     AnchoredBox,
+    DockviewGroupPanel,
+    IDockviewPanel,
     FloatingGroupDragContext,
     PositionResolver,
     PositionResolverArgs,
@@ -14,12 +16,10 @@
   import DockviewDummyPanel from './DockviewDummyPanel.svelte';
   import DockviewDebugConsolePanel from './DockviewDebugConsolePanel.svelte';
   import DockviewNotesPanel from './DockviewNotesPanel.svelte';
-  import DockviewFuzzballStoragePanel from './DockviewFuzzballStoragePanel.svelte';
   import DockviewTreeDataPanel from './DockviewTreeDataPanel.svelte';
   import type {
     DockviewDebugConsolePanelDefinition,
     DockviewDummyWindowPanelDefinition,
-    DockviewFuzzballStoragePanelDefinition,
     DockviewNotesPanelDefinition,
     DockviewTreeDataPanelDefinition,
   } from './dockview-panel-props';
@@ -38,7 +38,6 @@
   export let topActions: WorldSessionAction[] = [];
   export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
   export let notesPanel: DockviewNotesPanelDefinition | null = null;
-  export let fuzzballPanels: DockviewFuzzballStoragePanelDefinition[] = [];
   export let treeDataPanels: DockviewTreeDataPanelDefinition[] = [];
   export let dummyPanels: DockviewDummyWindowPanelDefinition[] = [];
   export let focusSurfaceId: string | null = null;
@@ -89,7 +88,6 @@
     | SandboxPanelDefinition
     | DockviewDebugConsolePanelDefinition
     | DockviewNotesPanelDefinition
-    | DockviewFuzzballStoragePanelDefinition
     | DockviewTreeDataPanelDefinition
     | DockviewDummyWindowPanelDefinition;
 
@@ -117,6 +115,7 @@
     container: FloatingContainerBounds;
   };
   const floatingGroupBounds = new Map<string, FloatingGroupSnapshot>();
+  const restoredFloatingPanels = new Set<string>();
   const floatingGroupOverlayDisposables = new Map<string, Array<{ dispose: () => void }>>();
   let floatingLayoutFrame: number | null = null;
   let previousTopEdgeBounds: { left: number; top: number; width: number; height: number } | undefined;
@@ -137,33 +136,26 @@
   const debugConsolePlacementUpdaters = new Map<string, (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void>();
   const notesPanelUpdaters = new Map<string, (panel: DockviewNotesPanelDefinition) => void>();
   const notesPlacementUpdaters = new Map<string, (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void>();
-  const fuzzballPanelUpdaters = new Map<string, (panel: DockviewFuzzballStoragePanelDefinition) => void>();
-  const fuzzballPlacementUpdaters = new Map<string, (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void>();
   const treeDataPanelUpdaters = new Map<string, (panel: DockviewTreeDataPanelDefinition) => void>();
   const treeDataPlacementUpdaters = new Map<string, (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void>();
   const dummyWindowPlacementUpdaters = new Map<string, (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => void>();
   const suppressDebugConsoleClose = new Set<string>();
   const suppressNotesClose = new Set<string>();
-  const suppressFuzzballClose = new Set<string>();
   const suppressTreeDataClose = new Set<string>();
   const suppressDummyWindowClose = new Set<string>();
   const edgeGroupCustomActionIds = new Set<string>();
   const headerActionRenderers = new Set<() => void>();
   let syncDebugConsolePanel: (() => void) | null = null;
   let syncNotesPanel: (() => void) | null = null;
-  let syncFuzzballPanels: (() => void) | null = null;
   let syncTreeDataPanels: (() => void) | null = null;
   let syncDummyWindowPanels: (() => void) | null = null;
   let focusDockviewPanel: ((panelId: string) => void) | null = null;
   let debugConsolePanelId: string | null = null;
   let notesPanelId: string | null = null;
-  const fuzzballPanelIds = new Set<string>();
   const treeDataPanelIds = new Set<string>();
   const dummyWindowPanelIds = new Set<string>();
   const FLOATING_TITLEBAR_TOOLTIP = 'Hold SHIFT while dragging to re-dock this panel';
-  const FUZZBALL_FLOATING_WIDTH = 600;
-  const FUZZBALL_FLOATING_HEIGHT = 900;
-  const DEFAULT_FLOATING_OFFSET = 100;
+  const DEFAULT_FLOATING_PANEL_WIDTH = 375;
 
   const AUTO_HIDE_DELAY_MS = 2000;
   type EdgeGroupPosition = 'top' | 'right' | 'left';
@@ -171,6 +163,26 @@
   function getEdgeGroup(position: EdgeGroupPosition) {
     if (position === 'top') return topEdgeGroup;
     return position === 'right' ? rightEdgeGroup : leftEdgeGroup;
+  }
+
+  function addPanelToFloating(panel: IDockviewPanel): void {
+    dockview?.api.addFloatingGroup(panel, { width: DEFAULT_FLOATING_PANEL_WIDTH });
+  }
+
+  function restoreFloatingPanelBounds(panel: IDockviewPanel): void {
+    const params = panel.params as {
+      position?: { x: number; y: number };
+      size?: { width: number; height: number };
+    };
+    if (!params.position || !params.size) return;
+    const floatingWindow = dockview?.getFloatingWindowForGroup(panel.group);
+    if (!floatingWindow) return;
+    floatingWindow.position({
+      left: params.position.x,
+      top: params.position.y,
+      width: params.size.width,
+      height: params.size.height,
+    });
   }
 
   function setEdgeGroupHidden(position: EdgeGroupPosition, hidden: boolean): void {
@@ -271,7 +283,6 @@
     canEditCharacter;
     debugConsolePanel;
     notesPanel;
-    fuzzballPanels;
     treeDataPanels;
     dummyPanels;
     focusSurfaceRequestVersion;
@@ -296,7 +307,6 @@
     updateWorkspaceTranscript?.();
     syncDebugConsolePanel?.();
     syncNotesPanel?.();
-    syncFuzzballPanels?.();
     syncTreeDataPanels?.();
     syncDummyWindowPanels?.();
     topActions;
@@ -590,6 +600,7 @@
     };
 
     floatingGroupDisposables.push(group.api.onDidLocationChange(applyFloatingGroupPolicy));
+    floatingGroupDisposables.push(group.api.onDidActivePanelChange(applyFloatingTitlebarTooltips));
     applyFloatingGroupPolicy();
   }
 
@@ -680,6 +691,17 @@
     floatingGroupBounds.set(floatingWindow.group.id, {
       bounds: floatingWindow.overlay.toJSON(),
       container,
+    });
+    const bounds = floatingWindow.overlay.toJSON() as Record<string, number>;
+    const left = bounds.left ?? 0;
+    const top = bounds.top ?? 0;
+    floatingWindow.group.panels.forEach((panel) => {
+      const params = panel.params as {
+        onBoundsChange?: (position: { x: number; y: number }, size: { width: number; height: number }) => void;
+      };
+      if (typeof bounds.width === 'number' && typeof bounds.height === 'number') {
+        params.onBoundsChange?.({ x: left, y: top }, { width: bounds.width, height: bounds.height });
+      }
     });
   }
 
@@ -775,31 +797,29 @@
     };
   }
 
-  function getFuzzballFloatingSize(): { width: number; height: number } {
-    const container = dockview?.getFloatingContainer().getBoundingClientRect();
-    if (!container || container.width <= 0 || container.height <= 0) {
-      return {
-        width: FUZZBALL_FLOATING_WIDTH,
-        height: FUZZBALL_FLOATING_HEIGHT,
-      };
-    }
-
-    return {
-      width: Math.min(
-        FUZZBALL_FLOATING_WIDTH,
-        Math.max(0, container.width - DEFAULT_FLOATING_OFFSET),
-      ),
-      height: Math.min(
-        FUZZBALL_FLOATING_HEIGHT,
-        Math.max(0, container.height - DEFAULT_FLOATING_OFFSET),
-      ),
-    };
-  }
-
   function applyFloatingTitlebarTooltips(): void {
-    dockRoot?.querySelectorAll<HTMLElement>('.dv-floating-titlebar').forEach((titlebar) => {
-      titlebar.title = FLOATING_TITLEBAR_TOOLTIP;
-      titlebar.setAttribute('aria-label', FLOATING_TITLEBAR_TOOLTIP);
+    dockRoot?.querySelectorAll<HTMLElement>('.dv-tab').forEach((tab) => {
+      if (tab.closest('.dv-resize-container-with-titlebar')) {
+        return;
+      }
+
+      tab.title = FLOATING_TITLEBAR_TOOLTIP;
+    });
+
+    dockview?.floatingGroups.forEach((floatingWindow) => {
+      const titlebar = floatingWindow.overlay.element.querySelector<HTMLElement>('.dv-floating-titlebar');
+      if (!titlebar) {
+        return;
+      }
+
+      const panelTitle = floatingWindow.group.activePanel?.api.title ?? floatingWindow.group.activePanel?.title;
+      const tooltip = panelTitle
+        ? `${panelTitle} — ${FLOATING_TITLEBAR_TOOLTIP}`
+        : FLOATING_TITLEBAR_TOOLTIP;
+      titlebar.title = tooltip;
+      if (titlebar.getAttribute('aria-label') !== tooltip) {
+        titlebar.setAttribute('aria-label', tooltip);
+      }
     });
   }
 
@@ -819,22 +839,34 @@
   }
 
   function updatePanelPlacement(panel: { id: string; group: { api: { location: { type: string } } } }): void {
+    const panelWithParams = panel as typeof panel & { params?: { initialPlacement?: DockviewPanelPlacement } };
+    if (panelWithParams.params?.initialPlacement === 'floating'
+      && !restoredFloatingPanels.has(panel.id)
+      && panel.group.api.location.type !== 'floating') {
+      restoredFloatingPanels.add(panel.id);
+      addPanelToFloating(panel as IDockviewPanel);
+      restoreFloatingPanelBounds(panel as IDockviewPanel);
+    }
     const placement = getPanelPlacement(panel);
     panelPlacementUpdaters.get(panel.id)?.(placement);
     debugConsolePlacementUpdaters.get(panel.id)?.(placement, getPanelEdge(panel));
     notesPlacementUpdaters.get(panel.id)?.(placement, getPanelEdge(panel));
-    fuzzballPlacementUpdaters.get(panel.id)?.(placement, getPanelEdge(panel));
     treeDataPlacementUpdaters.get(panel.id)?.(placement, getPanelEdge(panel));
     dummyWindowPlacementUpdaters.get(panel.id)?.(placement, getPanelEdge(panel));
   }
 
-  function activateNewEdgePanel(panel: {
+  function bringPanelToFront(panel: {
     api: { setActive: () => void };
-    group: { api: { location: { type: string } } };
+    group: DockviewGroupPanel;
   }): void {
-    if (getPanelPlacement(panel) === 'edge') {
-      panel.api.setActive();
+    const location = panel.group.api.location;
+    if (location.type === 'edge'
+      && (location.position === 'top' || location.position === 'right' || location.position === 'left')) {
+      revealEdgeGroup(location.position);
     }
+
+    panel.api.setActive();
+    dockview?.getFloatingWindowForGroup(panel.group)?.overlay.bringToFront();
   }
 
   onMount(() => {
@@ -942,7 +974,6 @@
         let mountedDummy: Record<string, unknown> | null = null;
         let mountedDebugConsole: Record<string, unknown> | null = null;
         let mountedNotes: Record<string, unknown> | null = null;
-        let mountedFuzzball: Record<string, unknown> | null = null;
         let mountedTreeData: Record<string, unknown> | null = null;
         let mountedDummyWindow: Record<string, unknown> | null = null;
 
@@ -996,7 +1027,7 @@
                   onPromoteToFloating: () => {
                     const panel = findPanel(panelId);
                     if (panel) {
-                      dockviewInstance.api.addFloatingGroup(panel);
+                      addPanelToFloating(panel);
                     }
                   },
                   onDockToEdge: () => {
@@ -1038,7 +1069,7 @@
                   onPromoteToFloating: () => {
                     const panel = findPanel(panelId);
                     if (panel) {
-                      dockviewInstance.api.addFloatingGroup(panel);
+                      addPanelToFloating(panel);
                     }
                   },
                   onDockToEdge: () => {
@@ -1070,54 +1101,6 @@
               return;
             }
 
-            if (definition && 'kind' in definition && definition.kind === 'fuzzball-storage') {
-              const panelPlacement = writable<DockviewPanelPlacement>('grid');
-              const model = writable(definition.model);
-              const viewState = writable(definition.viewState);
-              mountedFuzzball = mount(DockviewFuzzballStoragePanel, {
-                target: element,
-                props: {
-                  model,
-                  viewState,
-                  panelPlacement,
-                  onCommand: definition.onCommand,
-                  onPromoteToFloating: () => {
-                    const panel = findPanel(panelId);
-                    if (panel) {
-                      dockviewInstance.api.addFloatingGroup(panel);
-                    }
-                  },
-                  onDockToEdge: () => {
-                    const panel = findPanel(panelId);
-                    const edge = definition.getPreviousDockedEdge() ?? 'top';
-                    const dockGroup = dockviewInstance.getEdgeGroupPanel(edge)
-                      ?? dockviewInstance.getEdgeGroupPanel('top');
-                    if (panel && dockGroup) {
-                      panel.api.moveTo({ group: dockGroup, position: 'center' });
-                    }
-                  },
-                  onPopOutNative: () => {
-                    const panel = findPanel(panelId);
-                    if (panel) {
-                      suppressFuzzballClose.add(panelId);
-                      dockviewInstance.removePanel(panel);
-                    }
-                    definition.onPopOutNative();
-                  },
-                  onClose: definition.onClose,
-                },
-              });
-              fuzzballPanelUpdaters.set(panelId, (nextPanel) => {
-                model.set(nextPanel.model);
-                viewState.set(nextPanel.viewState);
-              });
-              panelPlacementUpdaters.set(panelId, (placement) => panelPlacement.set(placement));
-              fuzzballPlacementUpdaters.set(panelId, (placement, edge) => {
-                definition.onPlacementChange(placement, edge);
-              });
-              return;
-            }
-
             if (definition && 'kind' in definition && definition.kind === 'tree-data') {
               const panelPlacement = writable<DockviewPanelPlacement>('grid');
               const model = writable(definition.model);
@@ -1132,7 +1115,7 @@
                   onPromoteToFloating: () => {
                     const panel = findPanel(panelId);
                     if (panel) {
-                      dockviewInstance.api.addFloatingGroup(panel);
+                      addPanelToFloating(panel);
                     }
                   },
                   onDockToEdge: () => {
@@ -1147,6 +1130,7 @@
                   onPopOutNative: () => {
                     const panel = findPanel(panelId);
                     if (panel) {
+                      suppressTreeDataClose.add(panelId);
                       dockviewInstance.removePanel(panel);
                     }
                     definition.onPopOutNative();
@@ -1178,7 +1162,7 @@
                   onPromoteToFloating: () => {
                     const panel = findPanel(panelId);
                     if (panel) {
-                      dockviewInstance.api.addFloatingGroup(panel);
+                      addPanelToFloating(panel);
                     }
                   },
                   onDockToEdge: () => {
@@ -1216,7 +1200,7 @@
                   onPromoteToFloating: () => {
                     const panel = findPanel(panelId);
                     if (panel) {
-                      dockviewInstance.api.addFloatingGroup(panel);
+                      addPanelToFloating(panel);
                     }
                   },
                   onDockToEdge: () => {
@@ -1253,7 +1237,6 @@
             void (mountedDummy ? unmount(mountedDummy) : Promise.resolve());
             void (mountedDebugConsole ? unmount(mountedDebugConsole) : Promise.resolve());
             void (mountedNotes ? unmount(mountedNotes) : Promise.resolve());
-            void (mountedFuzzball ? unmount(mountedFuzzball) : Promise.resolve());
             void (mountedTreeData ? unmount(mountedTreeData) : Promise.resolve());
             void (mountedDummyWindow ? unmount(mountedDummyWindow) : Promise.resolve());
             panelPlacementUpdaters.delete(panelId);
@@ -1261,8 +1244,6 @@
             debugConsolePlacementUpdaters.delete(panelId);
             notesPanelUpdaters.delete(panelId);
             notesPlacementUpdaters.delete(panelId);
-            fuzzballPanelUpdaters.delete(panelId);
-            fuzzballPlacementUpdaters.delete(panelId);
             treeDataPanelUpdaters.delete(panelId);
             treeDataPlacementUpdaters.delete(panelId);
             dummyWindowPlacementUpdaters.delete(panelId);
@@ -1270,7 +1251,6 @@
             mountedDummy = null;
             mountedDebugConsole = null;
             mountedNotes = null;
-            mountedFuzzball = null;
             mountedTreeData = null;
             mountedDummyWindow = null;
             updateWorkspaceTranscript = null;
@@ -1281,18 +1261,11 @@
     });
 
     dockview.onDidAddGroup(configureFloatingGroup);
-    dockview.onWillShowOverlay((event) => {
-      if (event.group?.api.location.type === 'floating') {
-        event.preventDefault();
-      }
-    });
-    dockview.onWillDrop((event) => {
-      if (event.group?.api.location.type === 'floating') {
-        event.preventDefault();
-      }
-    });
     floatingTitlebarObserver = new MutationObserver(applyFloatingTitlebarTooltips);
-    floatingTitlebarObserver.observe(dockRoot, { childList: true, subtree: true });
+    floatingTitlebarObserver.observe(dockRoot, {
+      childList: true,
+      subtree: true,
+    });
     applyFloatingTitlebarTooltips();
 
     dockview.onWillDragPanel((event) => {
@@ -1396,11 +1369,7 @@
         return;
       }
 
-      const location = panel.group.api.location;
-      if (location.type === 'edge' && (location.position === 'top' || location.position === 'right' || location.position === 'left')) {
-        revealEdgeGroupForPanel(location.position);
-      }
-      panel.api.setActive();
+      bringPanelToFront(panel);
     };
 
     function revealEdgeGroupForPanel(position: EdgeGroupPosition): void {
@@ -1446,7 +1415,7 @@
         }
         updatePanelPlacement(existingPanel);
         if (isNewPanel) {
-          activateNewEdgePanel(existingPanel);
+          bringPanelToFront(existingPanel);
         }
         return;
       }
@@ -1461,7 +1430,7 @@
       debugConsolePanelId = panel.id;
       revealEdgeGroupForPanel('top');
       updatePanelPlacement(panel);
-      activateNewEdgePanel(panel);
+      bringPanelToFront(panel);
     };
 
     syncNotesPanel = () => {
@@ -1492,7 +1461,7 @@
         }
         updatePanelPlacement(existingPanel);
         if (isNewPanel) {
-          activateNewEdgePanel(existingPanel);
+          bringPanelToFront(existingPanel);
         }
         return;
       }
@@ -1507,79 +1476,8 @@
       notesPanelId = panel.id;
       revealEdgeGroupForPanel('top');
       updatePanelPlacement(panel);
-      activateNewEdgePanel(panel);
+      bringPanelToFront(panel);
     };
-
-    syncFuzzballPanels = () => {
-      const desiredPanelIds = new Set(fuzzballPanels.map((panel) => panel.instanceId));
-
-      for (const panelId of fuzzballPanelIds) {
-        if (desiredPanelIds.has(panelId)) {
-          continue;
-        }
-
-        const panel = findPanel(panelId);
-        if (panel) {
-          suppressFuzzballClose.add(panelId);
-          dockviewInstance.removePanel(panel);
-        }
-        fuzzballPanelIds.delete(panelId);
-      }
-
-      for (const fuzzballPanel of fuzzballPanels) {
-        const panelId = fuzzballPanel.instanceId;
-        const existingPanel = [
-          ...dockviewInstance.panels,
-          ...['top', 'right', 'left'].flatMap((position) => dockviewInstance
-            .getEdgeGroupPanel(position as EdgeGroupPosition)?.panels ?? []),
-          ...dockviewInstance.floatingGroups.flatMap((floatingGroup) => floatingGroup.group.panels),
-        ]
-          .find((panel) => panel.id === panelId);
-
-        fuzzballPanelUpdaters.get(panelId)?.(fuzzballPanel);
-
-        if (existingPanel) {
-          fuzzballPanelIds.add(panelId);
-          updatePanelPlacement(existingPanel);
-          continue;
-        }
-
-        const panel = dockviewInstance.addPanel({
-          id: panelId,
-          component: 'sandbox',
-          title: fuzzballPanel.title,
-          params: fuzzballPanel,
-          position: { referenceGroup: topEdgeGroupInstance.id },
-        });
-        fuzzballPanelIds.add(panelId);
-        dockviewInstance.api.addFloatingGroup(panel, getFuzzballFloatingSize());
-        updatePanelPlacement(panel);
-      }
-    };
-
-    const removeFuzzballPanelListener = dockviewInstance.onDidRemovePanel((panel) => {
-      if (suppressFuzzballClose.delete(panel.id)) {
-        fuzzballPanelIds.delete(panel.id);
-        queueMicrotask(() => {
-          scheduleHideEdgeGroup('top');
-          scheduleHideEdgeGroup('right');
-          scheduleHideEdgeGroup('left');
-        });
-        return;
-      }
-
-      if (!fuzzballPanelIds.has(panel.id)) {
-        return;
-      }
-
-      fuzzballPanelIds.delete(panel.id);
-      fuzzballPanels.find((fuzzballPanel) => fuzzballPanel.instanceId === panel.id)?.onClose();
-      queueMicrotask(() => {
-          scheduleHideEdgeGroup('top');
-          scheduleHideEdgeGroup('right');
-          scheduleHideEdgeGroup('left');
-      });
-    });
 
     syncTreeDataPanels = () => {
       const desiredPanelIds = new Set(treeDataPanels.map((panel) => panel.instanceId));
@@ -1625,7 +1523,7 @@
         treeDataPanelIds.add(panelId);
         revealEdgeGroupForPanel('top');
         updatePanelPlacement(panel);
-        activateNewEdgePanel(panel);
+        bringPanelToFront(panel);
       }
     };
 
@@ -1694,7 +1592,7 @@
         dummyWindowPanelIds.add(panelId);
         revealEdgeGroupForPanel('top');
         updatePanelPlacement(panel);
-        activateNewEdgePanel(panel);
+        bringPanelToFront(panel);
       }
     };
 
@@ -1799,7 +1697,6 @@
     dockviewInstance.panels.forEach(updatePanelPlacement);
     syncDebugConsolePanel?.();
     syncNotesPanel?.();
-    syncFuzzballPanels?.();
     syncTreeDataPanels?.();
     syncDummyWindowPanels?.();
 
@@ -1829,7 +1726,6 @@
 
       if (debugConsolePanelId) suppressDebugConsoleClose.add(debugConsolePanelId);
       if (notesPanelId) suppressNotesClose.add(notesPanelId);
-      fuzzballPanelIds.forEach((panelId) => suppressFuzzballClose.add(panelId));
       treeDataPanelIds.forEach((panelId) => suppressTreeDataClose.add(panelId));
       dummyWindowPanelIds.forEach((panelId) => suppressDummyWindowClose.add(panelId));
 
@@ -1873,23 +1769,19 @@
       floatingTitlebarObserver = null;
       syncDebugConsolePanel = null;
       syncNotesPanel = null;
-      syncFuzzballPanels = null;
       syncTreeDataPanels = null;
       syncDummyWindowPanels = null;
       focusDockviewPanel = null;
       debugConsolePanelId = null;
       notesPanelId = null;
-      fuzzballPanelIds.clear();
       treeDataPanelIds.clear();
       dummyWindowPanelIds.clear();
       suppressDebugConsoleClose.clear();
       suppressNotesClose.clear();
-      suppressFuzzballClose.clear();
       suppressTreeDataClose.clear();
       suppressDummyWindowClose.clear();
       removeDebugConsolePanelListener.dispose();
       removeNotesPanelListener.dispose();
-      removeFuzzballPanelListener.dispose();
       removeTreeDataPanelListener.dispose();
       removeDummyWindowPanelListener.dispose();
       removeWorkspaceDropListener.dispose();

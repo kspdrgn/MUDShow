@@ -1,10 +1,10 @@
-import { fuzzballStorageCache, getFuzzballStorageNodeLoadPath } from './storage-cache';
-import type { FuzzBallPropertyTreeCache } from './storage-cache';
+import { fuzzballStorageCache, getFuzzballStorageNodeLoadPath } from './storage-cache.js';
+import type { FuzzBallPropertyTreeCache } from './storage-cache.js';
 import type { TreeDataNode, TreeDataWindowModel } from '../components/tree-data/tree-data-view.js';
 import {
   createWorldSessionKey,
   type WorldSessionContainerRegistry,
-} from '../world-session-container';
+} from '../world-session-container.js';
 
 export interface FuzzballStorageViewerState {
   sourceTabId: string;
@@ -119,7 +119,10 @@ export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerStat
   return {
     title: state.title,
     description: state.description,
-    presentation: 'fuzzball-storage',
+    display: {
+      selectedSummary: 'preview',
+      badgePlacement: 'inline',
+    },
     root,
   };
 }

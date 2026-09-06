@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createWorldPluginRegistry } from '../world-plugin-registry.js';
-import type { WorldPlugin, WorldPluginSessionContext } from '../world-plugin.js';
+import { createInProcessWorldPluginProvider, type WorldPlugin, type WorldPluginServiceKey, type WorldPluginSessionContext } from '../world-plugin.js';
 
 function context(): WorldPluginSessionContext {
   const services = new Map<string, unknown>();
@@ -22,10 +22,10 @@ function context(): WorldPluginSessionContext {
     sessionKey: { worldId: 'taps-world', characterId: null },
     connection: { send: () => {} },
     services: {
-      get: <T>(pluginId: string) => (services.get(pluginId) as T | undefined) ?? null,
-      set: <T>(pluginId: string, service: T) => { services.set(pluginId, service); },
+      get: <T>(key: WorldPluginServiceKey<T>) => (services.get(key.id) as T | undefined) ?? null,
+      set: <T>(key: WorldPluginServiceKey<T>, service: T) => { services.set(key.id, service); },
     },
-    host: { invokeAction: () => {} },
+    host: { invokeAction: () => {}, openSurface: () => {} },
   };
 }
 
@@ -65,6 +65,7 @@ test('registry rejects inactive or missing dependencies', () => {
 test('session dispatch isolates plugin failures and disposes in reverse order once', async () => {
   const errors: string[] = [];
   const events: string[] = [];
+  let emitChange = () => {};
   const registry = createWorldPluginRegistry({
     onError: ({ pluginId, hook }) => errors.push(`${pluginId}:${hook}`),
   });
@@ -83,6 +84,8 @@ test('session dispatch isolates plugin failures and disposes in reverse order on
       surfaces: [{
         id: 'second-surface',
         kind: 'builtin',
+        protocolVersion: 1,
+        rendererId: 'test',
         defaultTitle: 'second surface',
         capabilities: {
           canClose: true,
@@ -94,6 +97,10 @@ test('session dispatch isolates plugin failures and disposes in reverse order on
           allowsMultipleInstances: true,
         },
       }],
+      subscribe: (listener) => {
+        emitChange = listener;
+        return () => { emitChange = () => {}; };
+      },
       actions: [{ kind: 'button', id: 'second', label: 'second', onClick: () => {} }],
       onIncomingLine: () => { events.push('second-line'); },
       dispose: () => { events.push('second-dispose'); },
@@ -101,6 +108,10 @@ test('session dispatch isolates plugin failures and disposes in reverse order on
   }));
 
   const session = registry.createSession(context());
+  let changeCount = 0;
+  session.subscribe(() => { changeCount += 1; });
+  emitChange();
+  assert.equal(changeCount, 1);
   session.handleIncomingLine('hello');
   assert.deepEqual(events, ['first-line', 'second-line']);
   assert.deepEqual(errors, ['first:incomingLine']);
@@ -134,4 +145,15 @@ test('registry rejects duplicate ids and supports unregistering', () => {
   assert.throws(() => registry.register(plugin('one')), /already registered/);
   unregister();
   assert.equal(registry.get('one'), null);
+});
+
+test('registry accepts providers through the built-in adapter seam', () => {
+  const registry = createWorldPluginRegistry();
+  const unregister = registry.registerProvider(
+    createInProcessWorldPluginProvider(() => plugin('provided')),
+  );
+
+  assert.equal(registry.get('provided')?.id, 'provided');
+  unregister();
+  assert.equal(registry.get('provided'), null);
 });

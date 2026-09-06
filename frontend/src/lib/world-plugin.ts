@@ -11,18 +11,30 @@ export interface WorldConnectionPort {
   send(command: string): void;
 }
 
+export interface WorldPluginServiceKey<T> {
+  readonly id: string;
+  readonly __serviceType?: (service: T) => T;
+}
+
+export function createWorldPluginServiceKey<T>(id: string): WorldPluginServiceKey<T> {
+  return { id };
+}
+
 export interface WorldPluginServiceBag {
-  get<T>(pluginId: string): T | null;
-  set<T>(pluginId: string, service: T): void;
+  get<T>(key: WorldPluginServiceKey<T>): T | null;
+  set<T>(key: WorldPluginServiceKey<T>, service: T): void;
 }
 
 export interface WorldPluginHostPort {
   invokeAction(pluginId: string, actionId: string): void;
+  openSurface(pluginId: string, surfaceId: string, payload?: Readonly<Record<string, unknown>>): void;
 }
 
 export interface WorldPluginSurfaceContribution {
   id: string;
-  kind: 'builtin';
+  kind: 'builtin' | 'plugin';
+  protocolVersion: 1;
+  rendererId: string;
   defaultTitle: string;
   capabilities: {
     canClose: boolean;
@@ -46,6 +58,7 @@ export interface WorldPluginSessionContribution {
   surfaces?: readonly WorldPluginSurfaceContribution[];
   actions?: readonly WorldSessionAction[];
   getActions?: () => readonly WorldSessionAction[];
+  subscribe?: (listener: () => void) => () => void;
   onIncomingLine?: (line: string) => void;
   onRawMessage?: (text: string) => void;
   onConnected?: () => void;
@@ -61,4 +74,22 @@ export interface WorldPlugin {
   createSessionContribution(
     context: WorldPluginSessionContext,
   ): WorldPluginSessionContribution;
+}
+
+/**
+ * Provider seam shared by built-in plugins and future external adapters.
+ * Providers create the existing host plugin contract; loading policy stays outside the registry.
+ */
+export interface WorldPluginProvider {
+  readonly source: 'in-process' | 'external';
+  createPlugin(): WorldPlugin;
+}
+
+export function createInProcessWorldPluginProvider(
+  createPlugin: () => WorldPlugin,
+): WorldPluginProvider {
+  return {
+    source: 'in-process',
+    createPlugin,
+  };
 }

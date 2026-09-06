@@ -1,4 +1,5 @@
 import type { SurfaceId, SurfaceInstanceId } from './surface-transport';
+import { loadSurfacePlacement, saveSurfacePlacement } from './surface-placement';
 
 export type SurfaceKind = 'builtin' | 'plugin';
 export type SurfaceDockviewMode = 'grid' | 'edge' | 'floating';
@@ -39,6 +40,7 @@ export interface SurfaceCapabilities {
 export interface SurfaceRegistration {
   surfaceId: SurfaceId;
   kind: SurfaceKind;
+  rendererId?: string;
   defaultTitle: string;
   capabilities: SurfaceCapabilities;
 }
@@ -138,21 +140,28 @@ export class SurfaceRegistry {
       throw new Error(`surface does not allow multiple instances: ${options.surfaceId}`);
     }
 
+    const saved = loadSurfacePlacement(options.instanceId);
+    const placement = saved?.placement ?? options.placement ?? DEFAULT_DOCKVIEW_PLACEMENT;
     const instance: SurfaceInstance = {
       instanceId: options.instanceId,
       surfaceId: options.surfaceId,
       title: options.title ?? registration.defaultTitle,
-      placement: options.placement ?? DEFAULT_DOCKVIEW_PLACEMENT,
-      previousDockedEdge: options.placement?.host === 'dockview'
-        && options.placement.mode === 'edge'
-        ? options.placement.edge
+      placement,
+      previousDockedEdge: placement.host === 'dockview'
+        && placement.mode === 'edge'
+        ? placement.edge
         : undefined,
       isActive: false,
-      position: options.position,
-      size: options.size,
+      position: saved?.position ?? options.position,
+      size: saved?.size ?? options.size,
     };
 
     this.instances.set(instance.instanceId, instance);
+    saveSurfacePlacement(instance.instanceId, {
+      placement: instance.placement,
+      position: instance.position,
+      size: instance.size,
+    });
     this.emit();
     return instance;
   }
@@ -173,6 +182,11 @@ export class SurfaceRegistry {
     }
 
     this.instances.set(instanceId, next);
+    saveSurfacePlacement(instanceId, {
+      placement: next.placement,
+      position: next.position,
+      size: next.size,
+    });
     this.emit();
     return next;
   }

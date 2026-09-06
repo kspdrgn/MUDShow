@@ -10,7 +10,6 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   import type {
     DockviewDebugConsolePanelDefinition,
     DockviewDummyWindowPanelDefinition,
-    DockviewFuzzballStoragePanelDefinition,
   DockviewNotesPanelDefinition,
   DockviewTreeDataPanelDefinition,
 } from './dockview-panel-props';
@@ -70,7 +69,6 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   export let topActions: WorldSessionAction[] = [];
   export let debugConsolePanel: DockviewDebugConsolePanelDefinition | null = null;
   export let notesPanel: DockviewNotesPanelDefinition | null = null;
-  export let fuzzballPanels: DockviewFuzzballStoragePanelDefinition[] = [];
   export let treeDataPanels: DockviewTreeDataPanelDefinition[] = [];
   export let dummyPanels: DockviewDummyWindowPanelDefinition[] = [];
   export let focusSurfaceId: string | null = null;
@@ -194,7 +192,6 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     {topActions}
     {debugConsolePanel}
     {notesPanel}
-    {fuzzballPanels}
     {treeDataPanels}
     {dummyPanels}
     {focusSurfaceId}

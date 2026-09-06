@@ -12,7 +12,6 @@ import PlayScreen from './lib/components/play/PlayScreen.svelte';
 import type {
   DockviewDebugConsolePanelDefinition,
   DockviewDummyWindowPanelDefinition,
-  DockviewFuzzballStoragePanelDefinition,
   DockviewNotesPanelDefinition,
   DockviewTreeDataPanelDefinition,
 } from './lib/components/play/dockview-panel-props';
@@ -29,7 +28,6 @@ import {
   type TreeDataWindowTransportSession,
 } from './lib/components/tree-data/tree-data-transport';
 import {
-  findTreeDataNode,
   type TreeDataWindowModel,
 } from './lib/components/tree-data/tree-data-view';
 import {
@@ -37,11 +35,7 @@ import {
   type TreeDataWindowCommand,
   type TreeDataWindowViewState,
 } from './lib/components/tree-data/tree-data-controller';
-import {
-  type FuzzballStorageViewerState,
-} from './lib/fuzzball/storage-viewer';
-import type { FuzzballStorageViewerService } from './lib/fuzzball/storage-viewer';
-import { fuzzballStorageCache } from './lib/fuzzball/storage-cache';
+import { createFuzzballSurfaceHostAdapter } from './lib/fuzzball/surface-host-adapter';
 import { debugConsoleCache } from './lib/debug-console-cache';
 import PoppedOutWindowView from './lib/components/window-host/PoppedOutWindowView.svelte';
 import { createWindowRecord, type WindowRecord } from './lib/components/window-host/window-host';
@@ -51,7 +45,7 @@ import WorldModal from './lib/components/settings/WorldModal.svelte';
 import { session } from './lib/session';
 import { generateLogFilename, getLogFileName } from './lib/logging';
 import { createSurfaceTransportHub } from './lib/surfaces/surface-transport';
-import type { SurfaceEdge } from './lib/surfaces/surface-registry';
+import type { OpenSurfaceOptions, SurfaceEdge } from './lib/surfaces/surface-registry';
 import DebugConsoleWindow from './lib/components/debug-console/DebugConsoleWindow.svelte';
 import {
   buildDebugConsoleWindowModel,
@@ -97,7 +91,13 @@ import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
 import { flushPendingNotesSave } from './lib/session-world-input';
 import { emit, getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
 import { getDockviewTheme } from './lib/dockview-themes';
-import { FUZZBALL_STORAGE_SURFACE_ID } from './lib/fuzzball/plugin';
+import {
+  createWorldSurfaceCommandRouter,
+  createWorldSurfaceSnapshotStore,
+  WORLD_SURFACE_PROTOCOL_VERSION,
+  type WorldSurfaceJsonValue,
+  type WorldSurfacePayload,
+} from './lib/world-surface-protocol';
 
 const currentUrl = typeof window !== 'undefined' ? new URL(window.location.href) : null;
 const initialWindowMode = currentUrl?.searchParams.get('windowMode');
@@ -143,16 +143,27 @@ let nextWindowHostId = 1;
 let surfaceRegistryVersion = 0;
 let focusSurfaceId: string | null = null;
 let focusSurfaceRequestVersion = 0;
-let fuzzballStorageWindowStates: Record<string, FuzzballStorageViewerState> = {};
-let fuzzballStorageCacheVersion = 0;
+let treeDataInvalidationVersion = 0;
 let treeDataRefreshVersion = 0;
 let debugConsoleCacheVersion = 0;
+type WorldPluginSurfaceOpenHandler = (
+  tabId: string,
+  payload?: Readonly<Record<string, unknown>>,
+) => void;
+type WorldPluginSurfaceSourceWindowProvider = (sourceTabId: string) => readonly string[];
+const worldPluginSurfaceOpenHandlers = new Map<string, WorldPluginSurfaceOpenHandler>();
+const worldPluginSurfaceStateDisposers = new Map<string, (instanceId: string) => void>();
+const worldPluginSurfaceSourceWindowProviders = new Map<string, WorldPluginSurfaceSourceWindowProvider>();
 const treeDataViewController = createTreeDataViewControllerRegistry();
 const treeDataTransportHub = createSurfaceTransportHub();
+const worldSurfaceSnapshotStore = createWorldSurfaceSnapshotStore();
+const worldSurfaceCommandRouter = createWorldSurfaceCommandRouter();
 const treeDataBridgeSessions = new Map<string, TreeDataWindowTransportSession>();
 const treeDataTransportUnlisteners = new Map<string, () => void>();
-const treeDataTransportKinds = new Map<string, 'demo' | 'fuzzball'>();
-const treeDataTransportSources = new Map<string, FuzzballStorageViewerState>();
+const treeDataSnapshotUnlisteners = new Map<string, () => void>();
+const treeDataSurfaceModelProviders = new Map<string, () => TreeDataWindowModel>();
+const treeDataSurfaceCommandHandlers = new Map<string, (command: TreeDataWindowCommand, model: TreeDataWindowModel) => void>();
+const treeDataSurfaceSourceTabs = new Map<string, string>();
 const treeDataTransportSnapshotSignatures = new Map<string, string>();
 const treeDataBridgeSnapshotSignatures = new Map<string, string>();
 const debugConsoleTransportHub = createSurfaceTransportHub();
@@ -166,7 +177,6 @@ const notesTransportUnlisteners = new Map<string, () => void>();
 const notesTransportSnapshotSignatures = new Map<string, string>();
 const notesBridgeSnapshotSignatures = new Map<string, string>();
 let previousWorldTabIds = new Set<string>();
-const previousWorldTabStorageKeys = new Map<string, { worldId: string; characterId: string }>();
 let allowWindowCloseOnce = false;
 let unlistenAppClose: (() => void) | null = null;
 let unlistenTreeBridgeEvents: Array<() => void> = [];
@@ -187,6 +197,7 @@ function getRegisteredWindowRecords(): WindowRecord[] {
         id: instance.instanceId,
         kind: registration?.kind ?? 'builtin',
         surfaceId: instance.surfaceId,
+        rendererId: registration?.rendererId,
         title: instance.title,
         isModal: registration?.capabilities.isModal ?? false,
         placement: 'in-app',
@@ -203,6 +214,15 @@ function getRegisteredWindowRecords(): WindowRecord[] {
     ...registeredRecords,
     ...Object.values(poppedOutWindowRecords),
   ];
+}
+
+function getDockviewSurfaceTitle(windowRecord: WindowRecord): string {
+  return appServices.surfaces.getRegistration(windowRecord.surfaceId)?.defaultTitle ?? windowRecord.title;
+}
+
+function getDockviewPlacementMode(instanceId: string): DockviewPanelPlacement {
+  const placement = appServices.surfaces.getInstance(instanceId)?.placement;
+  return placement?.host === 'dockview' ? placement.mode : 'grid';
 }
 
 type DebugConsoleWindowRenderProps = {
@@ -341,8 +361,14 @@ function isNotesWindow(windowRecord: WindowRecord | null): boolean {
   return windowRecord.surfaceId.startsWith(NOTES_WINDOW_SURFACE_PREFIX);
 }
 
-function isFuzzballStorageWindow(windowRecord: WindowRecord | null): boolean {
-  return windowRecord?.surfaceId === FUZZBALL_STORAGE_SURFACE_ID;
+function isTreeDataSurfaceWindow(windowRecord: WindowRecord | null): boolean {
+  if (!windowRecord) {
+    return false;
+  }
+
+  return windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
+    || windowRecord.rendererId === 'tree-data'
+    || appServices.surfaces.getRegistration(windowRecord.surfaceId)?.rendererId === 'tree-data';
 }
 
 function createNotesWindowTitle(tabId: string): string {
@@ -385,26 +411,13 @@ $: {
 
     for (const tabId of previousWorldTabIds) {
       if (!currentWorldTabIds.has(tabId)) {
-        const storageKey = previousWorldTabStorageKeys.get(tabId);
-        if (storageKey) {
-          fuzzballStorageCache.clearSessionCache(storageKey.worldId, storageKey.characterId);
-          previousWorldTabStorageKeys.delete(tabId);
-        }
-        void discardFuzzballStorageWindowsForSourceTab(tabId);
+        void discardPluginSurfaceWindowsForSourceTab(tabId);
         void discardDebugConsoleWindowsForSourceTab(tabId);
         void discardNotesWindowsForSourceTab(tabId);
         void discardTreeDataWindows();
       }
     }
 
-    for (const tab of $session.tabs) {
-      if (tab.kind === 'world') {
-        previousWorldTabStorageKeys.set(tab.id, {
-          worldId: tab.worldId,
-          characterId: tab.characterId ?? '',
-        });
-      }
-    }
     previousWorldTabIds = currentWorldTabIds;
 }
 
@@ -443,28 +456,18 @@ function createPlayScreenActions(tab: AppTab, worldSession: WorldTabSessionState
     };
 }
 
-function handleWorldPluginAction(tabId: string, pluginId: string, actionId: string): void {
-  if (pluginId !== 'fuzzball' || actionId !== 'open-storage-viewer') {
+function handleWorldPluginSurfaceOpen(
+  tabId: string,
+  pluginId: string,
+  surfaceId: string,
+  payload?: Readonly<Record<string, unknown>>,
+): void {
+  const handler = worldPluginSurfaceOpenHandlers.get(`${pluginId}:${surfaceId}`);
+  if (!handler) {
     return;
   }
 
-  const worldSession = $session.worldSessions[tabId];
-  if (!worldSession?.currentWorld) {
-    return;
-  }
-
-  const worldName = worldSession.currentWorld.name;
-  const characterName = worldSession.currentCharacter?.name ?? null;
-  const title = characterName
-    ? `${worldName} · ${characterName} storage`
-    : `${worldName} storage`;
-  openFuzzballStorageWindow(
-    tabId,
-    worldSession.currentWorld.id,
-    worldSession.currentCharacter?.id ?? '',
-    title,
-    undefined,
-  );
+  handler(tabId, payload);
 }
 
 function openLoggingModal(tabId: string): void {
@@ -486,23 +489,47 @@ function requestSurfaceFocus(instanceId: string): void {
   focusSurfaceRequestVersion += 1;
 }
 
+function bringSurfaceToFront(instanceId: string): void {
+  const instance = appServices.surfaces.update(instanceId, { isActive: true });
+  if (instance?.placement.host === 'dockview') {
+    requestSurfaceFocus(instanceId);
+  }
+}
+
+function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
+  const instance = appServices.surfaces.open(options);
+  if (instance.placement.host === 'native') {
+    const registration = appServices.surfaces.getRegistration(instance.surfaceId);
+    const windowRecord = createWindowRecord({
+      id: instance.instanceId,
+      kind: registration?.kind ?? 'builtin',
+      surfaceId: instance.surfaceId,
+      rendererId: registration?.rendererId,
+      title: instance.title,
+      placement: 'window',
+      position: instance.position,
+      size: instance.size,
+      canBackdropDismiss: false,
+      canEscapeDismiss: false,
+      canPopOut: registration?.capabilities.canPopOut ?? false,
+      canMoveInApp: registration?.capabilities.canDock ?? false,
+    });
+    storePoppedOutWindowRecord(windowRecord);
+    void invoke('window_host_pop_out', { windowRecord }).catch((error) => {
+      removePoppedOutWindowRecord(instance.instanceId);
+      appServices.surfaces.update(instance.instanceId, {
+        placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+      });
+      console.error('failed to restore native surface window:', error);
+    });
+  }
+  bringSurfaceToFront(options.instanceId);
+}
+
   function removeWindowRecord(windowId: string): void {
     appServices.surfaces.close(windowId);
   }
 
-
-  function getFuzzballStorageWindowState(windowId: string): FuzzballStorageViewerState {
-    return fuzzballStorageWindowStates[windowId] ?? {
-      sourceTabId: '',
-      worldId: '',
-      characterId: '',
-      title: 'fuzzball storage viewer',
-    };
-  }
-
-  function getFuzzballStorageViewerService(sourceTabId: string): FuzzballStorageViewerService | null {
-    return session.getWorldPluginService<FuzzballStorageViewerService>(sourceTabId, 'fuzzball:storage-viewer');
-  }
 
   function createTreeDataSnapshotSignature(
     model: TreeDataWindowModel,
@@ -536,18 +563,34 @@ function requestSurfaceFocus(instanceId: string): void {
         revision: envelope.revision,
         command: envelope.payload,
       });
-          handleTreeDataTransportCommand(windowId, envelope.payload, envelope.revision);
+          worldSurfaceCommandRouter.dispatch(windowId, {
+            type: envelope.payload.type,
+            revision: envelope.revision,
+            payload: envelope.payload as unknown as WorldSurfacePayload,
+          });
         }),
       );
+      worldSurfaceCommandRouter.register(windowId, (command) => {
+        handleTreeDataTransportCommand(
+          windowId,
+          { type: command.type, ...(command.payload ?? {}) } as unknown as TreeDataWindowCommand,
+          command.revision,
+        );
+      });
     }
 
     return session;
   }
 
   function clearTreeDataTransportSession(windowId: string): void {
+    worldSurfaceSnapshotStore.dispose(windowId);
+    worldSurfaceCommandRouter.dispose(windowId);
+    treeDataSnapshotUnlisteners.get(windowId)?.();
+    treeDataSnapshotUnlisteners.delete(windowId);
+    treeDataSurfaceModelProviders.delete(windowId);
+    treeDataSurfaceCommandHandlers.delete(windowId);
+    treeDataSurfaceSourceTabs.delete(windowId);
     treeDataTransportSnapshotSignatures.delete(windowId);
-    treeDataTransportKinds.delete(windowId);
-    treeDataTransportSources.delete(windowId);
 
     const unlisten = treeDataTransportUnlisteners.get(windowId);
     if (unlisten) {
@@ -560,17 +603,8 @@ function requestSurfaceFocus(instanceId: string): void {
 
   function rememberTreeDataTransportState(
     windowId: string,
-    kind: 'demo' | 'fuzzball',
     model: TreeDataWindowModel,
-    sourceState: FuzzballStorageViewerState | null = null,
   ): void {
-    treeDataTransportKinds.set(windowId, kind);
-    if (sourceState) {
-      treeDataTransportSources.set(windowId, sourceState);
-    } else {
-      treeDataTransportSources.delete(windowId);
-    }
-
     const currentViewState = treeDataViewController.ensure(windowId, model.root.id);
     const session = treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId);
 
@@ -580,7 +614,6 @@ function requestSurfaceFocus(instanceId: string): void {
 
     logTreeTransport('snapshot publish requested', {
       windowId,
-      kind,
       modelTitle: model.title,
       rootChildCount: model.root.children?.length ?? 0,
       selectedNodeId: currentViewState.selectedNodeId,
@@ -589,40 +622,12 @@ function requestSurfaceFocus(instanceId: string): void {
     publishTreeDataTransportSnapshot(windowId, session, model, currentViewState);
   }
 
-  function maybeRequestInitialFuzzballStorageLoad(windowId: string, state: FuzzballStorageViewerState): void {
-    if (!state.sourceTabId) {
-      return;
-    }
-
-    const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
-    if (cache.hasData()) {
-      logTreeTransport('initial fuzzball load skipped', {
-        windowId,
-        worldId: state.worldId,
-        characterId: state.characterId,
-        reason: 'cache already has data',
-      });
-      return;
-    }
-
-    logTreeTransport('initial fuzzball load requested', {
-      windowId,
-      worldId: state.worldId,
-      characterId: state.characterId,
-      sourceTabId: state.sourceTabId,
-    });
-    getFuzzballStorageViewerService(state.sourceTabId)?.requestNodeLoad(state, '/');
-  }
-
   function isPoppedOutTreeWindow(windowRecord: WindowRecord | null): boolean {
     if (!windowRecord) {
       return false;
     }
 
-    return (
-      windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
-      || isFuzzballStorageWindow(windowRecord)
-    ) && windowRecord.placement === 'window';
+    return isTreeDataSurfaceWindow(windowRecord) && windowRecord.placement === 'window';
   }
 
   function ensureTreeDataBridgeSession(
@@ -674,13 +679,8 @@ function requestSurfaceFocus(instanceId: string): void {
       return null;
     }
 
-    if (windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo) {
-      return createDemoTreeDataWindowModel();
-    }
-
-    if (isFuzzballStorageWindow(windowRecord)) {
-      const state = getFuzzballStorageWindowState(windowId);
-      return getFuzzballStorageViewerService(state.sourceTabId)?.buildModel(state) ?? createDemoTreeDataWindowModel();
+    if (isTreeDataSurfaceWindow(windowRecord)) {
+      return treeDataSurfaceModelProviders.get(windowId)?.() ?? createDemoTreeDataWindowModel();
     }
 
     return null;
@@ -730,7 +730,7 @@ function requestSurfaceFocus(instanceId: string): void {
   }
 
   function syncPoppedOutTreeDataSnapshots(
-    _cacheVersion: number = fuzzballStorageCacheVersion,
+    _cacheVersion: number = treeDataInvalidationVersion,
     _poppedOutWindowIds: string = Object.keys(poppedOutWindowRecords).join('|'),
     _windowCount: number = getRegisteredWindowRecords().length,
   ): void {
@@ -776,6 +776,16 @@ function requestSurfaceFocus(instanceId: string): void {
       model,
       viewState,
     });
+    if (snapshot) {
+      worldSurfaceSnapshotStore.publish({
+        protocolVersion: WORLD_SURFACE_PROTOCOL_VERSION,
+        surfaceId: snapshot.surfaceId,
+        instanceId: snapshot.instanceId,
+        revision: snapshot.revision,
+        model: model as unknown as WorldSurfaceJsonValue,
+        viewState: viewState as unknown as WorldSurfaceJsonValue,
+      });
+    }
     const windowRecord = poppedOutWindowRecords[windowId] ?? null;
     if (!isPoppedOutWindow && windowRecord && isPoppedOutTreeWindow(windowRecord) && snapshot) {
       treeDataBridgeSnapshotSignatures.set(windowId, signature);
@@ -1229,13 +1239,7 @@ function requestSurfaceFocus(instanceId: string): void {
     command: TreeDataWindowCommand,
     expectedRevision?: number,
   ): void {
-    const kind = treeDataTransportKinds.get(windowId);
-    const model = kind === 'fuzzball'
-      ? (() => {
-          const state = treeDataTransportSources.get(windowId) ?? getFuzzballStorageWindowState(windowId);
-          return getFuzzballStorageViewerService(state.sourceTabId)?.buildModel(state) ?? createDemoTreeDataWindowModel();
-        })()
-      : createDemoTreeDataWindowModel();
+    const model = treeDataSurfaceModelProviders.get(windowId)?.() ?? createDemoTreeDataWindowModel();
     const treeSession = treeDataTransportHub.getSession<TreeDataWindowCommand, TreeDataWindowSnapshot>(windowId);
 
     if (!treeSession) {
@@ -1245,7 +1249,6 @@ function requestSurfaceFocus(instanceId: string): void {
     if (expectedRevision !== undefined && expectedRevision !== treeSession.getRevision()) {
       logTreeTransport('command ignored due to stale revision', {
         windowId,
-        kind,
         expectedRevision,
         currentRevision: treeSession.getRevision(),
         command,
@@ -1255,7 +1258,6 @@ function requestSurfaceFocus(instanceId: string): void {
 
     logTreeTransport('command handling', {
       windowId,
-      kind,
       command,
       revision: treeSession.getRevision(),
     });
@@ -1263,32 +1265,12 @@ function requestSurfaceFocus(instanceId: string): void {
     treeDataRefreshVersion += 1;
     logTreeTransport('command reduced', {
       windowId,
-      kind,
       nextSelectedNodeId: nextViewState.selectedNodeId,
       nextExpandedNodeCount: nextViewState.expandedNodeIds.length,
     });
     publishTreeDataTransportSnapshot(windowId, treeSession, model, nextViewState);
 
-    if (kind !== 'fuzzball' || command.type !== 'nodeExpansionToggled') {
-      return;
-    }
-
-    const sourceState = treeDataTransportSources.get(windowId);
-    if (!sourceState?.sourceTabId) {
-      return;
-    }
-
-    const node = findTreeDataNode(model.root, command.nodeId);
-    if (!node || node.kind !== 'branch' || node.childrenState !== 'unknown') {
-      return;
-    }
-
-    logTreeTransport('fuzzball load requested', {
-      windowId,
-      nodeId: command.nodeId,
-      sourceTabId: sourceState.sourceTabId,
-    });
-    getFuzzballStorageViewerService(sourceState.sourceTabId)?.requestNodeLoad(sourceState, command.nodeId);
+    treeDataSurfaceCommandHandlers.get(windowId)?.(command, model);
   }
 
   function handleDebugConsoleTransportCommand(
@@ -1336,7 +1318,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
   function getTreeDataWindowRenderProps(
     windowId: string,
-    _cacheVersion: number = fuzzballStorageCacheVersion,
+    _cacheVersion: number = treeDataInvalidationVersion,
   ): TreeDataWindowRenderProps | null {
     const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
       ?? poppedOutWindowRecords[windowId]
@@ -1347,8 +1329,7 @@ function requestSurfaceFocus(instanceId: string): void {
     }
 
     if (isPoppedOutWindow) {
-      if (windowRecord.surfaceId !== WINDOW_HOST_SINGLETON_IDS.treeDataDemo
-        && !isFuzzballStorageWindow(windowRecord)) {
+      if (!isTreeDataSurfaceWindow(windowRecord)) {
         return null;
       }
 
@@ -1362,36 +1343,13 @@ function requestSurfaceFocus(instanceId: string): void {
       };
     }
 
-    if (windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo) {
-      const model = createDemoTreeDataWindowModel();
+    if (isTreeDataSurfaceWindow(windowRecord)) {
+      const model = treeDataSurfaceModelProviders.get(windowId)?.() ?? createDemoTreeDataWindowModel();
       const session = ensureTreeDataTransportSession(windowId, windowRecord.surfaceId);
-      rememberTreeDataTransportState(windowId, 'demo', model);
+      rememberTreeDataTransportState(windowId, model);
       logTreeTransport('render props ready', {
         windowId,
         surfaceId: windowRecord.surfaceId,
-        kind: 'demo',
-        revision: session.getRevision(),
-      });
-      return {
-        model,
-        viewState: treeDataViewController.ensure(windowId, model.root.id),
-        transportSession: session,
-        onCommand: (command) => handleTreeDataTransportCommand(windowId, command),
-      };
-    }
-
-    if (isFuzzballStorageWindow(windowRecord)) {
-      const sourceState = getFuzzballStorageWindowState(windowId);
-      const model = getFuzzballStorageViewerService(sourceState.sourceTabId)?.buildModel(sourceState);
-      if (!model) {
-        return null;
-      }
-      const session = ensureTreeDataTransportSession(windowId, windowRecord.surfaceId);
-      rememberTreeDataTransportState(windowId, 'fuzzball', model, sourceState);
-      logTreeTransport('render props ready', {
-        windowId,
-        surfaceId: windowRecord.surfaceId,
-        kind: 'fuzzball',
         revision: session.getRevision(),
       });
       return {
@@ -1459,7 +1417,7 @@ function requestSurfaceFocus(instanceId: string): void {
     return {
       kind: 'debug-console',
       instanceId: windowId,
-      title: windowRecord.title,
+      title: getDockviewSurfaceTitle(windowRecord),
       model,
       onCommand: (command) => handleDebugConsoleTransportCommand(windowId, command),
       getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowId)?.previousDockedEdge,
@@ -1474,6 +1432,10 @@ function requestSurfaceFocus(instanceId: string): void {
               : { host: 'dockview', mode: 'grid' },
         });
       },
+      onBoundsChange: (position, size) => appServices.surfaces.update(windowId, { position, size }),
+      initialPlacement: getDockviewPlacementMode(windowId),
+      position: surfaceInstance.position,
+      size: surfaceInstance.size,
     };
   }
 
@@ -1494,7 +1456,7 @@ function requestSurfaceFocus(instanceId: string): void {
     return {
       kind: 'notes',
       instanceId: windowId,
-      title: windowRecord.title,
+      title: getDockviewSurfaceTitle(windowRecord),
       model,
       onCommand: (command) => handleNotesTransportCommand(windowId, command),
       getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowId)?.previousDockedEdge,
@@ -1509,86 +1471,45 @@ function requestSurfaceFocus(instanceId: string): void {
               : { host: 'dockview', mode: 'grid' },
         });
       },
+      onBoundsChange: (position, size) => appServices.surfaces.update(windowId, { position, size }),
+      initialPlacement: getDockviewPlacementMode(windowId),
+      position: surfaceInstance.position,
+      size: surfaceInstance.size,
     };
   }
 
-  function getFuzzballStorageDockviewPanels(
-    sourceTabId: string,
-    _surfaceRegistryVersion = 0,
-    _treeDataRefreshVersion = treeDataRefreshVersion,
-  ): DockviewFuzzballStoragePanelDefinition[] {
-    return getRegisteredWindowRecords()
-      .filter((windowRecord) => isFuzzballStorageWindow(windowRecord))
-      .filter((windowRecord) => windowRecord.placement === 'in-app')
-      .filter((windowRecord) => fuzzballStorageWindowStates[windowRecord.id]?.sourceTabId === sourceTabId)
-      .flatMap((windowRecord) => {
-        const state = fuzzballStorageWindowStates[windowRecord.id];
-        const surfaceInstance = appServices.surfaces.getInstance(windowRecord.id);
-        if (!state || !surfaceInstance) {
-          return [];
-        }
-
-        const model = getFuzzballStorageViewerService(state.sourceTabId)?.buildModel(state);
-        if (!model) {
-          return [];
-        }
-        const viewState = treeDataViewController.ensure(windowRecord.id, model.root.id);
-        rememberTreeDataTransportState(windowRecord.id, 'fuzzball', model, state);
-
-        return [{
-          kind: 'fuzzball-storage' as const,
-          instanceId: windowRecord.id,
-          title: windowRecord.title,
-          model,
-          viewState,
-          onCommand: (command: TreeDataWindowCommand) => handleTreeDataTransportCommand(windowRecord.id, command),
-          getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowRecord.id)?.previousDockedEdge,
-          onClose: () => void closeFuzzballStorageWindow(windowRecord.id),
-          onPopOutNative: () => void handlePopOutWindow(windowRecord.id),
-          onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => {
-            appServices.surfaces.update(windowRecord.id, {
-              placement: placement === 'floating'
-                ? { host: 'dockview', mode: 'floating' }
-                : placement === 'edge'
-                  ? { host: 'dockview', mode: 'edge', edge: edge ?? 'top' }
-                  : { host: 'dockview', mode: 'grid' },
-            });
-          },
-        }];
-      });
-  }
-
   function getTreeDataDockviewPanels(
+    sourceTabId: string,
     isHostTab: boolean,
     _surfaceRegistryVersion = 0,
     _treeDataRefreshVersion = treeDataRefreshVersion,
   ): DockviewTreeDataPanelDefinition[] {
-    if (!isHostTab) {
-      return [];
-    }
-
     return getRegisteredWindowRecords()
-      .filter((windowRecord) => windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo)
+      .filter((windowRecord) => isTreeDataSurfaceWindow(windowRecord))
       .filter((windowRecord) => windowRecord.placement === 'in-app')
+      .filter((windowRecord) => {
+        const sourceTab = treeDataSurfaceSourceTabs.get(windowRecord.id);
+        return sourceTab ? sourceTab === sourceTabId : isHostTab && windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo;
+      })
       .flatMap((windowRecord) => {
         const surfaceInstance = appServices.surfaces.getInstance(windowRecord.id);
         if (!surfaceInstance) {
           return [];
         }
 
-        const model = createDemoTreeDataWindowModel();
+        const model = treeDataSurfaceModelProviders.get(windowRecord.id)?.() ?? createDemoTreeDataWindowModel();
         const viewState = treeDataViewController.ensure(windowRecord.id, model.root.id);
-        rememberTreeDataTransportState(windowRecord.id, 'demo', model);
+        rememberTreeDataTransportState(windowRecord.id, model);
 
         return [{
           kind: 'tree-data' as const,
           instanceId: windowRecord.id,
-          title: windowRecord.title,
+          title: getDockviewSurfaceTitle(windowRecord),
           model,
           viewState,
           onCommand: (command: TreeDataWindowCommand) => handleTreeDataTransportCommand(windowRecord.id, command),
           getPreviousDockedEdge: () => appServices.surfaces.getInstance(windowRecord.id)?.previousDockedEdge,
-          onClose: () => void closeTreeDataWindow(windowRecord.id),
+          onClose: () => void closeTreeDataSurfaceWindow(windowRecord.id),
           onPopOutNative: () => void handlePopOutWindow(windowRecord.id),
           onPlacementChange: (placement: DockviewPanelPlacement, edge?: SurfaceEdge) => {
             appServices.surfaces.update(windowRecord.id, {
@@ -1599,6 +1520,10 @@ function requestSurfaceFocus(instanceId: string): void {
                   : { host: 'dockview', mode: 'grid' },
             });
           },
+          onBoundsChange: (position, size) => appServices.surfaces.update(windowRecord.id, { position, size }),
+          initialPlacement: getDockviewPlacementMode(windowRecord.id),
+          position: appServices.surfaces.getInstance(windowRecord.id)?.position,
+          size: appServices.surfaces.getInstance(windowRecord.id)?.size,
         }];
       });
   }
@@ -1614,7 +1539,7 @@ function requestSurfaceFocus(instanceId: string): void {
       .map((windowRecord) => ({
         kind: 'dummy-window' as const,
         instanceId: windowRecord.id,
-        title: windowRecord.title,
+        title: getDockviewSurfaceTitle(windowRecord),
         eyebrow: 'developer surface',
         description: 'Static placeholder content for the hosted window test.',
         tone: 'muted' as const,
@@ -1630,6 +1555,10 @@ function requestSurfaceFocus(instanceId: string): void {
                 : { host: 'dockview', mode: 'grid' },
           });
         },
+        onBoundsChange: (position, size) => appServices.surfaces.update(windowRecord.id, { position, size }),
+        initialPlacement: getDockviewPlacementMode(windowRecord.id),
+        position: appServices.surfaces.getInstance(windowRecord.id)?.position,
+        size: appServices.surfaces.getInstance(windowRecord.id)?.size,
       }));
   }
 
@@ -1699,7 +1628,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
     treeDataViewController.ensure(id, model.root.id);
 
-    appServices.surfaces.open({
+    openSurfaceAndBringToFront({
       instanceId: id,
       surfaceId,
       title: `dummy window ${index + 1}`,
@@ -1737,17 +1666,18 @@ function requestSurfaceFocus(instanceId: string): void {
     const index = getRegisteredWindowRecords().length;
     const id = `tree-data-window-${nextWindowHostId++}`;
     const model = createDemoTreeDataWindowModel();
+    registerTreeSurfaceInstance(id, () => model, () => {});
 
     treeDataViewController.ensure(id, model.root.id);
     ensureTreeDataTransportSession(id, WINDOW_HOST_SINGLETON_IDS.treeDataDemo);
-    rememberTreeDataTransportState(id, 'demo', model);
+    rememberTreeDataTransportState(id, model);
     logTreeTransport('open tree window', {
       windowId: id,
       surfaceId: WINDOW_HOST_SINGLETON_IDS.treeDataDemo,
       kind: 'demo',
     });
 
-    appServices.surfaces.open({
+    openSurfaceAndBringToFront({
       instanceId: id,
       surfaceId,
       title: `tree data window ${index + 1}`,
@@ -1758,81 +1688,83 @@ function requestSurfaceFocus(instanceId: string): void {
 
   }
 
-  function ensureFuzzballStorageSurfaceRegistration(sourceTabId: string): string {
-    const surface = session.getWorldPluginSurfaces(sourceTabId)
-      .find((entry) => entry.id === FUZZBALL_STORAGE_SURFACE_ID);
-    if (!surface) {
-      throw new Error('FuzzBall storage surface is not contributed by the active world plugin');
-    }
-
-    if (!appServices.surfaces.getRegistration(surface.id)) {
-      appServices.surfaces.register({
-        surfaceId: surface.id,
-        kind: surface.kind,
-        defaultTitle: surface.defaultTitle,
-        capabilities: surface.capabilities,
-      });
-    }
-
-    return surface.id;
-  }
-
-  function openFuzzballStorageWindow(
-    sourceTabId: string,
-    worldId: string,
-    characterId: string,
-    title: string,
-    description?: string,
-  ): void {
-    if (!worldId) {
-      return;
-    }
-
-    const existingWindowRecord = getRegisteredWindowRecords().find((windowRecord) =>
-      isFuzzballStorageWindow(windowRecord)
-      && fuzzballStorageWindowStates[windowRecord.id]?.sourceTabId === sourceTabId,
-    ) ?? null;
-    if (existingWindowRecord) {
-      appServices.surfaces.update(existingWindowRecord.id, { isActive: true });
-      requestSurfaceFocus(existingWindowRecord.id);
-      return;
-    }
-
-    const surfaceId = ensureFuzzballStorageSurfaceRegistration(sourceTabId);
-    const index = getRegisteredWindowRecords().length;
-    const id = `fuzzball-storage-window-${sourceTabId}`;
-    const viewerService = getFuzzballStorageViewerService(sourceTabId);
-    if (!viewerService) {
-      return;
-    }
-    const state = viewerService.createState(sourceTabId, worldId, characterId, title, description);
-
-    fuzzballStorageWindowStates = {
-      ...fuzzballStorageWindowStates,
-      [id]: state,
-    };
-
-    ensureTreeDataTransportSession(id, surfaceId);
-    rememberTreeDataTransportState(id, 'fuzzball', viewerService.buildModel(state), state);
-    maybeRequestInitialFuzzballStorageLoad(id, state);
-    logTreeTransport('open fuzzball storage window', {
-      windowId: id,
-      surfaceId,
-      kind: 'fuzzball',
-      sourceTabId,
-      worldId,
-      characterId,
-    });
-
-    appServices.surfaces.open({
-      instanceId: id,
+  const pluginTreeDataSurfaceController = createFuzzballSurfaceHostAdapter({
+    listWindows: () => getRegisteredWindowRecords(),
+    isSurfaceWindow: (window) => isTreeDataSurfaceWindow(window as WindowRecord),
+    activateWindow: (windowId) => appServices.surfaces.update(windowId, { isActive: true }),
+    focusWindow: requestSurfaceFocus,
+    getPluginService: (sourceTabId, key) => session.getWorldPluginService(sourceTabId, key),
+    getSurfaceContribution: (sourceTabId, surfaceId) => session.getWorldPluginSurfaces(sourceTabId)
+      .find((entry) => entry.id === surfaceId) ?? null,
+    registerSurface: (registration) => {
+      if (!appServices.surfaces.getRegistration(registration.surfaceId)) {
+        appServices.surfaces.register(registration);
+      }
+    },
+    registerOpenHandler: (pluginId, surfaceId, handler) => {
+      worldPluginSurfaceOpenHandlers.set(`${pluginId}:${surfaceId}`, handler);
+    },
+    registerStateDisposer: (surfaceId, disposer) => {
+      worldPluginSurfaceStateDisposers.set(surfaceId, disposer);
+    },
+    registerSourceWindowProvider: (surfaceId, provider) => {
+      worldPluginSurfaceSourceWindowProviders.set(surfaceId, provider);
+    },
+    getWorldContext: (tabId) => {
+      const worldSession = $session.worldSessions[tabId];
+      if (!worldSession?.currentWorld) {
+        return null;
+      }
+      return {
+        worldId: worldSession.currentWorld.id,
+        characterId: worldSession.currentCharacter?.id ?? '',
+        defaultTitle: `${worldSession.currentWorld.name} storage`,
+      };
+    },
+    ensureTransport: ensureTreeDataTransportSession,
+    rememberTransportModel: rememberTreeDataTransportState,
+    registerTreeSurfaceInstance,
+    disposeTreeSurfaceInstance: (windowId) => {
+      treeDataSurfaceModelProviders.delete(windowId);
+      treeDataSurfaceCommandHandlers.delete(windowId);
+      treeDataSurfaceSourceTabs.delete(windowId);
+    },
+    log: logTreeTransport,
+    openSurface: ({ instanceId, surfaceId, title, position, size }) => openSurfaceAndBringToFront({
+      instanceId,
       surfaceId,
       title,
       placement: { host: 'dockview', mode: 'floating' },
-      position: { x: 120 + index * 28, y: 120 + index * 28 },
-      size: { width: 720, height: 560 },
-    });
+      position,
+      size,
+    }),
+  });
 
+  function registerTreeSurfaceInstance(
+    windowId: string,
+    modelProvider: () => TreeDataWindowModel,
+    commandHandler: (command: TreeDataWindowCommand, model: TreeDataWindowModel) => void,
+    sourceTabId?: string,
+  ): void {
+    treeDataSnapshotUnlisteners.get(windowId)?.();
+    treeDataSurfaceModelProviders.set(windowId, modelProvider);
+    treeDataSurfaceCommandHandlers.set(windowId, commandHandler);
+    if (sourceTabId) {
+      treeDataSurfaceSourceTabs.set(windowId, sourceTabId);
+    } else {
+      treeDataSurfaceSourceTabs.delete(windowId);
+    }
+    treeDataSnapshotUnlisteners.set(
+      windowId,
+      worldSurfaceSnapshotStore.subscribe(windowId, (snapshot) => {
+        treeDataRefreshVersion += 1;
+        logTreeTransport('generic surface snapshot invalidated', {
+          windowId,
+          surfaceId: snapshot.surfaceId,
+          revision: snapshot.revision,
+        });
+      }),
+    );
   }
 
   function ensureDebugConsoleSurfaceRegistration(tabId: string): string {
@@ -1841,7 +1773,7 @@ function requestSurfaceFocus(instanceId: string): void {
       appServices.surfaces.register({
         surfaceId,
         kind: 'builtin',
-        defaultTitle: createDebugConsoleWindowTitle(tabId),
+        defaultTitle: 'debug console',
         capabilities: {
           canClose: true,
           canDock: true,
@@ -1865,11 +1797,10 @@ function requestSurfaceFocus(instanceId: string): void {
       ?? null;
 
     if (existingWindowRecord) {
-      appServices.surfaces.update(windowId, { isActive: true });
-      requestSurfaceFocus(windowId);
+      bringSurfaceToFront(windowId);
 
       if (!appServices.surfaces.getInstance(windowId)) {
-        appServices.surfaces.open({
+        openSurfaceAndBringToFront({
           instanceId: windowId,
           surfaceId,
           title: existingWindowRecord.title,
@@ -1923,7 +1854,7 @@ function requestSurfaceFocus(instanceId: string): void {
     const transportSession = ensureDebugConsoleTransportSession(windowId, surfaceId);
     publishDebugConsoleTransportSnapshot(windowId, transportSession, sessionModel);
 
-    appServices.surfaces.open({
+    openSurfaceAndBringToFront({
       instanceId: windowId,
       surfaceId,
       title: windowRecord.title,
@@ -1945,7 +1876,7 @@ function requestSurfaceFocus(instanceId: string): void {
       appServices.surfaces.register({
         surfaceId,
         kind: 'builtin',
-        defaultTitle: createNotesWindowTitle(tabId),
+        defaultTitle: 'notes',
         capabilities: {
           canClose: true,
           canDock: true,
@@ -1969,10 +1900,9 @@ function requestSurfaceFocus(instanceId: string): void {
       ?? null;
 
     if (existingWindowRecord) {
-      appServices.surfaces.update(windowId, { isActive: true });
-      requestSurfaceFocus(windowId);
+      bringSurfaceToFront(windowId);
       if (!appServices.surfaces.getInstance(windowId)) {
-        appServices.surfaces.open({
+        openSurfaceAndBringToFront({
           instanceId: windowId,
           surfaceId,
           title: existingWindowRecord.title,
@@ -2016,7 +1946,7 @@ function requestSurfaceFocus(instanceId: string): void {
     const transportSession = ensureNotesTransportSession(windowId, surfaceId);
     publishNotesTransportSnapshot(windowId, transportSession, sessionModel);
 
-    appServices.surfaces.open({
+    openSurfaceAndBringToFront({
       instanceId: windowId,
       surfaceId,
       title: windowRecord.title,
@@ -2114,14 +2044,14 @@ function requestSurfaceFocus(instanceId: string): void {
     openNotesWindow(tabId);
   }
 
-  async function closeFuzzballStorageWindow(windowId: string): Promise<void> {
+  async function closeTreeDataSurfaceWindow(windowId: string): Promise<void> {
     const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
     const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? poppedOutWindowRecord;
 
-    if (!windowRecord || !isFuzzballStorageWindow(windowRecord)) {
+    if (!windowRecord || !isTreeDataSurfaceWindow(windowRecord)) {
       clearTreeDataTransportSession(windowId);
       clearTreeDataBridgeSession(windowId);
-      clearFuzzballStorageWindowState(windowId);
+      disposePluginSurfaceState(windowId);
       appServices.surfaces.close(windowId);
       return;
     }
@@ -2135,7 +2065,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
     removePoppedOutWindowRecord(windowId);
     await invoke('window_host_discard', { windowId }).catch((error) => {
-      console.error('failed to discard fuzzball storage window:', error);
+      console.error('failed to discard tree-data surface window:', error);
     });
   }
 
@@ -2186,36 +2116,19 @@ function requestSurfaceFocus(instanceId: string): void {
     });
   }
 
-  function clearFuzzballStorageWindowState(windowId: string): void {
-    if (!(windowId in fuzzballStorageWindowStates)) {
-      return;
-    }
-
-    const { [windowId]: _removed, ...rest } = fuzzballStorageWindowStates;
-    fuzzballStorageWindowStates = rest;
+  function disposePluginSurfaceState(windowId: string, surfaceId?: string): void {
+    const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
+      ?? poppedOutWindowRecords[windowId]
+      ?? null;
+    worldPluginSurfaceStateDisposers.get(surfaceId ?? windowRecord?.surfaceId)?.(windowId);
   }
 
-  async function discardFuzzballStorageWindowsForSourceTab(sourceTabId: string): Promise<void> {
-    const matchedWindowIds = Object.entries(fuzzballStorageWindowStates)
-      .filter(([, state]) => state.sourceTabId === sourceTabId)
-      .map(([windowId]) => windowId);
-
-    if (matchedWindowIds.length === 0) {
-      return;
-    }
-
-    const windowIdSet = new Set(matchedWindowIds);
-    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
-
-    fuzzballStorageWindowStates = Object.fromEntries(
-      Object.entries(fuzzballStorageWindowStates).filter(([windowId]) => !windowIdSet.has(windowId)),
-    );
-    for (const windowId of matchedWindowIds) {
-      clearTreeDataTransportSession(windowId);
-      clearTreeDataBridgeSession(windowId);
-      treeDataViewController.clear(windowId);
-      appServices.surfaces.close(windowId);
-    }
+  async function discardPoppedOutWindowRecords(
+    windowIds: readonly string[],
+    surfaceLabel: string,
+  ): Promise<void> {
+    const windowIdSet = new Set(windowIds);
+    const poppedOutWindowIds = windowIds.filter((windowId) => windowId in poppedOutWindowRecords);
     poppedOutWindowRecords = Object.fromEntries(
       Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
     );
@@ -2223,10 +2136,33 @@ function requestSurfaceFocus(instanceId: string): void {
     await Promise.all(
       poppedOutWindowIds.map((windowId) =>
         invoke('window_host_discard', { windowId }).catch((error) => {
-          console.error('failed to discard fuzzball storage window:', error);
+          console.error(`failed to discard ${surfaceLabel} window:`, error);
         }),
       ),
     );
+  }
+
+  async function discardPluginSurfaceWindowsForSourceTab(sourceTabId: string): Promise<void> {
+    const matchedWindowIds = [...new Set(
+      [...worldPluginSurfaceSourceWindowProviders.values()]
+        .flatMap((getWindowIds) => getWindowIds(sourceTabId)),
+    )];
+
+    if (matchedWindowIds.length === 0) {
+      return;
+    }
+
+    for (const windowId of matchedWindowIds) {
+      const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId)
+        ?? poppedOutWindowRecords[windowId]
+        ?? null;
+      disposePluginSurfaceState(windowId, windowRecord?.surfaceId);
+      clearTreeDataTransportSession(windowId);
+      clearTreeDataBridgeSession(windowId);
+      treeDataViewController.clear(windowId);
+      appServices.surfaces.close(windowId);
+    }
+    await discardPoppedOutWindowRecords(matchedWindowIds, 'tree-data surface');
   }
 
   async function discardTreeDataWindows(): Promise<void> {
@@ -2241,7 +2177,6 @@ function requestSurfaceFocus(instanceId: string): void {
       return;
     }
 
-    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
     for (const windowId of matchedWindowIds) {
       clearTreeDataTransportSession(windowId);
       clearTreeDataBridgeSession(windowId);
@@ -2249,17 +2184,7 @@ function requestSurfaceFocus(instanceId: string): void {
       appServices.surfaces.close(windowId);
     }
 
-    poppedOutWindowRecords = Object.fromEntries(
-      Object.entries(poppedOutWindowRecords).filter(([windowId]) => !matchedWindowIds.includes(windowId)),
-    );
-
-    await Promise.all(
-      poppedOutWindowIds.map((windowId) =>
-        invoke('window_host_discard', { windowId }).catch((error) => {
-          console.error('failed to discard tree data window:', error);
-        }),
-      ),
-    );
+    await discardPoppedOutWindowRecords(matchedWindowIds, 'tree-data');
   }
 
   async function discardDebugConsoleWindowsForSourceTab(sourceTabId: string): Promise<void> {
@@ -2271,26 +2196,13 @@ function requestSurfaceFocus(instanceId: string): void {
       return;
     }
 
-    const windowIdSet = new Set(matchedWindowIds);
-    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
-
-    poppedOutWindowRecords = Object.fromEntries(
-      Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
-    );
-
     for (const windowId of matchedWindowIds) {
       clearDebugConsoleTransportSession(windowId);
       clearDebugConsoleBridgeSession(windowId);
       appServices.surfaces.close(windowId);
     }
 
-    await Promise.all(
-      poppedOutWindowIds.map((windowId) =>
-        invoke('window_host_discard', { windowId }).catch((error) => {
-          console.error('failed to discard debug console window:', error);
-        }),
-      ),
-    );
+    await discardPoppedOutWindowRecords(matchedWindowIds, 'debug console');
   }
 
   async function discardNotesWindowsForSourceTab(sourceTabId: string): Promise<void> {
@@ -2302,26 +2214,13 @@ function requestSurfaceFocus(instanceId: string): void {
       return;
     }
 
-    const windowIdSet = new Set(matchedWindowIds);
-    const poppedOutWindowIds = matchedWindowIds.filter((windowId) => windowId in poppedOutWindowRecords);
-
-    poppedOutWindowRecords = Object.fromEntries(
-      Object.entries(poppedOutWindowRecords).filter(([windowId]) => !windowIdSet.has(windowId)),
-    );
-
     for (const windowId of matchedWindowIds) {
       clearNotesTransportSession(windowId);
       clearNotesBridgeSession(windowId);
       appServices.surfaces.close(windowId);
     }
 
-    await Promise.all(
-      poppedOutWindowIds.map((windowId) =>
-        invoke('window_host_discard', { windowId }).catch((error) => {
-          console.error('failed to discard notes window:', error);
-        }),
-      ),
-    );
+    await discardPoppedOutWindowRecords(matchedWindowIds, 'notes');
   }
 
   function closeWindow(windowId: string): void {
@@ -2332,7 +2231,7 @@ function requestSurfaceFocus(instanceId: string): void {
     clearTreeDataTransportSession(windowId);
     clearTreeDataBridgeSession(windowId);
     treeDataViewController.clear(windowId);
-    clearFuzzballStorageWindowState(windowId);
+    disposePluginSurfaceState(windowId);
     clearDebugConsoleTransportSession(windowId);
     clearDebugConsoleBridgeSession(windowId);
     clearNotesTransportSession(windowId);
@@ -2359,7 +2258,8 @@ function requestSurfaceFocus(instanceId: string): void {
     return windowRecord;
   }
 
-  function handlePoppedOutWindowReturned(windowId: string): void {
+  function handlePoppedOutWindowReturned(returnedRecord: WindowRecord): void {
+    const windowId = returnedRecord.id;
     const windowRecord = removePoppedOutWindowRecord(windowId);
     if (!windowRecord) {
       console.log('[window-action] popped-out window return ignored', {
@@ -2373,10 +2273,12 @@ function requestSurfaceFocus(instanceId: string): void {
       title: windowRecord.title,
     });
 
-    if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isFuzzballStorageWindow(windowRecord)
+    if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isTreeDataSurfaceWindow(windowRecord)
       || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
       appServices.surfaces.update(windowId, {
         placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+        position: returnedRecord.position,
+        size: returnedRecord.size,
       });
     }
     clearTreeDataBridgeSession(windowId);
@@ -2384,7 +2286,8 @@ function requestSurfaceFocus(instanceId: string): void {
     clearNotesBridgeSession(windowId);
   }
 
-  function handlePoppedOutWindowDiscarded(windowId: string): void {
+  function handlePoppedOutWindowDiscarded(discardedRecord: WindowRecord): void {
+    const windowId = discardedRecord.id;
     const windowRecord = removePoppedOutWindowRecord(windowId);
     if (!windowRecord) {
       console.log('[window-action] popped-out window discard ignored', {
@@ -2398,9 +2301,14 @@ function requestSurfaceFocus(instanceId: string): void {
       title: windowRecord.title,
     });
 
+    appServices.surfaces.update(windowId, {
+      position: discardedRecord.position,
+      size: discardedRecord.size,
+    });
+
     clearTreeDataBridgeSession(windowId);
     treeDataViewController.clear(windowId);
-    clearFuzzballStorageWindowState(windowId);
+    disposePluginSurfaceState(windowId, windowRecord.surfaceId);
     clearDebugConsoleBridgeSession(windowId);
     clearDebugConsoleTransportSession(windowId);
     appServices.surfaces.close(windowId);
@@ -2421,7 +2329,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
     try {
       storePoppedOutWindowRecord(nextWindowRecord);
-      if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isFuzzballStorageWindow(windowRecord)
+      if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isTreeDataSurfaceWindow(windowRecord)
         || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
         appServices.surfaces.update(windowId, {
           placement: { host: 'native', windowId },
@@ -2432,7 +2340,7 @@ function requestSurfaceFocus(instanceId: string): void {
       });
     } catch (error) {
       removePoppedOutWindowRecord(windowId);
-      if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isFuzzballStorageWindow(windowRecord)
+      if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isTreeDataSurfaceWindow(windowRecord)
         || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
         appServices.surfaces.update(windowId, {
           placement: { host: 'dockview', mode: 'edge', edge: 'top' },
@@ -2590,6 +2498,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
     if ($session.modalOpen || $appNoticeStore !== null || hasBlockingWindow() || loggingModalTabId !== null || ($session.closeConfirmTabId !== null && $session.closeConfirmMode === 'modal')) {
       event.preventDefault();
+      void invoke('window_cancel_close_fallback');
       console.log('[window-action] app close prevented by blocking state');
       return;
     }
@@ -2602,6 +2511,7 @@ function requestSurfaceFocus(instanceId: string): void {
     }
 
     event.preventDefault();
+    void invoke('window_cancel_close_fallback');
     void appServices.notice.confirm({
       surfaceId: APP_NOTICE_SURFACE_IDS.appCloseConfirm,
       title: 'close app?',
@@ -2649,7 +2559,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
   $: if (!isPoppedOutWindow) {
     syncPoppedOutTreeDataSnapshots(
-      fuzzballStorageCacheVersion,
+      treeDataInvalidationVersion,
       Object.keys(poppedOutWindowRecords).join('|'),
       getRegisteredWindowRecords().length,
     );
@@ -2673,11 +2583,11 @@ function requestSurfaceFocus(instanceId: string): void {
       poppedOutWindowId,
       url: typeof window !== 'undefined' ? window.location.href : null,
     });
-    const unlistenFuzzballStorageCache = fuzzballStorageCache.subscribe(() => {
-      fuzzballStorageCacheVersion += 1;
+    const unlistenPluginSurfaceInvalidation = pluginTreeDataSurfaceController.subscribeInvalidation(() => {
+      treeDataInvalidationVersion += 1;
       treeDataRefreshVersion += 1;
-      logTreeTransport('fuzzball cache changed', {
-        version: fuzzballStorageCacheVersion,
+      logTreeTransport('plugin surface cache changed', {
+        version: treeDataInvalidationVersion,
       });
     });
     const unlistenDebugConsoleCache = debugConsoleCache.subscribe(() => {
@@ -2771,7 +2681,7 @@ function requestSurfaceFocus(instanceId: string): void {
 
       try {
         session.setConfirmUnloggedTabClose($appSettingsStore.confirmUnloggedTabClose);
-        session.setWorldPluginActionHandler(handleWorldPluginAction);
+        session.setWorldPluginSurfaceHandler(handleWorldPluginSurfaceOpen);
         await appServices.lifecycle.runHooks('startup');
         session.setTranscriptScrollbackChunks($appSettingsStore.transcriptScrollbackChunks);
         if (disposed) {
@@ -2958,15 +2868,15 @@ function requestSurfaceFocus(instanceId: string): void {
         } else {
           console.log('[window-action] installing main window close handler');
           unlistenAppClose = await currentWebviewWindow.onCloseRequested(handleAppCloseRequest);
-          const unlistenPopIn = await listen<string>('window-host:pop-in-requested', (event) => {
+          const unlistenPopIn = await listen<WindowRecord>('window-host:pop-in-requested', (event) => {
             console.log('[window-event] popped-out window pop-in requested', {
-              windowId: event.payload,
+              windowId: event.payload.id,
             });
             handlePoppedOutWindowReturned(event.payload);
           });
-          const unlistenDiscarded = await listen<string>('window-host:discarded', (event) => {
+          const unlistenDiscarded = await listen<WindowRecord>('window-host:discarded', (event) => {
             console.log('[window-event] popped-out window discarded', {
-              windowId: event.payload,
+              windowId: event.payload.id,
             });
             handlePoppedOutWindowDiscarded(event.payload);
           });
@@ -2999,7 +2909,7 @@ function requestSurfaceFocus(instanceId: string): void {
         isPoppedOutWindow,
         poppedOutWindowId,
       });
-      unlistenFuzzballStorageCache();
+      unlistenPluginSurfaceInvalidation();
       unlistenDebugConsoleCache();
       unlistenSurfaceRegistry();
       if (!isPoppedOutWindow) {
@@ -3038,9 +2948,8 @@ function requestSurfaceFocus(instanceId: string): void {
     {#if poppedOutWindowRecord?.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow}
       <DummyWindowContent instanceLabel={poppedOutWindowRecord.title} />
     {:else if poppedOutWindowRecord
-      && (poppedOutWindowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.treeDataDemo
-        || isFuzzballStorageWindow(poppedOutWindowRecord))}
-      {@const treeDataWindowProps = getTreeDataWindowRenderProps(poppedOutWindowRecord.id, fuzzballStorageCacheVersion)}
+      && isTreeDataSurfaceWindow(poppedOutWindowRecord)}
+      {@const treeDataWindowProps = getTreeDataWindowRenderProps(poppedOutWindowRecord.id, treeDataInvalidationVersion)}
       {#if treeDataWindowProps}
         <TreeDataWindow {...treeDataWindowProps} />
       {:else}
@@ -3163,8 +3072,9 @@ function requestSurfaceFocus(instanceId: string): void {
       {@const playScreenActions = createPlayScreenActions(tab, worldSession)}
       {@const debugConsolePanel = getDebugConsoleDockviewPanel(tab.id, surfaceRegistryVersion)}
       {@const notesPanel = getNotesDockviewPanel(tab.id, surfaceRegistryVersion)}
-      {@const fuzzballPanels = getFuzzballStorageDockviewPanels(tab.id, surfaceRegistryVersion, treeDataRefreshVersion)}
-      {@const treeDataPanels = getTreeDataDockviewPanels(tab.id === $session.activeTabId, surfaceRegistryVersion, treeDataRefreshVersion)}
+      {@const treeDataPanels = [
+        ...getTreeDataDockviewPanels(tab.id, tab.id === $session.activeTabId, surfaceRegistryVersion, treeDataRefreshVersion),
+      ]}
       {@const dummyPanels = getDummyDockviewPanels(tab.id === $session.activeTabId, surfaceRegistryVersion)}
       <PlayScreen
         scope={tab.id}
@@ -3178,7 +3088,6 @@ function requestSurfaceFocus(instanceId: string): void {
         topActions={session.getWorldPluginActions(tab.id)}
         {debugConsolePanel}
         {notesPanel}
-        {fuzzballPanels}
         {treeDataPanels}
         {dummyPanels}
         focusSurfaceId={tab.id === $session.activeTabId ? focusSurfaceId : null}

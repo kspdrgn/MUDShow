@@ -20,6 +20,7 @@ export interface WindowRecord {
   id: string;
   kind: WindowHostKind;
   surfaceId: string;
+  rendererId?: string;
   title: string;
   isModal: boolean;
   sizeToContent: boolean;
@@ -59,6 +60,7 @@ export function createWindowRecord(
     id: windowRecord.id,
     kind: windowRecord.kind ?? 'builtin',
     surfaceId: windowRecord.surfaceId,
+    rendererId: windowRecord.rendererId,
     title: windowRecord.title,
     isModal: windowRecord.isModal ?? false,
     sizeToContent: windowRecord.sizeToContent ?? false,

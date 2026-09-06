@@ -1,11 +1,14 @@
 import { captureFuzzballWorldLine } from './capture.js';
 import { createFuzzBallPropertyService, type FuzzBallPropertyService } from './property-service.js';
 import { createFuzzballStorageViewerService, type FuzzballStorageViewerService } from './storage-viewer.js';
-import type { WorldPlugin } from '../world-plugin.js';
+import { createWorldPluginServiceKey, type WorldPlugin } from '../world-plugin.js';
 import { supportsFuzzball } from '../world-capabilities.js';
+import { fuzzballStorageCache } from './storage-cache.js';
 
 export const FUZZBALL_PLUGIN_ID = 'fuzzball';
 export const FUZZBALL_STORAGE_SURFACE_ID = 'fuzzball-storage-viewer';
+export const FUZZBALL_PROPERTY_SERVICE_KEY = createWorldPluginServiceKey<FuzzBallPropertyService>(FUZZBALL_PLUGIN_ID);
+export const FUZZBALL_STORAGE_VIEWER_SERVICE_KEY = createWorldPluginServiceKey<FuzzballStorageViewerService>(`${FUZZBALL_PLUGIN_ID}:storage-viewer`);
 
 export function createFuzzballPlugin(
   worldSessionContainers: import('../world-session-container.js').WorldSessionContainerRegistry,
@@ -20,13 +23,15 @@ export function createFuzzballPlugin(
         character?.id ?? '',
         worldSessionContainers,
       );
-      services.set<FuzzBallPropertyService>(FUZZBALL_PLUGIN_ID, propertyService);
-      services.set<FuzzballStorageViewerService>(`${FUZZBALL_PLUGIN_ID}:storage-viewer`, createFuzzballStorageViewerService(worldSessionContainers));
+      services.set(FUZZBALL_PROPERTY_SERVICE_KEY, propertyService);
+      services.set(FUZZBALL_STORAGE_VIEWER_SERVICE_KEY, createFuzzballStorageViewerService(worldSessionContainers));
 
       return {
         surfaces: [{
           id: FUZZBALL_STORAGE_SURFACE_ID,
-          kind: 'builtin',
+          kind: 'plugin',
+          protocolVersion: 1,
+          rendererId: 'tree-data',
           defaultTitle: 'fuzzball storage viewer',
           capabilities: {
             canClose: true,
@@ -43,10 +48,19 @@ export function createFuzzballPlugin(
           id: 'fuzzball-storage-viewer',
           label: 'exa me=/',
           title: 'Open fuzzball storage viewer',
-          onClick: () => host.invokeAction(FUZZBALL_PLUGIN_ID, 'open-storage-viewer'),
+          onClick: () => host.openSurface(FUZZBALL_PLUGIN_ID, FUZZBALL_STORAGE_SURFACE_ID, {
+            worldId: world.id,
+            characterId: character?.id ?? '',
+            title: character?.name
+              ? `${world.name} · ${character.name} storage`
+              : `${world.name} storage`,
+          }),
         }],
         onIncomingLine: (line) => {
           captureFuzzballWorldLine(world.id, character?.id ?? '', line);
+        },
+        dispose: () => {
+          fuzzballStorageCache.clearSessionCache(world.id, character?.id ?? '');
         },
       };
     },

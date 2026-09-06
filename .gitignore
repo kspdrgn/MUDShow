@@ -2,6 +2,7 @@ node_modules/
 .pnpm-store/
 dist/
 tauri/target/
+.codex-target/
 tauri/bin/
 tauri/.mudshow-tauri-dev-*.json
 .vscode/

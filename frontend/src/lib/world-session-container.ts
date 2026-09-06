@@ -11,7 +11,7 @@ import {
   type WorldSessionDebugConsole,
 } from './world-session-debug-console.js';
 import type { WorldPluginSession } from './world-plugin-registry.js';
-import type { WorldPluginServiceBag } from './world-plugin.js';
+import type { WorldPluginServiceBag, WorldPluginServiceKey } from './world-plugin.js';
 
 export interface WorldSessionContainer {
   key: WorldSessionKey;
@@ -54,11 +54,11 @@ export function createWorldSessionContainer(key: WorldSessionKey): WorldSessionC
 function createWorldPluginServiceBag(): WorldPluginServiceBag {
   const services = new Map<string, unknown>();
   return {
-    get<T>(pluginId: string): T | null {
-      return (services.get(pluginId) as T | undefined) ?? null;
+    get<T>(key: WorldPluginServiceKey<T>): T | null {
+      return (services.get(key.id) as T | undefined) ?? null;
     },
-    set<T>(pluginId: string, service: T): void {
-      services.set(pluginId, service);
+    set<T>(key: WorldPluginServiceKey<T>, service: T): void {
+      services.set(key.id, service);
     },
   };
 }

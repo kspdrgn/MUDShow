@@ -184,6 +184,20 @@ PlayScreen
   - One PlayScreen instance per world tab.
   - Each PlayScreen instance keeps its own transcript view, scroll position, input bars, panel visibility, and connection status while that tab remains open.
 
+### World-Session Dockview
+
+  - The top app tab bar and the Dockview surface tab bars are separate navigation layers. The top bar switches world sessions; a Dockview tab bar switches surfaces within the active world session.
+  - World-session surfaces may be hosted in the center grid, in a floating Dockview group, or in the configured top, right, or left edge groups.
+  - An edge group has two independent states:
+    - expanded: its surface content and tab bar are visible;
+    - collapsed: its content is hidden while its edge reveal/tab strip remains available.
+  - A collapsed edge group may be auto-hidden after the custom edge hide delay. Its reveal trigger remains available at that edge when it contains a surface or host action.
+  - Selecting a surface tab from a collapsed edge group expands that group and shows the selected surface.
+  - Leaving the Dockview area must not collapse an expanded edge group. Leaving the area may allow a collapsed group to remain collapsed or complete its pending auto-hide timer, but it must not expand the group.
+  - Moving a surface between edge groups preserves the surface instance and controller state. The destination group becomes visible and expanded for the moved surface.
+  - The surface tab bar remains visible whenever its group is expanded or when a collapsed group is represented by an edge reveal/tab strip. Inactive surface tabs remain registered but do not render their content until selected.
+  - Floating and native-window transitions do not create a second surface instance. Returning to Dockview uses the surface’s previous dock edge when one is recorded.
+
 ## Channels
 
 World channels live inside the PlayScreen and provide a host-managed surface for reusable world-specific panels.

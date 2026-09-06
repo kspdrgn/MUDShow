@@ -7,6 +7,8 @@ Describe the desktop-shell behavior that matters for pop-outs, control windows, 
 - Native windows are allowed to exist as plain desktop shells with no special app content.
 - A plain native window is useful as a control test because it proves the window lifecycle works even when no webview content is attached.
 - Webview-backed windows are separate from plain native windows and should be treated as a different kind of shell.
+- Webview-backed surface windows remember their last native position and inner size for the lifetime of the surface placement record. Move and resize results are captured before pop-in, discard, or close.
+- When a saved surface placement points to a native window, reopening the surface recreates the native window using the saved position and size.
 
 ## Windows Webview Environment
 - On Windows, a secondary webview window that loads app content must share the main webview's WebView2 environment.
@@ -18,3 +20,9 @@ Describe the desktop-shell behavior that matters for pop-outs, control windows, 
 - When diagnosing pop-out behavior, trace both the native window lifecycle and the webview lifecycle separately.
 - Native window success does not guarantee webview success.
 - Helpful early lifecycle hooks include navigation, page-load, title-change, and window-event tracing.
+
+## Main Window Close Safety
+- A close request for the main window schedules a native-shell fallback exit after a short grace period.
+- A responsive frontend cancels that fallback when it intentionally prevents the close request to show a confirmation or perform cleanup.
+- If the frontend is stalled and cannot respond, the native shell exits when the fallback period expires, so the user is not trapped by a frozen webview.
+- The native shell includes a reserved diagnostics state for future crash reporting or telemetry. It records and sends no diagnostics yet.

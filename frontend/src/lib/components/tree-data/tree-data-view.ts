@@ -17,10 +17,15 @@ export interface TreeDataWindowViewState {
   expandedNodeIds: string[];
 }
 
+export interface TreeDataWindowDisplayOptions {
+  selectedSummary: 'title' | 'preview';
+  badgePlacement: 'inline' | 'trailing';
+}
+
 export interface TreeDataWindowModel {
   title: string;
   description?: string;
-  presentation?: 'default' | 'fuzzball-storage';
+  display?: TreeDataWindowDisplayOptions;
   root: TreeDataNode;
 }
 

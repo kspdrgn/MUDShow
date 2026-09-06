@@ -1,14 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod fonts;
+mod diagnostics;
 mod mud_backend;
 mod storage;
 mod spellcheck;
 
 use std::collections::HashMap;
 use std::process::Command;
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,8 @@ struct WindowHostRecord {
     id: String,
     kind: String,
     surface_id: String,
+    #[serde(default)]
+    renderer_id: Option<String>,
     title: String,
     is_modal: bool,
     placement: String,
@@ -64,6 +67,39 @@ struct PlainWebviewWindowRegistry {
 }
 
 static PLAIN_WEBVIEW_WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
+
+const CLOSE_FALLBACK_DELAY: Duration = Duration::from_secs(2);
+
+#[derive(Clone, Default)]
+struct CloseFallbackState {
+    generation: Arc<AtomicU64>,
+}
+
+fn schedule_main_window_close_fallback(app: &AppHandle) {
+    let Some(state) = app.try_state::<CloseFallbackState>() else {
+        return;
+    };
+
+    let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    let generation_state = state.generation.clone();
+    let app = app.clone();
+
+    std::thread::spawn(move || {
+        std::thread::sleep(CLOSE_FALLBACK_DELAY);
+
+        if generation_state.load(Ordering::SeqCst) == generation {
+            eprintln!(
+                "[window-event] main close fallback reached; exiting native application"
+            );
+            app.exit(0);
+        }
+    });
+}
+
+#[tauri::command]
+fn window_cancel_close_fallback(state: State<'_, CloseFallbackState>) {
+    state.generation.fetch_add(1, Ordering::SeqCst);
+}
 
 fn create_window_label(window_id: &str) -> String {
     format!("window-host-{window_id}")
@@ -559,11 +595,35 @@ fn window_host_pop_in(
         "[window-action] host pop in requested: id={window_id} from window={}",
         window.label()
     );
-    if let Ok(mut records) = registry.records.lock() {
-        records.remove(&window_id);
+    let mut returned_record = registry
+        .records
+        .lock()
+        .map_err(|_| String::from("window host registry is unavailable"))?
+        .remove(&window_id);
+    if let Some(record) = returned_record.as_mut() {
+        if let Ok(position) = window.outer_position() {
+            record.position = WindowHostPoint { x: position.x as f64, y: position.y as f64 };
+        }
+        if let Ok(size) = window.inner_size() {
+            record.size = WindowHostSize { width: size.width as f64, height: size.height as f64 };
+        }
     }
 
-    app.emit("window-host:pop-in-requested", window_id.clone())
+    app.emit("window-host:pop-in-requested", returned_record.unwrap_or_else(|| WindowHostRecord {
+        id: window_id.clone(),
+        kind: String::from("builtin"),
+        surface_id: String::new(),
+        renderer_id: None,
+        title: String::new(),
+        is_modal: false,
+        placement: String::from("window"),
+        position: WindowHostPoint { x: 0.0, y: 0.0 },
+        size: WindowHostSize { width: 0.0, height: 0.0 },
+        can_backdrop_dismiss: false,
+        can_escape_dismiss: false,
+        can_pop_out: false,
+        can_move_in_app: false,
+    }))
         .map_err(|error| error.to_string())?;
 
     eprintln!(
@@ -587,15 +647,27 @@ fn window_host_discard(
     window_id: String,
 ) -> Result<(), String> {
     eprintln!("[window-action] host discard requested: id={window_id}");
-    {
+    let label = create_window_label(&window_id);
+    if let Some(webview_window) = app.get_webview_window(&label) {
+        if let Ok(mut records) = registry.records.lock() {
+            if let Some(record) = records.get_mut(&window_id) {
+                if let Ok(position) = webview_window.outer_position() {
+                    record.position = WindowHostPoint { x: position.x as f64, y: position.y as f64 };
+                }
+                if let Ok(size) = webview_window.inner_size() {
+                    record.size = WindowHostSize { width: size.width as f64, height: size.height as f64 };
+                }
+            }
+        }
+    }
+    let discarded_record = {
         let mut records = registry
             .records
             .lock()
             .map_err(|_| String::from("window host registry is unavailable"))?;
-        records.remove(&window_id);
-    }
+        records.remove(&window_id)
+    };
 
-    let label = create_window_label(&window_id);
     if let Some(webview_window) = app.get_webview_window(&label) {
         eprintln!("[window-action] destroying discarded native window: id={window_id} label={label}");
         if let Err(error) = webview_window.destroy() {
@@ -603,7 +675,21 @@ fn window_host_discard(
         }
     }
 
-    app.emit("window-host:discarded", window_id.clone())
+    app.emit("window-host:discarded", discarded_record.unwrap_or_else(|| WindowHostRecord {
+        id: window_id.clone(),
+        kind: String::from("builtin"),
+        surface_id: String::new(),
+        renderer_id: None,
+        title: String::new(),
+        is_modal: false,
+        placement: String::from("window"),
+        position: WindowHostPoint { x: 0.0, y: 0.0 },
+        size: WindowHostSize { width: 0.0, height: 0.0 },
+        can_backdrop_dismiss: false,
+        can_escape_dismiss: false,
+        can_pop_out: false,
+        can_move_in_app: false,
+    }))
         .map_err(|error| error.to_string())?;
     eprintln!("[window-action] host discard completed: id={window_id}");
     Ok(())
@@ -770,6 +856,9 @@ fn main() {
                     "[window-event] close requested: window={}",
                     window.label()
                 );
+                if window.label() == "main" {
+                    schedule_main_window_close_fallback(&window.app_handle());
+                }
             }
             tauri::WindowEvent::Destroyed => {
                 eprintln!("[window-event] destroyed: window={}", window.label());
@@ -816,6 +905,8 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(mud_backend::ConnectionManager::default())
         .manage(spellcheck::SpellcheckManager::default())
+        .manage(CloseFallbackState::default())
+        .manage(diagnostics::DiagnosticsState)
         .setup(|app| {
             let default_storage_path = match storage::default_storage_path(app.handle()) {
                 Ok(path) => path,
@@ -835,6 +926,7 @@ fn main() {
             window_minimize,
             window_toggle_maximize,
             window_close,
+            window_cancel_close_fallback,
             window_request_attention,
             window_start_dragging,
             window_start_resize_dragging,
