@@ -7,14 +7,16 @@
 - Let Taps worlds inherit all generic FuzzBall property-tree functionality.
 - Establish a reusable host-managed world-session action model for future compact world controls.
 
-## Current Repository Seams
+## Original Repository Seams
 
-- `WorldCompatibility` currently supports `telnet` and `fuzzball`.
-- FuzzBall property capture and the storage viewer are gated directly on `compatibility === 'fuzzball'`.
-- The top Dockview group has a hard-coded `exa me=/` action for opening the FuzzBall storage viewer.
+- `WorldCompatibility` originally supported only `telnet` and `fuzzball`.
+- FuzzBall property capture and the storage viewer were originally gated directly on `compatibility === 'fuzzball'`.
+- The top Dockview group originally had a hard-coded `exa me=/` action for opening the FuzzBall storage viewer.
 - Taps planning already defines ride modes as `ride`, `hand`, `walk`, and `fly`.
 - The ride-mode property is `/ride/_mode`.
 - The existing FuzzBall storage cache is the intended shared source for Taps property reads and updates.
+
+The migration has since added a plugin registry, Taps profile, generic world-session actions, plugin-contributed surfaces, and a FuzzBall/Taps service boundary. The remaining work is platform hardening and generic surface orchestration, not recreating these initial seams.
 
 ## Design Decision
 
@@ -43,9 +45,28 @@ The implementation should use composition rather than JavaScript class inheritan
 
 Although these integrations remain bundled in the main application, they should be treated as in-process plugins. The boundary is behavioral and dependency-based; separate packages or runtime loading are not required for this phase.
 
+## Clarified Platform Direction
+
+The ride-mode work is also establishing the application’s future plugin boundary. The intended ownership split is:
+
+- Plugins own session behavior, protocol parsing, domain state, and surface controllers.
+- The surface host owns UX orchestration, mounting, placement, transport routing, and lifecycle.
+- A session controller opens or updates a surface through a host port without knowing whether it is mounted in Dockview, a floating window, a native window, or another host.
+
+The current implementation is a valid in-process seam, but it is not yet an external-plugin protocol. Before external loading is considered, harden the seam around serializable and versioned contracts:
+
+- Separate surface identity from renderer identity.
+- Define a generic surface-instance/controller protocol for open, snapshot/update, command, and dispose operations.
+- Replace FuzzBall-specific host branches with generic renderer/controller capabilities.
+- Add action and surface invalidation so plugin state changes reliably refresh host UX.
+- Replace untyped service strings and open payloads with typed capability/request contracts.
+- Preserve an adapter boundary so built-in and future external plugins use the same host API.
+
+External package discovery, permissions, process isolation, and runtime loading remain outside the ride-mode feature. They become a later consumer of this hardened protocol.
+
 ## Current Integration Shape
 
-FuzzBall is currently spread across host-level code rather than exposed through one plugin contract:
+Before the migration, FuzzBall was spread across host-level code rather than exposed through one plugin contract:
 
 - `session-world-capture.ts` directly calls FuzzBall line capture.
 - `App.svelte` directly owns FuzzBall cache, viewer state, transport, surface registration, and Dockview panel creation.
@@ -53,7 +74,7 @@ FuzzBall is currently spread across host-level code rather than exposed through 
 - `PlayDockviewSandbox.svelte` hard-codes the `exa me=/` action.
 - The surface registry supports host-managed surfaces, but not plugin contributions for actions, stream hooks, or session services.
 
-The ride-mode work should establish the minimum generic contract needed to make FuzzBall the first reference plugin and Taps its first dependent plugin.
+The ride-mode work established the minimum in-process contract needed to make FuzzBall the first reference plugin and Taps its first dependent plugin. The remaining work is to make the surface and lifecycle portions of that contract generic enough to support future external adapters.
 
 ## In-Process Plugin Contract
 
@@ -363,6 +384,20 @@ The implementation is incomplete until the behavior is represented in the canoni
 - [x] Add an integration registry or equivalent active-plugin resolver.
 - [x] Ensure plugin lifecycle and disposal follow the owning world-session lifecycle.
 - [x] Keep host rendering and placement responsibilities out of plugin code.
+- [x] Establish plugin-owned surface identity and host-open routing.
+- [x] Separate surface identity from renderer identity in the versioned surface descriptor.
+- [ ] Complete end-to-end integration of the versioned surface protocol.
+- [x] Define generic surface-instance lifecycle and command/snapshot contracts.
+- [ ] Connect the existing surface host and FuzzBall controller to the generic surface protocol.
+- [x] Mirror existing tree-data snapshots into the versioned generic snapshot store.
+- [x] Route existing tree-data commands through the generic surface command router.
+- [x] Supply tree-surface model providers and domain command hooks per surface instance.
+- [x] Add plugin action invalidation for reliable host UX updates.
+- [x] Replace plugin service-bag string lookups with typed service keys shared by providers and consumers.
+- [x] Add a built-in FuzzBall surface-host adapter so App supplies generic host ports instead of plugin wiring.
+- [x] Add an in-process provider-to-registry adapter that establishes the seam for future external providers.
+- [x] Route FuzzBall cache invalidation subscription through the surface adapter instead of App.
+- [x] Add surface-instance invalidation for snapshot/render updates through the generic snapshot store.
 
 ### Profile and capabilities
 
@@ -380,7 +415,22 @@ The implementation is incomplete until the behavior is represented in the canoni
 - [x] Refactor FuzzBall capture behind its session contribution.
 - [x] Refactor FuzzBall storage viewer action and surface registration metadata behind its plugin contribution; keep generic surface rendering/transport mechanics host-owned.
 - [x] Expose FuzzBall storage viewer state/model/load operations through a plugin-provided service.
-- [ ] Remove the remaining FuzzBall storage window bookkeeping from `App.svelte`; surface registration and viewer model/load operations now flow through the plugin service, while shared transport/rendering remains host-owned.
+- [x] Route plugin surface opening through a generic host surface port with session payloads.
+- [x] Extract FuzzBall viewer open/reuse/placement orchestration into a surface controller.
+- [x] Move the FuzzBall storage instance-state map out of `App.svelte` into the surface controller.
+- [x] Remove FuzzBall-specific transport-kind and source-state maps from `App.svelte`; surface controllers and model providers are now authoritative.
+- [x] Remove FuzzBall-specific pop-out/window routing branches from `App.svelte` while preserving generic surface lifecycle behavior.
+- [x] Move plugin surface registration and opening dispatch behind a generic `(pluginId, surfaceId)` surface-host handler path; keep the FuzzBall controller as the current adapter.
+- [x] Route plugin surface-instance state disposal through a generic surface-identity disposer registry, including popped-out instance discard.
+- [x] Route source-tab bulk plugin-surface discovery through a generic surface-identity provider registry; App owns the common cleanup mechanics.
+- [x] Consolidate repeated native-window discard/pop-out cleanup into one generic host lifecycle helper shared by plugin and built-in surfaces.
+- [x] Replace the FuzzBall-specific Dockview panel branch with the generic tree-data renderer.
+- [x] Replace FuzzBall-specific Dockview transport/state branches with generic tree-data renderer and per-instance source-tab capabilities.
+- [x] Replace FuzzBall-named tree renderer presentation flags with renderer-neutral display options.
+- [x] Remove FuzzBall-specific surface IDs and cache naming from the generic App host paths.
+- [x] Remove FuzzBall viewer-service access and initial-load logic from App-facing adapters.
+- [x] Move FuzzBall domain-cache teardown from App into the FuzzBall session contribution lifecycle.
+- [x] Route tree-data pop-out, rendering, and host placement by registered renderer identity.
 - [x] Add a Taps service that depends on the FuzzBall property service.
 - [x] Keep ride-mode constants and command knowledge in the Taps layer.
 - [x] Scope ride-mode state to the world-session container and avoid local persistence.
@@ -395,6 +445,7 @@ The implementation is incomplete until the behavior is represented in the canoni
 - [x] Render button and select action variants in the top Dockview group.
 - [x] Preserve top-edge-only visibility and existing Dockview location handling.
 - [x] Keep Dockview rendering independent of Taps/FuzzBall business logic.
+- [x] Keep ride-mode option construction inside the Taps integration rather than the generic action contract.
 
 ### Ride mode
 
@@ -405,16 +456,23 @@ The implementation is incomplete until the behavior is represented in the canoni
 - [x] Track pending writes and reconcile them from cache updates.
 - [x] React to externally changed server values.
 - [x] Handle disconnect, reconnect, and write/refresh errors safely.
+- [x] Refresh the generic ride-mode action when Taps state changes.
 
 ### Tests and documentation
 
 - [x] Add plugin activation, dependency, lifecycle, and disposal tests.
 - [x] Add registry coverage for plugin-contributed surface descriptors.
+- [x] Add storage surface controller coverage for duplicate-window reuse and plugin surface opening.
 - [ ] Add tests proving the FuzzBall refactor preserves full storage viewer behavior.
 - [x] Add capability tests.
 - [x] Add ride-mode parser and command tests.
-- [ ] Add session/cache synchronization tests.
-- [ ] Add concrete plugin action-visibility and inheritance tests (the generic registry/capability coverage is present).
+- [ ] Add session/cache synchronization tests for Taps ride-mode state.
+- [ ] Add concrete plugin action-visibility, surface-opening, and inheritance tests (the generic registry/capability coverage is present).
+- [ ] Add end-to-end surface protocol, lifecycle, command, snapshot, and invalidation tests.
+- [x] Add versioned snapshot-store tests for revision ordering, subscription, and disposal.
+- [x] Add generic surface command-router coverage.
+- [x] Add focused runtime decoder coverage for versioned surface commands and snapshots.
+- [x] Add plugin-session subscription coverage for action invalidation.
 - [ ] Verify the UI manually in the simulated Taps server when available.
 - [ ] Update `spec/layout.md`.
 - [ ] Update `spec/surfaces.md`.
@@ -574,3 +632,22 @@ Exit gate:
 - Run TypeScript, Svelte, FuzzBall, plugin-registry, and ride-mode tests.
 - Validate against the simulated Taps server.
 - Mark the completion checklist only after the relevant phase exit gate passes.
+
+### Phase 7: Generic surface protocol and external-boundary preparation
+
+Purpose: finish the platform seam exposed by the ride-mode implementation without loading external plugins yet.
+
+- Define versioned serializable surface descriptors and open requests.
+- Define surface-instance lifecycle, snapshot/update, command, and dispose contracts.
+- Move FuzzBall window state and tree-data transport coordination behind its surface controller.
+- Make Dockview and floating/native mounting consume generic surface renderer capabilities.
+- Add action/surface invalidation so Taps pending and error state changes refresh the host.
+- Replace stringly typed service and payload lookups with typed capability/request contracts.
+- Add an adapter boundary for future built-in and external plugin providers.
+
+Exit gate:
+
+- FuzzBall and Taps still behave identically through the generic surface protocol.
+- `App.svelte` contains no FuzzBall-specific transport or renderer branching.
+- Surface lifecycle and command/snapshot behavior are covered by tests.
+- The protocol is serializable and versioned, but no external runtime loading is introduced yet.
