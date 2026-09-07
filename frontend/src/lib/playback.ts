@@ -22,6 +22,157 @@ export interface TranscriptChunkEntry {
 }
 
 /**
+ * Sliding prefix-sum index for virtual transcript layout.
+ *
+ * Appending and trimming are amortized O(1); locating a visible range is
+ * O(log n). Keeping the removed prefix in place avoids rebuilding all 50,000
+ * retained chunks for every incoming message while still allowing occasional
+ * compaction of the backing array.
+ */
+export class TranscriptHeightIndex {
+  private readonly heights: number[] = [0];
+  private start = 0;
+  private ids: number[] = [];
+
+  get length(): number {
+    return this.ids.length - this.start;
+  }
+
+  get totalHeight(): number {
+    return this.heights[this.ids.length] - this.heights[this.start];
+  }
+
+  clear(): void {
+    this.heights.length = 1;
+    this.heights[0] = 0;
+    this.ids = [];
+    this.start = 0;
+  }
+
+  append(id: number, height: number): void {
+    const normalizedHeight = Number.isFinite(height) ? Math.max(1, height) : 1;
+    const previous = this.heights[this.ids.length] ?? 0;
+    this.heights.push(previous + normalizedHeight);
+    this.ids.push(id);
+  }
+
+  trimFront(count: number): void {
+    this.start = Math.min(this.ids.length, this.start + Math.max(0, Math.round(count)));
+    this.compactIfNeeded();
+  }
+
+  getId(index: number): number | undefined {
+    if (index < 0 || index >= this.length) {
+      return undefined;
+    }
+
+    return this.ids[this.start + index];
+  }
+
+  getHeight(index: number): number {
+    if (index < 0 || index >= this.length) {
+      return 0;
+    }
+
+    const absoluteIndex = this.start + index;
+    return this.heights[absoluteIndex + 1] - this.heights[absoluteIndex];
+  }
+
+  getRange(startOffset: number, viewportHeight: number, overscanPx: number, anchorBottom = false): {
+    startIndex: number;
+    endIndex: number;
+    topSpacer: number;
+    bottomSpacer: number;
+  } {
+    const length = this.length;
+    if (length === 0) {
+      return { startIndex: 0, endIndex: 0, topSpacer: 0, bottomSpacer: 0 };
+    }
+
+    const viewport = Math.max(0, viewportHeight);
+    const targetTop = anchorBottom
+      ? Math.max(0, this.totalHeight - viewport)
+      : Math.max(0, startOffset);
+    const visibleStart = Math.max(0, targetTop - Math.max(0, overscanPx));
+    const visibleEnd = Math.max(visibleStart + 1, targetTop + viewport + Math.max(0, overscanPx));
+    const base = this.heights[this.start];
+    const first = Math.max(0, this.upperBound(base + visibleStart) - this.start - 1);
+    const last = Math.max(first + 1, this.lowerBound(base + visibleEnd) - this.start);
+    const clampedLast = Math.min(length, last);
+    const topHeight = this.heights[this.start + first] - base;
+    const renderedHeight = this.heights[this.start + clampedLast] - base;
+
+    return {
+      startIndex: first,
+      endIndex: clampedLast,
+      topSpacer: Math.max(0, topHeight),
+      bottomSpacer: Math.max(0, this.totalHeight - renderedHeight),
+    };
+  }
+
+  private lowerBound(value: number): number {
+    let low = this.start;
+    let high = this.ids.length + 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if ((this.heights[middle] ?? Number.POSITIVE_INFINITY) < value) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return Math.min(this.ids.length, low);
+  }
+
+  private upperBound(value: number): number {
+    let low = this.start;
+    let high = this.ids.length + 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if ((this.heights[middle] ?? Number.POSITIVE_INFINITY) <= value) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return Math.min(this.ids.length, low);
+  }
+
+  private compactIfNeeded(): void {
+    if (this.start <= 1024 || this.start * 2 <= this.ids.length) {
+      return;
+    }
+
+    const base = this.heights[this.start];
+    this.heights.splice(0, this.start);
+    for (let index = 0; index < this.heights.length; index += 1) {
+      this.heights[index] -= base;
+    }
+    this.ids.splice(0, this.start);
+    this.start = 0;
+  }
+}
+
+export function getTranscriptRangeText(
+  transcript: Pick<PlayTranscript, 'getChunkCount' | 'getChunk'>,
+  startIndex: number,
+  endIndex: number,
+): string {
+  const count = transcript.getChunkCount();
+  const first = Math.max(0, Math.min(startIndex, endIndex));
+  const last = Math.min(count - 1, Math.max(startIndex, endIndex));
+  if (count === 0 || last < first) {
+    return '';
+  }
+
+  let text = '';
+  for (let index = first; index <= last; index += 1) {
+    text += transcript.getChunk(index)?.text ?? '';
+  }
+  return text;
+}
+
+/**
  * Canonical transcript store - keeps all original content with enough state to re-render later
  */
 export class CanonicalTranscriptStore {
