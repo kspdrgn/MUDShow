@@ -704,6 +704,24 @@
     // range has been applied when the user reaches the real bottom.
     void nextFrame().then(() => {
       syncTranscriptRenderState();
+
+      // Virtualization can change scrollHeight after the initial scroll event.
+      // Re-read the settled element so a user scroll that reached the real
+      // bottom can clear split mode even when the first measurement was stale.
+      if (wasUserScrollIntent) {
+        const settledOutput = document.getElementById(`${scope}-output-area`);
+        if (settledOutput instanceof HTMLElement) {
+          const settledUserScrolled = settledOutput.scrollHeight
+            - settledOutput.scrollTop
+            - settledOutput.clientHeight > 2;
+
+          if (settledUserScrolled !== userScrolled) {
+            userScrolled = settledUserScrolled;
+            onScroll(true);
+          }
+        }
+      }
+
       onScroll(false);
     });
   }
@@ -738,6 +756,17 @@
     const isAtTop = outputEl.scrollTop <= 0;
     const isScrollingDown = event.deltaY > 0;
     const isAtBottom = outputEl.scrollTop + outputEl.clientHeight >= outputEl.scrollHeight - 1;
+
+    if (isScrollingDown && isAtBottom && userScrolled) {
+      // A stale split state can leave the history pane at the bottom already.
+      // Treat a downward wheel there as an explicit request to resume following
+      // the live output, even though it produces no native scroll event.
+      userScrollIntent = false;
+      userScrolled = false;
+      onScroll(true);
+      syncTranscriptRenderState();
+      return;
+    }
 
     if ((isScrollingUp && isAtTop) || (isScrollingDown && isAtBottom)) {
       return;
@@ -842,6 +871,17 @@
     const delta = getTranscriptWheelDelta(event, mainOutput);
 
     if (delta === 0) {
+      return;
+    }
+
+    const isAtBottom = mainOutput.scrollTop + mainOutput.clientHeight >= mainOutput.scrollHeight - 1;
+    if (delta > 0 && isAtBottom && userScrolled) {
+      // The live pane forwards wheel input, but a downward wheel at the bottom
+      // cannot generate a scroll event for the history pane to observe.
+      userScrollIntent = false;
+      userScrolled = false;
+      onScroll(true);
+      syncTranscriptRenderState();
       return;
     }
 
