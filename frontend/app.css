@@ -2539,11 +2539,6 @@ body {
   --mud-dockview-sash-hit-inset: 3px;
 }
 
-/* Keep Dockview's resize affordance below world-session context menus. */
-.play-dockview-sandbox-root .dv-split-view-container .dv-sash-container .dv-sash {
-  z-index: 0;
-}
-
 .play-dockview-sandbox-root .dv-split-view-container .dv-sash:not(.dv-disabled)::before {
   content: '';
   position: absolute;

@@ -286,7 +286,6 @@ PlayScreen
 
   - The top app tab bar and the Dockview surface tab bars are separate navigation layers. The top bar switches world sessions; a Dockview tab bar switches surfaces within the active world session.
 - World-session surfaces may be hosted in the center grid, in a floating Dockview group, or in the configured top, right, or left edge groups.
-- Dockview sash and resize-grab lines remain below world-session context menus; the surface panel remains below the menu as well.
   - An edge group has two independent states:
     - expanded: its surface content and tab bar are visible;
     - collapsed: its content is hidden while its edge reveal/tab strip remains available.
