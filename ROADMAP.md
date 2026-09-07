@@ -6,11 +6,11 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 
 ## P0 — Reliability and usability blockers
 
-- [ ] Stabilize transcript behavior during heavy interaction: autoscroll, split scrolling, resizing, zooming, and inactive-tab recovery.
-- [ ] Make text selection reliable across virtualized transcript content.
-- [ ] Complete frontend-reload connection recovery and diagnostics ([`PLAN_FRONTENDSEPARATECONNECTION.md`](PLAN_FRONTENDSEPARATECONNECTION.md)).
-- [ ] Add regression coverage for connection, transcript, scrolling, and persistence behavior ([`PLAN_TESTS.md`](PLAN_TESTS.md)).
-- [ ] Stress-test and optimize transcript rendering for long histories and sustained traffic ([`PLAN_PERF.md`](PLAN_PERF.md)).
+- [~] Stabilize transcript behavior during heavy interaction: autoscroll, split scrolling, resizing, zooming, and inactive-tab recovery are implemented; browser-level stress coverage remains.
+- [~] Make text selection reliable across virtualized transcript content: bounded native selection and canonical range extraction are implemented; the full marker/context-menu UX remains.
+- [~] Complete frontend-reload connection recovery and diagnostics ([`PLAN_FRONTENDSEPARATECONNECTION.md`](PLAN_FRONTENDSEPARATECONNECTION.md)): runtime/session metadata, replay, attach/detach, recovery, and replay-gap diagnostics are implemented; structured resynchronization remains.
+- [~] Add regression coverage for connection, transcript, scrolling, and persistence behavior ([`PLAN_TESTS.md`](PLAN_TESTS.md)): focused connection, transcript, and virtual-layout coverage is present; broader lifecycle and browser coverage remains.
+- [~] Stress-test and optimize transcript rendering for long histories and sustained traffic ([`PLAN_PERF.md`](PLAN_PERF.md)): indexed visible-range lookup and bounded render work are implemented; sustained-traffic profiling remains.
 
 ## P1 — Core system foundations
 
