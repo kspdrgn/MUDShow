@@ -1,5 +1,9 @@
 # UI Layout
 
+- [ ] Implementation status: the flexible interface-indicator system described
+  below is not implemented yet. This section defines the intended completed
+  behavior.
+
 The app shows a minimal layout with tabs at the top and the open tab filling all the space beneath.
 If no tabs are open, the Home Panel is shown instead of a tab.
 
@@ -32,6 +36,99 @@ The shared shell:
 - uses a short close delay so the pointer can move between a parent menu row and its submenu panel
 
 Menu content stays in the owning component so each feature can keep its own actions and labels.
+
+## Flexible Interface Indicators
+
+The app has a shared interface-indicator system for transient UI elements that
+need to appear inside a content stream without becoming part of that stream's
+content model. The first consumers are the transcript's last-activity marker
+and long-selection range indicators, but the system is available to other
+content surfaces with the same needs.
+
+An interface indicator is a host-rendered horizontal bar placed at a defined
+boundary between content items. It may contain descriptive text, a compact
+status value, a visual marker, or controls associated with the indicator's
+owning interaction. Indicators are positioned by the owning surface and are
+not represented as ordinary content entries.
+
+### Indicator placement
+
+- An indicator is anchored to a stable boundary before or after a content item,
+  rather than to a viewport coordinate.
+- The host keeps the indicator at that boundary as content is virtualized,
+  resized, reflowed, or otherwise re-rendered.
+- An indicator may expose a full-width horizontal bar, a compact inline label,
+  or both, but its boundary placement remains unambiguous.
+- A surface may expose a connector from an indicator to another indicator or
+  content position. Connector geometry belongs to the indicator host and must
+  remain stable while the surface scrolls.
+- Multiple indicators may occupy the same boundary. The host gives them a
+  deterministic order supplied by the owning surface and keeps their visual
+  grouping clear.
+
+### Visual treatment
+
+- Indicators use the primary Dockview/application theme highlight or action
+  color, including its appropriate foreground and border variants.
+- Indicators do not inherit world-session output styles such as transcript
+  font, ANSI-derived colors, world background, or world text color.
+- The indicator surface remains readable against the current Dockview theme and
+  provides a visible focus treatment for any interactive control.
+- Indicator content is compact and visually distinct from ordinary content,
+  while remaining consistent with the app's shared spacing, border, and radius
+  conventions.
+- The host does not reserve an indicator's space by inserting fake transcript
+  text or by changing the canonical content item's text.
+
+### Ownership and lifecycle
+
+- The owning surface supplies the indicator descriptor, label, placement,
+  interaction state, and optional actions.
+- The shared host supplies layout, theme treatment, focus treatment, stacking,
+  connector geometry, and dismissal plumbing where the descriptor allows it.
+- Indicator state is transient UI state unless a feature specification
+  explicitly says otherwise. It is not included in content persistence,
+  history, logging, search text, or ordinary copy operations.
+- Removing or replacing an indicator must not mutate, reorder, or trim the
+  content stream that surrounds it.
+- An indicator may be fixed, dismissible, or draggable only when its descriptor
+  explicitly enables that behavior. The default is non-draggable and
+  non-dismissible.
+- If the owning surface disappears, its indicators disappear with it. An
+  indicator must not leak into another world session, tab, or surface instance.
+
+### Interaction and accessibility
+
+- Non-interactive indicators do not capture pointer events that belong to the
+  underlying content surface.
+- Interactive indicators expose ordinary keyboard focus, accessible names,
+  and actions through the shared context-menu or control conventions.
+- Decorative lines and borders are hidden from assistive technology. Descriptive
+  indicator text is exposed as status or content associated with its owning
+  surface, according to that feature's semantics.
+- Indicator text is not included when the user selects or copies surrounding
+  content unless the owning feature explicitly defines a separate action that
+  copies it.
+- The host must preserve sufficient contrast and a non-color cue so an
+  indicator is understandable without relying on color alone.
+
+### Transcript use
+
+The transcript may use this system for markers between transcript chunks. A
+transcript marker is a view projection over transcript state, not a transcript
+chunk. It may reference chunk identity and position for placement, but it must
+not enter the transcript database or alter virtualization's canonical content.
+
+The transcript's feature specification owns the meaning of each marker. In
+particular:
+
+- the last-activity marker owns its fixed activity position, time-ago label,
+  and dismissal behavior;
+- the long-selection picker owns its start/end range markers, connecting line,
+  drag behavior, preview state, and custom selection menu.
+
+The shared indicator system supplies their common placement and presentation
+without deciding transcript semantics.
 
 ## App Notices
 
@@ -198,29 +295,14 @@ PlayScreen
   - The surface tab bar remains visible whenever its group is expanded or when a collapsed group is represented by an edge reveal/tab strip. Inactive surface tabs remain registered but do not render their content until selected.
   - Floating and native-window transitions do not create a second surface instance. Returning to Dockview uses the surface’s previous dock edge when one is recorded.
 
-## Channels
+## Conversation channels
 
-World channels live inside the PlayScreen and provide a host-managed surface for reusable world-specific panels.
+Channels are logical world-session conversation threads and routing infrastructure, not a separate visual panel system. Conversation surfaces subscribe to channels and use the surfaces system for placement in top or side docks, floating panels, or native windows.
 
-Channel bar
-  - Host-managed row that stays visible above the play view and provides Hide plus one button per world channel.
-  - Keeps the channel tabs left-aligned while reserving a right-anchored area for host-provided controls.
-  - Host-provided controls are registered separately from channel tabs and may appear even when no channel panel is open.
-  - Each registered channel tab includes a close button that unregisters it from the bar and hides it if open.
-  - Hides automatically when no channel panel is open, but a thin hover area below the topbar can reveal it again.
-  - If only host controls are registered, the bar reveals on hover and collapses again when the pointer leaves the reveal zone.
-  - When the user explicitly opens a channel, the channels panel stays open until they click Hide.
-
-Channel panel
-  - Host-managed channel surface shown beneath the bar when a world channel is open.
-  - Includes a bottom-edge resize handle so the user can adjust its height.
-Channel scope
-  - Highlights and rules are now routed according to their host location model.
-  - The debug console is world-scoped but is hosted through the window host instead of the channel harness.
-  - The notes surface is character-scoped and is hosted through the window host instead of the channel harness.
-  - The channel model should be generic enough to support future world-specific panels and routed output surfaces.
-
-Channel component references
-  - `PlayScreen.svelte` owns the channel hover zone, show/hide timing, and the active channel/panel state.
-  - `WorldChannelsBar.svelte` renders the current channel bar UI.
-  - `WorldChannelsPanel.svelte` renders the current channel panel UI and resize handle.
+- The channel controller tracks registered and active routed threads for each world session.
+- Trigger rules and world-plugin capture behavior may publish ordered entries to channels without owning layout or surface placement.
+- A channel may continue receiving routed entries while its reading surface is closed.
+- Surface controllers own presentation state; the channel controller owns routing and channel lifecycle.
+- The main transcript remains the default live-output view.
+- Notes, Debug Console, and FuzzBall storage are surfaces rather than special
+  channel types. FuzzBall storage behavior is specified in `spec/fuzzball.md`.

@@ -44,7 +44,7 @@ While the app settings tab stays open, it remembers the last selected tab. If th
 
 ## Transcript - behavior of output area
 - Keep current output in view when scrolling - enables split output when scrolling up.
-- Scrollback chunks - controls how many transcript chunks are retained for each open world tab. The default is 50,000 chunks.
+- Scrollback chunks - controls how many transcript chunks are retained for each open world tab. The default is 50,000 chunks. This is in-session scrollback and is separate from the optional per-character restored output history described in `spec/output.md`.
 - Show image link previews - A boolean app setting controls whether image URLs in transcript links may later render inline previews. The default is off.
 - Refresh image previews - A button in this section forces image previews to reload without changing the database file location or transcript history cache.
 
@@ -102,11 +102,11 @@ While the app settings tab stays open, it remembers the last selected tab. If th
   - name, host, port
   - secure/plain connection choice
   - verify secure connection choice
-  - world compatibility choice: `telnet` for generic connections, `fuzzball` for FuzzBall-compatible property capture and related world-specific parsing
+  - world compatibility choice: `telnet` for generic connections, `fuzzball` for FuzzBall-compatible property capture, or `taps` for Tapestries worlds that inherit FuzzBall capabilities; see `spec/fuzzball.md` and `spec/taps.md`
 
 # Character Settings
   - optional preferred output width
-  - rolling output history limit
+  - rolling output history line limit; 0 disables saving and restoring
   - activity sound setting
 
 # Settings stored per world + character
@@ -117,7 +117,7 @@ Many settings can apply to a MU world as a whole or only to specific named chara
 
 Worlds can be connected directly without selecting a character. World-only connections use world-level settings and do not create an implicit character.
 
-Named characters can store input and output history, and can override style settings provided by the world.
+Named characters can store output history and can override style settings provided by the world. Input-command history remains session-scoped and is not persisted across app restarts.
 
 ## World / Character Style Settings
 

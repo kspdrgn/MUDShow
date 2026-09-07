@@ -287,12 +287,47 @@ Create:
   - menu position clamping
   - anchor rectangle helpers
 
+- `frontend/src/lib/components/play/transcript-selection.ts` (planned)
+  - native-selection to chunk/character-boundary detection
+  - long-selection state and marker range calculations
+  - canonical text extraction bounds
+  - custom selection context-menu action state
+
+- `frontend/src/lib/components/play/transcript-interface-markers.ts` (planned)
+  - generic between-chunk marker descriptors
+  - placement and range-connection geometry
+  - theme-level marker presentation metadata, kept separate from world output
+    styling
+
 Keep in Svelte:
 
 - the scroll container refs
 - wiring to `ResizeObserver`
 - event listeners and cleanup
 - the rendered transcript markup
+- transient marker and selection interaction wiring
+- pointer dragging for range markers and custom selection-menu anchoring
+
+The transcript view should support a generic interface-marker projection between
+chunks. Markers are UI state, not transcript chunks, and must not affect
+history persistence, logging, or canonical transcript text. The marker host
+should use the primary Dockview theme highlight/action color and typography
+rather than inheriting the active world-session output style.
+
+Long selection behavior should stay compatible with virtualization:
+
+- ordinary character-to-character selection remains native while both endpoints
+  are inside the contiguous rendered window;
+- once a drag would cross a virtualization boundary, selection switches to
+  chunk-range mode and snaps the initial side to the relevant chunk boundary;
+- the selected chunk range remains model-backed even when intermediate chunks
+  are not mounted;
+- start/end indicators and a left-edge connecting line preview the range;
+- release opens a custom context menu instead of automatically copying;
+- marker drags update the model-backed range and reopen the menu on release;
+- right-clicking the selected range reopens the same menu;
+- the implementation must impose a bounded selectable range rather than
+  requiring the entire transcript history to be mounted.
 
 ### `PlayScreen.svelte`
 
@@ -414,4 +449,3 @@ If we actually execute the refactor, the least risky sequence is:
 6. `font-picker.ts` and `worlds-and-characters-editor.ts`
 
 That order moves from the most reusable pure helpers to the most stateful UI code.
-

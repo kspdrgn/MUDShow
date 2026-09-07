@@ -1,37 +1,41 @@
-# Channels
+# Channels and Conversation Routing
 
-World channels are host-managed surfaces inside a PlayScreen. A shared channel controller owns their registration, activation, hide/show state, and close behavior. They sit above the transcript and input areas and provide a compact bar plus a separate panel area.
+Channels are logical conversation threads and routing infrastructure inside a world session. They are not a separate visual panel system. User-facing reading views are conversation surfaces managed by the surfaces system and may be placed in a top dock, side dock, floating panel, or native window according to their surface capabilities.
 
 ## Current Behavior
 
-- The controller owns channel state and decides which channel is active.
-- The channels bar lives at the top of the PlayScreen.
-- The channels bar keeps channel tabs anchored to the left and provides a right-anchored host-controls area for custom world-level controls.
-- Host controls are registered separately from channel tabs and can be shown in the bar without opening a channel panel.
-- The bar can hide itself when no channel is open, and it stays hidden until at least one channel has been registered in that world tab.
-- A thin hover area below the top bar can reveal the bar again.
-- If only host controls are registered and no channel is active, moving the pointer away from the reveal zone hides the bar again.
-- Right-clicking a channel tab opens a generic context menu with a Close option.
-- Right-clicking the empty bar area or the Hide button does nothing.
-- Only one channel may be visible at a time; opening a channel hides the others.
-- Each registered channel tab has a close button that unregisters it from the bar and hides it if it is open.
-- The Hide control closes the active channel and collapses the channel panel.
-- If a channel is explicitly opened, it stays visible until the user chooses Hide.
-- The channel panel appears beneath the bar when a channel is open.
-- The channel panel includes a bottom-edge resize handle so the user can adjust its height.
-- `PlayScreen` owns the visual shell and layout behavior for the bar and panel, while the controller owns the open/close state.
+- The application uses the surfaces system for user-facing panels; there is no separate top-channel or side-channel UI.
+- Notes, Debug Console, and FuzzBall storage are host-managed surfaces with their own controllers and transport contracts.
+- The main transcript remains the default live-output view.
+- A future channel controller will track registered and active routed conversation threads for each world session.
+- Routing sources such as trigger rules and world-plugin capture behavior will publish ordered entries to channels without owning surface placement.
 
-## Current Host Use
+## Intended Channel Behavior
 
-- Channel content is rendered as a host-managed component inside the channel panel.
-- Plugin-owned systems can manage their own channel tabs through the same controller API if they need hosted channel content.
-- The debug console is no longer a channel; it is a separate host-managed surface in the window host.
-- The notes surface is no longer a channel; it is a separate host-managed surface in the window host.
+- A channel has a stable identity, label, routing metadata, and world-session scope.
+- A world session may have multiple active channels.
+- A routed entry may be delivered to one or more channels while preserving source and ordering metadata.
+- A channel may continue receiving entries while its reading surface is closed; opening a surface later may subscribe to the existing channel state.
+- Closing or moving a conversation surface does not close or move the logical channel.
+- Channel lifecycle ends when the owning world session ends, unless a later persistence requirement says otherwise.
+
+## Surface Integration
+
+- Conversation surfaces subscribe to channels through a controller or surface-specific bridge.
+- Surface controllers own presentation state; the channel controller owns routing and channel lifecycle.
+- Surface placement, Dockview edge groups, side-dock behavior, floating panels, pop-out windows, and cross-window transport are defined by `spec/surfaces.md`.
+- Channels must not create arbitrary windows or manipulate surface layout directly.
+
+## Routing Sources
+
+- Trigger rules may route matching transcript lines or capture groups into named channels.
+- World-plugin capture behavior may classify output and route it into plugin-owned or shared channels.
+- Protocol and capture layers may provide source metadata and ordering information without knowing which surface will display the result.
+- A router may publish to a channel even when no surface is open.
 
 ## Scope
 
-- Channels are only for world PlayScreens.
+- Channels are scoped to world sessions.
 - App-level tabs and settings tabs are not channels.
-- The debug console is world-scoped but is hosted as a separate surface outside the channel bar and panel.
-- The notes surface is character-scoped but is hosted through the window host instead of the channel harness.
-- Highlights and rules are not part of the current channel system.
+- Notes, Debug Console, and FuzzBall storage are surfaces, not special channel types.
+- Highlights and rules remain separate from channels unless a future routing feature explicitly connects them.

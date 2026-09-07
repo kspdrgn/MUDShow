@@ -9,6 +9,7 @@ Describe the desktop-shell behavior that matters for pop-outs, control windows, 
 - Webview-backed windows are separate from plain native windows and should be treated as a different kind of shell.
 - Webview-backed surface windows remember their last native position and inner size for the lifetime of the surface placement record. Move and resize results are captured before pop-in, discard, or close.
 - When a saved surface placement points to a native window, reopening the surface recreates the native window using the saved position and size.
+- The native-shell `WindowHostRegistry` is only native-window bookkeeping and a serialized Tauri boundary record. The application surface registry remains the owner of logical surface identity, placement, lifecycle, and view/data transport.
 
 ## Windows Webview Environment
 - On Windows, a secondary webview window that loads app content must share the main webview's WebView2 environment.

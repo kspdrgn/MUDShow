@@ -1,5 +1,10 @@
 # Tapestries Plugin Plan
 
+Current implemented behavior is specified in `spec/taps.md`, with generic
+property behavior in `spec/fuzzball.md`. This plan tracks future Taps design
+and implementation work; it is not the source of truth for behavior already
+shipped.
+
 ## Purpose
 
 - Define the first in-repo plugin for Tapestries MUCK, also called Taps.

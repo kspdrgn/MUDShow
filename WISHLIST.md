@@ -43,6 +43,8 @@ todo:
 - [ ] debug console
   - [X] display raw input/output
   - [ ] input to impersonate world input
+  - [ ] show MCP data
+- [ ] MCP / GMCP / MCMP over GMCP protocols into pipeline
 - [X] plugin architecture
 - [X] plugin seam
 - [X] fuzzball plugin

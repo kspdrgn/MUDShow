@@ -6,6 +6,8 @@
 - spec/channels.md - World channels bar and panel behavior
 - spec/output.md - Primary display window and features
 - spec/logging.md - Session logging behavior and file handling
+- spec/protocols.md - Telnet, MCP, GMCP, and MCMP support and normalized data-pipeline behavior
+- spec/plugins.md - world plugin registration, session hooks, host actions, and host-managed surfaces
 - spec/settings.md - App and world settings
 - spec/fonts.md - Built-in and system font discovery, shelf persistence, validation, fallback, and fontdb behavior
 - spec/style.md - Style settings for fonts and colors used by input and output area, can be stored at three levels: app, world, character
@@ -14,6 +16,8 @@
 - spec/svelte.md - Svelte-specific code organization guidance for component-local logic, shared helper modules, and service boundaries
 - spec/tauri.md - Tauri window, webview, and desktop shell behavior
 - spec/surfaces.md - Surface component CQRS, controller ownership, and cross-window transport rules
+- spec/fuzzball.md - FuzzBall property capture, session cache, property service, and storage viewer behavior
+- spec/taps.md - Taps world integration and ride-mode behavior
 
 ## Purpose
 Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with just enough features to support roleplay and day-to-day play.
@@ -82,12 +86,12 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Allow session logging for an active world tab.
 - Allow a transient transcript diagnostics toggle from the app menu's dev tools submenu that writes extra console debug output while enabled.
 - Allow opening a per-character notes surface and a per-world debug console surface that can be hosted in the window host and popped out into its own window.
-- Show a host-managed world channels bar above the PlayScreen channel panel, with Hide collapsing the panel back into the main play view.
-- Keep an explicitly opened channel panel pinned open until the user chooses Hide.
+- Route eligible transcript output into logical world-session conversation channels that can be displayed by surfaces.
+- Keep channel routing and lifecycle separate from surface placement, including top docks, side docks, floating panels, and native windows.
 - Allow reconnecting after disconnect.
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.
-- Store rolling per-character transcript history locally and reload it when reconnecting.
+- Store optional rolling per-character transcript history separately from the main JSON database, trim it to the configured line limit, reload it when reconnecting, migrate it on character rename, and remove it when the character is deleted.
 - Open and close a notes surface for the active character.
 - Open and close the per-world debug console surface.
 - Open and close a triggers panel for simple text highlights and regexp rules.
@@ -113,7 +117,6 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Support quick toggling of highlighting panel with F4.
 - Play an optional activity alert when the app is unfocused and new output arrives.
 - Track focus/title attention state so the user can see unseen activity.
-- Store a rolling per-character transcript history locally and reload it when reconnecting.
 - Provide a small, low-clutter interface optimized for reading and typing.
 - Ensure a frozen frontend cannot permanently prevent the user from closing the desktop app.
 - Reserve a native-shell diagnostics extension point for future crash reporting or telemetry without collecting or sending data yet.

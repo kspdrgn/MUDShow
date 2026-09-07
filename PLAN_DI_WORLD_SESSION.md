@@ -101,6 +101,12 @@ The following systems look like they may benefit from the same world-session reg
 
 - Transcript append and history trimming.
 - Output revision updates and unread activity tracking.
+- World-session-scoped last-activity marker state, including the activity
+  position relative to transcript chunks and the transient dismissal state.
+- Transcript interface-marker projection state kept separate from canonical
+  transcript entries and persisted history.
+- Long-selection range state and canonical range-copy actions, if ownership is
+  kept in the session layer rather than the view component.
 - Per-tab logging state and log file lifecycle.
 
 ### Input bars and command entry
@@ -133,6 +139,18 @@ The following systems look like they may benefit from the same world-session reg
 ### World-tab DOM scope helpers
 
 - Per-tab DOM scope generation.
+
+### Transcript interaction boundary
+
+The world session owns activity facts, not their visual rendering. In
+particular, last activity is a world-session variable that may place a transient
+between-chunk marker but must never become a transcript database entry, a
+history item, or a log item.
+
+The transcript view owns pointer interaction, marker geometry, and menu
+placement. Long selection actions should read the canonical session transcript
+through a typed range contract so copying does not depend on the currently
+mounted virtualized DOM.
 - Element lookup helpers for world-specific controls and output areas.
 
 ### Trigger context and ownership

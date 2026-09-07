@@ -110,24 +110,11 @@ The Dockview library gates auto-hide behavior behind an Enterprise subscription 
 - The component renders the current snapshot and emits typed tree-view intent.
 
 ### Fuzzball Storage Viewer
-- The fuzzball storage viewer shows live hierarchical storage data for a world connection.
-- The fuzzball storage viewer action is shown only when the active world uses `fuzzball` compatibility.
-- It has one surface instance per world tab and can be opened in the per-world Dockview host, floated in-app, or popped out into a native window.
-- Invoking an action that opens a surface activates and focuses it; if its Dockview edge group is collapsed, the group is expanded and made visible first.
-- A newly opened viewer defaults to an in-app floating panel rather than the top edge tab group.
-- Dockview tabs and floating-panel tooltips use the surface name without repeating the owning world-session name; native windows retain the full world-session title.
-- Docked surface tabs show only the re-docking instruction tooltip; floating grab bars include the surface title as context, and custom Dockview actions retain their own tooltips.
-- When first opened as an in-app floating panel, it targets 375 pixels wide by 900 pixels high, clamped to the available window area.
-- Opening the viewer again for the same world tab focuses the existing instance rather than creating a duplicate.
-- Closing the owning world tab closes the viewer instance and clears any popped-out native-window state; reopening the world creates no viewer automatically.
-- The controller owns both the storage data and the view state needed to browse it.
-- Storage data loaded by the viewer is transient world-tab state: closing the owning world tab clears the in-memory cache for that world and character, while any explicitly persisted application storage remains unchanged.
-- The component renders the current storage snapshot and emits typed browse/load intent.
-- The viewer does not repeat a generic tree-view label or the owning connection name inside the content area; those are represented by the surrounding surface or native window chrome.
-- The hierarchical tree is shown above the selected-node detail viewer.
-- Storage node datatype pills appear on the same line as their node names and use the active surface foreground color.
-- Storage nodes known to be directories display a trailing `/` in their node name, including nodes whose source listing used a trailing slash even when their type is not `dir`.
-- Storage nodes are sorted alphabetically by character.
+- The FuzzBall storage viewer is a plugin-contributed tree surface. Its
+  product behavior, activation rules, cache behavior, and load commands are
+  specified in `spec/fuzzball.md`.
+- It follows the generic surface placement, transport, lifecycle, and
+  controller-ownership rules in this document.
 
 ### Standalone Dummy Window
 - The standalone dummy window is a developer test surface with static content.

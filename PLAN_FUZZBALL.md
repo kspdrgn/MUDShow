@@ -1,5 +1,9 @@
 # FuzzBall Property Tree Plugin Plan
 
+Current implemented behavior is specified in `spec/fuzzball.md`. This plan
+tracks future design and implementation work; it is not the source of truth
+for behavior already shipped.
+
 ## Purpose
 
 - Define a shared FuzzBall plugin layer for MUCK worlds that use FuzzBall-compatible property trees.

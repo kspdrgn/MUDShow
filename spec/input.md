@@ -33,13 +33,23 @@ Keyboard focus should be automatically restored to the last selected input box:
 - `Shift+Enter` behaves like a normal Enter and sends the current input.
 - Mixed modifier combinations like `Ctrl+Alt+Shift+Up` and `Ctrl+Alt+Shift+Down` are ignored by the custom hotkey handling.
 
-## [ ] Input Spellcheck
+## Tab Completion
+
+- Pressing `Tab` completes the current non-whitespace word from words recently seen in the session transcript.
+- Completion matching is case-insensitive and replaces only the word fragment immediately before the caret.
+- Repeated `Tab` presses cycle through matching candidates in alphabetical order while the same prefix remains active.
+- Candidates preserve the spelling observed in the transcript. ANSI color sequences are ignored when harvesting words.
+- The completion vocabulary is bounded and session-scoped; it is not persisted across app restarts.
+
+## [X] Input Spellcheck
 
 - [X] The input text box should highlight known spelling errors with live squiggles using the app's spellcheck backend, and the squiggle appearance should follow the app's spellcheck settings.
 - [X] Indicated typos should offer spelling correction suggestions from the app's spellcheck backend.
 - [X] The spelling check system should allow local overrides, these will be stored app-wide.
 - [X] Right-clicking an input field opens an app-owned text context menu with standard editing actions and spellcheck actions.
 - [X] When input text overflows, mouse wheel scrolling moves the text within the field and keeps the live squiggle overlay aligned with the same scroll position.
+- [X] Spellcheck requests use the configured language, ignored-word list, minimum word length, debounce interval, suggestion limit, and queue concurrency.
+- [X] The input context menu supports copy, cut, paste, select-all, ignore once, ignore always, and choosing a suggested replacement.
 
 ## [X] Input Command History
 - The client keeps a command history queue for each world tab
@@ -54,3 +64,10 @@ Keyboard focus should be automatically restored to the last selected input box:
 - When `Ctrl+Down` is pressed at the newest queue entry, the input is cleared without changing the queue.
 - After that clear, `Ctrl+Up` should show the last queue entry again.
 - Plain arrow keys should keep normal caret movement behavior inside the input.
+
+## Input State and Submission
+
+- Each world tab starts with one input bar and may add more input bars without losing existing drafts.
+- Input-bar configuration and draft values are session-scoped and are not restored as persistent app settings.
+- Sending a non-empty input sends its text to the active world connection with the protocol line ending.
+- The focused bar remains the active bar for subsequent submission and keyboard actions.
