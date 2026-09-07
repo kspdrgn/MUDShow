@@ -9,21 +9,57 @@ type Handlers = {
   onMessage: (text: string) => void;
   onClose: () => void;
   onError: (message: string) => void;
+  onDiagnostic?: (message: string) => void;
 };
+
+export interface MudConnectionDescriptor {
+  connectionId: string;
+  sessionId: number;
+  worldId: string | null;
+  characterId: string | null;
+  host: string;
+  port: number;
+  tls: boolean;
+  verifyCertificate: boolean;
+  status: string;
+  lastError: string | null;
+  lastSequence: number;
+  oldestReplaySequence: number;
+}
+
+export function acceptsConnectionSequence(previous: number, next: number | undefined): boolean {
+  return next === undefined || next > previous;
+}
 
 type ConnectionTarget = {
   host: string;
   port: number;
   tls: boolean;
   verifyCertificate: boolean;
+  worldId?: string;
+  characterId?: string | null;
 };
 
 type ConnectionEvent =
-  | { connectionId: string; kind: 'opened' }
-  | { connectionId: string; kind: 'raw'; text: string }
-  | { connectionId: string; kind: 'data'; text: string }
-  | { connectionId: string; kind: 'closed'; reason: string }
-  | { connectionId: string; kind: 'error'; message: string };
+  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'opened' }
+  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'raw'; text: string }
+  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'data'; text: string }
+  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'closed'; reason: string }
+  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'error'; message: string };
+
+type ReplayEvent =
+  | { sequence: number; sessionId?: number; kind: 'opened' }
+  | { sequence: number; sessionId?: number; kind: 'raw'; text: string }
+  | { sequence: number; sessionId?: number; kind: 'data'; text: string }
+  | { sequence: number; sessionId?: number; kind: 'closed'; reason: string }
+  | { sequence: number; sessionId?: number; kind: 'error'; message: string };
+
+  type ReplayResponse = {
+  events: ReplayEvent[];
+  oldestSequence: number;
+  newestSequence: number;
+  hasGap: boolean;
+};
 
 export class MudConnection {
   constructor(
@@ -35,6 +71,7 @@ export class MudConnection {
   private connected = false;
   private opened = false;
   private unlistenEvents: (() => void) | null = null;
+  private lastSequence = 0;
 
   async connect(target: ConnectionTarget, handlers: Handlers): Promise<void> {
     await this.close();
@@ -59,6 +96,52 @@ export class MudConnection {
     }
   }
 
+  /** Detach frontend listeners without terminating the backend socket. */
+  detach(): void {
+    this.sessionToken += 1;
+    this.connected = false;
+    this.opened = false;
+    this.lastSequence = 0;
+
+    if (this.unlistenEvents) {
+      const unlisten = this.unlistenEvents;
+      this.unlistenEvents = null;
+      unlisten();
+    }
+  }
+
+  async attach(handlers: Handlers, afterSequence = 0): Promise<void> {
+    this.detach();
+    const token = ++this.sessionToken;
+    this.lastSequence = afterSequence;
+
+    try {
+      await this.startListening(token, handlers);
+      const replay = await invoke<ReplayResponse>('attach_mud_connection', {
+        connectionId: this.connectionId,
+        afterSequence,
+      });
+
+      if (this.sessionToken !== token) {
+        return;
+      }
+
+      for (const event of replay.events) {
+        this.dispatchEvent({ ...event, connectionId: this.connectionId }, token, handlers);
+      }
+
+      if (replay.hasGap) {
+        handlers.onDiagnostic?.(
+          `[frontend reload missed earlier output; replay starts at sequence ${replay.oldestSequence}]`,
+        );
+      }
+    } catch (error) {
+      if (this.sessionToken === token) {
+        handlers.onError(formatError(error));
+      }
+    }
+  }
+
   send(text: string): void {
     if (!this.connected) {
       return;
@@ -78,14 +161,7 @@ export class MudConnection {
   }
 
   async close(): Promise<void> {
-    this.sessionToken += 1;
-    this.connected = false;
-
-    if (this.unlistenEvents) {
-      const unlisten = this.unlistenEvents;
-      this.unlistenEvents = null;
-      unlisten();
-    }
+    this.detach();
 
     await invoke('disconnect_mud', { connectionId: this.connectionId }).catch(() => undefined);
   }
@@ -100,11 +176,11 @@ export class MudConnection {
         return;
       }
 
-      if (payload.kind === 'opened') {
-        this.opened = true;
-        this.connected = true;
-        handlers.onOpen();
+      if (!acceptsConnectionSequence(this.lastSequence, payload.sequence)) {
         return;
+      }
+      if (payload.sequence !== undefined) {
+        this.lastSequence = payload.sequence;
       }
 
       if (payload.kind === 'raw') {
@@ -115,16 +191,8 @@ export class MudConnection {
       if (payload.kind === 'data') {
         handlers.onMessage(payload.text);
         return;
-      }
 
-      this.connected = false;
-      void this.close();
-
-      if (payload.kind === 'closed') {
-        handlers.onClose();
-      } else {
-        handlers.onError(payload.message);
-      }
+      this.dispatchEvent(payload, token, handlers);
     });
 
     if (this.sessionToken !== token) {
@@ -133,6 +201,32 @@ export class MudConnection {
     }
 
     this.unlistenEvents = unlisten;
+  }
+
+  private dispatchEvent(payload: ConnectionEvent, token: number, handlers: Handlers): void {
+    if (this.sessionToken !== token) {
+      return;
+    }
+
+    if (payload.kind === 'opened') {
+      this.opened = true;
+      this.connected = true;
+      handlers.onOpen();
+      return;
+    }
+
+    if (payload.kind === 'data') {
+      handlers.onMessage(payload.text);
+      return;
+    }
+
+    this.connected = false;
+
+    if (payload.kind === 'closed') {
+      handlers.onClose();
+    } else {
+      handlers.onError(payload.message);
+    }
   }
 }
 

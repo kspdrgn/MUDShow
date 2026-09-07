@@ -178,6 +178,7 @@ Modal dismissal is handled by the host shell:
   - A tab shows amber unread activity when it receives output while it is not active, or while it is active but the app window is not focused. The unread activity clears when that tab becomes active in the focused window.
   - If no tabs are open, the Home Panel should be shown centered in the empty content space.
   - Connection tabs are not restored between app sessions.
+  - If the frontend WebView reloads while the native Tauri process remains alive, active backend connections are discovered and reattached; this is not app-session tab persistence and does not survive a native-process crash.
   - Characters and App Settings are opened only when the user chooses them and are not instantiated until then.
   - Tabs use Dockview's standard close control to close a tab.
   - CTRL+F4 will close the active tab.

@@ -1,6 +1,7 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     io,
+    time::{SystemTime, UNIX_EPOCH},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
@@ -23,6 +24,7 @@ const MUD_EVENT_NAME: &str = "mud://event";
 pub struct ConnectionManager {
     connections: Arc<Mutex<HashMap<String, ConnectionEntry>>>,
     next_session_id: Arc<AtomicU64>,
+    runtime_id: String,
 }
 
 impl Default for ConnectionManager {
@@ -30,6 +32,14 @@ impl Default for ConnectionManager {
         Self {
             connections: Arc::new(Mutex::new(HashMap::new())),
             next_session_id: Arc::new(AtomicU64::new(1)),
+            runtime_id: format!(
+                "runtime-{}-{}",
+                std::process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|duration| duration.as_nanos())
+                    .unwrap_or_default()
+            ),
         }
     }
 }
@@ -37,6 +47,10 @@ impl Default for ConnectionManager {
 impl ConnectionManager {
     pub fn reserve_session_id(&self) -> u64 {
         self.next_session_id.fetch_add(1, Ordering::SeqCst)
+    }
+
+    pub fn runtime_id(&self) -> &str {
+        &self.runtime_id
     }
 
     pub fn disconnect(&self, connection_id: &str) {
@@ -62,6 +76,7 @@ impl ConnectionManager {
         connection_id: String,
         session_id: u64,
         mut handle: ConnectionHandle,
+        descriptor: ConnectionDescriptor,
     ) -> Result<(), String> {
         let mut guard = match self.connections.lock() {
             Ok(guard) => guard,
@@ -82,6 +97,9 @@ impl ConnectionManager {
             ConnectionEntry {
                 session_id,
                 handle,
+                descriptor,
+                replay: VecDeque::new(),
+                next_sequence: 0,
             },
         );
 
@@ -114,7 +132,64 @@ impl ConnectionManager {
             .ok_or_else(|| "No active connection".to_string())?;
         entry.handle.send(bytes)
     }
+
+    fn record_event(&self, connection_id: &str, session_id: u64, event: ConnectionEvent) -> Option<u64> {
+        let mut guard = self.connections.lock().ok()?;
+        let entry = guard.get_mut(connection_id)?;
+        if entry.session_id != session_id {
+            return None;
+        }
+
+        entry.next_sequence += 1;
+        let sequence = entry.next_sequence;
+        entry.replay.push_back(ReplayEvent { sequence, event });
+        while entry.replay.len() > MAX_REPLAY_EVENTS {
+            entry.replay.pop_front();
+        }
+        entry.descriptor.last_sequence = sequence;
+        entry.descriptor.oldest_replay_sequence = entry.replay.front().map(|item| item.sequence).unwrap_or(sequence);
+        Some(sequence)
+    }
+
+    fn emit_event(&self, app: &AppHandle, connection_id: &str, session_id: u64, event: ConnectionEvent) {
+        if let Some(sequence) = self.record_event(connection_id, session_id, event.clone()) {
+            emit_event(app, connection_id, session_id, sequence, event);
+        }
+    }
+
+    fn list(&self) -> Vec<ConnectionDescriptor> {
+        self.connections
+            .lock()
+            .map(|guard| guard.values().map(|entry| entry.descriptor.clone()).collect())
+            .unwrap_or_default()
+    }
+
+    fn replay(&self, connection_id: &str, after_sequence: u64) -> Result<ReplayResponse, String> {
+        let guard = self
+            .connections
+            .lock()
+            .map_err(|_| "Connection state is unavailable".to_string())?;
+        let entry = guard
+            .get(connection_id)
+            .ok_or_else(|| "No active connection".to_string())?;
+        let oldest_sequence = entry.replay.front().map(|item| item.sequence).unwrap_or(entry.next_sequence + 1);
+        let events = entry
+            .replay
+            .iter()
+            .filter(|item| item.sequence > after_sequence)
+            .cloned()
+            .collect();
+
+        Ok(ReplayResponse {
+            events,
+            oldest_sequence,
+            newest_sequence: entry.next_sequence,
+            has_gap: after_sequence.saturating_add(1) < oldest_sequence,
+        })
+    }
 }
+
+const MAX_REPLAY_EVENTS: usize = 1000;
 
 #[tauri::command]
 pub async fn connect_mud(
@@ -125,10 +200,12 @@ pub async fn connect_mud(
     port: u16,
     tls: bool,
     verify_certificate: bool,
+    world_id: Option<String>,
+    character_id: Option<String>,
 ) -> Result<(), String> {
     let session_id = state.reserve_session_id();
-    let handle = open_connection(
-        app,
+    let (handle, worker) = open_connection(
+        app.clone(),
         state.inner().clone(),
         connection_id.clone(),
         session_id,
@@ -139,8 +216,56 @@ pub async fn connect_mud(
     )
     .await?;
 
-    state.replace(connection_id, session_id, handle)?;
+    state.replace(
+        connection_id.clone(),
+        session_id,
+        handle,
+        ConnectionDescriptor {
+            connection_id: connection_id.clone(),
+            session_id,
+            world_id,
+            character_id,
+            host,
+            port,
+            tls,
+            verify_certificate,
+            status: "connected".to_string(),
+            last_error: None,
+            last_sequence: 0,
+            oldest_replay_sequence: 1,
+        },
+    )?;
+    state.emit_event(&app, &connection_id, session_id, ConnectionEvent::Opened);
+    worker.spawn();
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_connection_runtime_id(state: State<'_, ConnectionManager>) -> String {
+    state.runtime_id().to_string()
+}
+
+#[tauri::command]
+pub fn list_mud_connections(state: State<'_, ConnectionManager>) -> Vec<ConnectionDescriptor> {
+    state.list()
+}
+
+#[tauri::command]
+pub fn get_mud_connection_events(
+    state: State<'_, ConnectionManager>,
+    connection_id: String,
+    after_sequence: u64,
+) -> Result<ReplayResponse, String> {
+    state.replay(&connection_id, after_sequence)
+}
+
+#[tauri::command]
+pub fn attach_mud_connection(
+    state: State<'_, ConnectionManager>,
+    connection_id: String,
+    after_sequence: u64,
+) -> Result<ReplayResponse, String> {
+    state.replay(&connection_id, after_sequence)
 }
 
 #[tauri::command]
@@ -166,37 +291,31 @@ async fn open_connection(
     port: u16,
     tls: bool,
     verify_certificate: bool,
-) -> Result<ConnectionHandle, String> {
+) -> Result<(ConnectionHandle, ConnectionWorker), String> {
     let stream = connect_stream(host, port, tls, verify_certificate).await?;
-    emit_event(&app, &connection_id, ConnectionEvent::Opened);
     let (outgoing_tx, outgoing_rx) = async_mpsc::unbounded_channel();
     let (stop_tx, stop_rx) = watch::channel(false);
 
     let active = Arc::new(AtomicBool::new(true));
-    let worker_active = Arc::clone(&active);
-    let worker_app = app.clone();
-    let worker_manager = manager.clone();
-    let worker_connection_id = connection_id.clone();
+    let worker = ConnectionWorker {
+        stream,
+        outgoing_rx,
+        stop_rx,
+        active: Arc::clone(&active),
+        app,
+        manager,
+        connection_id,
+        session_id,
+    };
 
-    tauri::async_runtime::spawn(async move {
-        run_connection(
-            stream,
-            outgoing_rx,
-            stop_rx,
-            worker_active,
-            worker_app,
-            worker_manager,
-            worker_connection_id,
-            session_id,
-        )
-        .await;
-    });
-
-    Ok(ConnectionHandle {
-        active,
-        stop_tx,
-        outgoing_tx: Some(outgoing_tx),
-    })
+    Ok((
+        ConnectionHandle {
+            active,
+            stop_tx,
+            outgoing_tx: Some(outgoing_tx),
+        },
+        worker,
+    ))
 }
 
 async fn connect_stream(
@@ -255,7 +374,7 @@ async fn run_connection(
         tokio::select! {
             biased;
             _ = stop_rx.changed() => {
-                flush_line_buffer(&app, &connection_id, &mut line_buffer);
+                flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
                 break;
             }
             maybe_bytes = outgoing_rx.recv() => {
@@ -263,9 +382,10 @@ async fn run_connection(
                     Some(bytes) => {
                         if let Err(error) = stream.write_all(&bytes).await {
                             active.store(false, Ordering::SeqCst);
-                            emit_event(
+                            manager.emit_event(
                                 &app,
                                 &connection_id,
+                                session_id,
                                 ConnectionEvent::Error {
                                     message: format!("Failed to send data: {error}"),
                                 },
@@ -274,7 +394,7 @@ async fn run_connection(
                         }
                     }
                     None => {
-                        flush_line_buffer(&app, &connection_id, &mut line_buffer);
+                        flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
                         break;
                     }
                 }
@@ -282,11 +402,12 @@ async fn run_connection(
             result = stream.read(&mut buffer) => {
                 match result {
                     Ok(0) => {
-                        flush_line_buffer(&app, &connection_id, &mut line_buffer);
+                        flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
                         active.store(false, Ordering::SeqCst);
-                        emit_event(
+                        manager.emit_event(
                             &app,
                             &connection_id,
+                            session_id,
                             ConnectionEvent::Closed {
                                 reason: "Remote host closed the connection".to_string(),
                             },
@@ -297,16 +418,19 @@ async fn run_connection(
                         let cleaned = strip_telnet(&buffer[..bytes_read]);
                         if !cleaned.is_empty() {
                             let raw_text = String::from_utf8_lossy(&cleaned).to_string();
-                            emit_event(&app, &connection_id, ConnectionEvent::Raw { text: raw_text });
-                            line_buffer.push(&app, &connection_id, &cleaned);
+                            manager.emit_event(&app, &connection_id, session_id, ConnectionEvent::Raw { text: raw_text });
+                            for text in line_buffer.push(&cleaned) {
+                                manager.emit_event(&app, &connection_id, session_id, ConnectionEvent::Data { text });
+                            }
                         }
                     }
                     Err(error) => {
-                        flush_line_buffer(&app, &connection_id, &mut line_buffer);
+                        flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
                         active.store(false, Ordering::SeqCst);
-                        emit_event(
+                        manager.emit_event(
                             &app,
                             &connection_id,
+                            session_id,
                             ConnectionEvent::Error {
                                 message: format!("Connection error: {error}"),
                             },
@@ -322,17 +446,25 @@ async fn run_connection(
     manager.remove_if_match(&connection_id, session_id);
 }
 
-fn flush_line_buffer(app: &AppHandle, connection_id: &str, line_buffer: &mut LineBuffer) {
+fn flush_line_buffer(
+    manager: &ConnectionManager,
+    app: &AppHandle,
+    connection_id: &str,
+    session_id: u64,
+    line_buffer: &mut LineBuffer,
+) {
     for text in line_buffer.flush() {
-        emit_event(app, connection_id, ConnectionEvent::Data { text });
+        manager.emit_event(app, connection_id, session_id, ConnectionEvent::Data { text });
     }
 }
 
-fn emit_event(app: &AppHandle, connection_id: &str, event: ConnectionEvent) {
+fn emit_event(app: &AppHandle, connection_id: &str, session_id: u64, sequence: u64, event: ConnectionEvent) {
     let _ = app.emit(
         MUD_EVENT_NAME,
         ConnectionEventMessage {
             connection_id: connection_id.to_string(),
+            session_id,
+            sequence,
             event,
         },
     );
@@ -382,19 +514,21 @@ struct LineBuffer {
 }
 
 impl LineBuffer {
-    fn push(&mut self, app: &AppHandle, connection_id: &str, bytes: &[u8]) {
+    fn push(&mut self, bytes: &[u8]) -> Vec<String> {
+        let mut completed = Vec::new();
         for &byte in bytes {
             if byte == b'\r' {
                 continue;
             }
 
             if byte == b'\n' {
-                self.emit_pending(app, connection_id);
+                completed.push(self.take_pending(true));
                 continue;
             }
 
             self.bytes.push(byte);
         }
+        completed
     }
 
     fn flush(&mut self) -> Vec<String> {
@@ -407,16 +541,48 @@ impl LineBuffer {
         vec![text]
     }
 
-    fn emit_pending(&mut self, app: &AppHandle, connection_id: &str) {
+    fn take_pending(&mut self, with_newline: bool) -> String {
         let text = String::from_utf8_lossy(&self.bytes).to_string();
         self.bytes.clear();
-        emit_event(app, connection_id, ConnectionEvent::Data { text: format!("{text}\n") });
+        if with_newline { format!("{text}\n") } else { text }
     }
 }
 
 struct ConnectionEntry {
     session_id: u64,
     handle: ConnectionHandle,
+    descriptor: ConnectionDescriptor,
+    replay: VecDeque<ReplayEvent>,
+    next_sequence: u64,
+}
+
+struct ConnectionWorker {
+    stream: ConnectionStream,
+    outgoing_rx: async_mpsc::UnboundedReceiver<Vec<u8>>,
+    stop_rx: watch::Receiver<bool>,
+    active: Arc<AtomicBool>,
+    app: AppHandle,
+    manager: ConnectionManager,
+    connection_id: String,
+    session_id: u64,
+}
+
+impl ConnectionWorker {
+    fn spawn(self) {
+        tauri::async_runtime::spawn(async move {
+            run_connection(
+                self.stream,
+                self.outgoing_rx,
+                self.stop_rx,
+                self.active,
+                self.app,
+                self.manager,
+                self.connection_id,
+                self.session_id,
+            )
+            .await;
+        });
+    }
 }
 
 struct ConnectionHandle {
@@ -487,6 +653,42 @@ pub enum ConnectionEvent {
 #[serde(rename_all = "camelCase")]
 struct ConnectionEventMessage {
     connection_id: String,
+    session_id: u64,
+    sequence: u64,
     #[serde(flatten)]
     event: ConnectionEvent,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionDescriptor {
+    pub connection_id: String,
+    pub session_id: u64,
+    pub world_id: Option<String>,
+    pub character_id: Option<String>,
+    pub host: String,
+    pub port: u16,
+    pub tls: bool,
+    pub verify_certificate: bool,
+    pub status: String,
+    pub last_error: Option<String>,
+    pub last_sequence: u64,
+    pub oldest_replay_sequence: u64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayEvent {
+    pub sequence: u64,
+    #[serde(flatten)]
+    pub event: ConnectionEvent,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplayResponse {
+    pub events: Vec<ReplayEvent>,
+    pub oldest_sequence: u64,
+    pub newest_sequence: u64,
+    pub has_gap: bool,
 }

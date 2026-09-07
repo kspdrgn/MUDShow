@@ -2689,6 +2689,7 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
         }
 
         await session.load();
+        await session.recoverWorldConnections();
         await tick();
         syncPoppedOutNotesSnapshots();
       } finally {
