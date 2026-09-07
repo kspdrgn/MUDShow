@@ -78,6 +78,12 @@ export function requestFuzzballStorageNodeLoad(
   }
 
   const requestPath = getFuzzballStorageNodeLoadPath(state, nodePath);
+  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
+  if (requestPath === nodePath || requestPath === `${nodePath}/` || nodePath === '/') {
+    if (!cache.beginChildrenLoad(nodePath)) {
+      return;
+    }
+  }
   const command = `examine me=${requestPath}\r\n`;
   console.debug('[fuzzball storage] requesting node load', {
     sourceTabId: state.sourceTabId,

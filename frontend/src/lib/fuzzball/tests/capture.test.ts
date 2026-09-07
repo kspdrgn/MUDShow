@@ -23,3 +23,16 @@ test('captures every property from a multi-line server response', () => {
   assert.equal(cache.getChildren('/').map((node) => node.path).join(','), '/alpha,/prefs');
   assert.equal(cache.getSnapshot('/prefs/theme')?.value, 'dark');
 });
+
+test('property-count responses complete the requested branch listing', () => {
+  const worldId = 'capture-world-with-load';
+  const characterId = 'capture-character-with-load';
+  fuzzballStorageCache.clearSessionCache(worldId, characterId);
+
+  const cache = fuzzballStorageCache.getSessionCache(worldId, characterId);
+  cache.beginChildrenLoad('/');
+  captureFuzzballWorldLine(worldId, characterId, 'dir /ride/: (no value)\n1 property listed.\n');
+
+  assert.equal(cache.getSnapshot('/')?.areChildrenLoaded, true);
+  assert.equal(cache.getSnapshot('/ride')?.areChildrenLoaded, false);
+});

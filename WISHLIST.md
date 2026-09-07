@@ -6,7 +6,7 @@ todo:
 - selecting while scrolling can get transcript stuck in two-pane mode
 - transcript
   - [X] fixed? output lag, things not appearing as soon as they should. debug console updates immediately, but transcript doesn't.
-  - [ ] select lots of text misses some because of virtualization. need custom selection mode/controls?
+  - [ ] select lots of text misses some because of virtualization. need custom long selection mode/controls? related to last activity indicator, sharing a UX system.
 - surfaces
   - [X] fixed? resizing top dock can trigger split scrolling.
   - [X] fixed? resizing top dock can move bottom of transcript off screen.
@@ -19,6 +19,7 @@ todo:
 - fuzzball storage viewer
   - test with multiple worlds at once.
   - expand all doesn't send requests for unloaded nodes.
+  - [X] if ridemode fills the tree first, the user can't cause the rest of the nodes to load. the tree view needs the ability to load assumed root nodes if needed when trying to expand them. if it is already expanded, collapse and expand would trigger a load if the parent doesn't know if it has children or not.
 - [ ] image previews not working in linux?
 - [ ] test split scrolling while using zoom, came unsynced sometimes.
 - [X] change char connect string to password style with reveal button
@@ -44,7 +45,8 @@ todo:
   - [X] display raw input/output
   - [ ] input to impersonate world input
   - [ ] show MCP data
-- [ ] MCP / GMCP / MCMP over GMCP protocols into pipeline
+- [ ] MCP / GMCP / MCMP over GMCP protocols
+  - [X] protocol planning, protocols into pipeline `PLAN_PROTOCOL.md`
 - [X] plugin architecture
 - [X] plugin seam
 - [X] fuzzball plugin
@@ -292,11 +294,13 @@ This would support:
     - [ ] Morph editor
     - [ ] Room editor
     - [ ] List editor
-  - Echo
-    - [ ] Support echo command - Returns text sent but with clear decoration - Useful for delimiting start/end of multi-line blocks
-    - [ ] Inject echo command on demand
-    - [ ] MOTD hiding
-    - [ ] Room description capture
+  - Sentinel
+    - [ ] Support a unique self-sent sentinel response for delimiting start/end of multi-line blocks
+    - [ ] Inject a sentinel on demand or after capture-producing inputs
+    - [ ] Features:
+      - [ ] MOTD hiding
+      - [ ] Room description capture
+      - [ ] Character description capture
   - Name Awareness
     - [ ] Detect known character names in poses, pages, whispers, DMs
     - [ ] Support automatic name color variation even if they're not in your wf/database

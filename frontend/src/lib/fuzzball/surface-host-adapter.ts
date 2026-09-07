@@ -79,7 +79,7 @@ export function createFuzzballSurfaceHostAdapter(
       }
 
       const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
-      if (cache.hasData()) {
+      if (cache.hasData() && cache.getSnapshot('/')?.areChildrenLoaded) {
         return;
       }
 
@@ -92,6 +92,32 @@ export function createFuzzballSurfaceHostAdapter(
       getViewerService(state.sourceTabId)?.requestNodeLoad(state, '/');
     },
   });
+
+  function restorePoppedOutWindow(windowId: string, title: string): boolean {
+    const prefix = 'fuzzball-storage-window-';
+    if (!windowId.startsWith(prefix)) {
+      return false;
+    }
+
+    const sourceTabId = windowId.slice(prefix.length);
+    const context = dependencies.getWorldContext(sourceTabId);
+    if (!context) {
+      return false;
+    }
+
+    try {
+      ensureSurface(sourceTabId);
+    } catch {
+      return false;
+    }
+
+    return controller.restore(
+      sourceTabId,
+      context.worldId,
+      context.characterId,
+      title,
+    ) !== null;
+  }
 
   dependencies.registerOpenHandler(
     FUZZBALL_PLUGIN_ID,
@@ -116,6 +142,7 @@ export function createFuzzballSurfaceHostAdapter(
 
   return {
     ...controller,
+    restorePoppedOutWindow,
     subscribeInvalidation(listener: () => void): () => void {
       return fuzzballStorageCache.subscribe(listener);
     },

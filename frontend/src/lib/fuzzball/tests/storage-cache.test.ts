@@ -118,7 +118,7 @@ test('upserting a slash-suffixed node marks it as a known branch before children
   assert.deepEqual(children, []);
 });
 
-test('adding child nodes flips a cached branch to loaded children', () => {
+test('observing child nodes does not mark a branch listing as complete', () => {
   const cache = new FuzzBallPropertyTreeCache();
 
   cache.upsertNode({ path: '/prefs/', type: 'str', value: '7', hasChildren: true });
@@ -129,8 +129,21 @@ test('adding child nodes flips a cached branch to loaded children', () => {
 
   assert.ok(prefs);
   assert.equal(prefs?.hasChildren, true);
-  assert.equal(prefs?.areChildrenLoaded, true);
+  assert.equal(prefs?.areChildrenLoaded, false);
   assert.deepEqual(children.map((node) => node.path), ['/prefs/theme']);
+
+  cache.markChildrenLoaded('/prefs');
+  assert.equal(cache.getSnapshot('/prefs')?.areChildrenLoaded, true);
+});
+
+test('a pending child load can be completed even when the response has no children', () => {
+  const cache = new FuzzBallPropertyTreeCache();
+
+  cache.upsertNode({ path: '/ride/_mode', type: 'str', value: 'walk' });
+  assert.equal(cache.getSnapshot('/ride')?.areChildrenLoaded, false);
+  assert.equal(cache.beginChildrenLoad('/ride'), true);
+  assert.equal(cache.completeNextChildrenLoad(), '/ride');
+  assert.equal(cache.getSnapshot('/ride')?.areChildrenLoaded, true);
 });
 
 test('upserting a child leaves tree data intact without tracking expansion state', () => {
@@ -142,7 +155,7 @@ test('upserting a child leaves tree data intact without tracking expansion state
   const tree = cache.getTree();
 
   assert.ok(prefs);
-  assert.equal(prefs?.areChildrenLoaded, true);
+  assert.equal(prefs?.areChildrenLoaded, false);
   assert.equal(tree.path, '/');
   assert.equal(tree.hasChildren, true);
 });

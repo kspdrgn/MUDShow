@@ -41,6 +41,7 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 - [ ] Add rolling auto-logging, customizable log naming/folders, and date-offset handling.
 - [ ] Add always-on-top and transparency options.
 - [~] Clean up focus behavior, key conflicts, tree selection, and native find-dialog behavior: clicking Dockview panel tabs in the active world now restores focus to the selected input bar; the remaining focus and navigation cleanup is still open.
+- [ ] Clean up webview context menus: audit every app UI surface where the native webview context menu is still available, catalog those surfaces (including embedded/non-app surfaces), and decide whether each should block the menu or route unused space in the active world session to that world tab's context menu; default toward disabling native context menus through a configurable switch while preserving the developer-tools shortcut in the app menu.
 
 ## P4 — Distribution and maintenance
 

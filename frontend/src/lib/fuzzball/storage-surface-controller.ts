@@ -1,6 +1,8 @@
 import type { TreeDataWindowModel } from '../components/tree-data/tree-data-view.js';
 import { findTreeDataNode } from '../components/tree-data/tree-data-view.js';
 
+const FUZZBALL_STORAGE_SURFACE_ID = 'fuzzball-storage-viewer';
+
 export type TreeDataWindowCommand =
   | { type: 'nodeSelected'; nodeId: string }
   | { type: 'nodeExpansionToggled'; nodeId: string }
@@ -59,6 +61,38 @@ export function createFuzzballStorageSurfaceController(
 ) {
   const states = new Map<string, FuzzballStorageViewerState>();
 
+  function registerViewerInstance(
+    id: string,
+    state: FuzzballStorageViewerState,
+    viewerService: FuzzballStorageViewerService,
+  ): void {
+    states.set(id, state);
+    dependencies.registerTreeSurfaceInstance(
+      id,
+      () => viewerService.buildModel(state),
+      (command, model) => {
+        if (command.type !== 'nodeExpansionToggled') {
+          return;
+        }
+
+        const node = findTreeDataNode(model.root, command.nodeId);
+        if (!node || node.kind !== 'branch' || node.childrenState !== 'unknown') {
+          return;
+        }
+
+        dependencies.log('fuzzball load requested', {
+          windowId: id,
+          nodeId: command.nodeId,
+          sourceTabId: state.sourceTabId,
+        });
+        viewerService.requestNodeLoad(state, command.nodeId);
+      },
+      state.sourceTabId,
+    );
+    dependencies.ensureTransport(id, FUZZBALL_STORAGE_SURFACE_ID);
+    dependencies.rememberTransport(id, state);
+  }
+
   function open(
     sourceTabId: string,
     worldId: string,
@@ -89,31 +123,7 @@ export function createFuzzballStorageSurfaceController(
     const index = dependencies.listWindows().length;
     const id = `fuzzball-storage-window-${sourceTabId}`;
     const state = viewerService.createState(sourceTabId, worldId, characterId, title, description);
-    states.set(id, state);
-    dependencies.registerTreeSurfaceInstance(
-      id,
-      () => viewerService.buildModel(state),
-      (command, model) => {
-        if (command.type !== 'nodeExpansionToggled') {
-          return;
-        }
-
-        const node = findTreeDataNode(model.root, command.nodeId);
-        if (!node || node.kind !== 'branch' || node.childrenState !== 'unknown') {
-          return;
-        }
-
-        dependencies.log('fuzzball load requested', {
-          windowId: id,
-          nodeId: command.nodeId,
-          sourceTabId: state.sourceTabId,
-        });
-        viewerService.requestNodeLoad(state, command.nodeId);
-      },
-      sourceTabId,
-    );
-    dependencies.ensureTransport(id, surfaceId);
-    dependencies.rememberTransport(id, state);
+    registerViewerInstance(id, state, viewerService);
     dependencies.requestInitialLoad(id, state);
     dependencies.log('open fuzzball storage window', {
       windowId: id,
@@ -138,6 +148,28 @@ export function createFuzzballStorageSurfaceController(
     return states.get(windowId);
   }
 
+  function restore(
+    sourceTabId: string,
+    worldId: string,
+    characterId: string,
+    title: string,
+    description?: string,
+  ): string | null {
+    const id = `fuzzball-storage-window-${sourceTabId}`;
+    if (states.has(id)) {
+      return id;
+    }
+
+    const viewerService = dependencies.getViewerService(sourceTabId);
+    if (!viewerService || !worldId) {
+      return null;
+    }
+
+    const state = viewerService.createState(sourceTabId, worldId, characterId, title, description);
+    registerViewerInstance(id, state, viewerService);
+    return id;
+  }
+
   function getWindowIdsForSourceTab(sourceTabId: string): string[] {
     return [...states.entries()]
       .filter(([, state]) => state.sourceTabId === sourceTabId)
@@ -149,5 +181,5 @@ export function createFuzzballStorageSurfaceController(
     dependencies.disposeTreeSurfaceInstance(windowId);
   }
 
-  return { open, getState, getWindowIdsForSourceTab, dispose };
+  return { open, restore, getState, getWindowIdsForSourceTab, dispose };
 }

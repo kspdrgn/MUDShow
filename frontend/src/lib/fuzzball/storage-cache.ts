@@ -100,6 +100,9 @@ function toSnapshot(node: InternalPropertyNode, areChildrenLoaded: boolean): Fuz
 
 export class FuzzBallPropertyTreeCache {
   private readonly nodes = new Map<string, InternalPropertyNode>();
+  private readonly loadedChildren = new Set<string>();
+  private readonly pendingChildrenLoads: string[] = [];
+  private readonly pendingChildrenLoadSet = new Set<string>();
   private readonly listeners = new Set<() => void>();
   onChange: (() => void) | null = null;
 
@@ -117,6 +120,43 @@ export class FuzzBallPropertyTreeCache {
 
   clear(): void {
     this.nodes.clear();
+    this.loadedChildren.clear();
+    this.pendingChildrenLoads.length = 0;
+    this.pendingChildrenLoadSet.clear();
+    this.notify();
+  }
+
+  beginChildrenLoad(path: string): boolean {
+    const normalizedPath = normalizePropertyPath(path);
+    if (this.hasLoadedChildren(normalizedPath) || this.pendingChildrenLoadSet.has(normalizedPath)) {
+      return false;
+    }
+
+    this.pendingChildrenLoads.push(normalizedPath);
+    this.pendingChildrenLoadSet.add(normalizedPath);
+    return true;
+  }
+
+  completeNextChildrenLoad(): string | null {
+    const path = this.pendingChildrenLoads.shift();
+    if (!path) {
+      return null;
+    }
+
+    this.pendingChildrenLoadSet.delete(path);
+    this.loadedChildren.add(path);
+    this.notify();
+    return path;
+  }
+
+  markChildrenLoaded(path: string): void {
+    const normalizedPath = normalizePropertyPath(path);
+    this.pendingChildrenLoadSet.delete(normalizedPath);
+    this.loadedChildren.add(normalizedPath);
+    const pendingIndex = this.pendingChildrenLoads.indexOf(normalizedPath);
+    if (pendingIndex >= 0) {
+      this.pendingChildrenLoads.splice(pendingIndex, 1);
+    }
     this.notify();
   }
 
@@ -213,14 +253,7 @@ export class FuzzBallPropertyTreeCache {
 
   private hasLoadedChildren(path: string): boolean {
     const normalizedPath = normalizePropertyPath(path);
-
-    for (const node of this.nodes.values()) {
-      if (node.path !== normalizedPath && getParentPath(node.path) === normalizedPath) {
-        return true;
-      }
-    }
-
-    return false;
+    return this.loadedChildren.has(normalizedPath);
   }
 
   private ensureAncestors(path: string, updatedAt: number): void {

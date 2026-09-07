@@ -9,6 +9,11 @@ This document only records work that is not implemented or not yet decided.
   `spec/protocols.md` and expose typed MCP, GMCP, and MCMP events to plugins.
 - Decide and implement outgoing command hooks: observation, metadata,
   transformation, cancellation, and ordering/conflict rules.
+- Define a sentinel capability for plugin capture: issuing a unique token to the
+  player's own world connection and receiving the matching classified event.
+- Keep sentinel responses available to the canonical transcript/history store
+  while allowing the host's visibility projection to mute them from the main
+  transcript and other consumers.
 - Finish the capture/filter behavior needed by the FuzzBall plugin so plugin
   requests can hide captured material from the visible transcript while
   retaining it in history with the required metadata.
@@ -46,8 +51,27 @@ architecture: FuzzBall storage editing and capture refinements, and the Taps
 description editor, morph list/editor, and related integrations. Track their
 user-visible behavior in the relevant feature spec when implemented.
 
+Sentinel is the planning name for the former generic “echo” capture marker.
+The plugin contract must not assume that the world echoes the token verbatim:
+matching, timeout, cancellation, and unsupported-world behavior belong to the
+host/event boundary. “Command echo” remains a separate transcript visibility
+term for showing submitted user input.
+
 ## Boundary
 
 Do not copy current registry behavior, hook names, surface capabilities, or
 failure rules back into this plan. Update `spec/plugins.md` when behavior is
 implemented, and leave only the next unresolved decision or work item here.
+
+## Related Plans
+
+- `PLAN_PROTOCOLS.md` defines the normalized event pipeline and typed protocol
+  subscriptions that plugins will consume.
+- `PLAN_CAPTURE.md` defines sentinel requests, matching, capture completion,
+  and transcript-retention behavior.
+- `PLAN_CHANNELS.md` defines the channel-routing capability available to
+  plugins and the default treatment of sentinel events.
+- `PLAN_FUZZBALL.md` tracks the concrete FuzzBall capture work that will
+  consume the generic sentinel and transcript-filtering capability.
+- `PLAN_SURFACES.md` defines host-managed UI placement when plugin capture
+  results are presented in structured surfaces.

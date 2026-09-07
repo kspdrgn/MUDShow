@@ -134,6 +134,13 @@ whether an event is visible in the transcript, debug console, a world channel,
 a structured surface, a media consumer, or only diagnostics. Storage and
 visibility remain separate decisions.
 
+Sentinel traffic follows the same ordered event stream. A plugin or host-owned
+capture service may emit an outgoing sentinel request, and the matching world
+response must remain identifiable as a sentinel event after protocol decoding
+and text framing. Routing may hide that response from the visible transcript
+while retaining it in the canonical transcript/history database for capture
+completion, diagnostics, replay, or future projections.
+
 The canonical transcript database is the first transcript consumer of ordered
 text events. It must retain the source text and the metadata needed to
 re-render chunks, including ordering, line counts, timestamps, event type, and
@@ -355,6 +362,9 @@ The architecture should nevertheless leave room for:
   that can be attached to canonical entries without owning transcript storage.
 - [ ] Multiple views over one entry identity so a message can appear in a
   conversation surface and, when policy allows, in the main transcript.
+- [ ] Define sentinel projections so plugin-generated self-responses can be
+  retained in canonical history while being muted from the main transcript
+  and, by explicit policy, from logs or conversation channels.
 
 ## Current Boundary
 
@@ -509,8 +519,13 @@ testable, while the worker integration should remain as small as possible.
 - [ ] Define the host routing and filtering contract for transcript, status,
   debug-console, channel, structured-surface, media, and diagnostics
   consumers.
+- [ ] Define the normalized outgoing/incoming sentinel event contract,
+  including request identity, token matching, ordering, timeout, cancellation,
+  and duplicate handling.
 - [ ] Define typed plugin subscriptions for normalized protocol events without
   exposing socket access or requiring plugins to decode protocol framing.
+- [ ] Define whether plugins request sentinels through a host-owned capture
+  service or through a general outgoing-command capability.
 - [ ] Define the renderer and snapshot contracts for structured text, trees,
   tables, status/HUD panels, and safe media metadata surfaces.
 - [ ] Add world-level MCP configuration and storage migration.
@@ -522,3 +537,14 @@ testable, while the worker integration should remain as small as possible.
   policy-controlled resource operation rather than a protocol connection.
 - [ ] Update the canonical protocol specification with implementation-specific
   MCP wire-format details once the reference and decoder behavior are settled.
+
+## Related Plans
+
+- `PLAN_CAPTURE.md` defines sentinel capture semantics, matching, completion
+  signals, and fallback behavior built on this ordered event stream.
+- `PLAN_PLUGIN.md` defines how world plugins consume normalized protocol events
+  and request host-managed sentinel behavior.
+- `PLAN_CHANNELS.md` defines the routing destination policy for capture output,
+  including the unresolved question of routing retained sentinel events.
+- `PLAN_DI_WORLD_SESSION.md` covers session-scoped ownership for services that
+  may consume protocol and transcript events.

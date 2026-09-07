@@ -52,6 +52,9 @@ The value text is retained as received. A `dir` node has no direct value.
 - The cache preserves hierarchy, node type, direct value, whether the value
   was explicitly loaded, whether children exist, whether children have been
   loaded, and the last update time.
+- Observing an individual child does not mark its parent listing as complete;
+  a requested listing becomes loaded when its property-count response is
+  received, including a zero-property response.
 - Paths are normalized to have a leading slash and collapsed separators.
 - Child nodes are sorted alphabetically for display.
 - The cache is transient. It survives disconnect/reconnect within the open

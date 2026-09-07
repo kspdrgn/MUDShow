@@ -29,6 +29,9 @@
 - The component should not need to know which transport backend is active.
 - Stale updates must be ignored when a surface has moved, closed, or been replaced.
 - A popped-out window must be able to reconnect and resync from the owning controller.
+- If the main app reloads while a native surface remains open, the next pop-in
+  event must recover the surface registration and controller state before
+  docking it, rather than treating the return as stale.
 
 ## Placement and Lifecycle
 - Each surface instance may appear in only one of these placements:

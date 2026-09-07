@@ -2261,20 +2261,36 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
   function handlePoppedOutWindowReturned(returnedRecord: WindowRecord): void {
     const windowId = returnedRecord.id;
     const windowRecord = removePoppedOutWindowRecord(windowId);
-    if (!windowRecord) {
-      console.log('[window-action] popped-out window return ignored', {
-        windowId,
-      });
-      return;
-    }
+    const recoveredWindowRecord = windowRecord ?? returnedRecord;
 
     console.log('[window-action] popped-out window returned to host', {
       windowId,
-      title: windowRecord.title,
+      title: recoveredWindowRecord.title,
+      recovered: windowRecord === null,
     });
 
-    if (isDebugConsoleWindow(windowRecord) || isNotesWindow(windowRecord) || isTreeDataSurfaceWindow(windowRecord)
-      || windowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow) {
+    if (!windowRecord && recoveredWindowRecord.surfaceId === 'fuzzball-storage-viewer') {
+      pluginTreeDataSurfaceController.restorePoppedOutWindow(windowId, recoveredWindowRecord.title);
+    }
+
+    if (!appServices.surfaces.getInstance(windowId)) {
+      const registration = appServices.surfaces.getRegistration(recoveredWindowRecord.surfaceId);
+      if (registration) {
+        appServices.surfaces.open({
+          instanceId: windowId,
+          surfaceId: recoveredWindowRecord.surfaceId,
+          title: recoveredWindowRecord.title,
+          placement: { host: 'dockview', mode: 'edge', edge: 'top' },
+          position: recoveredWindowRecord.position,
+          size: recoveredWindowRecord.size,
+          preferProvidedPlacement: true,
+        });
+      }
+    }
+
+    if (isDebugConsoleWindow(recoveredWindowRecord) || isNotesWindow(recoveredWindowRecord) || isTreeDataSurfaceWindow(recoveredWindowRecord)
+      || recoveredWindowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow
+      || recoveredWindowRecord.surfaceId === 'fuzzball-storage-viewer') {
       appServices.surfaces.update(windowId, {
         placement: { host: 'dockview', mode: 'edge', edge: 'top' },
         position: returnedRecord.position,

@@ -64,3 +64,18 @@ test('opens one viewer per source tab with plugin surface data', () => {
   assert.deepEqual(harness.focused, ['fuzzball-storage-window-tab-1', 'fuzzball-storage-window-tab-1']);
   assert.equal(harness.opened.length, 1);
 });
+
+test('restores a viewer registration without spawning another native window', () => {
+  const harness = createHarness();
+
+  const restoredId = harness.controller.restore(
+    'tab-after-reload',
+    'world-1',
+    'character-1',
+    'World · Character storage',
+  );
+
+  assert.equal(restoredId, 'fuzzball-storage-window-tab-after-reload');
+  assert.equal(harness.controller.getState(restoredId)?.worldId, 'world-1');
+  assert.equal(harness.opened.length, 0);
+});

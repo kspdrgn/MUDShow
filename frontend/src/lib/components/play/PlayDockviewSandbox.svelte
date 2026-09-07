@@ -151,6 +151,7 @@
   let syncTreeDataPanels: (() => void) | null = null;
   let syncDummyWindowPanels: (() => void) | null = null;
   let focusDockviewPanel: ((panelId: string) => void) | null = null;
+  let lastHandledFocusSurfaceRequestVersion = 0;
   let debugConsolePanelId: string | null = null;
   let notesPanelId: string | null = null;
   const treeDataPanelIds = new Set<string>();
@@ -312,8 +313,11 @@
     syncDummyWindowPanels?.();
     topActions;
     headerActionRenderers.forEach((render) => render());
-    if (focusSurfaceId) {
-      focusDockviewPanel?.(focusSurfaceId);
+    if (focusSurfaceId
+      && focusSurfaceRequestVersion !== lastHandledFocusSurfaceRequestVersion
+      && focusDockviewPanel) {
+      focusDockviewPanel(focusSurfaceId);
+      lastHandledFocusSurfaceRequestVersion = focusSurfaceRequestVersion;
     }
   }
 

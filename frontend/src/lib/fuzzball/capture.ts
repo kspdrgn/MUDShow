@@ -11,6 +11,11 @@ export function captureFuzzballWorldLine(
   let parsedCount = 0;
 
   for (const line of lines) {
+    if (/^\d+\s+(?:property|properties)\s+listed\.$/iu.test(line.trim())) {
+      cache.completeNextChildrenLoad();
+      continue;
+    }
+
     const parsed = parseFuzzballPropertyLine(line);
     if (!parsed) {
       continue;

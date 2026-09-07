@@ -58,6 +58,9 @@ The controller must not own surface placement, visual layout, native windows, or
 
 - Built-in trigger rules may route matched lines or capture groups to named conversation channels.
 - World-plugin capture behavior may classify output and publish entries to plugin-owned or shared channels.
+- Sentinel responses should stay out of channels by default unless routing
+  policy explicitly publishes them for diagnostics or a plugin-owned capture
+  view.
 - Protocol and capture layers may provide source metadata, classifications, and ordering information without knowing which surface will display the result.
 - User actions may activate an existing channel or open the surface that presents it, but should not bypass the controller for channel state changes.
 
@@ -80,6 +83,8 @@ Routing should be composable: a source may publish to a channel without requirin
 - How should a router handle a channel whose surface is closed but whose thread remains active?
 - How should duplicate or overlapping routes be represented without duplicating the same entry unnecessarily?
 - Which diagnostics should expose routing decisions, dropped entries, and channel lifecycle changes?
+- Should retained sentinel events be routable to a channel, or only exposed
+  through the capture/plugin result and diagnostics?
 
 ## Suggested First Cut
 
@@ -89,6 +94,8 @@ Routing should be composable: a source may publish to a channel without requirin
 - Prove the flow with one focused reading surface backed by a manually registered channel.
 - Add trigger-rule routing after the controller and surface bridge are stable.
 - Add world-plugin capture routing after the trigger path establishes the common semantics.
+- Add sentinel classification and explicit channel-routing policy after the
+  protocol and capture plans define the event contract.
 - Keep the primary transcript and existing Notes, Debug Console, and FuzzBall surfaces independent unless they explicitly opt into channel subscriptions.
 
 ## Relationship To Other Plans
@@ -97,6 +104,10 @@ Routing should be composable: a source may publish to a channel without requirin
 - `PLAN_PLUGIN.md` defines the plugin boundary; this plan defines the channel-routing capability available to plugins.
 - `PLAN_TAPS.md` may use channels for Taps conversation threads, but should not define a separate side-channel system.
 - `PLAN_CAPTURE.md` defines capture and classification concerns that may publish routed entries into channels.
+- `PLAN_PROTOCOLS.md` defines the ordered event metadata that routed entries
+  and sentinel classifications must preserve.
+- `PLAN_DI_WORLD_SESSION.md` covers session-scoped ownership if the channel
+  controller or routing services are registered with the world session.
 
 ## Next Steps
 

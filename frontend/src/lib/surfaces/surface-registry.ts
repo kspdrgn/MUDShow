@@ -70,6 +70,8 @@ export interface OpenSurfaceOptions {
   placement?: SurfacePlacement;
   position?: SurfacePoint;
   size?: SurfaceSize;
+  /** Use the supplied placement when reconstructing a host after a reload. */
+  preferProvidedPlacement?: boolean;
 }
 
 export interface UpdateSurfaceOptions {
@@ -140,7 +142,7 @@ export class SurfaceRegistry {
       throw new Error(`surface does not allow multiple instances: ${options.surfaceId}`);
     }
 
-    const saved = loadSurfacePlacement(options.instanceId);
+    const saved = options.preferProvidedPlacement ? null : loadSurfacePlacement(options.instanceId);
     const placement = saved?.placement ?? options.placement ?? DEFAULT_DOCKVIEW_PLACEMENT;
     const instance: SurfaceInstance = {
       instanceId: options.instanceId,
