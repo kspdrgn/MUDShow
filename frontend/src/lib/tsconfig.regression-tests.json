@@ -1,0 +1,23 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": ".",
+    "outDir": "../../../dist/regression-tests",
+    "noEmit": false,
+    "incremental": false,
+    "ignoreDeprecations": "6.0",
+    "types": ["node"]
+  },
+  "include": [
+    "playback.ts",
+    "completion.ts",
+    "formatting.ts",
+    "types.ts",
+    "connection.ts",
+    "tauri.ts",
+    "tests/**/*.test.ts",
+    "tests/node-shims.d.ts"
+  ]
+}

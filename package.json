@@ -17,7 +17,8 @@
     "test:fuzzball-cache": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/fuzzball/tsconfig.tests.json && node --test dist/fuzzball-cache-tests/tests/*.test.js",
     "test:input-bar-sizing": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.tests.json && node --test dist/input-bar-sizing-tests/tests/*.test.js",
     "clean": "rimraf dist tauri/target tauri/.mudshow-tauri-dev-*.json",
-    "test": "npm run test:fuzzball-cache && npm run test:input-bar-sizing"
+    "test": "npm run test:fuzzball-cache && npm run test:input-bar-sizing && npm run test:regression",
+    "test:regression": "tsc --project frontend/src/lib/tsconfig.regression-tests.json && node scripts/run-regression-tests.mjs"
   },
   "author": "",
   "license": "ISC",
