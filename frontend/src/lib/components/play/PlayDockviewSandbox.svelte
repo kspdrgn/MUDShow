@@ -42,6 +42,7 @@
   export let dummyPanels: DockviewDummyWindowPanelDefinition[] = [];
   export let focusSurfaceId: string | null = null;
   export let focusSurfaceRequestVersion = 0;
+  export let onFocusInput: () => void = () => {};
   export let activeBar: InputBarId = 1;
   export let transcript: PlayTranscript;
   export let outputRevision = 0;
@@ -1260,6 +1261,21 @@
       },
     });
 
+    const focusInputAfterPanelClick = (): void => {
+      requestAnimationFrame(() => onFocusInput());
+    };
+    const removeActivePanelListener = dockview.onDidActivePanelChange(({ panel }) => {
+      if (panel) {
+        focusInputAfterPanelClick();
+      }
+    });
+    const handlePanelTabPointerDown = (event: PointerEvent): void => {
+      if (event.target instanceof Element && event.target.closest('.dv-tab')) {
+        focusInputAfterPanelClick();
+      }
+    };
+    dockRoot.addEventListener('pointerdown', handlePanelTabPointerDown, true);
+
     dockview.onDidAddGroup(configureFloatingGroup);
     floatingTitlebarObserver = new MutationObserver(applyFloatingTitlebarTooltips);
     floatingTitlebarObserver.observe(dockRoot, {
@@ -1785,6 +1801,8 @@
       removeTreeDataPanelListener.dispose();
       removeDummyWindowPanelListener.dispose();
       removeWorkspaceDropListener.dispose();
+      removeActivePanelListener.dispose();
+      dockRoot?.removeEventListener('pointerdown', handlePanelTabPointerDown, true);
       dockviewInstance.dispose();
       dockview = null;
       topEdgeGroup = null;

@@ -17,6 +17,7 @@ The input bar menu shows when mousing over the right side of the input box
 Keyboard focus should be automatically restored to the last selected input box:
 - When doing one-shot UI actions, like toggling a global setting from the menu.
 - When switching active world tabs.
+- When clicking a Dockview panel tab in the active world session.
 - When selecting output text to copy it.
 
 ## Multiple Input Areas

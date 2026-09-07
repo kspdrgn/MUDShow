@@ -196,6 +196,7 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     {dummyPanels}
     {focusSurfaceId}
     {focusSurfaceRequestVersion}
+    onFocusInput={() => actions.onInputFocusBar(activeBar)}
     activeBar={activeBar}
     transcript={transcript}
     outputRevision={outputRevision}

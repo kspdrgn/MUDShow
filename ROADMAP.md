@@ -40,7 +40,7 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 - [ ] Improve rule-tree affordances and trigger action summaries.
 - [ ] Add rolling auto-logging, customizable log naming/folders, and date-offset handling.
 - [ ] Add always-on-top and transparency options.
-- [ ] Clean up focus behavior, key conflicts, tree selection, and native find-dialog behavior.
+- [~] Clean up focus behavior, key conflicts, tree selection, and native find-dialog behavior: clicking Dockview panel tabs in the active world now restores focus to the selected input bar; the remaining focus and navigation cleanup is still open.
 
 ## P4 — Distribution and maintenance
 
