@@ -191,6 +191,7 @@ export class MudConnection {
       if (payload.kind === 'data') {
         handlers.onMessage(payload.text);
         return;
+      }
 
       this.dispatchEvent(payload, token, handlers);
     });
@@ -217,6 +218,11 @@ export class MudConnection {
 
     if (payload.kind === 'data') {
       handlers.onMessage(payload.text);
+      return;
+    }
+
+    if (payload.kind === 'raw') {
+      handlers.onRawMessage(payload.text);
       return;
     }
 
