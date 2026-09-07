@@ -14,11 +14,21 @@ The input bar menu shows when mousing over the right side of the input box
 
 ## Input Re-Focus
 
-Keyboard focus should be automatically restored to the last selected input box:
+The active world session remembers the last selected input bar. After a
+transient world-session control is finished, keyboard focus should return to
+that input bar:
+
 - When doing one-shot UI actions, like toggling a global setting from the menu.
 - When switching active world tabs.
 - When clicking a Dockview panel tab in the active world session.
+- After making a selection in a world-session control, including Ridemode.
+- After closing a world-session dropdown without changing its value.
 - When selecting output text to copy it.
+
+This refocus applies when the control is complete and does not intentionally
+open another interaction surface. A control that opens or focuses a new
+world-session surface transfers focus to that surface instead; the `exa me=/`
+action keeps this behavior for the newly spawned FuzzBall storage viewer.
 
 ## Multiple Input Areas
 

@@ -93,6 +93,21 @@ handlers may send commands through the connection port or invoke the host port
 to open a surface. The plugin does not render the action controls or directly
 modify the PlayScreen layout.
 
+### World-Session Control Focus
+
+The host owns keyboard focus for plugin-contributed world-session controls.
+After a transient control is complete, the host restores focus to the last
+selected input bar. This includes select changes and closing a dropdown without
+changing its value, so controls such as the Taps Ridemode selector return the
+user to command entry.
+
+An action that intentionally opens or focuses a host-managed surface is the
+exception: focus transfers to that surface and is not immediately restored to
+the input bar. The FuzzBall `exa me=/` action follows this rule by focusing the
+newly spawned storage viewer. Plugins must use this distinction for all custom
+world-session UI integrations and must not implement competing global focus
+behavior.
+
 Dynamic actions are refreshed through the contribution subscription. The
 session aggregates actions from all active plugins in activation order.
 
