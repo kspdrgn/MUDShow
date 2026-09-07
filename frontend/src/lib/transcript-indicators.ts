@@ -10,6 +10,17 @@ export interface LastActivityMarker {
   timestamp: number;
 }
 
+export function applyLastActivityMarkerWorkspaceState(
+  current: LastActivityMarker | null,
+  workspaceState: Readonly<Record<string, unknown>>,
+): LastActivityMarker | null {
+  if (workspaceState.lastActivityMarker === undefined) {
+    return current;
+  }
+
+  return workspaceState.lastActivityMarker as LastActivityMarker | null;
+}
+
 export type TranscriptIndicatorDismissReason =
   | 'explicit-navigation'
   | 'copy'

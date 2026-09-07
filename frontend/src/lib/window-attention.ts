@@ -6,8 +6,20 @@ export interface WindowAttentionService {
 }
 
 function createWindowAttentionService(): WindowAttentionService {
+  let appWindowFocused = true;
+
+  if (typeof window !== 'undefined') {
+    appWindowFocused = !document.hidden;
+    window.addEventListener('focus', () => {
+      appWindowFocused = true;
+    });
+    window.addEventListener('blur', () => {
+      appWindowFocused = false;
+    });
+  }
+
   function isAppFocused(): boolean {
-    return typeof document !== 'undefined' && !document.hidden && document.hasFocus();
+    return typeof document !== 'undefined' && !document.hidden && appWindowFocused;
   }
 
   function requestAttention(enabled: boolean): void {

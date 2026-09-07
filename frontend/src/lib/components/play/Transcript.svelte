@@ -22,6 +22,7 @@
   import type { HighlightRule, Rule, Trigger } from '../../types';
   import type { LastActivityMarker } from '../../transcript-indicators';
   import {
+    applyLastActivityMarkerWorkspaceState,
     compareTranscriptBoundaries,
     createTranscriptRangeSelection,
     EMPTY_TRANSCRIPT_SELECTION,
@@ -472,6 +473,7 @@
       transcriptDiagnosticsEnabled = nextState.transcriptDiagnosticsEnabled as boolean;
     }
     if (nextState.userScrolled !== undefined) userScrolled = nextState.userScrolled as boolean;
+    lastActivityMarker = applyLastActivityMarkerWorkspaceState(lastActivityMarker, nextState);
     if (nextState.canReconnect !== undefined) canReconnect = nextState.canReconnect as boolean;
     if (nextState.canDisconnect !== undefined) canDisconnect = nextState.canDisconnect as boolean;
     if (nextState.canQuickLog !== undefined) canQuickLog = nextState.canQuickLog as boolean;

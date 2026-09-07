@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  applyLastActivityMarkerWorkspaceState,
   EMPTY_TRANSCRIPT_SELECTION,
   createTranscriptRangeSelection,
   isLastActivityDismissedBy,
@@ -12,6 +13,26 @@ import {
 } from '../transcript-indicators';
 
 const retained = new Set([10, 11, 12]);
+
+test('workspace updates deliver the last-activity marker to the mounted transcript', () => {
+  const marker: LastActivityMarker = {
+    boundary: { chunkId: 11, side: 'before' },
+    timestamp: 123,
+  };
+
+  assert.deepEqual(
+    applyLastActivityMarkerWorkspaceState(null, { lastActivityMarker: marker }),
+    marker,
+  );
+  assert.equal(
+    applyLastActivityMarkerWorkspaceState(marker, { lastActivityMarker: null }),
+    null,
+  );
+  assert.deepEqual(
+    applyLastActivityMarkerWorkspaceState(marker, { hasNewActivity: false }),
+    marker,
+  );
+});
 
 test('range selection records direction and keeps the menu state separate', () => {
   const selection = createTranscriptRangeSelection(
