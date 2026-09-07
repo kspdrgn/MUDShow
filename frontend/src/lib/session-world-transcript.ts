@@ -13,6 +13,7 @@ import {
 } from './logging';
 import { isTauriAvailable, invoke } from './tauri';
 import { nextFrame, scrollElementToBottom } from './session-dom';
+import type { LastActivityMarker } from './transcript-indicators';
 import type { SessionState } from './session-state';
 import type { WorldTabSessionState } from './world-session';
 import type { WorldSessionContainerRegistry } from './world-session-container';
@@ -66,15 +67,22 @@ export function createWorldTranscriptActions({
     }
   }
 
-  function noteOutputActivity(tabId: string): void {
+  function noteOutputActivity(tabId: string, activityMarker: LastActivityMarker | null): void {
     const activeTabId = getActiveWorldTabId();
     const appFocused = appServices.windowAttention.isAppFocused();
 
     if (activeTabId !== tabId || !appFocused) {
       const current = getWorldSession(tabId);
-      if (!current.hasNewActivity) {
-        updateWorldSession(tabId, { hasNewActivity: true });
-      }
+      const firstRetainedChunk = current.transcript.getChunk(0);
+      const retainedMarker = current.lastActivityMarker
+        && firstRetainedChunk
+        && current.lastActivityMarker.boundary.chunkId >= firstRetainedChunk.id
+        ? current.lastActivityMarker
+        : null;
+      updateWorldSession(tabId, {
+        hasNewActivity: true,
+        lastActivityMarker: retainedMarker ?? activityMarker,
+      });
     }
 
     if (!appFocused) {
@@ -127,6 +135,11 @@ export function createWorldTranscriptActions({
     const maxHistoryLines = session.currentCharacter?.outputHistoryLines ?? 0;
 
     session.transcript.append(rawText);
+    const appendedChunk = session.transcript.getChunk(session.transcript.getChunkCount() - 1);
+    const firstRetainedChunk = session.transcript.getChunk(0);
+    const activityMarker = appendedChunk
+      ? { boundary: { chunkId: appendedChunk.id, side: 'before' as const }, timestamp: appendedChunk.timestamp }
+      : null;
 
     if (session.currentCharacter && maxHistoryLines > 0) {
       const transcriptHistory = appendTranscriptHistory(session.transcriptHistory, rawText, maxHistoryLines);
@@ -136,8 +149,11 @@ export function createWorldTranscriptActions({
 
     updateWorldSession(tabId, {
       outputRevision: session.outputRevision + 1,
+      ...(session.lastActivityMarker && firstRetainedChunk && session.lastActivityMarker.boundary.chunkId < firstRetainedChunk.id
+        ? { lastActivityMarker: null }
+        : {}),
     });
-    noteOutputActivity(tabId);
+    noteOutputActivity(tabId, activityMarker);
 
     const logText = stripTranscriptForLog(rawText);
     if (isTauriAvailable() && session.loggingActive && session.logFilePath && logText.length > 0) {
@@ -161,12 +177,20 @@ export function createWorldTranscriptActions({
     const session = getWorldSession(tabId);
 
     session.transcript.append(text);
+    const appendedChunk = session.transcript.getChunk(session.transcript.getChunkCount() - 1);
+    const firstRetainedChunk = session.transcript.getChunk(0);
+    const activityMarker = appendedChunk
+      ? { boundary: { chunkId: appendedChunk.id, side: 'before' as const }, timestamp: appendedChunk.timestamp }
+      : null;
     appendDebugConsoleMessageToTab(tabId, 'status', text);
 
     updateWorldSession(tabId, {
       outputRevision: session.outputRevision + 1,
+      ...(session.lastActivityMarker && firstRetainedChunk && session.lastActivityMarker.boundary.chunkId < firstRetainedChunk.id
+        ? { lastActivityMarker: null }
+        : {}),
     });
-    noteOutputActivity(tabId);
+    noteOutputActivity(tabId, activityMarker);
 
     const strippedText = stripTranscriptForLog(text);
     const logText = strippedText.length > 0 ? formatStatusMessageForLog(strippedText) : '';

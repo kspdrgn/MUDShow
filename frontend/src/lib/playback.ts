@@ -172,6 +172,26 @@ export function getTranscriptRangeText(
   return text;
 }
 
+export function getTranscriptRangeTextByChunkIds(
+  transcript: Pick<PlayTranscript, 'getChunkCount' | 'getChunk'>,
+  startChunkId: number,
+  endChunkId: number,
+): string {
+  let startIndex = -1;
+  let endIndex = -1;
+
+  for (let index = 0; index < transcript.getChunkCount(); index += 1) {
+    const chunk = transcript.getChunk(index);
+    if (!chunk) continue;
+    if (chunk.id === startChunkId) startIndex = index;
+    if (chunk.id === endChunkId) endIndex = index;
+    if (startIndex !== -1 && endIndex !== -1) break;
+  }
+
+  if (startIndex === -1 || endIndex === -1) return '';
+  return getTranscriptRangeText(transcript, startIndex, endIndex);
+}
+
 /**
  * Canonical transcript store - keeps all original content with enough state to re-render later
  */

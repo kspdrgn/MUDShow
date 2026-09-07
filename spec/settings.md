@@ -45,6 +45,7 @@ While the app settings tab stays open, it remembers the last selected tab. If th
 ## Transcript - behavior of output area
 - Keep current output in view when scrolling - enables split output when scrolling up.
 - Scrollback chunks - controls how many transcript chunks are retained for each open world tab. The default is 50,000 chunks. This is in-session scrollback and is separate from the optional per-character restored output history described in `spec/output.md`.
+- Line selection range - controls the minimum cumulative line count across transcript chunks that enters long selection mode. The default is 40. This setting changes the interaction threshold without changing virtualization or scrollback retention. The tooltip reads "Selecting across this many lines enters long selection mode".
 - Show image link previews - A boolean app setting controls whether image URLs in transcript links may later render inline previews. The default is off.
 - Refresh image previews - A button in this section forces image previews to reload without changing the database file location or transcript history cache.
 

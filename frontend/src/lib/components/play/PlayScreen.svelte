@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import type { Trigger } from '../../types';
   import type { PlayTranscript, RenderCache } from '../../playback';
+  import type { LastActivityMarker } from '../../transcript-indicators';
   import type { SerializedDockview } from 'dockview';
   import type { DockviewThemeId } from '../../dockview-themes';
   import InputBars from './InputBars.svelte';
@@ -78,6 +79,8 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
   export let showCurrentOutputWhenScrollingUp = true;
   export let transcriptDiagnosticsEnabled = false;
   export let userScrolled = false;
+  export let lastActivityMarker: LastActivityMarker | null = null;
+  export let chunkSelectRangeMin = 40;
   export let squiggleOpacity = 1;
   export let squiggleColor = '#ff0000';
   export let squiggleStyle = 'wavy';
@@ -109,6 +112,8 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     void showCurrentOutputWhenScrollingUp;
     void transcriptDiagnosticsEnabled;
     void userScrolled;
+    void lastActivityMarker;
+    void chunkSelectRangeMin;
     void transcript;
     void outputRevision;
     void renderCache;
@@ -210,6 +215,8 @@ import PlayDockviewSandbox from './PlayDockviewSandbox.svelte';
     showCurrentOutputWhenScrollingUp={showCurrentOutputWhenScrollingUp}
     transcriptDiagnosticsEnabled={transcriptDiagnosticsEnabled}
     userScrolled={userScrolled}
+    lastActivityMarker={lastActivityMarker}
+    chunkSelectRangeMin={chunkSelectRangeMin}
     canReconnect={canReconnect}
     canDisconnect={canDisconnect}
     canQuickLog={canQuickLog}

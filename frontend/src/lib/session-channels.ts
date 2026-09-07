@@ -44,6 +44,10 @@ export function createWorldChannelActions({
     updateWorldSession(tabId, { userScrolled: distance > 2 });
   }
 
+  function dismissLastActivityMarker(tabId: string): void {
+    updateWorldSession(tabId, { lastActivityMarker: null });
+  }
+
   function handleOutputScroll(userInitiated = false): void {
     if (!userInitiated) {
       return;
@@ -68,6 +72,7 @@ export function createWorldChannelActions({
       return;
     }
 
+    dismissLastActivityMarker(tabId);
     updateOutputScrollState(tabId, outputEl);
   }
 
@@ -88,12 +93,14 @@ export function createWorldChannelActions({
     }
 
     if (action === 'top') {
+      dismissLastActivityMarker(tabId);
       scrollElementToTop(getWorldOutputAreaId(scope));
       updateOutputScrollState(tabId, outputEl);
       return;
     }
 
     if (action === 'bottom') {
+      dismissLastActivityMarker(tabId);
       scrollElementToBottom(getWorldOutputAreaId(scope));
       // Ctrl+End/Page-end is an explicit request to resume following output;
       // do not depend on a possibly stale virtualized scrollHeight reading to
@@ -103,12 +110,14 @@ export function createWorldChannelActions({
     }
 
     if (action === 'page-up') {
+      dismissLastActivityMarker(tabId);
       scrollElementBy(getWorldOutputAreaId(scope), -outputEl.clientHeight);
       updateOutputScrollState(tabId, outputEl);
       return;
     }
 
     if (action === 'page-down') {
+      dismissLastActivityMarker(tabId);
       scrollElementBy(getWorldOutputAreaId(scope), outputEl.clientHeight);
       updateOutputScrollState(tabId, outputEl);
     }
@@ -120,6 +129,7 @@ export function createWorldChannelActions({
       return;
     }
 
+    dismissLastActivityMarker(tabId);
     updateWorldSession(tabId, { userScrolled: false });
     const scope = getWorldDomScope(tabId);
     void nextFrame().then(() => {

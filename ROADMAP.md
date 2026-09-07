@@ -5,9 +5,9 @@ This is the canonical high-level implementation checklist for the app. It exclud
 Detailed design and implementation notes remain in the relevant `PLAN_*.md` files. Keep this document focused on major outcomes, not individual code tasks.
 
 ## P0 — Reliability and usability blockers
-
+01
 - [~] Stabilize transcript behavior during heavy interaction: autoscroll, split scrolling, resizing, zooming, and inactive-tab recovery are implemented; browser-level stress coverage remains.
-- [~] Make text selection reliable across virtualized transcript content: bounded native selection and canonical range extraction are implemented; the full marker/context-menu UX remains.
+- [X] Make text selection reliable across virtualized transcript content: bounded native selection, canonical range extraction, long-selection markers, handle hit areas, and context-menu navigation are implemented.
 - [~] Complete frontend-reload connection recovery and diagnostics ([`PLAN_FRONTENDSEPARATECONNECTION.md`](PLAN_FRONTENDSEPARATECONNECTION.md)): runtime/session metadata, replay, attach/detach, recovery, and replay-gap diagnostics are implemented; structured resynchronization remains.
 - [~] Add regression coverage for connection, transcript, scrolling, and persistence behavior ([`PLAN_TESTS.md`](PLAN_TESTS.md)): focused connection, transcript, and virtual-layout coverage is present; broader lifecycle and browser coverage remains.
 - [~] Stress-test and optimize transcript rendering for long histories and sustained traffic ([`PLAN_PERF.md`](PLAN_PERF.md)): indexed visible-range lookup and bounded render work are implemented; sustained-traffic profiling remains.
@@ -40,6 +40,7 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 - [ ] Improve rule-tree affordances and trigger action summaries.
 - [ ] Add rolling auto-logging, customizable log naming/folders, and date-offset handling.
 - [ ] Add always-on-top and transparency options.
+- [X] Add compact previews for collapsed Dockview edge controls: tabs and custom controls reveal without shifting the reading area; tabs expand the full dock while custom controls operate in place.
 - [~] Clean up focus behavior, key conflicts, tree selection, and native find-dialog behavior: clicking Dockview panel tabs in the active world now restores focus to the selected input bar; the remaining focus and navigation cleanup is still open.
 - [ ] Clean up webview context menus: audit every app UI surface where the native webview context menu is still available, catalog those surfaces (including embedded/non-app surfaces), and decide whether each should block the menu or route unused space in the active world session to that world tab's context menu; default toward disabling native context menus through a configurable switch while preserving the developer-tools shortcut in the app menu.
 

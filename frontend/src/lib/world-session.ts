@@ -3,6 +3,7 @@ import { createInputBars, type InputBarConfig } from './input-bars';
 import { PlayTranscript, type TranscriptHistoryEntry, RenderCache } from './playback';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { ConnectionStatus, DisconnectReason } from './session-state';
+import type { LastActivityMarker } from './transcript-indicators';
 
 export interface WorldSessionProjection {
   currentWorld: WorldRecord | null;
@@ -15,6 +16,7 @@ export interface WorldSessionProjection {
   connectionStatus: ConnectionStatus;
   disconnectReason: DisconnectReason;
   hasNewActivity: boolean;
+  lastActivityMarker: LastActivityMarker | null;
   loggingActive: boolean;
   logFilePath: string | null;
   logFolderPath: string | null;
@@ -39,6 +41,7 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     connectionStatus: 'idle',
     disconnectReason: null,
     hasNewActivity: false,
+    lastActivityMarker: null,
     loggingActive: false,
     logFilePath: null,
     logFolderPath: null,
@@ -61,6 +64,7 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     connectionStatus: session.connectionStatus,
     disconnectReason: session.disconnectReason,
     hasNewActivity: session.hasNewActivity,
+    lastActivityMarker: session.lastActivityMarker,
     loggingActive: session.loggingActive,
     logFilePath: session.logFilePath,
     logFolderPath: session.logFolderPath,

@@ -26,6 +26,7 @@
   import type { DockviewPanelPlacement } from './dockview-panel-types';
   import type { InputBarId } from '../../input-bars';
   import type { PlayTranscript, RenderCache } from '../../playback';
+  import type { LastActivityMarker } from '../../transcript-indicators';
   import type { Trigger } from '../../types';
   import type { WorldSessionAction } from '../../world-session-action';
   import type { SurfaceEdge } from '../../surfaces/surface-registry';
@@ -56,6 +57,8 @@
   export let showCurrentOutputWhenScrollingUp = true;
   export let transcriptDiagnosticsEnabled = false;
   export let userScrolled = false;
+  export let lastActivityMarker: LastActivityMarker | null = null;
+  export let chunkSelectRangeMin = 40;
   export let canReconnect = false;
   export let canDisconnect = false;
   export let canQuickLog = false;
@@ -103,6 +106,10 @@
   let topEdgeHidden = false;
   let rightEdgeHidden = false;
   let leftEdgeHidden = false;
+  let topEdgePreviewVisible = false;
+  let rightEdgePreviewVisible = false;
+  let leftEdgePreviewVisible = false;
+  let edgePreviewRevision = 0;
   let topHideTimer: ReturnType<typeof setTimeout> | null = null;
   let rightHideTimer: ReturnType<typeof setTimeout> | null = null;
   let leftHideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -190,11 +197,45 @@
   function setEdgeGroupHidden(position: EdgeGroupPosition, hidden: boolean): void {
     if (position === 'top') {
       topEdgeHidden = hidden;
+      topEdgePreviewVisible = false;
     } else if (position === 'right') {
       rightEdgeHidden = hidden;
+      rightEdgePreviewVisible = false;
     } else {
       leftEdgeHidden = hidden;
+      leftEdgePreviewVisible = false;
     }
+  }
+
+  function setEdgePreviewVisible(position: EdgeGroupPosition, visible: boolean): void {
+    if (position === 'top') {
+      topEdgePreviewVisible = visible;
+    } else if (position === 'right') {
+      rightEdgePreviewVisible = visible;
+    } else {
+      leftEdgePreviewVisible = visible;
+    }
+  }
+
+  function refreshEdgePreview(): void {
+    edgePreviewRevision += 1;
+  }
+
+  function getEdgePreviewPanels(position: EdgeGroupPosition) {
+    // Keep the preview derived from Dockview's live panels so it always uses
+    // the same titles and active state as the real tab strip.
+    return dockview?.getEdgeGroupPanel(position)?.panels ?? [];
+  }
+
+  function expandEdgeGroupFromPreview(position: EdgeGroupPosition, panelId: string): void {
+    const group = getEdgeGroup(position);
+    if (!dockview || !group) return;
+
+    clearHideTimer(position);
+    group.expand();
+    dockview.setEdgeGroupVisible(position, true);
+    setEdgeGroupHidden(position, false);
+    dockview?.getEdgeGroupPanel(position)?.panels.find((panel) => panel.id === panelId)?.api.setActive();
   }
 
   const dropPositionResolver: PositionResolver = {
@@ -239,6 +280,8 @@
       showCurrentOutputWhenScrollingUp,
       transcriptDiagnosticsEnabled,
       userScrolled,
+      lastActivityMarker,
+      chunkSelectRangeMin,
       canReconnect,
       canDisconnect,
       canQuickLog,
@@ -277,6 +320,8 @@
     showCurrentOutputWhenScrollingUp;
     transcriptDiagnosticsEnabled;
     userScrolled;
+    lastActivityMarker;
+    chunkSelectRangeMin;
     canReconnect;
     canDisconnect;
     canQuickLog;
@@ -356,9 +401,10 @@
     }
 
     clearHideTimer(position);
-    dockview.setEdgeGroupVisible(position, true);
-
-    setEdgeGroupHidden(position, false);
+    // Leave Dockview hidden so a passing pointer does not resize the reading
+    // area. The preview is an overlay and promotes to the real group only on
+    // an intentional tab activation.
+    setEdgePreviewVisible(position, true);
   }
 
   function keepEdgeGroupVisibleDuringTabDrag(position: EdgeGroupPosition): boolean {
@@ -488,6 +534,7 @@
 
     group.collapse();
     dockview?.setEdgeGroupVisible(position, true);
+    refreshEdgePreview();
     scheduleHideEdgeGroup(position);
   }
 
@@ -519,6 +566,7 @@
       }
       dockview.setEdgeGroupVisible(position, true);
       setEdgeGroupHidden(position, false);
+      refreshEdgePreview();
     }
   }
 
@@ -941,6 +989,7 @@
           } else {
             edgeGroupCustomActionIds.delete(group.id);
           }
+          refreshEdgePreview();
         }
 
         return {
@@ -1451,6 +1500,7 @@
       revealEdgeGroupForPanel('top');
       updatePanelPlacement(panel);
       bringPanelToFront(panel);
+      refreshEdgePreview();
     };
 
     syncNotesPanel = () => {
@@ -1497,6 +1547,7 @@
       revealEdgeGroupForPanel('top');
       updatePanelPlacement(panel);
       bringPanelToFront(panel);
+      refreshEdgePreview();
     };
 
     syncTreeDataPanels = () => {
@@ -1544,6 +1595,7 @@
         revealEdgeGroupForPanel('top');
         updatePanelPlacement(panel);
         bringPanelToFront(panel);
+        refreshEdgePreview();
       }
     };
 
@@ -1613,6 +1665,7 @@
         revealEdgeGroupForPanel('top');
         updatePanelPlacement(panel);
         bringPanelToFront(panel);
+        refreshEdgePreview();
       }
     };
 
@@ -1829,6 +1882,46 @@
       aria-hidden="true"
       on:mouseenter={() => revealEdgeGroup('top')}
     ></div>
+    {#if topEdgePreviewVisible}
+      {#key edgePreviewRevision}
+        <div
+          class="play-dockview-edge-preview play-dockview-edge-preview--top"
+          role="toolbar"
+          tabindex="-1"
+          aria-label="Top dock preview"
+          on:mouseenter={() => { clearHideTimer('top'); setEdgePreviewVisible('top', true); }}
+          on:mouseleave={() => scheduleHideEdgeGroup('top')}
+        >
+          <div class="play-dockview-edge-preview__tabs" role="tablist" aria-label="Top dock surfaces">
+            {#each getEdgePreviewPanels('top') as panel (panel.id)}
+              <button
+                type="button"
+                class="play-dockview-edge-preview__tab"
+                class:active={dockview?.getEdgeGroupPanel('top')?.activePanel?.id === panel.id}
+                role="tab"
+                aria-selected={dockview?.getEdgeGroupPanel('top')?.activePanel?.id === panel.id}
+                on:click={() => expandEdgeGroupFromPreview('top', panel.id)}
+              >{panel.api.title ?? panel.title}</button>
+            {/each}
+          </div>
+          {#if topActions.length > 0}
+            <div class="play-dockview-edge-preview__actions" role="group" aria-label="Top dock custom controls">
+              {#each topActions as action (action.id)}
+                {#if action.kind === 'button'}
+                  <button type="button" class="play-dockview-header-action" disabled={action.disabled ?? false} title={action.title ?? action.label} on:click={action.onClick}>{action.label}</button>
+                {:else}
+                  <select class="play-dockview-header-action play-dockview-header-select" disabled={action.disabled ?? false} title={action.title ?? action.label} aria-label={action.title ?? action.label} value={action.value ?? ''} on:change={(event) => action.onChange(event.currentTarget.value)}>
+                    {#each action.options as option (option.value)}
+                      <option value={option.value}>{option.label}</option>
+                    {/each}
+                  </select>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/key}
+    {/if}
   {/if}
 
   {#if rightEdgeHidden}
@@ -1837,6 +1930,15 @@
       aria-hidden="true"
       on:mouseenter={() => revealEdgeGroup('right')}
     ></div>
+    {#if rightEdgePreviewVisible}
+      {#key edgePreviewRevision}
+        <div class="play-dockview-edge-preview play-dockview-edge-preview--right" role="toolbar" tabindex="-1" aria-label="Right dock preview" on:mouseenter={() => { clearHideTimer('right'); setEdgePreviewVisible('right', true); }} on:mouseleave={() => scheduleHideEdgeGroup('right')}>
+          {#each getEdgePreviewPanels('right') as panel (panel.id)}
+            <button type="button" class="play-dockview-edge-preview__tab" class:active={dockview?.getEdgeGroupPanel('right')?.activePanel?.id === panel.id} role="tab" aria-selected={dockview?.getEdgeGroupPanel('right')?.activePanel?.id === panel.id} on:click={() => expandEdgeGroupFromPreview('right', panel.id)}>{panel.api.title ?? panel.title}</button>
+          {/each}
+        </div>
+      {/key}
+    {/if}
   {/if}
 
   {#if leftEdgeHidden}
@@ -1845,6 +1947,15 @@
       aria-hidden="true"
       on:mouseenter={() => revealEdgeGroup('left')}
     ></div>
+    {#if leftEdgePreviewVisible}
+      {#key edgePreviewRevision}
+        <div class="play-dockview-edge-preview play-dockview-edge-preview--left" role="toolbar" tabindex="-1" aria-label="Left dock preview" on:mouseenter={() => { clearHideTimer('left'); setEdgePreviewVisible('left', true); }} on:mouseleave={() => scheduleHideEdgeGroup('left')}>
+          {#each getEdgePreviewPanels('left') as panel (panel.id)}
+            <button type="button" class="play-dockview-edge-preview__tab" class:active={dockview?.getEdgeGroupPanel('left')?.activePanel?.id === panel.id} role="tab" aria-selected={dockview?.getEdgeGroupPanel('left')?.activePanel?.id === panel.id} on:click={() => expandEdgeGroupFromPreview('left', panel.id)}>{panel.api.title ?? panel.title}</button>
+          {/each}
+        </div>
+      {/key}
+    {/if}
   {/if}
 
   <div bind:this={dockRoot} class="play-dockview-sandbox-root"></div>

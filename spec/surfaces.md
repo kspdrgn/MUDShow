@@ -64,7 +64,8 @@
 The Dockview library gates auto-hide behavior behind an Enterprise subscription which we do not have. We have created a small custom auto-hide functionality for edge groups:
 - Edge tab groups may use the custom in-app auto-hide behavior when the Dockview auto-hide module is unavailable.
 - Each hidden edge group has a reveal trigger along its edge: wider top, right, and left edge triggers are available for their respective groups.
-- Hovering a reveal trigger makes that edge group visible while keeping it collapsed. Selecting a tab expands the group normally.
+- Hovering a reveal trigger shows a compact, non-layout preview of that edge group's surface tabs and custom controls. The native Dockview group remains hidden so the reading area does not shift while the pointer is passing by.
+- Selecting a surface tab in the preview expands the group and shows the selected surface in the normal Dockview interface. Activating a custom preview control invokes that control without expanding the group or showing the full bar.
 - Reveal triggers are disabled for edge groups with no tabs or custom UI; a group containing either tabs or rendered custom UI remains revealable.
 - While a panel tab is being dragged, all edge groups remain visible as drop targets for the duration of the drag. Their normal auto-hide and empty-group cleanup are restored when the drag ends.
 - The hide timer is two seconds. It starts when an edge group becomes empty and collapsed, when a populated edge group becomes collapsed, when the pointer leaves that edge group, or when the pointer leaves the Dockview sandbox.

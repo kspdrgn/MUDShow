@@ -290,6 +290,7 @@ PlayScreen
     - expanded: its surface content and tab bar are visible;
     - collapsed: its content is hidden while its edge reveal/tab strip remains available.
   - A collapsed edge group may be auto-hidden after the custom edge hide delay. Its reveal trigger remains available at that edge when it contains a surface or host action.
+  - Hovering a hidden edge reveal trigger shows a compact preview of the group's surface tabs and custom controls without changing the reading area's layout. Clicking a surface tab expands the full Dockview bar; clicking a custom control operates it in place without expanding the bar.
   - Selecting a surface tab from a collapsed edge group expands that group and shows the selected surface.
   - Leaving the Dockview area must not collapse an expanded edge group. Leaving the area may allow a collapsed group to remain collapsed or complete its pending auto-hide timer, but it must not expand the group.
   - Moving a surface between edge groups preserves the surface instance and controller state. The destination group becomes visible and expanded for the moved surface.

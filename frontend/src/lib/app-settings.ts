@@ -18,6 +18,7 @@ export interface AppSettings {
   imagePreviewCacheVersion: number;
   showCurrentOutputWhenScrollingUp: boolean;
   transcriptScrollbackChunks: number;
+  chunkSelectRangeMin: number;
   connectionTimeoutSeconds: number;
   connectionRetries: number;
   keepAlive: boolean;
@@ -47,6 +48,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   imagePreviewCacheVersion: 0,
   showCurrentOutputWhenScrollingUp: true,
   transcriptScrollbackChunks: DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS,
+  chunkSelectRangeMin: 40,
   connectionTimeoutSeconds: 10,
   connectionRetries: 3,
   keepAlive: true,
@@ -213,6 +215,10 @@ export function loadAppSettings(): AppSettings {
       raw.transcriptScrollbackChunks,
       DEFAULT_APP_SETTINGS.transcriptScrollbackChunks,
     ),
+    chunkSelectRangeMin: normalizePositiveInteger(
+      raw.chunkSelectRangeMin,
+      DEFAULT_APP_SETTINGS.chunkSelectRangeMin,
+    ),
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
       : DEFAULT_APP_SETTINGS.connectionTimeoutSeconds,
@@ -280,6 +286,10 @@ export function saveAppSettings(settings: AppSettings): AppSettings {
     transcriptScrollbackChunks: normalizePositiveInteger(
       settings.transcriptScrollbackChunks,
       DEFAULT_APP_SETTINGS.transcriptScrollbackChunks,
+    ),
+    chunkSelectRangeMin: normalizePositiveInteger(
+      settings.chunkSelectRangeMin,
+      DEFAULT_APP_SETTINGS.chunkSelectRangeMin,
     ),
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),

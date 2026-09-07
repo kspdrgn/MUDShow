@@ -3122,6 +3122,8 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
         squiggleStyle={$appSettingsStore.squiggleStyle}
         squiggleSize={$appSettingsStore.squiggleSize}
         userScrolled={worldSession.userScrolled}
+        lastActivityMarker={worldSession.lastActivityMarker}
+        chunkSelectRangeMin={$appSettingsStore.chunkSelectRangeMin}
         transcript={worldSession.transcript}
         outputRevision={worldSession.outputRevision}
         renderCache={worldSession.renderCache}

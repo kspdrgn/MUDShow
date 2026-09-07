@@ -97,6 +97,7 @@ export function createWorldConnectionActions({
         connectionStatus: 'connecting',
         disconnectReason: null,
         hasNewActivity: false,
+        lastActivityMarker: null,
         outputRevision: session.outputRevision + 1,
         userScrolled: false,
         activeBar,
@@ -109,6 +110,7 @@ export function createWorldConnectionActions({
         connectionStatus: 'connecting',
         disconnectReason: null,
         hasNewActivity: false,
+        lastActivityMarker: null,
       });
     }
 

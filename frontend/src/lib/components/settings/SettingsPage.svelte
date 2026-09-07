@@ -272,6 +272,20 @@
                 })}
             />
           </label>
+          <label class="field" title="Selecting across this many lines enters long selection mode">
+            <span>Line selection range</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={settings.chunkSelectRangeMin}
+              title="Selecting across this many lines enters long selection mode"
+              on:input={(event) =>
+                updateSettings({
+                  chunkSelectRangeMin: Math.max(1, Math.round(Number((event.currentTarget as HTMLInputElement).value))),
+                })}
+            />
+          </label>
           <button
             type="button"
             class="btn"

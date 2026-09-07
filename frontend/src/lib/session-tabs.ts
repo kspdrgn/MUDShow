@@ -618,9 +618,16 @@ export function createSessionTabsActions({
         const previousChunkCount = worldSession.transcript.getChunkCount();
         worldSession.transcript.setMaxChunks(transcriptScrollbackChunks);
         const nextChunkCount = worldSession.transcript.getChunkCount();
+        const firstChunk = worldSession.transcript.getChunk(0);
+        const lastActivityMarker = worldSession.lastActivityMarker
+          && firstChunk
+          && worldSession.lastActivityMarker.boundary.chunkId < firstChunk.id
+          ? null
+          : worldSession.lastActivityMarker;
 
         worldSessions[tabId] = {
           ...worldSession,
+          lastActivityMarker,
           outputRevision:
             nextChunkCount === previousChunkCount
               ? worldSession.outputRevision

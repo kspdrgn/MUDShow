@@ -9,7 +9,7 @@
     isTranscriptDiagnosticsEnabled,
     setTranscriptDiagnosticsEnabled,
   } from '../../formatting';
-  import type { PlayTranscript, RenderCache } from '../../playback';
+  import { getTranscriptRangeTextByChunkIds, type PlayTranscript, type RenderCache } from '../../playback';
   import {
     copyTextToClipboard,
     focusElement,
@@ -20,6 +20,15 @@
   import { openExternalUrl } from '../../tauri';
   import { getScopedInputBarInputId, type InputBarId } from '../../input-bars';
   import type { HighlightRule, Rule, Trigger } from '../../types';
+  import type { LastActivityMarker } from '../../transcript-indicators';
+  import {
+    compareTranscriptBoundaries,
+    createTranscriptRangeSelection,
+    EMPTY_TRANSCRIPT_SELECTION,
+    isTranscriptSelectionCollapsed,
+    type TranscriptBoundary,
+    type TranscriptSelectionState,
+  } from '../../transcript-indicators';
   import WorldContextMenu from './WorldContextMenu.svelte';
   import {
     HISTORY_OVERSCAN_PX,
@@ -54,6 +63,8 @@
   export let showCurrentOutputWhenScrollingUp = true;
   export let transcriptDiagnosticsEnabled = false;
   export let userScrolled = false;
+  export let lastActivityMarker: LastActivityMarker | null = null;
+  export let chunkSelectRangeMin = 40;
   export let canReconnect = false;
   export let canDisconnect = false;
   export let canQuickLog = false;
@@ -97,6 +108,19 @@
   let transcriptHistoryScrollerElement: HTMLDivElement | null = null;
   let transcriptLiveElement: HTMLDivElement | null = null;
   let contextMenuOpen = false;
+  let transcriptSelection: TranscriptSelectionState = EMPTY_TRANSCRIPT_SELECTION;
+  let selectionMenuPosition = { x: 0, y: 0 };
+  let pointerDrag: { anchor: TranscriptBoundary; handle: 'start' | 'end' | null } | null = null;
+  let removeSelectionPointerListeners: (() => void) | null = null;
+  let selectionStartBoundary: TranscriptBoundary | null = null;
+  let selectionEndBoundary: TranscriptBoundary | null = null;
+  let selectionTopBoundary: TranscriptBoundary | null = null;
+  let selectionBottomBoundary: TranscriptBoundary | null = null;
+  let selectedChunkIds = new Set<number>();
+  let selectionStartRole: 'top' | 'bottom' = 'top';
+  let selectionEndRole: 'top' | 'bottom' = 'bottom';
+  let activityAgeNow = Date.now();
+  let activityAgeTimer: number | null = null;
   let contextMenuPosition = { x: 0, y: 0 };
   let transcriptZoom = 1;
   let removeZoomKeydownListener: (() => void) | null = null;
@@ -118,6 +142,238 @@
 
   function closeContextMenu(): void {
     contextMenuOpen = false;
+  }
+
+  function getChunkBoundary(target: EventTarget | null, clientY: number): TranscriptBoundary | null {
+    if (!(target instanceof Element)) return null;
+    const chunk = target.closest<HTMLElement>('[data-transcript-chunk-id]');
+    if (!chunk) return null;
+    const chunkId = Number(chunk.dataset.transcriptChunkId);
+    if (!Number.isFinite(chunkId)) return null;
+    const rect = chunk.getBoundingClientRect();
+    return { chunkId, side: clientY <= rect.top + rect.height / 2 ? 'before' : 'after' };
+  }
+
+  function getChunkBoundaryAtPoint(clientX: number, clientY: number): TranscriptBoundary | null {
+    const elements = document.elementsFromPoint(clientX, clientY);
+    for (const element of elements) {
+      const boundary = getChunkBoundary(element, clientY);
+      if (boundary) return boundary;
+    }
+    return null;
+  }
+
+  function clearNativeSelection(): void {
+    window.getSelection()?.removeAllRanges();
+  }
+
+  function updateRangeEndpoint(boundary: TranscriptBoundary, handle: 'start' | 'end'): void {
+    if (transcriptSelection.mode !== 'range') return;
+    transcriptSelection = createTranscriptRangeSelection(
+      handle === 'start' ? boundary : transcriptSelection.start,
+      handle === 'end' ? boundary : transcriptSelection.end,
+      false,
+    );
+  }
+
+  function getSelectedChunkIds(): Set<number> {
+    if (transcriptSelection.mode !== 'range') return new Set();
+    const start = Math.min(transcriptSelection.start.chunkId, transcriptSelection.end.chunkId);
+    const end = Math.max(transcriptSelection.start.chunkId, transcriptSelection.end.chunkId);
+    const ids = new Set<number>();
+    for (const chunk of transcript.getChunks()) {
+      if (chunk.id >= start && chunk.id <= end) ids.add(chunk.id);
+    }
+    return ids;
+  }
+
+  function getSelectionLineCount(startChunkId: number, endChunkId: number): number {
+    const first = Math.min(startChunkId, endChunkId);
+    const last = Math.max(startChunkId, endChunkId);
+    let lines = 0;
+    for (const chunk of transcript.getChunks()) {
+      if (chunk.id >= first && chunk.id <= last) lines += chunk.lineCount;
+    }
+    return lines;
+  }
+
+  function isChunkSelected(chunkId: number): boolean {
+    return getSelectedChunkIds().has(chunkId);
+  }
+
+  function isSelectionHandle(boundary: TranscriptBoundary, handle: 'start' | 'end'): boolean {
+    if (transcriptSelection.mode !== 'range') return false;
+    const value = handle === 'start' ? transcriptSelection.start : transcriptSelection.end;
+    return value.chunkId === boundary.chunkId && value.side === boundary.side;
+  }
+
+  function getSelectionHandleRole(handle: 'start' | 'end'): 'top' | 'bottom' {
+    if (transcriptSelection.mode !== 'range') return 'top';
+    const startIsTop = compareTranscriptBoundaries(
+      transcriptSelection.start,
+      transcriptSelection.end,
+    ) <= 0;
+    return handle === 'start'
+      ? (startIsTop ? 'top' : 'bottom')
+      : (startIsTop ? 'bottom' : 'top');
+  }
+
+  function getSelectionHandleBoundary(role: 'top' | 'bottom'): TranscriptBoundary | null {
+    if (transcriptSelection.mode !== 'range') return null;
+    return role === getSelectionHandleRole('start')
+      ? transcriptSelection.start
+      : transcriptSelection.end;
+  }
+
+  function getSelectionHandleEndpoint(role: 'top' | 'bottom'): 'start' | 'end' {
+    return role === getSelectionHandleRole('start') ? 'start' : 'end';
+  }
+
+  function openSelectionMenu(event: PointerEvent | MouseEvent): void {
+    selectionMenuPosition = {
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - 180)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - 90)),
+    };
+    if (transcriptSelection.mode === 'range') {
+      transcriptSelection = { ...transcriptSelection, menuOpen: true };
+    }
+  }
+
+  function removeSelectionListeners(): void {
+    removeSelectionPointerListeners?.();
+    removeSelectionPointerListeners = null;
+  }
+
+  function handleSelectionPointerMove(event: PointerEvent): void {
+    if (!pointerDrag) return;
+    let boundary = pointerDrag.handle
+      ? getChunkBoundaryAtPoint(event.clientX, event.clientY)
+      : getChunkBoundary(event.target, event.clientY);
+    if (!boundary && transcriptHistoryScrollerElement instanceof HTMLElement) {
+      const rect = transcriptHistoryScrollerElement.getBoundingClientRect();
+      if (event.clientY <= rect.top + 24 && renderedChunks[0]) {
+        boundary = { chunkId: renderedChunks[0].id, side: 'before' };
+        transcriptHistoryScrollerElement.scrollTop -= 18;
+      } else if (event.clientY >= rect.bottom - 24 && renderedChunks[renderedChunks.length - 1]) {
+        boundary = { chunkId: renderedChunks[renderedChunks.length - 1].id, side: 'after' };
+        transcriptHistoryScrollerElement.scrollTop += 18;
+      }
+    }
+    if (!boundary) return;
+
+    if (pointerDrag.handle) {
+      updateRangeEndpoint(boundary, pointerDrag.handle);
+      clearNativeSelection();
+      return;
+    }
+
+    if (boundary.chunkId === pointerDrag.anchor.chunkId) return;
+    const firstRenderedId = renderedChunks[0]?.id;
+    const lastRenderedId = renderedChunks[renderedChunks.length - 1]?.id;
+    const crossedVirtualWindow = boundary.chunkId === firstRenderedId || boundary.chunkId === lastRenderedId;
+    const crossedConfiguredRange = getSelectionLineCount(
+      pointerDrag.anchor.chunkId,
+      boundary.chunkId,
+    ) >= Math.max(1, Math.round(chunkSelectRangeMin));
+    if (!crossedVirtualWindow && !crossedConfiguredRange) return;
+
+    transcriptSelection = createTranscriptRangeSelection(pointerDrag.anchor, boundary);
+    clearNativeSelection();
+    event.preventDefault();
+  }
+
+  function handleSelectionPointerUp(event: PointerEvent): void {
+    if (!pointerDrag) return;
+    const wasRange = transcriptSelection.mode === 'range';
+    pointerDrag = null;
+    removeSelectionListeners();
+    if (wasRange) {
+      if (isTranscriptSelectionCollapsed(transcriptSelection)) {
+        cancelTranscriptSelection();
+        return;
+      }
+      openSelectionMenu(event);
+    }
+  }
+
+  function installSelectionListeners(): void {
+    removeSelectionListeners();
+    window.addEventListener('pointermove', handleSelectionPointerMove, true);
+    window.addEventListener('pointerup', handleSelectionPointerUp, true);
+    removeSelectionPointerListeners = () => {
+      window.removeEventListener('pointermove', handleSelectionPointerMove, true);
+      window.removeEventListener('pointerup', handleSelectionPointerUp, true);
+    };
+  }
+
+  function beginSelectionPointerDrag(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    const boundary = getChunkBoundary(event.target, event.clientY);
+    if (!boundary) return;
+    pointerDrag = { anchor: boundary, handle: null };
+    installSelectionListeners();
+  }
+
+  function beginSelectionHandleDrag(event: PointerEvent, handle: 'start' | 'end'): void {
+    if (transcriptSelection.mode !== 'range') return;
+    event.preventDefault();
+    event.stopPropagation();
+    pointerDrag = { anchor: handle === 'start' ? transcriptSelection.start : transcriptSelection.end, handle };
+    installSelectionListeners();
+  }
+
+  async function copyTranscriptSelection(): Promise<void> {
+    if (transcriptSelection.mode !== 'range') return;
+    const text = getTranscriptRangeTextByChunkIds(
+      transcript,
+      transcriptSelection.start.chunkId,
+      transcriptSelection.end.chunkId,
+    );
+    if (text) await copyTextToClipboard(text);
+    transcriptSelection = EMPTY_TRANSCRIPT_SELECTION;
+    focusElement(getScopedInputBarInputId(scope, activeBar));
+  }
+
+  function cancelTranscriptSelection(): void {
+    pointerDrag = null;
+    removeSelectionListeners();
+    transcriptSelection = EMPTY_TRANSCRIPT_SELECTION;
+    clearNativeSelection();
+    closeContextMenu();
+    focusElement(getScopedInputBarInputId(scope, activeBar));
+  }
+
+  function jumpToSelectionHandle(role: 'top' | 'bottom'): void {
+    const boundary = getSelectionHandleBoundary(role);
+    if (!boundary || !(transcriptHistoryScrollerElement instanceof HTMLElement)) return;
+
+    let index = -1;
+    for (let candidate = 0; candidate < transcript.getChunkCount(); candidate += 1) {
+      if (transcript.getChunk(candidate)?.id === boundary.chunkId) {
+        index = candidate;
+        break;
+      }
+    }
+    if (index < 0) return;
+
+    const maxIndex = Math.max(1, transcript.getChunkCount() - 1);
+    transcriptHistoryScrollerElement.scrollTop =
+      Math.max(0, transcriptHistoryScrollerElement.scrollHeight * (index / maxIndex)
+        - transcriptHistoryScrollerElement.clientHeight / 2);
+    if (transcriptSelection.mode === 'range') {
+      transcriptSelection = { ...transcriptSelection, menuOpen: false };
+    }
+  }
+
+  function formatActivityAge(timestamp: number): string {
+    const seconds = Math.max(0, Math.floor((activityAgeNow - timestamp) / 1000));
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    if (hours < 48) return 'yesterday';
+    return `${Math.floor(hours / 24)}d ago`;
   }
 
   function logTranscriptDiagnostics(event: string, details: Record<string, unknown>): void {
@@ -244,6 +500,28 @@
   $: ruleRegexes = buildRuleRegexes(rules);
   $: splitView = showCurrentOutputWhenScrollingUp && userScrolled;
   $: setTranscriptDiagnosticsEnabled(transcriptDiagnosticsEnabled);
+
+  $: selectionStartBoundary = transcriptSelection.mode === 'range'
+    ? transcriptSelection.start
+    : null;
+  $: selectionEndBoundary = transcriptSelection.mode === 'range'
+    ? transcriptSelection.end
+    : null;
+  $: selectionTopBoundary = transcriptSelection.mode === 'range'
+    ? { chunkId: Math.min(transcriptSelection.start.chunkId, transcriptSelection.end.chunkId), side: 'before' }
+    : null;
+  $: selectionBottomBoundary = transcriptSelection.mode === 'range'
+    ? { chunkId: Math.max(transcriptSelection.start.chunkId, transcriptSelection.end.chunkId), side: 'after' }
+    : null;
+  $: selectionStartRole = transcriptSelection.mode === 'range'
+    ? compareTranscriptBoundaries(transcriptSelection.start, transcriptSelection.end) <= 0 ? 'top' : 'bottom'
+    : 'top';
+  $: selectionEndRole = transcriptSelection.mode === 'range'
+    ? selectionStartRole === 'top' ? 'bottom' : 'top'
+    : 'bottom';
+  $: selectedChunkIds = transcriptSelection.mode === 'range'
+    ? getSelectedChunkIds()
+    : new Set<number>();
 
   $: {
     // Touch the inputs directly so Svelte reruns this block when they change.
@@ -511,6 +789,10 @@
   async function handleMouseUp(): Promise<void> {
     userScrollIntent = false;
 
+    if (transcriptSelection.mode === 'range') {
+      return;
+    }
+
     const selection = window.getSelection();
     const text = selection?.toString() ?? '';
 
@@ -528,6 +810,9 @@
 
   async function handleClick(event: MouseEvent): Promise<void> {
     closeContextMenu();
+    if (transcriptSelection.mode === 'range') {
+      transcriptSelection = { ...transcriptSelection, menuOpen: false };
+    }
 
     const target = event.target;
     if (!(target instanceof Element)) {
@@ -795,6 +1080,8 @@
     if (pointerNearScrollbar) {
       userScrollIntent = true;
     }
+
+    beginSelectionPointerDrag(event as PointerEvent);
   }
 
   function handleScrollToBottomClick(): void {
@@ -819,6 +1106,12 @@
   }
 
   function handleContextMenu(event: MouseEvent): void {
+    if (transcriptSelection.mode === 'range') {
+      event.preventDefault();
+      event.stopPropagation();
+      openSelectionMenu(event);
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
 
@@ -898,6 +1191,9 @@
 
   onMount(() => {
     syncTranscriptZoomListener();
+    activityAgeTimer = window.setInterval(() => {
+      activityAgeNow = Date.now();
+    }, 30_000);
 
     removeWorkspaceStateListener = workspaceState?.subscribe(applyWorkspaceState) ?? null;
 
@@ -928,11 +1224,18 @@
       disposeObservers();
       removeWorkspaceStateListener?.();
       removeWorkspaceStateListener = null;
+      if (activityAgeTimer !== null) {
+        window.clearInterval(activityAgeTimer);
+        activityAgeTimer = null;
+      }
     };
   });
 
   onDestroy(() => {
     transcriptDestroyed = true;
+    transcriptSelection = EMPTY_TRANSCRIPT_SELECTION;
+    pointerDrag = null;
+    removeSelectionListeners();
     if (resizeReconcileFrame !== null) {
       cancelAnimationFrame(resizeReconcileFrame);
       resizeReconcileFrame = null;
@@ -969,7 +1272,41 @@
       <div class="output-area-content" bind:this={transcriptContentElement}>
         <div class="output-spacer" aria-hidden="true" style={`height: ${renderedTopSpacer}px;`}></div>
         {#each renderedChunks as renderedChunk (renderedChunk.id)}
-          <div class="output-chunk" title={renderedChunk.title}>{@html renderedChunk.html}</div>
+          {#if lastActivityMarker?.boundary.chunkId === renderedChunk.id && lastActivityMarker.boundary.side === 'before'}
+            <div class="transcript-interface-indicator transcript-last-activity" role="status">
+              Last activity {formatActivityAge(lastActivityMarker.timestamp)}
+            </div>
+          {/if}
+          {#if selectionTopBoundary?.chunkId === renderedChunk.id}
+            <div class="transcript-selection-overlay-anchor transcript-selection-overlay-anchor--top">
+              <div class="transcript-selection-action-row" aria-label="Top selection actions">
+                <button type="button" class="transcript-selection-handle transcript-selection-handle--top" aria-label="Move top selection handle" on:mousedown={(event) => beginSelectionHandleDrag(event as unknown as PointerEvent, getSelectionHandleEndpoint('top'))}></button>
+                <div class="transcript-selection-action-buttons">
+                  <button type="button" class="transcript-selection-action-button--icon" aria-label="Go to lower handle" title="Go to lower handle" on:mousedown|stopPropagation on:click|stopPropagation={() => jumpToSelectionHandle('bottom')}>↓</button>
+                  <button type="button" aria-label="Copy selection" title="Copy selection" on:mousedown|stopPropagation on:click|stopPropagation={() => void copyTranscriptSelection()}>⧉ <span>Copy</span></button>
+                  <button type="button" aria-label="Cancel long selection" title="Cancel long selection" on:mousedown|stopPropagation on:click|stopPropagation={cancelTranscriptSelection}>× <span>Cancel</span></button>
+                </div>
+              </div>
+            </div>
+          {/if}
+          <div class:transcript-selection-chunk={selectedChunkIds.has(renderedChunk.id)} class="output-chunk" data-transcript-chunk-id={renderedChunk.id} title={renderedChunk.title}>{@html renderedChunk.html}</div>
+          {#if selectionBottomBoundary?.chunkId === renderedChunk.id}
+            <div class="transcript-selection-overlay-anchor transcript-selection-overlay-anchor--bottom">
+              <div class="transcript-selection-action-row" aria-label="Bottom selection actions">
+                <button type="button" class="transcript-selection-handle transcript-selection-handle--bottom" aria-label="Move bottom selection handle" on:mousedown={(event) => beginSelectionHandleDrag(event as unknown as PointerEvent, getSelectionHandleEndpoint('bottom'))}></button>
+                <div class="transcript-selection-action-buttons">
+                  <button type="button" class="transcript-selection-action-button--icon" aria-label="Go to upper handle" title="Go to upper handle" on:mousedown|stopPropagation on:click|stopPropagation={() => jumpToSelectionHandle('top')}>↑</button>
+                  <button type="button" aria-label="Copy selection" title="Copy selection" on:mousedown|stopPropagation on:click|stopPropagation={() => void copyTranscriptSelection()}>⧉ <span>Copy</span></button>
+                  <button type="button" aria-label="Cancel long selection" title="Cancel long selection" on:mousedown|stopPropagation on:click|stopPropagation={cancelTranscriptSelection}>× <span>Cancel</span></button>
+                </div>
+              </div>
+            </div>
+          {/if}
+          {#if lastActivityMarker?.boundary.chunkId === renderedChunk.id && lastActivityMarker.boundary.side === 'after'}
+            <div class="transcript-interface-indicator transcript-last-activity" role="status">
+              Last activity {formatActivityAge(lastActivityMarker.timestamp)}
+            </div>
+          {/if}
         {/each}
         <div class="output-spacer" aria-hidden="true" style={`height: ${renderedBottomSpacer}px;`}></div>
       </div>
@@ -1007,6 +1344,20 @@
         {/each}
         <div class="output-spacer" aria-hidden="true" style={`height: ${liveBottomSpacer}px;`}></div>
       </div>
+    </div>
+  {/if}
+
+  {#if transcriptSelection.mode === 'range' && transcriptSelection.menuOpen}
+    <div
+      class="transcript-selection-menu"
+      style={`left: ${selectionMenuPosition.x}px; top: ${selectionMenuPosition.y}px;`}
+      role="menu"
+      aria-label="Transcript selection actions"
+    >
+      <button type="button" role="menuitem" on:click={() => jumpToSelectionHandle('bottom')}>↓ Go to lower handle</button>
+      <button type="button" role="menuitem" on:click={() => jumpToSelectionHandle('top')}>↑ Go to upper handle</button>
+      <button type="button" role="menuitem" on:click={() => void copyTranscriptSelection()}>Copy selection</button>
+      <button type="button" role="menuitem" on:click={cancelTranscriptSelection}>Cancel selection</button>
     </div>
   {/if}
 
@@ -1073,3 +1424,150 @@
     onCloseRequest={closeTabFromMenu}
   />
 </div>
+
+<style>
+  .transcript-interface-indicator {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    min-height: 1.5rem;
+    margin: 0.25rem 0;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--dv-activegroup-visiblepanel-tab-background, var(--color-accent, #6688cc));
+    border-radius: 0.25rem;
+    background: var(--dv-group-view-background, rgba(80, 110, 170, 0.18));
+    color: var(--dv-activegroup-visiblepanel-tab-color, currentColor);
+    font: 0.8rem var(--font-ui, sans-serif);
+    pointer-events: none;
+  }
+
+  .transcript-last-activity::before {
+    content: '';
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-right: 0.45rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .transcript-selection-chunk {
+    outline: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+    border-left: 2px solid var(--dv-activegroup-visiblepanel-tab-background, #6688cc);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .output-area-content {
+    position: relative;
+  }
+
+  .transcript-selection-overlay-anchor {
+    position: relative;
+    z-index: 4;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .transcript-selection-action-row {
+    position: absolute;
+    top: 0;
+    left: 0.35rem;
+    width: calc(100% - 0.35rem);
+    height: 0;
+    pointer-events: auto;
+  }
+
+  .transcript-selection-overlay-anchor--top .transcript-selection-action-row {
+    transform: translateY(-50%);
+  }
+
+  .transcript-selection-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translateY(-50%);
+    width: 50%;
+    /* Keep the line narrow visually, but make the whole line-height above
+       and below it draggable. This is especially important when adjacent
+       chunks are only one transcript line tall. */
+    height: calc(2 * 1.55em);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0.2rem;
+    background: transparent;
+    color: var(--dv-activegroup-visiblepanel-tab-background, #6688cc);
+    cursor: ns-resize;
+  }
+
+  .transcript-selection-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 0.35rem;
+    transform: translateY(-50%);
+    border-radius: 0.2rem;
+    background: var(--dv-activegroup-visiblepanel-tab-background, #6688cc);
+    pointer-events: none;
+  }
+
+  .transcript-selection-action-buttons {
+    position: absolute;
+    top: 0;
+    left: 0.2rem;
+    display: flex;
+    gap: 0.2rem;
+    transform: translateY(-50%);
+  }
+
+  .transcript-selection-action-buttons button {
+    min-width: 1.2rem;
+    height: 1.35rem;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid currentColor;
+    border-radius: 0.25rem;
+    background: var(--dv-group-view-background, #222);
+    color: inherit;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .transcript-selection-action-buttons .transcript-selection-action-button--icon {
+    width: 1.35rem;
+    padding: 0.1rem;
+  }
+
+  .transcript-selection-action-buttons button:hover,
+  .transcript-selection-action-buttons button:focus-visible {
+    background: color-mix(in srgb, currentColor 15%, transparent);
+  }
+
+  .transcript-selection-menu {
+    position: fixed;
+    z-index: 100;
+    display: grid;
+    gap: 0.15rem;
+    min-width: 9rem;
+    padding: 0.25rem;
+    border: 1px solid var(--dv-activegroup-visiblepanel-tab-background, #6688cc);
+    border-radius: 0.25rem;
+    background: var(--dv-group-view-background, #222);
+    box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.35);
+  }
+
+  .transcript-selection-menu button {
+    padding: 0.3rem 0.5rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .transcript-selection-menu button:hover,
+  .transcript-selection-menu button:focus-visible {
+    background: color-mix(in srgb, currentColor 15%, transparent);
+  }
+</style>

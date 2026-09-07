@@ -77,7 +77,9 @@ selection, the transcript changes to a model-backed chunk-range selection mode.
   can select from character to character on any line of a rendered chunk.
 - The transcript detects when the drag crosses a virtualization boundary or
   would cause a selected chunk to leave the contiguous mounted selection
-  window.
+  window. It also enters range mode when the dragged chunk span reaches the
+  app setting `Line selection range`, based on cumulative chunk line counts;
+  this threshold is independent of virtualization and scrollback retention.
 - At that point the interaction switches to chunk-range mode instead of
   allowing the browser's native selection to silently lose text.
 - The initial side of the range snaps to the end boundary of the chunk where
@@ -119,8 +121,14 @@ selection, the transcript changes to a model-backed chunk-range selection mode.
   indicators remain available for adjustment.
 - The user may drag either range indicator to change the selection. Completing
   a marker drag reopens the custom context menu for the updated range.
+- An active range handle has a generous vertical grab area extending one
+  transcript line above and below its visible boundary line, so adjacent
+  one-line chunks can be used to start a handle drag.
 - Right-clicking anywhere on the selected range reopens the custom context
   menu, allowing the user to recover the actions without moving a marker.
+- The custom context menu provides explicit navigation actions for moving to
+  the lower handle and upper handle; their arrow directions match the
+  corresponding on-handle controls.
 - Copying from the custom menu extracts the range from canonical transcript
   data, then dismisses the range UI and restores the normal post-copy focus
   behavior. Copying does not depend on the browser's current native selection
