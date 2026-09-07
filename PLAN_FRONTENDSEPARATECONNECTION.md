@@ -16,6 +16,52 @@
 - Add backend tests for replay trimming, session protection, attach ordering, and disconnect cleanup.
 - Add a dedicated diagnostics surface for runtime ID, replay range, and session state.
 
+## Long-term canonical history ownership experiment
+
+The structured world snapshot should remain a compact snapshot of current
+protocol and world state. It must not contain the full canonical transcript or
+event history, because that would make reload recovery increasingly expensive
+as history grows.
+
+Keep these concerns separate:
+
+- The backend owns a bounded in-memory replay buffer for bridging frontend
+  reloads and short detach periods.
+- The backend owns a compact structured snapshot containing current protocol
+  state, structured world state, diagnostics, and the sequence at which that
+  state is valid.
+- The canonical user-visible transcript/event history remains a separate
+  history store with its own retention, persistence, privacy, rename, delete,
+  and character-history policies.
+
+As a long-term experiment, compare two history-store ownership models:
+
+1. Keep the canonical transcript/event history store on the frontend. The
+   frontend continues to load and render history from its existing storage
+   subsystem, while Rust owns only live protocol state, the bounded replay
+   buffer, and the compact structured snapshot. This is the simpler model and
+   should remain the initial baseline.
+
+2. Move the canonical transcript/event history store to Rust, preferably as a
+   disk-backed store rather than an unbounded in-memory event list. The
+   frontend would request transcript pages or ranges and render only its
+   current window. Rust could combine a compact snapshot with events after the
+   snapshot sequence, reducing duplicate history ownership and making the
+   frontend more disposable across hot reloads or frontend crashes.
+
+Moving the canonical store to Rust would harden frontend refresh and recovery,
+but would also add substantial complexity: storage APIs, paging, migrations,
+history limits, character rename and deletion behavior, logging coordination,
+privacy controls, and frontend/backend consistency rules. It should therefore
+be evaluated with history-size and reload-stability measurements rather than
+assumed as part of P0.
+
+The preferred long-term shape is a hybrid model: Rust owns live protocol state,
+a bounded replay ring, and a compact structured snapshot; the canonical history
+store may remain frontend-owned or become a Rust-owned disk-backed service after
+the experiment. In either model, the snapshot must stay bounded and must not be
+used as a replacement for the full history store.
+
 ## Implementation plan
 
 ### Phase 1: Freeze the lifecycle contract

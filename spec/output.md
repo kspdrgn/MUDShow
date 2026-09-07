@@ -1,8 +1,7 @@
 # Output / Transcript
 
-- [ ] Implementation status: the last-activity indicator and long-selection UX
-  mode described below are not implemented yet. These sections define the
-  intended completed behavior.
+- [X] Implementation status: the last-activity indicator and long-selection UX
+  mode described below are implemented.
 
 ## Transcript
 

@@ -36,7 +36,9 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 
 - [ ] Add ANSI color customization, background images, and world-specific styles.
 - [ ] Improve pose/name differentiation and automatic name highlighting.
-- [ ] Add configurable visible timestamps and activity indicators.
+- [~] Add configurable visible timestamps and activity indicators: the
+  last-activity marker is implemented; configurable persistent timestamps and
+  related activity-display options remain.
 - [ ] Improve rule-tree affordances and trigger action summaries.
 - [ ] Add rolling auto-logging, customizable log naming/folders, and date-offset handling.
 - [ ] Add always-on-top and transparency options.
