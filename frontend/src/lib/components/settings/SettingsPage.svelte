@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { appServices } from '../../app-services';
   import type { AppSettings } from '../../app-settings';
   import { session } from '../../session';
+  import { invoke } from '../../tauri';
+  import type { MudConnectionDescriptor } from '../../connection';
   import { DOCKVIEW_THEMES, normalizeDockviewThemeId } from '../../dockview-themes';
   import StyleSettingsPane from '../styles/StyleSettingsPane.svelte';
   import {
@@ -27,6 +30,25 @@
   const appStyleEditor = appServices.style.editor;
   const appFontShelf = appServices.style.fontShelf;
   let settings: AppSettings = appServices.settings.getSettings();
+  let connectionDiagnostics: MudConnectionDescriptor[] = [];
+  let connectionDiagnosticsLoading = false;
+  let connectionDiagnosticsError: string | null = null;
+
+  async function refreshConnectionDiagnostics(): Promise<void> {
+    connectionDiagnosticsLoading = true;
+    connectionDiagnosticsError = null;
+    try {
+      connectionDiagnostics = await invoke<MudConnectionDescriptor[]>('list_mud_connections');
+    } catch (error) {
+      connectionDiagnosticsError = error instanceof Error ? error.message : String(error);
+    } finally {
+      connectionDiagnosticsLoading = false;
+    }
+  }
+
+  onMount(() => {
+    void refreshConnectionDiagnostics();
+  });
 
   appServices.settings.current.subscribe((next) => {
     settings = next;
@@ -404,6 +426,31 @@
               />
               <span>send tcp keep-alive signals.</span>
             </label>
+          </div>
+          <div class="settings-subsection">
+            <div class="settings-subsection-heading">
+              <h3>active desktop connections</h3>
+              <button type="button" class="secondary-button" on:click={() => void refreshConnectionDiagnostics()} disabled={connectionDiagnosticsLoading}>
+                {connectionDiagnosticsLoading ? 'refreshing…' : 'refresh'}
+              </button>
+            </div>
+            {#if connectionDiagnosticsError}
+              <p class="settings-note">unable to read connection diagnostics: {connectionDiagnosticsError}</p>
+            {:else if connectionDiagnostics.length === 0}
+              <p class="settings-note">no active desktop connections.</p>
+            {:else}
+              <div class="settings-stack">
+                {#each connectionDiagnostics as connection}
+                  <div class="settings-card settings-card--nested">
+                    <div><strong>{connection.host}:{connection.port}</strong> {connection.tls ? 'secure' : 'plain'}</div>
+                    <div>status: {connection.status}</div>
+                    <div>connection: {connection.connectionId}</div>
+                    <div>session: {connection.sessionId} · sequence: {connection.lastSequence}</div>
+                    {#if connection.lastError}<div>last error: {connection.lastError}</div>{/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
         </section>
       {:else if activeTab === 'spellcheck'}

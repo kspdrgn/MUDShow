@@ -19,11 +19,12 @@
   detached.
 - Classify gaps that affect structured state and apply/discard events against
   the snapshot sequence once structured protocols are introduced in P3+.
-- Expand backend tests beyond the pure gap/session contract tests to cover
-  replay trimming, attach ordering, replacement, disconnect cleanup, and
-  detached processing; add frontend/browser reload coverage.
-- Add a dedicated diagnostics surface for runtime ID, replay range, session
-  state, structured-sync state, and last error.
+- P0 lifecycle and frontend/browser reload coverage is complete. Future
+  protocol-specific work should extend the existing structured-sync model and
+  diagnostics without moving decoder ownership into transcript rendering.
+- The Settings > Connections view provides the dedicated active-connection
+  diagnostics surface for endpoint, security mode, status, identity, session,
+  sequence, and last error.
 
 ## Long-term canonical history ownership experiment
 

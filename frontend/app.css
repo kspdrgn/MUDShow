@@ -1658,6 +1658,43 @@ body {
   text-transform: uppercase;
 }
 
+.settings-subsection {
+  margin-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  padding-top: 1rem;
+}
+
+.settings-subsection-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-subsection-heading h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.settings-subsection-heading button {
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 0.35rem;
+  background: var(--button-background, transparent);
+  color: inherit;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+}
+
+.settings-subsection-heading button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.settings-card--nested {
+  padding: 0.65rem 0.75rem;
+  font-size: 0.85rem;
+}
+
 .settings-stack {
   display: flex;
   flex-direction: column;
