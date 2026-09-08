@@ -154,9 +154,13 @@ Holding `Ctrl` while using the mouse wheel over the transcript temporarily zooms
 
 The app menu includes a transient dev tools submenu for troubleshooting. It holds a webview inspector shortcut and a transcript diagnostics toggle. When transcript diagnostics is enabled, the app writes additional console debug output about transcript scroll state, resize events, image preview loads, and render-range decisions. The toggle is off by default and does not change saved settings.
 
+The development frontend exposes `transcript-stress.html`, a browser-level harness for exercising large output, scrolling, split output, pane resizing, zoom changes, and switching between inactive transcript panes.
+
 ## Automatic Scrolling
 
 When new transcript content arrives, the output panel scrolls down to keep the most recent content in view.
+
+When returning to a world tab that received output while inactive, the transcript returns to the newest output after the tab is rendered, unless the player had manually scrolled that tab away from the bottom.
 
 When any transcript items (such as image previews) load or otherwise change height, the transcript keeps following the bottom as long as the user has not manually scrolled away.
 

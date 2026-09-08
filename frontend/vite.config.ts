@@ -22,5 +22,11 @@ export default defineConfig({
     outDir: path.resolve(frontendRoot, '../dist/frontend'),
     emptyOutDir: true,
     sourcemap: true,
+    rollupOptions: {
+      input: {
+        index: path.resolve(frontendRoot, 'index.html'),
+        transcriptStress: path.resolve(frontendRoot, 'transcript-stress.html'),
+      },
+    },
   },
 });

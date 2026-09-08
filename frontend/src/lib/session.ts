@@ -445,6 +445,19 @@ function createSession() {
     if (tab.kind === 'world') {
       activateWorldTab(tabId);
       void focusActiveWorldInputBar(tabId);
+      // A world tab may have received output while it was inactive. Its DOM
+      // remains mounted, so the normal append path intentionally skips the
+      // inactive tab; restore the live view after activation has rendered.
+      void nextFrame().then(() => {
+        if (getActiveWorldTabId() !== tabId) {
+          return;
+        }
+
+        const session = getWorldSession(tabId);
+        if (!session.userScrolled) {
+          scrollElementToBottom(getWorldOutputAreaId(getWorldDomScope(tabId)));
+        }
+      });
       return;
     }
 
