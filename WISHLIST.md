@@ -175,6 +175,7 @@ Release:
 
   - Contents
     - [X] Clickable links
+    - [ ] Provide 'copy link' in context menu.
     - [X] Auto-preview image links with hide button
     - [X] Automatic clipboard copy when selecting text
     - [X] Timestamps visible on mouse-over lines
@@ -182,6 +183,7 @@ Release:
     - [X] Output history - Buffer of previous session contents restored for context
     - [ ] Visual differentiation of different poses by different people - Paragraph margin, subtle alternating color differences, something to visibly separate poses in the wall of white text.
     - [ ] New activity indicator (separator line?)
+      - [ ] figure out exit conditions, when it should hide. one is when clicking on the app and clicking away. maybe click on the indicator to get rid of it too?
     - [X] Max width is off, too short, try calculate glyph width from a mono font, maybe support pixel max width for non-mono fonts
 
   - Scrolling
