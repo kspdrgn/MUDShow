@@ -1,0 +1,12 @@
+Use case: logo-brand
+Asset type: temporary app logo exploration board
+Primary request: Create a polished concept sheet showing six distinct logo-mark directions for an app named D. The core mark is a bold, recognizable capital D shape, integrated with a mascot dragon hatchling named DagMU.
+Subject: a cute little four-legged dragon boy with small wings, a long neck and tail, two horns, and a small beak shaped snout with two dot nostrils; friendly, clever, playful, and suitable for a desktop app icon.
+Poses: Standing, sitting, stretching, flying, reading, searching, studying, writing, telescope viewing, practing magic, dancing, etc.
+Composition/framing: 2 by 3 evenly spaced concept tiles on a clean warm off-white background, each tile containing one compact logo mark with generous spacing. Make the D shape dominant in every tile. Directions: dragon curled inside the bowl of the D reading a tiny book by lamplight inside an egg-like nook; dragon stretching and curling its tail over its head to form the curved side of a D; dragon perched against the D with a wing and tail peeking around the letter; dragon body and neck forming the vertical stroke and inner counter; simplified D-shaped egg with hatchling peeking out; ultra-simple mascot-and-D silhouette designed for a small computer icon.
+Style/medium: clean modern mascot-logo illustration, vector-friendly flat shapes, rounded geometry, minimal linework, strong silhouette, playful but professional app-brand quality.
+Lighting/mood: mostly flat graphic treatment with subtle soft shadow only; warm and welcoming.
+Color palette: dark magenta or medium brightness midnight purpled D shapes, dragon in leaf green or soft sage with warm golden accents, tiny touches of coral or amber, dark purple outlines only where needed.
+Text: no written labels or words; no watermark.
+Constraints: each tile standalone; legible at 32px and recognizable at 16px; consistent dragon across all six concepts; simple geometric forms and high contrast.
+Avoid: photorealism, complex backgrounds, excessive tiny details, scary dragon features, extra characters, scenery, glossy 3D rendering.
