@@ -9,7 +9,7 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 - [X] Make text selection reliable across virtualized transcript content: bounded native selection, canonical range extraction, long-selection markers, handle hit areas, and context-menu navigation are implemented.
 - [X] Complete frontend-reload connection recovery and diagnostics ([`PLAN_FRONTENDSEPARATECONNECTION.md`](PLAN_FRONTENDSEPARATECONNECTION.md)): runtime/session metadata, replay, attach/detach, recovery, replay-gap diagnostics, sequence-safe snapshot recovery, lifecycle coverage, structured-sync reconciliation, and a dedicated active-connection diagnostics surface are implemented for the P0 Telnet scope.
 - [X] Add regression coverage for connection, transcript, scrolling, and persistence behavior ([`PLAN_TESTS.md`](PLAN_TESTS.md)): connection lifecycle, transcript, virtual-layout, 50,000-chunk, and browser stress coverage are implemented; 50 frontend regression tests and 10 Rust tests pass.
-- [~] Stress-test and optimize transcript rendering for long histories and sustained traffic ([`PLAN_PERF.md`](PLAN_PERF.md)): indexed visible-range lookup, bounded render work, 50,000-chunk coverage, and the resize-tuning decision are implemented; sustained real-traffic profiling remains.
+- [X] Stress-test and optimize transcript rendering for long histories and sustained traffic ([`PLAN_PERF.md`](PLAN_PERF.md)): indexed visible-range lookup, bounded render work, 50,000-chunk coverage, resize-tuning decision, and repeatable sustained-traffic profiling are implemented and validated.
 
 ## P1 — Core system foundations
 

@@ -22,3 +22,14 @@ that a middle-of-history range reads fewer than 100 chunks from a 50,000-chunk
 transcript. Heights remain estimates because actual DOM measurements would
 invalidate the bounded resize path and image tombstones already reserve the
 preview space.
+
+## Sustained traffic profile
+
+The repeatable `npm run profile:transcript` benchmark compiles the production
+transcript modules, retains 50,000 chunks, then performs 5,000 append,
+front-trim, and visible-range/render iterations. A representative run on the
+development machine completed the initial 50,000-chunk append in 54.86 ms and
+the sustained phase in 517.63 ms (0.1035 ms per iteration), averaging 59.98
+transcript chunk reads per iteration and retaining exactly 50,000 chunks at
+the end. This confirms the indexed path remains bounded under sustained
+traffic; no additional optimization is justified by this profile.

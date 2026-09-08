@@ -14,6 +14,7 @@
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.json",
+    "profile:transcript": "tsc --project frontend/src/lib/tsconfig.regression-tests.json && node scripts/profile-transcript.mjs",
     "test:fuzzball-cache": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/fuzzball/tsconfig.tests.json && node --test dist/fuzzball-cache-tests/tests/*.test.js",
     "test:input-bar-sizing": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.tests.json && node --test dist/input-bar-sizing-tests/tests/*.test.js",
     "clean": "rimraf dist tauri/target tauri/.mudshow-tauri-dev-*.json",
