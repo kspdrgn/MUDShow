@@ -9,7 +9,12 @@
     isTranscriptDiagnosticsEnabled,
     setTranscriptDiagnosticsEnabled,
   } from '../../formatting';
-  import { getTranscriptRangeTextByChunkIds, type PlayTranscript, type RenderCache } from '../../playback';
+  import {
+    getTranscriptRangeTextByChunkIds,
+    TranscriptHeightIndex,
+    type PlayTranscript,
+    type RenderCache,
+  } from '../../playback';
   import {
     copyTextToClipboard,
     focusElement,
@@ -40,6 +45,7 @@
     buildTranscriptChunkTitle,
     buildTranscriptRenderDependencyKey,
     buildTranscriptVisibleRange,
+    estimateTranscriptChunkHeight,
     renderTranscriptChunk,
   } from './transcript-render';
   import { getTranscriptContextMenuPosition } from './transcript-context-menu';
@@ -137,9 +143,39 @@
   let lastRenderDependencyKey = '';
   let resizeReconcileFrame: number | null = null;
   let transcriptDestroyed = false;
+  let historyHeightIndex = new TranscriptHeightIndex();
+  let liveHeightIndex = new TranscriptHeightIndex();
+  let indexedTranscript: PlayTranscript | null = null;
+  let indexedWidth = width;
   const MIN_TRANSCRIPT_ZOOM = 0.6;
   const MAX_TRANSCRIPT_ZOOM = 2;
   const TRANSCRIPT_ZOOM_STEP = 0.1;
+
+  function syncTranscriptHeightIndex(index: TranscriptHeightIndex, includePreviews: boolean): void {
+    if (indexedTranscript !== transcript || indexedWidth !== width) {
+      historyHeightIndex.clear();
+      liveHeightIndex.clear();
+      indexedTranscript = transcript;
+      indexedWidth = width;
+    }
+
+    const count = transcript.getChunkCount();
+    const firstId = transcript.getChunk(0)?.id;
+    while (index.length > 0 && index.getId(0) !== firstId) {
+      index.trimFront(1);
+    }
+
+    if (index.length > count || (index.length > 0 && index.getId(index.length - 1) !== transcript.getChunk(index.length - 1)?.id)) {
+      index.clear();
+    }
+
+    for (let position = index.length; position < count; position += 1) {
+      const chunk = transcript.getChunk(position);
+      if (chunk) {
+        index.append(chunk.id, estimateTranscriptChunkHeight(chunk, width, includePreviews));
+      }
+    }
+  }
 
   function closeContextMenu(): void {
     contextMenuOpen = false;
@@ -569,6 +605,9 @@
 
   function syncTranscriptRenderState(): void {
     if (!transcript) {
+      historyHeightIndex.clear();
+      liveHeightIndex.clear();
+      indexedTranscript = null;
       renderedChunks = [];
       liveRenderedChunks = [];
       renderedTopSpacer = 0;
@@ -621,6 +660,7 @@
     historyScrollTop = historyMetrics.scrollTop;
     historyViewportHeight = historyMetrics.clientHeight;
     const anchorHistoryToBottom = !userScrolled;
+    syncTranscriptHeightIndex(historyHeightIndex, true);
     const historyRange = buildTranscriptVisibleRange(
       transcript,
       historyScrollTop,
@@ -637,6 +677,7 @@
         imagePreviewCacheVersion,
         ruleRegexes,
         highlightRegexes,
+        heightIndex: historyHeightIndex,
       },
     );
     renderedChunks = historyRange.rendered;
@@ -645,6 +686,7 @@
 
     if (splitView) {
       liveViewportHeight = liveHeight;
+      syncTranscriptHeightIndex(liveHeightIndex, false);
       const liveRange = buildTranscriptVisibleRange(
         transcript,
         0,
@@ -661,6 +703,7 @@
           imagePreviewCacheVersion,
           ruleRegexes,
           highlightRegexes,
+          heightIndex: liveHeightIndex,
         },
       );
       liveRenderedChunks = liveRange.rendered;

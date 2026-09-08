@@ -5,7 +5,7 @@ import {
   buildRuleRegexes,
   renderTranscriptHtml,
 } from '../../formatting';
-import type { RenderCache, TranscriptChunkEntry } from '../../playback';
+import type { RenderCache, TranscriptChunkEntry, TranscriptHeightIndex } from '../../playback';
 import type { HighlightRule, Rule, Trigger } from '../../types';
 
 export interface RenderedTranscriptChunk {
@@ -183,6 +183,7 @@ export function buildTranscriptVisibleRange(
     imagePreviewCacheVersion: number;
     ruleRegexes: ReturnType<typeof buildRuleRegexes>;
     highlightRegexes: ReturnType<typeof buildHighlightRegexes>;
+    heightIndex: TranscriptHeightIndex;
   },
 ): {
   startIndex: number;
@@ -202,50 +203,22 @@ export function buildTranscriptVisibleRange(
     };
   }
 
-  const chunks: TranscriptChunkEntry[] = [];
-  let totalHeight = 0;
-  for (let index = 0; index < count; index += 1) {
-    const chunk = transcript.getChunk(index);
-    if (!chunk) {
-      continue;
-    }
+  const heightIndex = options.heightIndex;
+  const totalHeight = heightIndex.totalHeight;
+  const range = heightIndex.getRange(
+    startOffset,
+    viewportHeight,
+    overscanPx,
+    anchorBottom,
+  );
 
-    chunks.push(chunk);
-    totalHeight += estimateTranscriptChunkHeight(chunk, options.width, includePreviews);
-  }
-
-  const targetTop = anchorBottom ? Math.max(0, totalHeight - viewportHeight) : startOffset;
-  const visibleStart = Math.max(0, targetTop - overscanPx);
-  const visibleEnd = Math.max(0, targetTop + viewportHeight + overscanPx);
-
-  let cursor = 0;
-  let startIndex = chunks.length;
-  let endIndex = chunks.length;
-  let topSpacer = 0;
-  let bottomSpacer = totalHeight;
+  let startIndex = range.startIndex;
+  let endIndex = range.endIndex;
   const rendered: RenderedTranscriptChunk[] = [];
 
-  for (let index = 0; index < chunks.length; index += 1) {
-    const chunk = chunks[index];
-    const height = estimateTranscriptChunkHeight(chunk, options.width, includePreviews);
-    const nextCursor = cursor + height;
-
-    if (nextCursor <= visibleStart) {
-      topSpacer = nextCursor;
-      cursor = nextCursor;
-      continue;
-    }
-
-    if (cursor >= visibleEnd) {
-      endIndex = index;
-      bottomSpacer = Math.max(0, totalHeight - cursor);
-      break;
-    }
-
-    if (startIndex === chunks.length) {
-      startIndex = index;
-    }
-
+  for (let index = startIndex; index < endIndex; index += 1) {
+    const chunk = transcript.getChunk(index);
+    if (!chunk) continue;
     rendered.push({
       id: chunk.id,
       html: renderTranscriptChunk(
@@ -261,16 +234,13 @@ export function buildTranscriptVisibleRange(
       ),
       title: buildTranscriptChunkTitle(chunk),
     });
-    cursor = nextCursor;
-    endIndex = index + 1;
-    bottomSpacer = Math.max(0, totalHeight - cursor);
   }
 
   return {
     startIndex,
     endIndex,
-    topSpacer,
-    bottomSpacer,
+    topSpacer: range.topSpacer,
+    bottomSpacer: range.bottomSpacer,
     rendered,
   };
 }

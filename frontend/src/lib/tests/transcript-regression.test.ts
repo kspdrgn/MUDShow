@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { buildHighlightRegexes, buildRuleRegexes } from '../formatting';
 import {
   PlayTranscript,
   TranscriptHeightIndex,
@@ -7,6 +8,7 @@ import {
   getTranscriptRangeText,
   trimTranscriptHistory,
 } from '../playback';
+import { buildTranscriptVisibleRange } from '../components/play/transcript-render';
 
 test('history append and trimming keep the newest configured lines', () => {
   let history = appendTranscriptHistory([], 'one\ntwo\n', 3);
@@ -53,4 +55,47 @@ test('canonical transcript range extraction crosses virtualized boundaries', () 
 
   assert.equal(getTranscriptRangeText(transcript, 1, 3), 'one\ntwo\nthree\n');
   assert.equal(getTranscriptRangeText(transcript, 3, 1), 'one\ntwo\nthree\n');
+});
+
+test('indexed visible range does not read all 50,000 retained chunks', () => {
+  const chunks = Array.from({ length: 50_000 }, (_, id) => ({
+    id,
+    text: `line ${id}\n`,
+    lineCount: 1,
+    charCount: 6,
+    timestamp: id,
+  }));
+  const index = new TranscriptHeightIndex();
+  for (const chunk of chunks) index.append(chunk.id, 26);
+
+  let reads = 0;
+  const range = buildTranscriptVisibleRange(
+    {
+      getChunkCount: () => chunks.length,
+      getChunk: (index) => {
+        reads += 1;
+        return chunks[index];
+      },
+    },
+    500_000,
+    26,
+    0,
+    false,
+    false,
+    {
+      width: '800px',
+      renderDependencyKey: '',
+      renderCache: null,
+      linkImagePreviews: false,
+      hiddenPreviewUrls: new Set(),
+      imagePreviewCacheVersion: 0,
+      ruleRegexes: buildRuleRegexes([]),
+      highlightRegexes: buildHighlightRegexes([]),
+      heightIndex: index,
+    },
+  );
+
+  assert.equal(range.startIndex, 19_230);
+  assert.equal(range.endIndex, 19_232);
+  assert.ok(reads < 100);
 });
