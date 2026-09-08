@@ -3,6 +3,7 @@ node_modules/
 dist/
 tauri/target/
 .codex-target/
+.skills/
 tauri/bin/
 tauri/.mudshow-tauri-dev-*.json
 .vscode/

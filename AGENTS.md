@@ -31,23 +31,17 @@ For every feature or behavior added to the app, we need to ensure the entire fun
   - If node is on the path (unlikely but possible with local setup) Run `npm run check:svelte`
   - Otherwise use the bundled Node runtime plus `scripts/check-svelte.cjs`.
 
-## Fork / Permanent Worktree Startup Instructions
+Worker delegation and permanent-worktree procedures are documented in the local `.skills/spawn/SKILL.md` when that file is available.
 
-- Treat the checkout root as the top of the fork you opened, and do not assume a worktree id or parent folder naming scheme.
-- If the user says "spawn workers" or “branch workers,” “split this across workers,” or equivalent, interpret that as an instruction to create one permanent worktree task per independent item, unless the user explicitly limits delegation. The coordinator owns the integration: wait for each worker to finish and validate its result, merge the completed worker branches into the coordinator’s current branch, resolve and revalidate any conflicts, then remove the worker worktrees.
-- `AGENTS.local.md` is not tracked in source control and should be assumed absent from permanent worktrees. Before starting workers, the coordinator must read `AGENTS.local.md` from the main checkout and transmit its full contents in every worker startup prompt, clearly labeled as the local instructions to follow. Every worker startup prompt must also explicitly say: “Read `AGENTS.md` from this checkout root before doing any work, then follow the transmitted `AGENTS.local.md` instructions.” Workers may read a copy from the main checkout only when its exact path is known and accessible; they must not block or assume inheritance when the file is absent from their own worktree.
-- The main code areas are `frontend/` for the UI, `tauri/` for the desktop shell and Rust code, `scripts/` for helper scripts, and `spec/` for the feature spec documents.
+## Forked Checkout Startup Instructions
+
+- Treat the checkout root as the top of the fork you opened. Do not assume a worktree id or parent-folder naming scheme.
+- If `AGENTS.local.md` is absent from the fork, continue with these shared instructions and do not block on inheriting machine-specific settings.
 - For a fast orientation, open `README.md`, `package.json`, `spec/spec.md`, `tauri/tauri.conf.json`, and `scripts/tauri-dev.mjs` first.
 - Do not assume `node`, `npm`, or `node_modules/` are already on PATH or installed in the fork.
-- When you need to run npm scripts, choose the least disruptive startup path first:
-  - Reuse an existing `node_modules/` tree from the parent worktree when it is already known-good and the task only needs a quick, matching dependency snapshot.
-  - If the fork already has dependencies installed, invoke the package manager by absolute path or through the local runtime instructions in `AGENTS.local.md` instead of relying on PATH.
-  - If dependencies are missing and a fresh install is appropriate, run `npm ci` from the repo root after launching npm through the local runtime path, not a shell shim.
-- For the two common entry points, use the local runtime instructions rather than PATH:
-  - `build:frontend` should be launched as documented in `AGENTS.local.md` for this fork.
-  - `start` should be launched as documented in `AGENTS.local.md` for this fork.
-- If a script fails because the shell cannot find `node` or `npm`, fix the launch path once and continue rather than repeatedly retrying the same broken command.
-- If a fork needs machine-specific runtime or checkout-root guidance, put that in `AGENTS.local.md` so the shared file stays generic.
+- When dependencies are missing and a fresh install is appropriate, run `npm ci` from the repository root using the available Node/npm runtime.
+- Prefer the existing project scripts for frontend and Tauri workflows instead of inventing shell wrappers.
+- If a fork needs machine-specific runtime or checkout-root guidance, keep that in `AGENTS.local.md` so this shared file stays portable.
 
 ## Release Build Notes
 
