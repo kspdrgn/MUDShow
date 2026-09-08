@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildHighlightRegexes, buildRuleRegexes } from '../formatting';
+import {
+  ansiToHtml,
+  applyHighlights,
+  applyRules,
+  buildHighlightRegexes,
+  buildRuleRegexes,
+} from '../formatting';
 import {
   PlayTranscript,
   TranscriptHeightIndex,
@@ -55,6 +61,37 @@ test('canonical transcript range extraction crosses virtualized boundaries', () 
 
   assert.equal(getTranscriptRangeText(transcript, 1, 3), 'one\ntwo\nthree\n');
   assert.equal(getTranscriptRangeText(transcript, 3, 1), 'one\ntwo\nthree\n');
+});
+
+test('rule decoration can cross a rendered link boundary', () => {
+  const html = ansiToHtml('Open https://example.com now');
+  const decorated = applyRules(html, [{
+    re: /Open (https:\/\/example\.com)/g,
+    color: '#ff0000',
+    matchGroupsOnly: true,
+  }]);
+
+  assert.ok(decorated.includes('<span style="color:#ff0000">https://example.com</span>'));
+  assert.ok(decorated.includes('<a class="output-link"'));
+});
+
+test('highlight decoration can cross a rendered link boundary', () => {
+  const html = ansiToHtml('Open https://example.com now');
+  const decorated = applyHighlights(
+    html,
+    buildHighlightRegexes([{
+      id: 'highlight-link-boundary',
+      type: 'highlight',
+      owner: { kind: 'app' },
+      pattern: 'Open https://example.com',
+      foregroundColor: '#00ff00',
+      caseSensitive: true,
+      wordBoundary: false,
+    }]),
+  );
+
+  assert.ok(decorated.includes('<span style="color:#00ff00">Open </span>'));
+  assert.ok(decorated.includes('<span style="color:#00ff00">https://example.com</span>'));
 });
 
 test('indexed visible range does not read all 50,000 retained chunks', () => {

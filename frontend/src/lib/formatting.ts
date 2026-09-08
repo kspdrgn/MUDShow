@@ -196,6 +196,59 @@ function decorateTextRanges(text: string, ranges: Array<{ start: number; end: nu
   return `${result}${text.slice(lastIndex)}`;
 }
 
+type HtmlTextToken = {
+  value: string;
+  start: number;
+};
+
+function decorateHtmlTextNodes(
+  html: string,
+  re: RegExp,
+  style: string,
+  matchGroupsOnly = false,
+): { html: string; matched: boolean } {
+  const parts = html.split(/(<[^>]+>)/);
+  const textTokens: HtmlTextToken[] = [];
+  let visibleText = '';
+
+  for (const part of parts) {
+    if (part.startsWith('<')) {
+      continue;
+    }
+
+    textTokens.push({ value: part, start: visibleText.length });
+    visibleText += part;
+  }
+
+  const ranges = collectRegexDecorationRanges(visibleText, re, matchGroupsOnly);
+  if (ranges.length === 0) {
+    return { html, matched: false };
+  }
+
+  let textTokenIndex = 0;
+  const decoratedParts = parts.map((part) => {
+    if (part.startsWith('<')) {
+      return part;
+    }
+
+    const token = textTokens[textTokenIndex];
+    textTokenIndex += 1;
+    if (!token) {
+      return part;
+    }
+
+    const tokenRanges = ranges.flatMap((range) => {
+      const start = Math.max(range.start, token.start) - token.start;
+      const end = Math.min(range.end, token.start + token.value.length) - token.start;
+      return end > start ? [{ start, end }] : [];
+    });
+
+    return decorateTextRanges(part, tokenRanges, style);
+  });
+
+  return { html: decoratedParts.join(''), matched: true };
+}
+
 export function stripTelnet(text: string): string {
   return text.replace(/\xff[\xfb-\xfe]./gs, '').replace(/\xff\xf0/gs, '');
 }
@@ -759,39 +812,32 @@ export function applyRegexDecorationsWithResult(html: string, regexes: Highlight
       return text;
     }
 
-    return text
-      .split(/(<[^>]+>)/)
-      .map((part) => {
-        if (part.startsWith('<')) {
-          return part;
-        }
+    let nextText = text;
+    for (const { re, color, backgroundColor, opacity, matchGroupsOnly, stopOtherRules, stopHighlights: shouldStopHighlights } of inlineRegexes) {
+      if (stopInlineRules) {
+        break;
+      }
 
-        for (const { re, color, backgroundColor, opacity, matchGroupsOnly, stopOtherRules, stopHighlights: shouldStopHighlights } of inlineRegexes) {
-          if (stopInlineRules) {
-            break;
-          }
+      const style = buildRuleStyle(color, backgroundColor, opacity);
+      if (!style) {
+        continue;
+      }
 
-          const style = buildRuleStyle(color, backgroundColor, opacity);
-          if (!style) {
-            continue;
-          }
+      const decoration = decorateHtmlTextNodes(nextText, re, style, matchGroupsOnly);
+      if (!decoration.matched) {
+        continue;
+      }
 
-          const ranges = collectRegexDecorationRanges(part, re, matchGroupsOnly);
-          if (ranges.length > 0) {
-            part = decorateTextRanges(part, ranges, style);
-            if (shouldStopHighlights) {
-              stopHighlights = true;
-            }
-            if (stopOtherRules) {
-              stopInlineRules = true;
-              break;
-            }
-          }
-        }
+      nextText = decoration.html;
+      if (shouldStopHighlights) {
+        stopHighlights = true;
+      }
+      if (stopOtherRules) {
+        stopInlineRules = true;
+      }
+    }
 
-        return part;
-      })
-      .join('');
+    return nextText;
   };
 
   const decorateWholeLine = (lineHtml: string): string => {
