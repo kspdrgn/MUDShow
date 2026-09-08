@@ -58,6 +58,8 @@ While the app settings tab stays open, it remembers the last selected tab. If th
 - Includes a reminder toggle that asks before closing a world tab when logging is not active on that tab.
 
 ## Connections
+- The Connections section includes a refreshable diagnostics view for active desktop connections, showing endpoint, secure/plain mode, status, and connection identity.
+- A frontend reload retains lightweight open-tab connection records for the current app session and reconciles them with the desktop connection manager. Matching connections are restored into world tabs and reconnect their frontend event listeners; stale records are discarded.
 - Connection timeout time
 - Connection retry count
 - Send TCP keep-alive signals

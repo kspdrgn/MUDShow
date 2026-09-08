@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-list-mud-connections"
+description = "Enables the list_mud_connections command without any pre-configured scope."
+commands.allow = ["list_mud_connections"]
+
+[[permission]]
+identifier = "deny-list-mud-connections"
+description = "Denies the list_mud_connections command without any pre-configured scope."
+commands.deny = ["list_mud_connections"]

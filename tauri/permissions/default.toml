@@ -4,6 +4,7 @@
 description = "Default permissions for the MUDShow desktop app."
 permissions = [
   "allow-connect-mud",
+  "allow-list-mud-connections",
   "allow-send-mud",
   "allow-disconnect-mud",
   "allow-get-app-storage-path",

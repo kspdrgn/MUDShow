@@ -177,10 +177,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-window-open-plain-webview-window`\n- `allow-window-open-plain-native-window`\n- `allow-window-host-get-record`\n- `allow-window-host-pop-out`\n- `allow-window-host-pop-in`\n- `allow-window-host-discard`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:webview:allow-create-webview-window`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-list-mud-connections`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-window-open-plain-webview-window`\n- `allow-window-open-plain-native-window`\n- `allow-window-host-get-record`\n- `allow-window-host-pop-out`\n- `allow-window-host-pop-in`\n- `allow-window-host-discard`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:webview:allow-create-webview-window`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-list-mud-connections`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`"
         },
         {
           "description": "Enables the append_session_log command without any pre-configured scope.",
@@ -217,6 +217,12 @@
           "type": "string",
           "const": "allow-get-default-log-folder",
           "markdownDescription": "Enables the get_default_log_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_mud_connections command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-mud-connections",
+          "markdownDescription": "Enables the list_mud_connections command without any pre-configured scope."
         },
         {
           "description": "Enables the list_system_fonts command without any pre-configured scope.",
@@ -339,30 +345,6 @@
           "markdownDescription": "Enables the window_close command without any pre-configured scope."
         },
         {
-          "description": "Enables the window_host_discard command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-window-host-discard",
-          "markdownDescription": "Enables the window_host_discard command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the window_host_get_record command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-window-host-get-record",
-          "markdownDescription": "Enables the window_host_get_record command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the window_host_pop_in command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-window-host-pop-in",
-          "markdownDescription": "Enables the window_host_pop_in command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the window_host_pop_out command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-window-host-pop-out",
-          "markdownDescription": "Enables the window_host_pop_out command without any pre-configured scope."
-        },
-        {
           "description": "Enables the window_minimize command without any pre-configured scope.",
           "type": "string",
           "const": "allow-window-minimize",
@@ -373,18 +355,6 @@
           "type": "string",
           "const": "allow-window-open-devtools",
           "markdownDescription": "Enables the window_open_devtools command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the window_open_plain_native_window command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-window-open-plain-native-window",
-          "markdownDescription": "Enables the window_open_plain_native_window command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the window_open_plain_webview_window command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-window-open-plain-webview-window",
-          "markdownDescription": "Enables the window_open_plain_webview_window command without any pre-configured scope."
         },
         {
           "description": "Enables the window_request_attention command without any pre-configured scope.",
@@ -445,6 +415,12 @@
           "type": "string",
           "const": "deny-get-default-log-folder",
           "markdownDescription": "Denies the get_default_log_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_mud_connections command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-mud-connections",
+          "markdownDescription": "Denies the list_mud_connections command without any pre-configured scope."
         },
         {
           "description": "Denies the list_system_fonts command without any pre-configured scope.",
@@ -567,30 +543,6 @@
           "markdownDescription": "Denies the window_close command without any pre-configured scope."
         },
         {
-          "description": "Denies the window_host_discard command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-window-host-discard",
-          "markdownDescription": "Denies the window_host_discard command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the window_host_get_record command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-window-host-get-record",
-          "markdownDescription": "Denies the window_host_get_record command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the window_host_pop_in command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-window-host-pop-in",
-          "markdownDescription": "Denies the window_host_pop_in command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the window_host_pop_out command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-window-host-pop-out",
-          "markdownDescription": "Denies the window_host_pop_out command without any pre-configured scope."
-        },
-        {
           "description": "Denies the window_minimize command without any pre-configured scope.",
           "type": "string",
           "const": "deny-window-minimize",
@@ -601,18 +553,6 @@
           "type": "string",
           "const": "deny-window-open-devtools",
           "markdownDescription": "Denies the window_open_devtools command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the window_open_plain_native_window command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-window-open-plain-native-window",
-          "markdownDescription": "Denies the window_open_plain_native_window command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the window_open_plain_webview_window command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-window-open-plain-webview-window",
-          "markdownDescription": "Denies the window_open_plain_webview_window command without any pre-configured scope."
         },
         {
           "description": "Denies the window_request_attention command without any pre-configured scope.",

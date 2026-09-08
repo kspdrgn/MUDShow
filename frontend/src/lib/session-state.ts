@@ -7,6 +7,7 @@ import type {
 } from './types';
 import type { AppTab, SettingsTabId } from './tabs';
 import type { WorldTabSessionState } from './world-session';
+import type { ConnectionDiagnostic } from './connection';
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected';
 export type DisconnectReason = 'manual' | 'remote' | 'error' | null;
@@ -20,6 +21,7 @@ export interface SessionState {
   activeTabId: string | null;
   transcriptDiagnosticsEnabled: boolean;
   worldSessions: Record<string, WorldTabSessionState>;
+  connectionDiagnostics: ConnectionDiagnostic[];
   modalOpen: boolean;
   modalKind: 'world' | 'character' | null;
   modalTitle: string;
@@ -62,6 +64,7 @@ export function createInitialState(): SessionState {
     activeTabId: null,
     transcriptDiagnosticsEnabled: false,
     worldSessions: {},
+    connectionDiagnostics: [],
     modalOpen: false,
     modalKind: null,
     modalTitle: 'add character',

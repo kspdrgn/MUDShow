@@ -89,6 +89,8 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Route eligible transcript output into logical world-session conversation channels that can be displayed by surfaces.
 - Keep channel routing and lifecycle separate from surface placement, including top docks, side docks, floating panels, and native windows.
 - Allow reconnecting after disconnect.
+- Recover open connection identities after a frontend reload by reconciling the frontend session records with active desktop connection records.
+- Provide a low-clutter connection diagnostics surface showing active endpoint, security mode, status, and connection identity.
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.
 - Store optional rolling per-character transcript history separately from the main JSON database, trim it to the configured line limit, reload it when reconnecting, migrate it on character rename, and remove it when the character is deleted.
