@@ -374,6 +374,13 @@ remaining bytes to a newline buffer. This is insufficient for MCP because it
 can discard protocol framing before a consumer can identify or preserve it,
 and its framing state does not survive independently across reads.
 
+Implementation note: the P0 connection worker now uses the stateful
+`tauri/src/protocol_decoder.rs` boundary. It preserves split Telnet commands
+and subnegotiations, emits bounded classified control events, and sends
+conservative automatic replies through the same serialized connection path.
+MCP, GMCP, and MCMP decoding are explicitly P3-or-later work; this P0
+boundary preserves them as future protocol kinds without decoding them.
+
 The MCP proof must introduce a stateful Rust decoder between socket reads and
 the existing event emission code. The decoder should be independently
 testable, while the worker integration should remain as small as possible.

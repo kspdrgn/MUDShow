@@ -3,6 +3,7 @@
 mod fonts;
 mod diagnostics;
 mod mud_backend;
+mod protocol_decoder;
 mod storage;
 mod spellcheck;
 
@@ -945,6 +946,7 @@ fn main() {
             mud_backend::list_mud_connections,
             mud_backend::get_mud_connection_events,
             mud_backend::attach_mud_connection,
+            mud_backend::get_mud_connection_snapshot,
             mud_backend::send_mud,
             mud_backend::disconnect_mud,
             storage::set_app_storage_path,

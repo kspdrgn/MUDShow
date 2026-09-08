@@ -51,5 +51,5 @@ test('world session registry disposes values when entries are replaced, deleted,
 
   registry.set(secondKey, { label: 'third' });
   registry.clear();
-  assert.deepEqual(disposed, ['first', 'second', 'third']);
+  assert.deepEqual(disposed, ['first', 'second', 'replacement', 'third']);
 });

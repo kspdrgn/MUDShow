@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { acceptsConnectionSequence, MudConnection } from '../connection';
+import { acceptsConnectionSequence, acceptsConnectionSnapshot, classifyReplayGap, MudConnection } from '../connection';
 
 test('connection replay/live ordering rejects duplicates and stale events', () => {
   assert.equal(acceptsConnectionSequence(0, 1), true);
@@ -104,4 +104,16 @@ test('stale replay events are ignored after detach', async () => {
 
   assert.deepEqual(received, []);
   assert.equal(mock.unlistenCount, 1);
+});
+
+test('connection replay gaps are classified for actionable recovery', () => {
+  assert.equal(classifyReplayGap(false, null), 'none');
+  assert.equal(classifyReplayGap(true, 'replay-trimmed'), 'replay-trimmed');
+  assert.equal(classifyReplayGap(true, 'future-gap'), 'unknown');
+});
+
+test('connection snapshot recovery never moves sequence state backward', () => {
+  assert.equal(acceptsConnectionSnapshot(4, 4), true);
+  assert.equal(acceptsConnectionSnapshot(4, 7), true);
+  assert.equal(acceptsConnectionSnapshot(7, 4), false);
 });

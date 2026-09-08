@@ -10,7 +10,9 @@ use std::{
 
 use native_tls::TlsConnector;
 use serde::Serialize;
+use serde_json::Value;
 use tauri::{AppHandle, Emitter, State};
+use crate::protocol_decoder::{DecodedEvent, TelnetDecoder};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -19,6 +21,7 @@ use tokio::{
 use tokio_native_tls::TlsConnector as TokioTlsConnector;
 
 const MUD_EVENT_NAME: &str = "mud://event";
+pub const CONNECTION_EVENT_CONTRACT_VERSION: u16 = 1;
 
 #[derive(Clone)]
 pub struct ConnectionManager {
@@ -100,6 +103,7 @@ impl ConnectionManager {
                 descriptor,
                 replay: VecDeque::new(),
                 next_sequence: 0,
+                snapshot: StructuredConnectionSnapshot::default(),
             },
         );
 
@@ -136,13 +140,13 @@ impl ConnectionManager {
     fn record_event(&self, connection_id: &str, session_id: u64, event: ConnectionEvent) -> Option<u64> {
         let mut guard = self.connections.lock().ok()?;
         let entry = guard.get_mut(connection_id)?;
-        if entry.session_id != session_id {
+        if !session_matches(entry.session_id, session_id) {
             return None;
         }
 
         entry.next_sequence += 1;
         let sequence = entry.next_sequence;
-        entry.replay.push_back(ReplayEvent { sequence, event });
+        entry.replay.push_back(ReplayEvent { sequence, session_id, event });
         while entry.replay.len() > MAX_REPLAY_EVENTS {
             entry.replay.pop_front();
         }
@@ -181,15 +185,45 @@ impl ConnectionManager {
             .collect();
 
         Ok(ReplayResponse {
+            contract_version: CONNECTION_EVENT_CONTRACT_VERSION,
             events,
             oldest_sequence,
             newest_sequence: entry.next_sequence,
-            has_gap: after_sequence.saturating_add(1) < oldest_sequence,
+            has_gap: replay_has_gap(after_sequence, oldest_sequence),
+            gap_reason: replay_has_gap(after_sequence, oldest_sequence)
+                .then_some("replay-trimmed".to_string()),
+        })
+    }
+
+    fn snapshot(&self, connection_id: &str) -> Result<ConnectionSnapshotResponse, String> {
+        let guard = self
+            .connections
+            .lock()
+            .map_err(|_| "Connection state is unavailable".to_string())?;
+        let entry = guard
+            .get(connection_id)
+            .ok_or_else(|| "No active connection".to_string())?;
+
+        Ok(ConnectionSnapshotResponse {
+            contract_version: CONNECTION_EVENT_CONTRACT_VERSION,
+            runtime_id: self.runtime_id.clone(),
+            connection_id: connection_id.to_string(),
+            session_id: entry.session_id,
+            sequence: entry.next_sequence,
+            snapshot: entry.snapshot.clone(),
         })
     }
 }
 
 const MAX_REPLAY_EVENTS: usize = 1000;
+
+fn session_matches(current: u64, incoming: u64) -> bool {
+    current == incoming
+}
+
+fn replay_has_gap(after_sequence: u64, oldest_sequence: u64) -> bool {
+    after_sequence.saturating_add(1) < oldest_sequence
+}
 
 #[tauri::command]
 pub async fn connect_mud(
@@ -266,6 +300,14 @@ pub fn attach_mud_connection(
     after_sequence: u64,
 ) -> Result<ReplayResponse, String> {
     state.replay(&connection_id, after_sequence)
+}
+
+#[tauri::command]
+pub fn get_mud_connection_snapshot(
+    state: State<'_, ConnectionManager>,
+    connection_id: String,
+) -> Result<ConnectionSnapshotResponse, String> {
+    state.snapshot(&connection_id)
 }
 
 #[tauri::command]
@@ -369,12 +411,14 @@ async fn run_connection(
 ) {
     let mut buffer = [0u8; 8192];
     let mut line_buffer = LineBuffer::default();
+    let mut decoder = TelnetDecoder::default();
 
     loop {
         tokio::select! {
             biased;
             _ = stop_rx.changed() => {
                 flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
+                emit_decoded_event(&manager, &app, &connection_id, session_id, decoder.flush(), &mut line_buffer);
                 break;
             }
             maybe_bytes = outgoing_rx.recv() => {
@@ -395,6 +439,7 @@ async fn run_connection(
                     }
                     None => {
                         flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
+                        emit_decoded_event(&manager, &app, &connection_id, session_id, decoder.flush(), &mut line_buffer);
                         break;
                     }
                 }
@@ -403,6 +448,7 @@ async fn run_connection(
                 match result {
                     Ok(0) => {
                         flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
+                        emit_decoded_event(&manager, &app, &connection_id, session_id, decoder.flush(), &mut line_buffer);
                         active.store(false, Ordering::SeqCst);
                         manager.emit_event(
                             &app,
@@ -415,17 +461,15 @@ async fn run_connection(
                         break;
                     }
                     Ok(bytes_read) => {
-                        let cleaned = strip_telnet(&buffer[..bytes_read]);
-                        if !cleaned.is_empty() {
-                            let raw_text = String::from_utf8_lossy(&cleaned).to_string();
-                            manager.emit_event(&app, &connection_id, session_id, ConnectionEvent::Raw { text: raw_text });
-                            for text in line_buffer.push(&cleaned) {
-                                manager.emit_event(&app, &connection_id, session_id, ConnectionEvent::Data { text });
-                            }
+                        let raw_text = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+                        manager.emit_event(&app, &connection_id, session_id, ConnectionEvent::Raw { text: raw_text });
+                        for event in decoder.feed(&buffer[..bytes_read]) {
+                            emit_decoded_event(&manager, &app, &connection_id, session_id, Some(event), &mut line_buffer);
                         }
                     }
                     Err(error) => {
                         flush_line_buffer(&manager, &app, &connection_id, session_id, &mut line_buffer);
+                        emit_decoded_event(&manager, &app, &connection_id, session_id, decoder.flush(), &mut line_buffer);
                         active.store(false, Ordering::SeqCst);
                         manager.emit_event(
                             &app,
@@ -462,50 +506,13 @@ fn emit_event(app: &AppHandle, connection_id: &str, session_id: u64, sequence: u
     let _ = app.emit(
         MUD_EVENT_NAME,
         ConnectionEventMessage {
+            contract_version: CONNECTION_EVENT_CONTRACT_VERSION,
             connection_id: connection_id.to_string(),
             session_id,
             sequence,
             event,
         },
     );
-}
-
-fn strip_telnet(buf: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(buf.len());
-    let mut index = 0;
-
-    while index < buf.len() {
-        if buf[index] == 0xff {
-            if index + 1 >= buf.len() {
-                break;
-            }
-
-            let cmd = buf[index + 1];
-
-            if (0xfb..=0xfe).contains(&cmd) {
-                index += 3;
-            } else if cmd == 0xf0 {
-                index += 2;
-            } else if cmd == 0xfa {
-                index += 2;
-
-                while index + 1 < buf.len() && !(buf[index] == 0xff && buf[index + 1] == 0xf0) {
-                    index += 1;
-                }
-
-                if index + 1 < buf.len() {
-                    index += 2;
-                }
-            } else {
-                index += 2;
-            }
-        } else {
-            out.push(buf[index]);
-            index += 1;
-        }
-    }
-
-    out
 }
 
 #[derive(Default)]
@@ -554,6 +561,42 @@ struct ConnectionEntry {
     descriptor: ConnectionDescriptor,
     replay: VecDeque<ReplayEvent>,
     next_sequence: u64,
+    snapshot: StructuredConnectionSnapshot,
+}
+
+fn emit_decoded_event(
+    manager: &ConnectionManager,
+    app: &AppHandle,
+    connection_id: &str,
+    session_id: u64,
+    event: Option<DecodedEvent>,
+    line_buffer: &mut LineBuffer,
+) {
+    let Some(event) = event else { return };
+    match event {
+        DecodedEvent::Text(bytes) => {
+            for text in line_buffer.push(&bytes) {
+                manager.emit_event(app, connection_id, session_id, ConnectionEvent::Data { text });
+            }
+        }
+        DecodedEvent::Structured(event) => manager.emit_event(app, connection_id, session_id, event),
+        DecodedEvent::Reply(bytes) => {
+            manager.emit_event(
+                app,
+                connection_id,
+                session_id,
+                ConnectionEvent::Structured {
+                    protocol: ProtocolFamily::Telnet,
+                    event_type: "automatic-reply".to_string(),
+                    direction: TrafficDirection::Outgoing,
+                    payload: serde_json::json!({ "bytes": bytes.clone() }),
+                    parse_status: ParseStatus::Parsed,
+                    error: None,
+                },
+            );
+            let _ = manager.send(connection_id, &bytes);
+        }
+    }
 }
 
 struct ConnectionWorker {
@@ -647,11 +690,44 @@ pub enum ConnectionEvent {
     Data { text: String },
     Closed { reason: String },
     Error { message: String },
+    Structured {
+        protocol: ProtocolFamily,
+        event_type: String,
+        direction: TrafficDirection,
+        payload: Value,
+        parse_status: ParseStatus,
+        error: Option<String>,
+    },
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProtocolFamily {
+    Telnet,
+    Mcp,
+    Gmcp,
+    Mcmp,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrafficDirection {
+    Incoming,
+    Outgoing,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ParseStatus {
+    Parsed,
+    Malformed,
+    Unsupported,
 }
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ConnectionEventMessage {
+    contract_version: u16,
     connection_id: String,
     session_id: u64,
     sequence: u64,
@@ -739,6 +815,26 @@ mod tests {
         assert_eq!(lines.push(b"one\r\ntwo\nthree"), vec!["one\n", "two\n"]);
         assert_eq!(lines.flush(), vec!["three"]);
     }
+
+    #[test]
+    fn replay_gap_is_reported_only_when_the_requested_sequence_was_trimmed() {
+        assert!(!replay_has_gap(0, 1));
+        assert!(!replay_has_gap(9, 10));
+        assert!(replay_has_gap(9, 11));
+    }
+
+    #[test]
+    fn session_protection_rejects_stale_workers() {
+        assert!(session_matches(4, 4));
+        assert!(!session_matches(4, 5));
+    }
+
+    #[test]
+    fn structured_snapshot_is_bounded_and_versioned_by_response() {
+        let snapshot = StructuredConnectionSnapshot::default();
+        assert!(snapshot.negotiated_capabilities.is_empty());
+        assert_eq!(CONNECTION_EVENT_CONTRACT_VERSION, 1);
+    }
 }
 
 #[derive(Clone, Serialize)]
@@ -762,6 +858,7 @@ pub struct ConnectionDescriptor {
 #[serde(rename_all = "camelCase")]
 pub struct ReplayEvent {
     pub sequence: u64,
+    pub session_id: u64,
     #[serde(flatten)]
     pub event: ConnectionEvent,
 }
@@ -769,8 +866,32 @@ pub struct ReplayEvent {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplayResponse {
+    pub contract_version: u16,
     pub events: Vec<ReplayEvent>,
     pub oldest_sequence: u64,
     pub newest_sequence: u64,
     pub has_gap: bool,
+    pub gap_reason: Option<String>,
+}
+
+#[derive(Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct StructuredConnectionSnapshot {
+    pub protocol_status: String,
+    pub negotiated_capabilities: Vec<String>,
+    pub mcp_state: Value,
+    pub gmcp_state: Value,
+    pub mcmp_state: Value,
+    pub diagnostics: Vec<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionSnapshotResponse {
+    pub contract_version: u16,
+    pub runtime_id: String,
+    pub connection_id: String,
+    pub session_id: u64,
+    pub sequence: u64,
+    pub snapshot: StructuredConnectionSnapshot,
 }

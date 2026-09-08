@@ -53,6 +53,28 @@ The interface must be transport-neutral. Consumers must not need to know
 whether the connection uses plain TCP or TLS, or whether the backend is Rust,
 TypeScript, or another implementation.
 
+P0 implements Telnet framing and negotiation only. MCP, GMCP, and MCMP are
+later protocol extensions and must not be required for basic connection,
+transcript, or reload recovery behavior.
+
+## Reload Recovery Contract
+
+Connection events use a versioned envelope and one monotonically increasing
+sequence per backend session. The envelope identifies the connection and
+session, and structured events additionally identify protocol family, event
+type, direction, payload, parse status, and an optional error. Unknown or
+malformed structured payloads remain classified events rather than terminating
+the connection.
+
+The backend retains a bounded replay window for frontend reloads and detached
+listeners. An attach response reports its contract version, replay range, and
+whether earlier events were trimmed. A trimmed gap is recoverable for ordinary
+transcript text. If structured state may be stale, the frontend requests a
+bounded structured snapshot containing current protocol state, negotiated
+capabilities, current MCP/GMCP/MCMP state, diagnostics, and the sequence at
+which that state was observed. The snapshot does not contain transcript
+history or the replay buffer.
+
 ## Framing and Decoding
 
 Protocol decoding must occur at the connection boundary before traffic is

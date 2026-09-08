@@ -7,14 +7,23 @@
 - Frontend connections have separate `connect`, `attach`, `detach`, and `close` semantics.
 - Frontend teardown detaches listeners instead of disconnecting sockets; explicit disconnect, tab close, reconnect, and native app exit still close them.
 - A new frontend discovers backend connections, matches world/character metadata, recreates tabs, attaches listeners, replays missed text events, deduplicates live/replayed sequences, and shows a diagnostic when the replay buffer has a gap.
+- Replay responses and connection events now carry a versioned contract, and
+  attach-gap recovery can request a bounded structured snapshot before replay
+  dispatch.
 
 ## Remaining work
 
-- Add a versioned structured event contract for Telnet/MCP/GMCP/MCMP.
-- Keep protocol negotiation and automatic protocol replies in the backend while detached.
-- Add snapshot-based resynchronization for structured replay gaps.
-- Add backend tests for replay trimming, session protection, attach ordering, and disconnect cleanup.
-- Add a dedicated diagnostics surface for runtime ID, replay range, and session state.
+- Keep P0 focused on Telnet. MCP, GMCP, and MCMP decoder integration is
+  deferred to P3 or later and should consume this generic event boundary.
+- Keep Telnet negotiation and automatic Telnet replies in the backend while
+  detached.
+- Classify gaps that affect structured state and apply/discard events against
+  the snapshot sequence once structured protocols are introduced in P3+.
+- Expand backend tests beyond the pure gap/session contract tests to cover
+  replay trimming, attach ordering, replacement, disconnect cleanup, and
+  detached processing; add frontend/browser reload coverage.
+- Add a dedicated diagnostics surface for runtime ID, replay range, session
+  state, structured-sync state, and last error.
 
 ## Long-term canonical history ownership experiment
 

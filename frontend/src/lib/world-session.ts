@@ -5,6 +5,16 @@ import type { CharacterRecord, WorldRecord } from './types';
 import type { ConnectionStatus, DisconnectReason } from './session-state';
 import type { LastActivityMarker } from './transcript-indicators';
 
+export interface WorldConnectionDiagnostics {
+  runtimeId: string | null;
+  connectionId: string | null;
+  sessionId: number | null;
+  lastSequence: number;
+  oldestReplaySequence: number;
+  structuredSync: 'unknown' | 'current' | 'stale' | 'failed';
+  lastError: string | null;
+}
+
 export interface WorldSessionProjection {
   currentWorld: WorldRecord | null;
   currentCharacter: CharacterRecord | null;
@@ -21,6 +31,7 @@ export interface WorldSessionProjection {
   logFilePath: string | null;
   logFolderPath: string | null;
   logError: string | null;
+  connectionDiagnostics: WorldConnectionDiagnostics;
 }
 
 export interface WorldTabSessionState extends WorldSessionProjection {
@@ -46,6 +57,15 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
     logFilePath: null,
     logFolderPath: null,
     logError: null,
+    connectionDiagnostics: {
+      runtimeId: null,
+      connectionId: null,
+      sessionId: null,
+      lastSequence: 0,
+      oldestReplaySequence: 0,
+      structuredSync: 'unknown',
+      lastError: null,
+    },
     transcript: new PlayTranscript(transcriptMaxChunks),
     transcriptHistory: [],
     renderCache: new RenderCache(1000), // Cache last 1000 rendered entries
@@ -69,6 +89,7 @@ export function extractWorldProjection(session: WorldTabSessionState): WorldSess
     logFilePath: session.logFilePath,
     logFolderPath: session.logFolderPath,
     logError: session.logError,
+    connectionDiagnostics: session.connectionDiagnostics,
   };
 }
 

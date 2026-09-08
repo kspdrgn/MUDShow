@@ -11,6 +11,7 @@ import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import { setWorldNotes } from './session-world-input';
 import type { WorldPluginSession } from './world-plugin-registry';
+import type { ConnectionSnapshot, StructuredConnectionEvent } from './connection';
 
 interface WorldConnectionActionContext {
   getState: () => SessionState;
@@ -68,6 +69,13 @@ export function createWorldConnectionActions({
     }
 
     const pluginSession = getWorldPluginSession(tabId, world, character);
+
+    const updateConnectionDiagnostics = (patch: Partial<WorldTabSessionState['connectionDiagnostics']>) => {
+      const current = getWorldSession(tabId).connectionDiagnostics;
+      updateWorldSession(tabId, {
+        connectionDiagnostics: { ...current, ...patch },
+      });
+    };
 
     const debugConsole = worldSessionContainers.debugConsole.ensure(createWorldSessionKey(world.id, character?.id ?? null));
     debugConsole.sourceLabel = character ? `${world.name} · ${character.name}` : world.name;
@@ -137,6 +145,19 @@ export function createWorldConnectionActions({
           pluginSession?.handleRawMessage(text);
           appendIncomingRawMessageToTab(tabId, text);
         },
+        onStructured: (event: StructuredConnectionEvent) => {
+          updateConnectionDiagnostics({ structuredSync: event.parseStatus === 'parsed' ? 'current' : 'stale' });
+        },
+        onSnapshot: (snapshot: ConnectionSnapshot) => {
+          updateConnectionDiagnostics({
+            runtimeId: snapshot.runtimeId,
+            connectionId: snapshot.connectionId,
+            sessionId: snapshot.sessionId,
+            lastSequence: snapshot.sequence,
+            structuredSync: 'current',
+            lastError: snapshot.snapshot.diagnostics.at(-1) ?? null,
+          });
+        },
         onMessage: (text) => {
           captureIncomingWorldLine(tabId, text);
           const current = getWorldSession(tabId);
@@ -154,9 +175,13 @@ export function createWorldConnectionActions({
           void appendConnectionStatusToTab(tabId, '\x1b[90m[disconnected - reconnect available]\x1b[0m\n');
         },
         onError: (message) => {
+          updateConnectionDiagnostics({ structuredSync: 'failed', lastError: message });
           updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'error' });
           pluginSession?.handleDisconnected();
           void appendConnectionStatusToTab(tabId, `\x1b[31m[connection error] ${message}\x1b[0m\n`);
+        },
+        onDiagnostic: (message) => {
+          updateConnectionDiagnostics({ structuredSync: 'stale', lastError: message });
         },
       },
     );

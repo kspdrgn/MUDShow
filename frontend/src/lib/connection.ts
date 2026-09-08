@@ -9,8 +9,12 @@ type Handlers = {
   onMessage: (text: string) => void;
   onClose: () => void;
   onError: (message: string) => void;
+  onStructured?: (event: StructuredConnectionEvent) => void;
+  onSnapshot?: (snapshot: ConnectionSnapshot) => void;
   onDiagnostic?: (message: string) => void;
 };
+
+export const CONNECTION_EVENT_CONTRACT_VERSION = 1;
 
 export interface MudConnectionDescriptor {
   connectionId: string;
@@ -31,6 +35,17 @@ export function acceptsConnectionSequence(previous: number, next: number | undef
   return next === undefined || next > previous;
 }
 
+export function acceptsConnectionSnapshot(previous: number, snapshotSequence: number): boolean {
+  return snapshotSequence >= previous;
+}
+
+export function classifyReplayGap(hasGap: boolean, gapReason: string | null | undefined): 'none' | 'replay-trimmed' | 'unknown' {
+  if (!hasGap) {
+    return 'none';
+  }
+  return gapReason === 'replay-trimmed' ? 'replay-trimmed' : 'unknown';
+}
+
 type ConnectionTarget = {
   host: string;
   port: number;
@@ -40,25 +55,62 @@ type ConnectionTarget = {
   characterId?: string | null;
 };
 
+type ConnectionEventBase = {
+  connectionId: string;
+  sessionId?: number;
+  sequence?: number;
+  contractVersion?: number;
+};
+
 type ConnectionEvent =
-  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'opened' }
-  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'raw'; text: string }
-  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'data'; text: string }
-  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'closed'; reason: string }
-  | { connectionId: string; sessionId?: number; sequence?: number; kind: 'error'; message: string };
+  | (ConnectionEventBase & { kind: 'opened' })
+  | (ConnectionEventBase & { kind: 'raw'; text: string })
+  | (ConnectionEventBase & { kind: 'data'; text: string })
+  | (ConnectionEventBase & { kind: 'closed'; reason: string })
+  | (ConnectionEventBase & { kind: 'error'; message: string })
+  | StructuredConnectionEvent;
+
+export type StructuredConnectionEvent = ConnectionEventBase & {
+  kind: 'structured';
+  protocol: 'telnet' | 'mcp' | 'gmcp' | 'mcmp';
+  eventType: string;
+  direction: 'incoming' | 'outgoing';
+  payload: unknown;
+  parseStatus: 'parsed' | 'malformed' | 'unsupported';
+  error: string | null;
+};
 
 type ReplayEvent =
-  | { sequence: number; sessionId?: number; kind: 'opened' }
-  | { sequence: number; sessionId?: number; kind: 'raw'; text: string }
-  | { sequence: number; sessionId?: number; kind: 'data'; text: string }
-  | { sequence: number; sessionId?: number; kind: 'closed'; reason: string }
-  | { sequence: number; sessionId?: number; kind: 'error'; message: string };
+  | { sequence: number; sessionId: number; kind: 'opened' }
+  | { sequence: number; sessionId: number; kind: 'raw'; text: string }
+  | { sequence: number; sessionId: number; kind: 'data'; text: string }
+  | { sequence: number; sessionId: number; kind: 'closed'; reason: string }
+  | { sequence: number; sessionId: number; kind: 'error'; message: string }
+  | (Omit<StructuredConnectionEvent, 'connectionId'> & { sequence: number; sessionId: number; connectionId?: string });
 
-  type ReplayResponse = {
+type ReplayResponse = {
+  contractVersion: number;
   events: ReplayEvent[];
   oldestSequence: number;
   newestSequence: number;
   hasGap: boolean;
+  gapReason: 'replay-trimmed' | null;
+};
+
+export type ConnectionSnapshot = {
+  contractVersion: number;
+  runtimeId: string;
+  connectionId: string;
+  sessionId: number;
+  sequence: number;
+  snapshot: {
+    protocolStatus: string;
+    negotiatedCapabilities: string[];
+    mcpState: unknown;
+    gmcpState: unknown;
+    mcmpState: unknown;
+    diagnostics: string[];
+  };
 };
 
 export class MudConnection {
@@ -126,20 +178,37 @@ export class MudConnection {
         return;
       }
 
-      for (const event of replay.events) {
-        this.dispatchEvent({ ...event, connectionId: this.connectionId }, token, handlers);
+      if (replay.hasGap) {
+        const snapshot = await this.getSnapshot();
+        if (this.sessionToken === token) {
+          if (acceptsConnectionSnapshot(this.lastSequence, snapshot.sequence)) {
+            this.lastSequence = snapshot.sequence;
+            handlers.onSnapshot?.(snapshot);
+          } else {
+            handlers.onDiagnostic?.(
+              `[frontend reload snapshot was stale at sequence ${snapshot.sequence}; live state is already at sequence ${this.lastSequence}]`,
+            );
+          }
+        }
+        handlers.onDiagnostic?.(
+          `[frontend reload missed earlier output; replay starts at sequence ${replay.oldestSequence} (${classifyReplayGap(replay.hasGap, replay.gapReason)})]`,
+        );
       }
 
-      if (replay.hasGap) {
-        handlers.onDiagnostic?.(
-          `[frontend reload missed earlier output; replay starts at sequence ${replay.oldestSequence}]`,
-        );
+      for (const event of replay.events) {
+        this.dispatchEvent({ ...event, connectionId: this.connectionId }, token, handlers);
       }
     } catch (error) {
       if (this.sessionToken === token) {
         handlers.onError(formatError(error));
       }
     }
+  }
+
+  async getSnapshot(): Promise<ConnectionSnapshot> {
+    return invoke<ConnectionSnapshot>('get_mud_connection_snapshot', {
+      connectionId: this.connectionId,
+    });
   }
 
   send(text: string): void {
@@ -193,6 +262,11 @@ export class MudConnection {
         return;
       }
 
+      if (payload.kind === 'structured') {
+        handlers.onStructured?.(payload);
+        return;
+      }
+
       this.dispatchEvent(payload, token, handlers);
     });
 
@@ -223,6 +297,11 @@ export class MudConnection {
 
     if (payload.kind === 'raw') {
       handlers.onRawMessage(payload.text);
+      return;
+    }
+
+    if (payload.kind === 'structured') {
+      handlers.onStructured?.(payload);
       return;
     }
 
