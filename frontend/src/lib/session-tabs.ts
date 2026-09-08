@@ -390,7 +390,11 @@ export function createSessionTabsActions({
     });
   }
 
-  function ensureWorldTab(world: WorldRecord, character: CharacterRecord | null = null): string {
+  function ensureWorldTab(
+    world: WorldRecord,
+    character: CharacterRecord | null = null,
+    connectionId: string | null = null,
+  ): string {
     const current = getState();
     const existing = current.tabs.find(
       (tab): tab is WorldTab =>
@@ -406,13 +410,13 @@ export function createSessionTabsActions({
       return existing.id;
     }
 
-    const connectionId = `connection-${nextConnectionId++}`;
+    const tabConnectionId = connectionId ?? `connection-${nextConnectionId++}`;
     const tab = createWorldTab(
       `world-${nextWorldTabId++}`,
       world.id,
       character?.id ?? null,
       character ? `${world.name} · ${character.name}` : world.name,
-      connectionId,
+      tabConnectionId,
     );
     const worldSession = createWorldTabSessionState(transcriptScrollbackChunks);
 

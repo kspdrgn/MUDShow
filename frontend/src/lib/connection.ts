@@ -31,6 +31,8 @@ export interface MudConnectionDescriptor {
   oldestReplaySequence: number;
 }
 
+export type ConnectionDiagnostic = MudConnectionDescriptor;
+
 export function acceptsConnectionSequence(previous: number, next: number | undefined): boolean {
   return next === undefined || next > previous;
 }

@@ -74,7 +74,9 @@
           onEditWorld={noop}
           onEditCharacter={noop}
           onOpenNotes={noop}
+          onOpenDebugConsole={noop}
           onOpenTriggers={noop}
+          onOpenStyles={noop}
           onCloseRequest={noop}
           onScroll={noop}
           onScrollToBottom={() => setScrolled(false)}

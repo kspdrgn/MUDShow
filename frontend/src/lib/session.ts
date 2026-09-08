@@ -12,7 +12,7 @@ import { createWorldChannelActions } from './session-channels';
 import { createWorldShortcutActions } from './session-world-shortcuts';
 import { createTriggerActions } from './session-triggers';
 import { createWorldTranscriptActions } from './session-world-transcript';
-import { focusElement, nextFrame } from './session-dom';
+import { focusElement, nextFrame, scrollElementToBottom } from './session-dom';
 import { appServices } from './app-services';
 import type { CharacterRecord, HighlightRule, Trigger, WorldRecord } from './types';
 import {
@@ -37,7 +37,7 @@ import {
   createWorldSessionKey,
 } from './world-session-container';
 import type { WorldSessionKey } from './world-session-registry';
-import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
+import { getWorldDomScope, getWorldInputBarInputId, getWorldOutputAreaId } from './world-dom';
 import { createWorldPluginRegistryForSession } from './world-plugins.js';
 import type { WorldPluginSession } from './world-plugin-registry.js';
 import type { WorldSessionAction } from './world-session-action.js';

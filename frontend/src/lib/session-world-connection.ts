@@ -1,4 +1,5 @@
 import { appServices } from './app-services';
+import { invoke } from './tauri';
 import { bumpDebugConsoleCache } from './debug-console-cache';
 import { buildHighlightRegexes } from './formatting';
 import { playBeep } from './playback';
@@ -11,7 +12,7 @@ import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import { setWorldNotes } from './session-world-input';
 import type { WorldPluginSession } from './world-plugin-registry';
-import type { ConnectionSnapshot, StructuredConnectionEvent } from './connection';
+import type { ConnectionSnapshot, MudConnectionDescriptor, StructuredConnectionEvent } from './connection';
 
 interface WorldConnectionActionContext {
   getState: () => SessionState;
@@ -20,7 +21,7 @@ interface WorldConnectionActionContext {
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
   activateWorldTab: (tabId: string) => void;
   worldSessionContainers: WorldSessionContainerRegistry;
-  ensureWorldTab: (world: WorldRecord, character?: CharacterRecord | null) => string;
+  ensureWorldTab: (world: WorldRecord, character?: CharacterRecord | null, connectionId?: string | null) => string;
   appendOutputToTab: (tabId: string, rawText: string) => Promise<void>;
   appendIncomingRawMessageToTab: (tabId: string, text: string) => void;
   captureIncomingWorldLine: (tabId: string, text: string) => void;
@@ -131,6 +132,8 @@ export function createWorldConnectionActions({
         port: world.port,
         tls: world.tls,
         verifyCertificate: world.verifyCertificate,
+        worldId: world.id,
+        characterId: character?.id ?? null,
       },
       {
         onOpen: () => {
@@ -258,10 +261,105 @@ export function createWorldConnectionActions({
     }
   }
 
+  async function recoverWorldConnections(): Promise<void> {
+    let descriptors: MudConnectionDescriptor[];
+    try {
+      descriptors = await invoke<MudConnectionDescriptor[]>('list_mud_connections');
+    } catch (error) {
+      console.error('failed to discover native world connections:', error);
+      return;
+    }
+    const current = getState();
+
+    await Promise.all(descriptors.map(async (descriptor) => {
+      const world = current.worlds.find((entry) => entry.id === descriptor.worldId);
+      if (!world) {
+        return;
+      }
+
+      const character = descriptor.characterId
+        ? current.characters.find((entry) => entry.id === descriptor.characterId && entry.worldId === world.id) ?? null
+        : null;
+      if (descriptor.characterId && !character) {
+        return;
+      }
+
+      const tabId = ensureWorldTab(world, character, descriptor.connectionId);
+      ensureWorldSession(tabId);
+      const key = createWorldSessionKey(world.id, character?.id ?? null);
+      const connection = worldSessionContainers.connection.ensure(key, descriptor.connectionId);
+      if (!connection) {
+        return;
+      }
+
+      const pluginSession = getWorldPluginSession(tabId, world, character);
+      const updateConnectionDiagnostics = (patch: Partial<WorldTabSessionState['connectionDiagnostics']>) => {
+        const currentDiagnostics = getWorldSession(tabId).connectionDiagnostics;
+        updateWorldSession(tabId, { connectionDiagnostics: { ...currentDiagnostics, ...patch } });
+      };
+
+      updateWorldSession(tabId, {
+        currentWorld: world,
+        currentCharacter: character,
+        connectionStatus: 'connecting',
+        disconnectReason: null,
+      });
+      updateConnectionDiagnostics({
+        connectionId: descriptor.connectionId,
+        sessionId: descriptor.sessionId,
+        lastSequence: descriptor.lastSequence,
+        oldestReplaySequence: descriptor.oldestReplaySequence,
+        lastError: descriptor.lastError,
+      });
+      activateWorldTab(tabId);
+
+      await connection.attach({
+        onOpen: () => {
+          updateWorldSession(tabId, { connectionStatus: 'connected', disconnectReason: null });
+          pluginSession?.handleConnected();
+        },
+        onRawMessage: (text) => {
+          pluginSession?.handleRawMessage(text);
+          appendIncomingRawMessageToTab(tabId, text);
+        },
+        onMessage: (text) => {
+          captureIncomingWorldLine(tabId, text);
+          void appendOutputToTab(tabId, text);
+        },
+        onStructured: (event: StructuredConnectionEvent) => {
+          updateConnectionDiagnostics({ structuredSync: event.parseStatus === 'parsed' ? 'current' : 'stale' });
+        },
+        onSnapshot: (snapshot: ConnectionSnapshot) => {
+          updateConnectionDiagnostics({
+            runtimeId: snapshot.runtimeId,
+            connectionId: snapshot.connectionId,
+            sessionId: snapshot.sessionId,
+            lastSequence: snapshot.sequence,
+            structuredSync: 'current',
+            lastError: snapshot.snapshot.diagnostics.at(-1) ?? null,
+          });
+        },
+        onClose: () => {
+          updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'remote' });
+          pluginSession?.handleDisconnected();
+        },
+        onError: (message) => {
+          updateConnectionDiagnostics({ structuredSync: 'failed', lastError: message });
+          updateWorldSession(tabId, { connectionStatus: 'disconnected', disconnectReason: 'error' });
+          pluginSession?.handleDisconnected();
+        },
+        onDiagnostic: (message) => {
+          updateConnectionDiagnostics({ structuredSync: 'stale', lastError: message });
+        },
+      }, 0);
+    }));
+  }
+
   return {
     connectToWorld,
     connectToCharacter,
     reconnectWorldTab,
     disconnectWorldTab,
+    recoverWorldConnections,
   };
 }
