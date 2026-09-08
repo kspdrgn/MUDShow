@@ -19,6 +19,9 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 - [ ] Stabilize configuration versioning and migration behavior.
 - [ ] Consolidate hosted-window and pop-out lifecycle management.
 - [ ] Finish reducing frontend/component plumbing and remove unnecessary diagnostic logging.
+- [ ] Improve frontend startup performance with lazy loading/code splitting for
+  secondary surfaces and other non-startup features; revisit the bundle-size
+  warning threshold after the startup path is split.
 
 ## P2 — High-value product features
 

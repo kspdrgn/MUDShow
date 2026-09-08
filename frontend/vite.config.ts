@@ -22,6 +22,9 @@ export default defineConfig({
     outDir: path.resolve(frontendRoot, '../dist/frontend'),
     emptyOutDir: true,
     sourcemap: true,
+    // Keep the current eager application bundle warning-free until the
+    // planned lazy-loading work splits the startup path into smaller chunks.
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       input: {
         index: path.resolve(frontendRoot, 'index.html'),

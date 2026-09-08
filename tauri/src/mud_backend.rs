@@ -704,8 +704,12 @@ pub enum ConnectionEvent {
 #[serde(rename_all = "lowercase")]
 pub enum ProtocolFamily {
     Telnet,
+    // Reserved for the protocol adapters tracked in PLAN_PROTOCOLS.md.
+    #[allow(dead_code)]
     Mcp,
+    #[allow(dead_code)]
     Gmcp,
+    #[allow(dead_code)]
     Mcmp,
 }
 
@@ -721,6 +725,8 @@ pub enum TrafficDirection {
 pub enum ParseStatus {
     Parsed,
     Malformed,
+    // Reserved for protocol adapters that recognize but decline a message.
+    #[allow(dead_code)]
     Unsupported,
 }
 
