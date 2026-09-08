@@ -659,6 +659,88 @@ struct ConnectionEventMessage {
     event: ConnectionEvent,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_handle() -> ConnectionHandle {
+        let (stop_tx, _stop_rx) = watch::channel(false);
+        let (outgoing_tx, _outgoing_rx) = async_mpsc::unbounded_channel();
+        ConnectionHandle {
+            active: Arc::new(AtomicBool::new(false)),
+            stop_tx,
+            outgoing_tx: Some(outgoing_tx),
+        }
+    }
+
+    fn install(manager: &ConnectionManager, id: &str, session_id: u64) {
+        manager
+            .replace(id.to_string(), session_id, test_handle(), ConnectionDescriptor {
+                connection_id: id.to_string(),
+                session_id,
+                world_id: None,
+                character_id: None,
+                host: "localhost".to_string(),
+                port: 4201,
+                tls: false,
+                verify_certificate: false,
+                status: "connected".to_string(),
+                last_error: None,
+                last_sequence: 0,
+                oldest_replay_sequence: 1,
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn replay_is_bounded_and_reports_a_gap_after_trimming() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 1);
+
+        for index in 0..(MAX_REPLAY_EVENTS + 7) {
+            assert!(manager.record_event(
+                "world",
+                1,
+                ConnectionEvent::Data { text: index.to_string() },
+            ).is_some());
+        }
+
+        let replay = manager.replay("world", 0).unwrap();
+        assert_eq!(replay.events.len(), MAX_REPLAY_EVENTS);
+        assert_eq!(replay.oldest_sequence, 8);
+        assert_eq!(replay.newest_sequence, (MAX_REPLAY_EVENTS + 7) as u64);
+        assert!(replay.has_gap);
+    }
+
+    #[test]
+    fn stale_worker_events_cannot_mutate_a_replacement() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 11);
+        manager.record_event("world", 11, ConnectionEvent::Data { text: "old".into() });
+        manager.replace("world".into(), 12, test_handle(), manager.list()[0].clone()).unwrap();
+
+        assert!(manager.record_event("world", 11, ConnectionEvent::Data { text: "stale".into() }).is_none());
+        assert_eq!(manager.replay("world", 0).unwrap().events.len(), 0);
+    }
+
+    #[test]
+    fn disconnect_removes_connection_and_stops_sending() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 1);
+        manager.disconnect("world");
+
+        assert!(manager.send("world", b"look").is_err());
+        assert!(manager.replay("world", 0).is_err());
+    }
+
+    #[test]
+    fn detached_line_processing_keeps_order_and_flushes_partial_text() {
+        let mut lines = LineBuffer::default();
+        assert_eq!(lines.push(b"one\r\ntwo\nthree"), vec!["one\n", "two\n"]);
+        assert_eq!(lines.flush(), vec!["three"]);
+    }
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionDescriptor {
