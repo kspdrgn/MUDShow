@@ -1,5 +1,8 @@
 // This is a wrapper for 'tauri dev' that enables debugging of the internal WebView through external IDEs. Otherwise you have to rely on the build-in inspection dev-tools.
-// This works by injecting a temporary config file on Windows builds to send the Chromium 'remote debugging port' config and let IDEs attach to it.
+// On Windows this injects a temporary config file to send the Chromium
+// 'remote debugging port' config and let IDEs attach to it. Linux uses
+// WebKitGTK rather than Chromium, so it exposes the WebKit inspector over
+// HTTP instead.
 // Release mode skips this process and should not have remote debugging of any sort enabled.
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -51,6 +54,7 @@ function addRemoteDebuggingArgs(config) {
 
 async function main() {
   const childArgs = ['dev'];
+  const childEnv = { ...process.env };
 
   if (process.platform === 'win32') {
     const config = JSON.parse(readFileSync(configPath, 'utf8'));
@@ -64,6 +68,7 @@ async function main() {
 
   const tauriCli = resolve(repoRoot, 'node_modules', '@tauri-apps', 'cli', 'tauri.js');
   const child = spawn(process.execPath, [tauriCli, ...childArgs], {
+    env: childEnv,
     stdio: 'inherit',
     windowsHide: true,
   });

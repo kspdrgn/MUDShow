@@ -156,7 +156,7 @@ async fn window_host_pop_out(
     let attach_label = label.clone();
     let attach_window_id = window_id.clone();
     main_webview
-        .with_webview(move |platform_webview| {
+        .with_webview(move |_platform_webview| {
             eprintln!(
                 "[window-action] host pop out attach callback started: id={} label={}",
                 attach_window_id, attach_label
@@ -187,7 +187,7 @@ async fn window_host_pop_out(
                 .visible(true);
 
             #[cfg(target_os = "windows")]
-            let builder = builder.with_environment(platform_webview.environment());
+            let builder = builder.with_environment(_platform_webview.environment());
 
             #[cfg(not(target_os = "windows"))]
             let builder = builder;
@@ -325,7 +325,7 @@ async fn window_open_plain_webview_window(app: AppHandle) -> Result<(), String> 
     let attach_app = app.clone();
     let attach_window_label = window_label.clone();
     main_webview
-        .with_webview(move |platform_webview| {
+        .with_webview(move |_platform_webview| {
             eprintln!(
                 "[window-action] plain webview attach callback started: window={}",
                 attach_window_label
@@ -423,7 +423,7 @@ async fn window_open_plain_webview_window(app: AppHandle) -> Result<(), String> 
             );
 
             #[cfg(target_os = "windows")]
-            let builder = builder.with_environment(platform_webview.environment());
+            let builder = builder.with_environment(_platform_webview.environment());
 
             #[cfg(not(target_os = "windows"))]
             let builder = builder;
@@ -850,6 +850,20 @@ fn window_open_devtools() -> Result<(), String> {
 }
 
 fn main() {
+    #[cfg(all(target_os = "linux", debug_assertions))]
+    {
+        // Linux uses WebKitGTK, not Chromium/WebView2. The WebKit inspector
+        // server must be configured before the first webview is created.
+        if std::env::var_os("WEBKIT_INSPECTOR_HTTP_SERVER").is_none() {
+            std::env::set_var("WEBKIT_INSPECTOR_HTTP_SERVER", "127.0.0.1:9222");
+        }
+        eprintln!(
+            "[devtools] WebKitGTK HTTP inspector: {}",
+            std::env::var("WEBKIT_INSPECTOR_HTTP_SERVER")
+                .unwrap_or_else(|_| String::from("127.0.0.1:9222"))
+        );
+    }
+
     tauri::Builder::default()
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { .. } => {

@@ -3,6 +3,12 @@
 ## Purpose
 Describe the desktop-shell behavior that matters for pop-outs, control windows, and webview-backed windows.
 
+## Development Web Inspector
+
+- On Windows development runs, the wrapper enables the WebView2/Chromium remote debugging port configured by `TAURI_REMOTE_DEBUGGING_PORT` (default `9222`), which supports the VS Code Chrome attach configuration.
+- On Linux development runs, Tauri uses WebKitGTK rather than Chromium. Debug builds configure WebKitGTK's HTTP inspector server on `127.0.0.1:9222` before the first webview is created. This endpoint is a WebKit inspector endpoint, not Chrome DevTools Protocol; use the native WebKit inspector from the app's Dev Tools command or `Ctrl+Shift+I`.
+- Release builds do not enable the remote inspector.
+
 ## Window Shells
 - Native windows are allowed to exist as plain desktop shells with no special app content.
 - A plain native window is useful as a control test because it proves the window lifecycle works even when no webview content is attached.

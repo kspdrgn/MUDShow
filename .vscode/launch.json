@@ -1,0 +1,61 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Start Tauri Dev",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run tauri:dev",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Attach Rust to Tauri",
+            "type": "lldb",
+            "request": "attach",
+            "pid": "${command:pickProcess}",
+            "cwd": "${workspaceFolder}",
+            "sourceLanguages": [
+                "rust"
+            ]
+        },
+        {
+            "name": "Attach Windows Tauri WebView",
+            "type": "pwa-chrome",
+            "request": "attach",
+            "port": 9222,
+            "webRoot": "${workspaceFolder}/frontend",
+            "sourceMaps": true,
+            "sourceMapPathOverrides": {
+                "/@fs/*": "${workspaceFolder}/*",
+                "/src/*": "${workspaceFolder}/frontend/src/*"
+            }
+        },
+        {
+            "name": "Open Linux WebKit Inspector",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "until curl --fail --silent http://127.0.0.1:9222/ >/dev/null 2>&1; do sleep 1; done; xdg-open http://127.0.0.1:9222/",
+            "cwd": "${workspaceFolder}"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Tauri UI + Rust (Windows)",
+            "configurations": [
+                "Start Tauri Dev",
+                "Attach Windows Tauri WebView",
+                "Attach Rust to Tauri"
+            ],
+            "stopAll": true
+        },
+        {
+            "name": "Debug Tauri + WebKit Inspector (Linux)",
+            "configurations": [
+                "Start Tauri Dev",
+                "Open Linux WebKit Inspector",
+                "Attach Rust to Tauri"
+            ],
+            "stopAll": true
+        }
+    ]
+}

@@ -24,6 +24,7 @@ VS Code: See file `vscode.launch.json.example` for working launch options. You c
 
 * Use `npm start` or `npm run tauri:dev` to launch the full app in development mode.
     * On Windows, `npm start` enables a WebView2 remote debugging port for the frontend. In VS Code, use `Attach to Tauri WebView` from `.vscode/launch.json` to debug the UI while Tauri is running.
+    * On Linux, Tauri uses WebKitGTK rather than Chromium. Development builds expose the WebKit HTTP inspector at `http://127.0.0.1:9222/`; open the app's Dev Tools command or press `Ctrl+Shift+I` to use the native WebKit inspector. The Linux endpoint is not Chrome DevTools Protocol, so the VS Code Chrome attach configuration remains Windows-only.
 * Use `npm run build` to produce a full release bundle (Windows exe or Linux AppImage) and installers.
 * Use `npm run dev:frontend` to compile and launch the frontend UI code only, without any connection ability.
 

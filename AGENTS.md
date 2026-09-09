@@ -43,6 +43,22 @@ Worker delegation and permanent-worktree procedures are documented in the local 
 - Prefer the existing project scripts for frontend and Tauri workflows instead of inventing shell wrappers.
 - If a fork needs machine-specific runtime or checkout-root guidance, keep that in `AGENTS.local.md` so this shared file stays portable.
 
+## Running App Control and Debugging
+
+When asked to control or debug an already-running MUDShow app, try the platform's webview debugging connection before relying on screenshots or UI-only inspection.
+
+### Windows
+
+- Reserved for Windows-specific WebView2/Chrome debugging instructions.
+
+### Linux
+
+- Start the development app with `npm run tauri:dev` if it is not already running. Debug builds expose the WebKitGTK inspector on `127.0.0.1:9222`; release builds do not.
+- Verify the connection with `curl http://127.0.0.1:9222/`. The response should identify the `MUDShow` target and show an inspector URL containing `Main.html?ws=`.
+- Connect to the WebKit inspector WebSocket at the path shown by that page; for the main target it is normally `/socket/1/1/WebPage`. Complete a WebSocket upgrade, then exchange masked client frames containing JSON WebKit inspector protocol messages.
+- This is WebKit's inspector protocol, not Chrome DevTools Protocol. Do not use `/json`, `/json/list`, `pwa-chrome`, or Chrome CDP assumptions. Confirm a `101 Switching Protocols` response and a protocol event such as `Target.targetCreated` before attempting control or debugging.
+- Keep the connection on loopback. If port `9222` is unavailable, check the app log for `[devtools] WebKitGTK HTTP inspector: 127.0.0.1:9222` and check whether another process owns the port before changing the configured port.
+
 ## Release Build Notes
 
 - `npm run build` may download Windows bundle tools on first run.

@@ -2,6 +2,12 @@
 
 ## Top TODO
 
+todo items from new setup experience:
+- [ ] smooth triggers setup
+  - [ ] make new-trigger icons much more visible? strong foreground color? larger text? same with highlight/rule save/cancel buttons, they get lost on the screen.
+- [ ] better 'new character' access under a world, maybe go back to a big button under the world in the list.
+- [ ] first time connection setup, autoset world type and plugin selection, wizard to pick biggest app settings decisions.
+
 todo:
 - selecting while scrolling can get transcript stuck in two-pane mode
 - transcript
