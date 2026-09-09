@@ -18,6 +18,8 @@ Describe the desktop-shell behavior that matters for pop-outs, control windows, 
 - The native-shell `WindowHostRegistry` is only native-window bookkeeping and a serialized Tauri boundary record. The application surface registry remains the owner of logical surface identity, placement, lifecycle, and view/data transport.
 
 ## Windows Webview Environment
+- Returning to a webview-backed window with Alt+Tab or the taskbar restores native keyboard focus to its last active webview, preserving the focused input and its draft without requiring a click.
+- Focus restoration must not steal activation from another window or repeatedly emit focus events while moving the window.
 - On Windows, a secondary webview window that loads app content must share the main webview's WebView2 environment.
 - The app should obtain the opener or main webview handle and pass its environment into the new window builder.
 - The documented pattern is to read the platform webview through `WebviewWindow::with_webview(...)` and then call `WebviewWindowBuilder::with_environment(...)` with that environment.
