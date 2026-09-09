@@ -47,17 +47,33 @@ Worker delegation and permanent-worktree procedures are documented in the local 
 
 When asked to control or debug an already-running MUDShow app, try the platform's webview debugging connection before relying on screenshots or UI-only inspection.
 
+### Cross-platform startup checklist
+
+- Work from the repository root and read `AGENTS.local.md` when present.
+- Use `npm run tauri:dev`; do not use a release build for inspector-based debugging.
+- Wait for both the Vite server and the native Tauri process to report that they are running before connecting to the inspector.
+- Check port ownership before retrying failed starts: Vite normally uses `5173`, the inspector normally uses `9222`, and the local MU fixture uses `2069` when enabled.
+- Do not assume Linux WebKitGTK and Windows WebView2 use the same inspector protocol or endpoint format.
+- Keep inspector traffic on loopback and record any sandbox escalation needed for local port binding.
+
 ### Windows
 
-- Reserved for Windows-specific WebView2/Chrome debugging instructions.
+- Start the development app with `npm run tauri:dev` if it is not already running. Use the wrapper rather than invoking `tauri dev` directly because it adds the temporary WebView2 remote-debugging configuration.
+- Before starting, check whether port `9222` is already owned. Reuse the existing MUDShow process or stop the stale process before retrying; do not add a second `--remote-debugging-port` argument.
+- Verify the connection with `Invoke-WebRequest http://127.0.0.1:9222/json/version` and `Invoke-WebRequest http://127.0.0.1:9222/json/list`. The response should identify the MUDShow WebView and provide a `webSocketDebuggerUrl`.
+- Connect with a Chrome DevTools Protocol client such as Chrome DevTools, Playwright, Puppeteer, or the VS Code Chrome attach configuration.
+- If another port is required, set `TAURI_REMOTE_DEBUGGING_PORT` before starting, for example `$env:TAURI_REMOTE_DEBUGGING_PORT = "9223"; npm run tauri:dev`, and use that port consistently.
 
 ### Linux
 
 - Start the development app with `npm run tauri:dev` if it is not already running. Debug builds expose the WebKitGTK inspector on `127.0.0.1:9222`; release builds do not.
+- Confirm that `node` is available and that `node_modules/` exists before starting. If the sandbox rejects binding to the Vite loopback port (`127.0.0.1:5173`) or the inspector, rerun the command with the required local-bind permission rather than changing ports.
 - Verify the connection with `curl http://127.0.0.1:9222/`. The response should identify the `MUDShow` target and show an inspector URL containing `Main.html?ws=`.
+- Prefer the native WebKit inspector UI at the `Main.html?ws=` URL, or a client that explicitly supports WebKit Inspector Protocol. A successful WebSocket upgrade alone does not imply that Chromium `Runtime`, `Page`, or `DOM` domains are available.
 - Connect to the WebKit inspector WebSocket at the path shown by that page; for the main target it is normally `/socket/1/1/WebPage`. Complete a WebSocket upgrade, then exchange masked client frames containing JSON WebKit inspector protocol messages.
 - This is WebKit's inspector protocol, not Chrome DevTools Protocol. Do not use `/json`, `/json/list`, `pwa-chrome`, or Chrome CDP assumptions. Confirm a `101 Switching Protocols` response and a protocol event such as `Target.targetCreated` before attempting control or debugging.
 - Keep the connection on loopback. If port `9222` is unavailable, check the app log for `[devtools] WebKitGTK HTTP inspector: 127.0.0.1:9222` and check whether another process owns the port before changing the configured port.
+- If full agent control is required on Linux, consider adding a debug-only UI command-line or structured protocol bridge for DOM inspection, input, console capture, and screenshots; do not expose such a bridge in release builds.
 
 ## Release Build Notes
 
