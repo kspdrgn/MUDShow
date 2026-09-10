@@ -1,36 +1,43 @@
-import type { FuzzBallPropertyNodeSnapshot } from './storage-cache.js';
-import type { FuzzBallPropertyTreeCache } from './storage-cache.js';
-import { createWorldSessionKey, type WorldSessionContainerRegistry } from '../world-session-container.js';
+import type { WorldConnectionPort } from '../world-plugin.js';
 
-export interface FuzzBallPropertyService {
-  get(path: string): FuzzBallPropertyNodeSnapshot | null;
-  refresh(path: string): void;
-  set(path: string, value: string): Promise<void>;
-  subscribe(listener: () => void): () => void;
+export interface FuzzBallPropertySnapshot {
+  path: string;
+  value: string;
+  updatedAt: number;
 }
 
-export function createFuzzBallPropertyService(
-  worldId: string,
-  characterId: string,
-  worldSessionContainers: WorldSessionContainerRegistry,
-  cache: FuzzBallPropertyTreeCache,
-): FuzzBallPropertyService {
-  const key = createWorldSessionKey(worldId, characterId);
+export interface FuzzBallPropertyService {
+  get(path: string): FuzzBallPropertySnapshot | null;
+  refresh(path: string): void;
+  set(path: string, value: string): Promise<void>;
+  captureLine(line: string): boolean;
+  subscribe(listener: () => void): () => void;
+  clear(): void;
+}
+
+export function createFuzzBallPropertyService(connection: WorldConnectionPort): FuzzBallPropertyService {
+  const values = new Map<string, FuzzBallPropertySnapshot>();
+  const listeners = new Set<() => void>();
+  const notify = () => { for (const listener of [...listeners]) listener(); };
+  const normalizePath = (path: string) => {
+    const trimmed = path.trim();
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  };
 
   return {
-    get(path: string): FuzzBallPropertyNodeSnapshot | null {
-      return cache.getSnapshot(path);
+    get(path) { return values.get(normalizePath(path)) ?? null; },
+    refresh(path) { connection.send(`examine me=${normalizePath(path)}\r\n`); },
+    async set(path, value) {
+      connection.send(`@set me=${normalizePath(path)}:${value}\r\n`);
     },
-    refresh(path: string): void {
-      const requestPath = path === '/' || path.endsWith('/') ? path : path;
-      const command = `examine me=${requestPath}\r\n`;
-      worldSessionContainers.connection.get(key)?.send(command);
+    captureLine(line) {
+      const match = line.trim().match(/^(?:property\s+)?(\/[^\s:=]+)\s*(?:=|:)\s*(.*?)\s*$/i);
+      if (!match) return false;
+      values.set(normalizePath(match[1]), { path: normalizePath(match[1]), value: match[2], updatedAt: Date.now() });
+      notify();
+      return true;
     },
-    async set(path: string, value: string): Promise<void> {
-      worldSessionContainers.connection.get(key)?.send(`@set me=${path}:${value}\r\n`);
-    },
-    subscribe(listener: () => void): () => void {
-      return cache.subscribe(listener);
-    },
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    clear() { values.clear(); notify(); },
   };
 }

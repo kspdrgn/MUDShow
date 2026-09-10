@@ -10,6 +10,8 @@
 - spec/style.md - Style settings for fonts and colors used by input and output area, can be stored at three levels: app, world, character
 - spec/triggers.md - Simple word highlights and complex regexp triggers
 - spec/surfaces.md - Versioned surface commands, snapshots, and lifecycle
+- spec/fuzzball.md - FuzzBall property and storage-surface integration
+- spec/taps.md - Taps profile inheritance and ride-mode action
 
 ## Purpose
 Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with just enough features to support roleplay and day-to-day play.

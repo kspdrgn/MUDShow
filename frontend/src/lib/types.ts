@@ -10,6 +10,8 @@ export interface WorldRecord {
   compatibility: WorldCompatibility;
 }
 
+export type WorldCompatibility = 'telnet' | 'fuzzball' | 'taps';
+
 export interface CharacterRecord {
   id: string;
   worldId: string;

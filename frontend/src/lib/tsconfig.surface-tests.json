@@ -8,8 +8,17 @@
   },
   "include": [
     "world-surface-protocol.ts",
+    "world-capabilities.ts",
+    "world-plugin.ts",
+    "world-plugin-registry.ts",
+    "world-session-action.ts",
+    "world-plugins.ts",
+    "world-surface-host.ts",
     "surfaces/**/*.ts",
+    "fuzzball/**/*.ts",
+    "taps/**/*.ts",
     "tests/node-shims.d.ts",
-    "tests/surface-protocol.test.ts"
+    "tests/surface-protocol.test.ts",
+    "tests/world-plugin-integration.test.ts"
   ]
 }

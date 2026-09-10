@@ -4,6 +4,8 @@
 
 - [x] Establish the generic versioned surface command, snapshot, controller,
   and lifecycle boundary.
+- [x] Activate the built-in FuzzBall/Taps world-session integrations through
+  the generic plugin and surface host boundary.
 - [ ] Connect feature surface controllers and native-window adapters to the
   generic boundary.
 - [ ] Consolidate frontend session-service ownership.

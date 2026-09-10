@@ -1,10 +1,15 @@
 import type { WorldRecord } from './types.js';
 
+import type { WorldCompatibility } from './types.js';
+
+export function normalizeWorldCompatibility(value: unknown): WorldCompatibility {
+  return value === 'fuzzball' || value === 'taps' ? value : 'telnet';
+}
+
 export function supportsFuzzball(world: WorldRecord | null | undefined): boolean {
-  const compatibility = world?.compatibility as string | undefined;
-  return compatibility === 'fuzzball' || compatibility === 'taps';
+  return world?.compatibility === 'fuzzball' || world?.compatibility === 'taps';
 }
 
 export function supportsTaps(world: WorldRecord | null | undefined): boolean {
-  return (world?.compatibility as string | undefined) === 'taps';
+  return world?.compatibility === 'taps';
 }

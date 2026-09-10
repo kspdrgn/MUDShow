@@ -1,14 +1,10 @@
-import { createWorldPluginRegistry } from './world-plugin-registry.js';
 import { createFuzzballPlugin } from './fuzzball/plugin.js';
+import { createWorldPluginRegistry } from './world-plugin-registry.js';
 import { createTapsPlugin } from './taps/plugin.js';
-import type { WorldSessionContainerRegistry } from './world-session-container.js';
-import { createInProcessWorldPluginProvider } from './world-plugin.js';
 
-export function createWorldPluginRegistryForSession(
-  worldSessionContainers: WorldSessionContainerRegistry,
-) {
+export function createWorldPluginRegistryForSession() {
   const registry = createWorldPluginRegistry();
-  registry.registerProvider(createInProcessWorldPluginProvider(() => createFuzzballPlugin(worldSessionContainers)));
-  registry.registerProvider(createInProcessWorldPluginProvider(createTapsPlugin));
+  registry.register(createFuzzballPlugin());
+  registry.register(createTapsPlugin());
   return registry;
 }

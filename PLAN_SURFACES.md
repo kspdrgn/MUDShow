@@ -11,11 +11,13 @@
   disposal behavior.
 - [x] Keep host-neutral registration and placement lifecycle separate from
   rendering, including previous dock-edge preservation.
+- [x] Register built-in plugin surface descriptors through the generic host
+  port, without feature-specific host branches.
 
 ## Follow-up dependencies
 
-- Connect existing feature controllers and native-window adapters to this
-  boundary without adding feature-specific branches to the host.
+- Mount registered feature controllers and actions in the concrete Dockview
+  and native-window adapters without adding feature-specific host branches.
 - Add browser/native integration coverage for actual Dockview and Tauri
   lifecycle transitions.
 - Define renderer and capability adapters only when a concrete feature needs

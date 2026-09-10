@@ -14,7 +14,7 @@
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
     "clean": "rimraf dist tauri/target tauri/.mudshow-tauri-dev-*.json",
-    "test:surface-protocol": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.surface-tests.json && node --test dist/surface-tests/lib/tests/surface-protocol.test.js",
+    "test:surface-protocol": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.surface-tests.json && node --test dist/surface-tests/lib/tests/surface-protocol.test.js dist/surface-tests/lib/tests/world-plugin-integration.test.js",
     "test": "npm run test:surface-protocol"
   },
   "author": "",

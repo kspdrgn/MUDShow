@@ -4,14 +4,8 @@ export const RIDE_MODE_PROPERTY_PATH = '/ride/_mode';
 export const RIDE_MODES: readonly RideMode[] = ['ride', 'hand', 'walk', 'fly'];
 
 export function parseRideMode(value: string | null | undefined): RideMode | null {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  return RIDE_MODES.includes(normalized as RideMode)
-    ? normalized as RideMode
-    : null;
+  const normalized = value?.trim().toLowerCase();
+  return normalized && RIDE_MODES.includes(normalized as RideMode) ? normalized as RideMode : null;
 }
 
 export function createRideModeQuery(): string {

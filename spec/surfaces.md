@@ -32,4 +32,6 @@ rendering. Moving a surface through a native window preserves its prior dock
 edge for a later return. Unregistering a surface removes its open instances.
 
 FuzzBall, Taps, and other feature integrations may use this boundary later;
-this protocol does not define or persist feature-specific state.
+the host can register plugin-contributed surface descriptors and open instances
+through the same boundary. This protocol does not define or persist
+feature-specific state.

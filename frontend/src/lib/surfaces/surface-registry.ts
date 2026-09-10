@@ -125,6 +125,10 @@ export class SurfaceRegistry {
     return this.instances.get(instanceId) ?? null;
   }
 
+  getRegistration(surfaceId: string): WorldSurfaceDescriptor | null {
+    return this.registrations.get(surfaceId) ?? null;
+  }
+
   getSnapshot(): SurfaceRegistrySnapshot {
     return {
       registrations: [...this.registrations.values()],
