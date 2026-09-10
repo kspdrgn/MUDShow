@@ -6,8 +6,7 @@ import {
   type FuzzballStorageSurfaceControllerDependencies,
 } from './storage-surface-controller.js';
 import type { FuzzballStorageViewerService, FuzzballStorageViewerState } from './storage-viewer.js';
-import { fuzzballStorageCache } from './storage-cache.js';
-import { FUZZBALL_STORAGE_VIEWER_SERVICE_KEY } from './plugin.js';
+import { FUZZBALL_CACHE_SERVICE_KEY, FUZZBALL_STORAGE_VIEWER_SERVICE_KEY } from './plugin.js';
 import type { TreeDataWindowModel } from '../components/tree-data/tree-data-view.js';
 
 export interface FuzzballSurfaceHostAdapterDependencies
@@ -40,7 +39,11 @@ export function createFuzzballSurfaceHostAdapter(
   dependencies: FuzzballSurfaceHostAdapterDependencies,
 ) {
   function getViewerService(sourceTabId: string): FuzzballStorageViewerService | null {
-    return dependencies.getPluginService(sourceTabId, FUZZBALL_STORAGE_VIEWER_SERVICE_KEY);
+    const service = dependencies.getPluginService(sourceTabId, FUZZBALL_STORAGE_VIEWER_SERVICE_KEY);
+    if (service) {
+      watchCache(sourceTabId);
+    }
+    return service;
   }
 
   function ensureSurface(sourceTabId: string): string {
@@ -75,11 +78,6 @@ export function createFuzzballSurfaceHostAdapter(
     },
     requestInitialLoad: (windowId, state: FuzzballStorageViewerState) => {
       if (!state.sourceTabId) {
-        return;
-      }
-
-      const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
-      if (cache.hasData() && cache.getSnapshot('/')?.areChildrenLoaded) {
         return;
       }
 
@@ -140,11 +138,30 @@ export function createFuzzballSurfaceHostAdapter(
     controller.getWindowIdsForSourceTab,
   );
 
+  const invalidationListeners = new Set<() => void>();
+  const cacheUnsubscribers = new Map<string, () => void>();
+
+  function watchCache(sourceTabId: string): void {
+    if (cacheUnsubscribers.has(sourceTabId)) {
+      return;
+    }
+
+    const cache = dependencies.getPluginService(sourceTabId, FUZZBALL_CACHE_SERVICE_KEY);
+    if (!cache) {
+      return;
+    }
+
+    cacheUnsubscribers.set(sourceTabId, cache.subscribe(() => {
+      invalidationListeners.forEach((listener) => listener());
+    }));
+  }
+
   return {
     ...controller,
     restorePoppedOutWindow,
     subscribeInvalidation(listener: () => void): () => void {
-      return fuzzballStorageCache.subscribe(listener);
+      invalidationListeners.add(listener);
+      return () => invalidationListeners.delete(listener);
     },
   };
 }

@@ -88,7 +88,6 @@ import type { WorldTabSessionState } from './lib/world-session';
 import type { WorldSessionDebugConsole } from './lib/world-session-debug-console';
 import { createWorldSessionKey } from './lib/world-session-container';
 import { getTriggersForCharacter, getTriggersForWorld } from './lib/triggers';
-import { flushPendingNotesSave } from './lib/session-world-input';
 import { emit, getCurrentWebviewWindow, invoke, listen } from './lib/tauri';
 import { getDockviewTheme } from './lib/dockview-themes';
 import {
@@ -1992,7 +1991,7 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
     const poppedOutWindowRecord = poppedOutWindowRecords[windowId] ?? null;
     const windowRecord = getRegisteredWindowRecords().find((record) => record.id === windowId) ?? poppedOutWindowRecord;
 
-    flushPendingNotesSave(tabId);
+    session.flushNotes(tabId);
 
     if (!windowRecord) {
       clearNotesTransportSession(windowId);

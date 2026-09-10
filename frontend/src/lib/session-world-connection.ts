@@ -1,4 +1,3 @@
-import { appServices } from './app-services';
 import { invoke } from './tauri';
 import { bumpDebugConsoleCache } from './debug-console-cache';
 import { buildHighlightRegexes } from './formatting';
@@ -10,7 +9,6 @@ import type { WorldSessionContainerRegistry } from './world-session-container';
 import { createWorldSessionKey } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
-import { setWorldNotes } from './session-world-input';
 import type { WorldPluginSession } from './world-plugin-registry';
 import type { ConnectionSnapshot, MudConnectionDescriptor, StructuredConnectionEvent } from './connection';
 
@@ -28,6 +26,7 @@ interface WorldConnectionActionContext {
   appendConnectionStatusToTab: (tabId: string, rawText: string) => Promise<void>;
   setHighlightRegexes: (regexes: ReturnType<typeof buildHighlightRegexes>) => void;
   getWorldPluginSession: (tabId: string, world: WorldRecord, character: CharacterRecord | null) => WorldPluginSession | null;
+  setWorldNotes: (tabId: string, notes: string) => void;
 }
 
 function isAppFocused(): boolean {
@@ -52,6 +51,7 @@ export function createWorldConnectionActions({
   appendConnectionStatusToTab,
   setHighlightRegexes,
   getWorldPluginSession,
+  setWorldNotes,
 }: WorldConnectionActionContext) {
   async function connectToTarget(world: WorldRecord, character: CharacterRecord | null): Promise<void> {
     const tabId = ensureWorldTab(world, character);
@@ -87,15 +87,19 @@ export function createWorldConnectionActions({
 
     const maxHistoryLines = character?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
     const highlightRegexes = buildHighlightRegexes(getHighlightTriggers(stateSnapshot.triggers));
+    const sessionKey = createWorldSessionKey(world.id, character?.id ?? null);
+    const notesService = worldSessionContainers.notes.ensure(sessionKey);
+    const transcriptService = worldSessionContainers.transcript.ensure(sessionKey);
     const [notes, history] = character
       ? await Promise.all([
-          appServices.storage.loadNotes(character.id, false),
-          appServices.storage.loadTranscriptHistory(character.id, maxHistoryLines, false),
+          notesService.load(false),
+          transcriptService.loadHistory(maxHistoryLines, false),
         ])
       : ['', []];
 
     session.transcript.loadHistory(maxHistoryLines > 0 ? history : []);
     setWorldNotes(tabId, notes);
+    transcriptService.setHistory(history);
     setHighlightRegexes(highlightRegexes);
 
     if (shouldInitializeSession) {
@@ -110,7 +114,6 @@ export function createWorldConnectionActions({
         outputRevision: session.outputRevision + 1,
         userScrolled: false,
         activeBar,
-        transcriptHistory: history,
       });
     } else {
       updateWorldSession(tabId, {

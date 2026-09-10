@@ -3,11 +3,12 @@ import { createFuzzBallPropertyService, type FuzzBallPropertyService } from './p
 import { createFuzzballStorageViewerService, type FuzzballStorageViewerService } from './storage-viewer.js';
 import { createWorldPluginServiceKey, type WorldPlugin } from '../world-plugin.js';
 import { supportsFuzzball } from '../world-capabilities.js';
-import { fuzzballStorageCache } from './storage-cache.js';
+import { FuzzBallPropertyTreeCache } from './storage-cache.js';
 
 export const FUZZBALL_PLUGIN_ID = 'fuzzball';
 export const FUZZBALL_STORAGE_SURFACE_ID = 'fuzzball-storage-viewer';
 export const FUZZBALL_PROPERTY_SERVICE_KEY = createWorldPluginServiceKey<FuzzBallPropertyService>(FUZZBALL_PLUGIN_ID);
+export const FUZZBALL_CACHE_SERVICE_KEY = createWorldPluginServiceKey<FuzzBallPropertyTreeCache>(`${FUZZBALL_PLUGIN_ID}:cache`);
 export const FUZZBALL_STORAGE_VIEWER_SERVICE_KEY = createWorldPluginServiceKey<FuzzballStorageViewerService>(`${FUZZBALL_PLUGIN_ID}:storage-viewer`);
 
 export function createFuzzballPlugin(
@@ -18,13 +19,16 @@ export function createFuzzballPlugin(
     label: 'FuzzBall',
     canActivate: ({ world }) => supportsFuzzball(world),
     createSessionContribution: ({ world, character, services, host }) => {
+      const cache = new FuzzBallPropertyTreeCache();
       const propertyService = createFuzzBallPropertyService(
         world.id,
         character?.id ?? '',
         worldSessionContainers,
+        cache,
       );
       services.set(FUZZBALL_PROPERTY_SERVICE_KEY, propertyService);
-      services.set(FUZZBALL_STORAGE_VIEWER_SERVICE_KEY, createFuzzballStorageViewerService(worldSessionContainers));
+      services.set(FUZZBALL_CACHE_SERVICE_KEY, cache);
+      services.set(FUZZBALL_STORAGE_VIEWER_SERVICE_KEY, createFuzzballStorageViewerService(worldSessionContainers, cache));
 
       return {
         surfaces: [{
@@ -57,10 +61,10 @@ export function createFuzzballPlugin(
           }),
         }],
         onIncomingLine: (line) => {
-          captureFuzzballWorldLine(world.id, character?.id ?? '', line);
+          captureFuzzballWorldLine(line, cache);
         },
         dispose: () => {
-          fuzzballStorageCache.clearSessionCache(world.id, character?.id ?? '');
+          cache.clear();
         },
       };
     },

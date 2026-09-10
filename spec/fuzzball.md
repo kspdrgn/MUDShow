@@ -47,7 +47,8 @@ The value text is retained as received. A `dir` node has no direct value.
 
 ## Session Cache
 
-- Cache state is held in memory and is keyed by world id plus character id.
+- Cache state is held in memory by the FuzzBall plugin's world-session
+  contribution and is scoped to the world id plus character id.
 - A world-only connection uses an empty character id.
 - The cache preserves hierarchy, node type, direct value, whether the value
   was explicitly loaded, whether children exist, whether children have been
@@ -58,7 +59,8 @@ The value text is retained as received. A `dir` node has no direct value.
 - Paths are normalized to have a leading slash and collapsed separators.
 - Child nodes are sorted alphabetically for display.
 - The cache is transient. It survives disconnect/reconnect within the open
-  world session and is cleared when the owning world session is disposed.
+  world session and is cleared when the owning plugin/session contribution is
+  disposed. A frontend refresh may lose it; the viewer can query it again.
 - The cache is not written to application persistence.
 
 ## Property Service

@@ -1,6 +1,6 @@
 import type { InputBarId } from './input-bars';
 import { createInputBars, type InputBarConfig } from './input-bars';
-import { PlayTranscript, type TranscriptHistoryEntry, RenderCache } from './playback';
+import { PlayTranscript, RenderCache } from './playback';
 import type { CharacterRecord, WorldRecord } from './types';
 import type { ConnectionStatus, DisconnectReason } from './session-state';
 import type { LastActivityMarker } from './transcript-indicators';
@@ -36,7 +36,6 @@ export interface WorldSessionProjection {
 
 export interface WorldTabSessionState extends WorldSessionProjection {
   transcript: PlayTranscript;
-  transcriptHistory: TranscriptHistoryEntry[];
   renderCache: RenderCache; // Hot render cache for visible output
 }
 
@@ -67,7 +66,6 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
       lastError: null,
     },
     transcript: new PlayTranscript(transcriptMaxChunks),
-    transcriptHistory: [],
     renderCache: new RenderCache(1000), // Cache last 1000 rendered entries
   };
 }

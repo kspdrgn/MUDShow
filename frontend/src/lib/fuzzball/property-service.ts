@@ -1,5 +1,5 @@
 import type { FuzzBallPropertyNodeSnapshot } from './storage-cache.js';
-import { fuzzballStorageCache } from './storage-cache.js';
+import type { FuzzBallPropertyTreeCache } from './storage-cache.js';
 import { createWorldSessionKey, type WorldSessionContainerRegistry } from '../world-session-container.js';
 
 export interface FuzzBallPropertyService {
@@ -13,8 +13,8 @@ export function createFuzzBallPropertyService(
   worldId: string,
   characterId: string,
   worldSessionContainers: WorldSessionContainerRegistry,
+  cache: FuzzBallPropertyTreeCache,
 ): FuzzBallPropertyService {
-  const cache = fuzzballStorageCache.getSessionCache(worldId, characterId);
   const key = createWorldSessionKey(worldId, characterId);
 
   return {

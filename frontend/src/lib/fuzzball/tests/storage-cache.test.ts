@@ -4,35 +4,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  FuzzBallPropertyCacheStore,
   FuzzBallPropertyTreeCache,
 } from '../storage-cache.js';
 
-test('session caches are keyed by world id and character id', () => {
-  const store = new FuzzBallPropertyCacheStore();
-
-  const first = store.getSessionCache('world-a', 'character-a');
-  const second = store.getSessionCache('world-a', 'character-a');
-  const otherCharacter = store.getSessionCache('world-a', 'character-b');
-  const worldOnly = store.getSessionCache('world-b');
-  const worldOnlyAgain = store.getSessionCache('world-b', '');
-
-  assert.strictEqual(first, second);
-  assert.notStrictEqual(first, otherCharacter);
-  assert.strictEqual(worldOnly, worldOnlyAgain);
-  assert.ok(store.hasSessionCache('world-a', 'character-a'));
-  assert.ok(store.hasSessionCache('world-b', ''));
-});
-
-test('clearing a session cache removes transient fuzzball data for that character', () => {
-  const store = new FuzzBallPropertyCacheStore();
-  const cache = store.getSessionCache('world-a', 'character-a');
+test('a session-owned cache clears its disposable property data', () => {
+  const cache = new FuzzBallPropertyTreeCache();
   cache.upsertNode({ path: '/prefs/theme', type: 'str', value: 'dark' });
 
-  store.clearSessionCache('world-a', 'character-a');
-
-  assert.equal(store.hasSessionCache('world-a', 'character-a'), false);
-  assert.equal(store.getSessionCache('world-a', 'character-a').hasData(), false);
+  cache.clear();
+  assert.equal(cache.hasData(), false);
 });
 
 test('upserting a child synthesizes missing parents and preserves tree structure', () => {

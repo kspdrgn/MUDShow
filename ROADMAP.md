@@ -18,7 +18,7 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
   - [ ] Connect the generic surface host to the FuzzBall and Taps integrations.
   - [ ] Consolidate hosted-window and pop-out lifecycle management.
 - [X] Resolve session ownership and recovery direction: frontend services own session data, saved data reloads from storage, and disposable plugin state can be re-queried; preserve live-connection reattachment and existing bounded replay.
-- [ ] Consolidate frontend session-service ownership for transcript/history coordination, notes editing and saving, and plugin caches ([`PLAN_DI_WORLD_SESSION.md`](PLAN_DI_WORLD_SESSION.md)); keep trigger definitions in app storage and presentation state in surface controllers.
+- [X] Consolidate frontend session-service ownership for transcript/history coordination, notes editing and saving, and plugin caches ([`PLAN_DI_WORLD_SESSION.md`](PLAN_DI_WORLD_SESSION.md)); keep trigger definitions in app storage and presentation state in surface controllers.
 - [X] Stabilize configuration versioning and migration behavior design: establish a version-aware loading seam for future breaking schema changes; keep non-breaking shape changes silent, and immediately persist explicitly migrated files while rejecting unsupported newer versions.
 - [ ] Finish reducing frontend/component plumbing and remove unnecessary diagnostic logging.
 

@@ -1,4 +1,3 @@
-import { appendTranscriptHistory } from './playback';
 import { bumpDebugConsoleCache } from './debug-console-cache';
 import {
   appendDebugConsoleEntry,
@@ -142,9 +141,12 @@ export function createWorldTranscriptActions({
       : null;
 
     if (session.currentCharacter && maxHistoryLines > 0) {
-      const transcriptHistory = appendTranscriptHistory(session.transcriptHistory, rawText, maxHistoryLines);
-      updateWorldSession(tabId, { transcriptHistory });
-      void appServices.storage.saveTranscriptHistory(session.currentCharacter.id, transcriptHistory, maxHistoryLines);
+      const sessionKey = getWorldSessionKeyForTab(tabId);
+      if (sessionKey) {
+        const transcriptService = worldSessionContainers.transcript.ensure(sessionKey);
+        transcriptService.appendHistory(rawText, maxHistoryLines);
+        transcriptService.saveHistory(maxHistoryLines);
+      }
     }
 
     updateWorldSession(tabId, {

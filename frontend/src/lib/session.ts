@@ -796,11 +796,18 @@ function createSession() {
     setHighlightRegexes: (regexes) => {
       highlightRegexes = regexes;
     },
+    setWorldNotes: (tabId, notes) => {
+      const key = getWorldSessionKeyForTab(tabId);
+      if (key) {
+        worldSessionContainers.notes.ensure(key).set(notes);
+      }
+    },
   });
 
   const inputActions = createWorldInputActions({
     getActiveWorldTabId: tabsActions.getActiveWorldTabId,
     getActiveWorldSessionKey: () => getActiveWorldSessionKey(),
+    getWorldSessionKeyForTab,
     resolveActiveWorldScope: () => {
       const tabId = tabsActions.getActiveWorldTabId();
       return tabId ? getWorldDomScope(tabId) : null;
