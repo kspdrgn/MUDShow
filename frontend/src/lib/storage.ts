@@ -11,6 +11,11 @@ import {
 } from './fonts';
 import { trimTranscriptHistory, type TranscriptHistoryEntry } from './playback';
 import { invoke, isTauriAvailable } from './tauri';
+import {
+  migrateStorageData,
+  STORAGE_SCHEMA_VERSION,
+  type PersistedStorageRecord,
+} from './storage-migrations';
 
 const WORLD_KEY = 'mudshow_worlds';
 const CHARACTER_KEY = 'mudshow_chars';
@@ -19,10 +24,6 @@ const HISTORY_KEY = 'mudshow_history';
 const NOTES_PREFIX = 'mudshow_notes_';
 const STYLE_KEY = 'mudshow_style';
 const FONT_SHELF_KEY = 'mudshow_font_shelf';
-const STORAGE_SCHEMA_VERSION = 1;
-
-type PersistedStorageRecord = Record<string, unknown>;
-
 export type DesktopStorageMode = 'file';
 
 interface PersistentData {
@@ -339,9 +340,20 @@ function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
   return [...byKey.values()];
 }
 
-function normalizePersistentData(
-  raw: PersistedStorageRecord,
-): PersistentData {
+function normalizeNotes(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.entries(value).reduce<Record<string, string>>((notes, [key, note]) => {
+    if (typeof note === 'string') {
+      notes[key] = note;
+    }
+    return notes;
+  }, {});
+}
+
+function normalizePersistentData(raw: PersistedStorageRecord): PersistentData {
   const worldRecords = Array.isArray(raw.worlds)
     ? raw.worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null)
     : [];
@@ -359,7 +371,7 @@ function normalizePersistentData(
     worlds: dedupeWorlds(worldRecords),
     characters: characterRecords,
     triggers: pruneInvalidTriggerOwners(triggers, dedupeWorlds(worldRecords), characterRecords),
-    notes: isRecord(raw.notes) ? (raw.notes as Record<string, string>) : {},
+    notes: normalizeNotes(raw.notes),
     style: normalizeAppStyleOverrides(raw.style),
     fontShelf: normalizeFontShelf(raw.fontShelf),
   };

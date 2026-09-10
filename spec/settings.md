@@ -7,9 +7,9 @@
 
 # Persistence / Storage
 
-The application database is stored in a JSON file to be easily readable and manageable by the user. The file stores a version of the schema used. Non-breaking additions and defaultable shape changes may be handled silently while retaining the current schema version. A breaking change that could lose or misinterpret persisted user data must increment the storage version and include an explicit migration from the prior version. Loading runs migrations in order and immediately persists the migrated file at the current version. Files with invalid or newer unsupported versions must not be treated as current data.
+The application database is stored in a JSON file to be easily readable and manageable by the user. The file stores a version of the schema used. Non-breaking additions and defaultable shape changes may be handled silently. A breaking change that could lose or misinterpret persisted user data must increment the storage version and include an explicit migration from the prior version. Loading runs migrations in order and immediately persists the migrated file at the current version. Files with invalid or newer unsupported versions must not be treated as current data. Existing unversioned files are treated as current only for backward compatibility with the original file format.
 
-The main JSON database stores worlds, characters, triggers, notes, the app font shelf, and style settings. Notes are stored in the top-level `notes` map keyed by character ID, so a character rename does not change where its notes are saved. Rolling per-character transcript history is stored separately in webview storage so it does not bloat the main database file and can be treated as disposable.
+The main JSON database stores worlds, characters, triggers, notes, the app font shelf, and style settings. Notes are keyed by character ID, so renaming a character does not orphan its notes. Version 2 migrates legacy name-keyed notes to the matching character ID while preserving unknown note keys. Rolling per-character transcript history is stored separately in webview storage so it does not bloat the main database file and can be treated as disposable.
 
 # App Settings
 

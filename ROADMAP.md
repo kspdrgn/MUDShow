@@ -68,3 +68,9 @@ Detailed design and implementation notes remain in the relevant `PLAN_*.md` file
 - [`PLAN_PERF.md`](PLAN_PERF.md) and [`PLAN_HISTORY.md`](PLAN_HISTORY.md) — transcript performance and history architecture.
 - [`PLAN_INPUT.md`](PLAN_INPUT.md) and [`PLAN_SPELLING.md`](PLAN_SPELLING.md) — input and writing assistance.
 - [`PLAN_AUTOUPGRADE.md`](PLAN_AUTOUPGRADE.md) — release updating strategy.
+- [X] Stabilize configuration versioning and migration behavior: schema version
+  2 now migrates legacy name-keyed notes to character IDs, persists explicit
+  migrations, preserves unknown note keys, and rejects invalid or newer files.
+
+Detailed design and implementation notes remain in
+[`PLAN_CONFIGURATION.md`](PLAN_CONFIGURATION.md).
