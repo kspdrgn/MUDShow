@@ -12,12 +12,6 @@ import {
 } from './world-session-debug-console.js';
 import type { WorldPluginSession } from './world-plugin-registry.js';
 import type { WorldPluginServiceBag, WorldPluginServiceKey } from './world-plugin.js';
-import {
-  createWorldSessionServices,
-  type WorldSessionNotesService,
-  type WorldSessionStoragePort,
-  type WorldSessionTranscriptService,
-} from './world-session-services.js';
 
 export interface WorldSessionContainer {
   key: WorldSessionKey;
@@ -25,8 +19,6 @@ export interface WorldSessionContainer {
   debugConsole: WorldSessionDebugConsole;
   pluginSession: WorldPluginSession | null;
   pluginSessionServices: WorldPluginServiceBag;
-  notes: WorldSessionNotesService;
-  transcript: WorldSessionTranscriptService;
 }
 
 export interface WorldSessionContainerRegistry {
@@ -47,29 +39,15 @@ export interface WorldSessionContainerRegistry {
     get(key: WorldSessionKey): WorldSessionDebugConsole | null;
     ensure(key: WorldSessionKey): WorldSessionDebugConsole;
   };
-  notes: {
-    get(key: WorldSessionKey): WorldSessionNotesService | null;
-    ensure(key: WorldSessionKey): WorldSessionNotesService;
-  };
-  transcript: {
-    get(key: WorldSessionKey): WorldSessionTranscriptService | null;
-    ensure(key: WorldSessionKey): WorldSessionTranscriptService;
-  };
 }
 
-export function createWorldSessionContainer(
-  key: WorldSessionKey,
-  storage?: WorldSessionStoragePort,
-): WorldSessionContainer {
-  const services = createWorldSessionServices(key, storage);
+export function createWorldSessionContainer(key: WorldSessionKey): WorldSessionContainer {
   return {
     key: createWorldSessionKey(key.worldId, key.characterId),
     connection: null,
     debugConsole: createWorldSessionDebugConsole(),
     pluginSession: null,
     pluginSessionServices: createWorldPluginServiceBag(),
-    notes: services.notes,
-    transcript: services.transcript,
   };
 }
 
@@ -85,18 +63,10 @@ function createWorldPluginServiceBag(): WorldPluginServiceBag {
   };
 }
 
-export interface WorldSessionContainerRegistryOptions {
-  storage?: WorldSessionStoragePort;
-}
-
-export function createWorldSessionContainerRegistry({
-  storage,
-}: WorldSessionContainerRegistryOptions = {}): WorldSessionContainerRegistry {
+export function createWorldSessionContainerRegistry(): WorldSessionContainerRegistry {
   const registry: WorldSessionRegistry<WorldSessionContainer> = createWorldSessionRegistry<WorldSessionContainer>({
     dispose: async (container: WorldSessionContainer) => {
       await container.pluginSession?.dispose();
-      container.notes.dispose();
-      container.transcript.dispose();
       await container.connection?.close();
     },
   });
@@ -106,7 +76,7 @@ export function createWorldSessionContainerRegistry({
   }
 
   function ensureContainer(key: WorldSessionKey): WorldSessionContainer {
-    return registry.ensure(key, (nextKey) => createWorldSessionContainer(nextKey, storage));
+    return registry.ensure(key, createWorldSessionContainer);
   }
 
   function ensureConnection(container: WorldSessionContainer, connectionId?: string | null): MudConnection | null {
@@ -130,7 +100,7 @@ export function createWorldSessionContainerRegistry({
         return ensureContainer(key);
       },
       set(key: WorldSessionKey): WorldSessionContainer {
-        return registry.set(key, createWorldSessionContainer(key, storage));
+        return registry.set(key, createWorldSessionContainer(key));
       },
       delete: registry.delete,
       entries: registry.entries,
@@ -152,22 +122,6 @@ export function createWorldSessionContainerRegistry({
       },
       ensure(key: WorldSessionKey): WorldSessionDebugConsole {
         return ensureContainer(key).debugConsole;
-      },
-    },
-    notes: {
-      get(key: WorldSessionKey): WorldSessionNotesService | null {
-        return getContainer(key)?.notes ?? null;
-      },
-      ensure(key: WorldSessionKey): WorldSessionNotesService {
-        return ensureContainer(key).notes;
-      },
-    },
-    transcript: {
-      get(key: WorldSessionKey): WorldSessionTranscriptService | null {
-        return getContainer(key)?.transcript ?? null;
-      },
-      ensure(key: WorldSessionKey): WorldSessionTranscriptService {
-        return ensureContainer(key).transcript;
       },
     },
   };

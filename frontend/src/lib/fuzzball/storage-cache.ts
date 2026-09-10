@@ -7,6 +7,11 @@ export interface FuzzBallPropertyNodeInput {
   hasChildren?: boolean;
 }
 
+export interface FuzzBallStorageLookupState {
+  worldId: string;
+  characterId: string;
+}
+
 export interface FuzzBallPropertyNodeSnapshot {
   path: string;
   name: string;
@@ -282,10 +287,65 @@ export class FuzzBallPropertyTreeCache {
   }
 }
 
+export class FuzzBallPropertyCacheStore {
+  private readonly sessionCaches = new Map<string, FuzzBallPropertyTreeCache>();
+  private readonly listeners = new Set<() => void>();
+
+  getSessionCache(worldId: string, characterId = ''): FuzzBallPropertyTreeCache {
+    const cacheKey = this.getCacheKey(worldId, characterId);
+    let cache = this.sessionCaches.get(cacheKey);
+
+    if (!cache) {
+      cache = new FuzzBallPropertyTreeCache();
+      cache.onChange = () => this.notify();
+      this.sessionCaches.set(cacheKey, cache);
+    }
+
+    return cache;
+  }
+
+  clearSessionCache(worldId: string, characterId = ''): void {
+    if (this.sessionCaches.delete(this.getCacheKey(worldId, characterId))) {
+      this.notify();
+    }
+  }
+
+  clearAll(): void {
+    if (this.sessionCaches.size > 0) {
+      this.sessionCaches.clear();
+      this.notify();
+    }
+  }
+
+  hasSessionCache(worldId: string, characterId = ''): boolean {
+    return this.sessionCaches.has(this.getCacheKey(worldId, characterId));
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
+
+  private getCacheKey(worldId: string, characterId: string): string {
+    return `${worldId}\u0000${characterId}`;
+  }
+}
+
+export const fuzzballStorageCache = new FuzzBallPropertyCacheStore();
+
 export function getFuzzballStorageNodeLoadPath(
-  cache: FuzzBallPropertyTreeCache,
+  state: FuzzBallStorageLookupState,
   nodeId: string,
 ): string {
+  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
   const node = cache.getSnapshot(nodeId);
 
   if (!node) {

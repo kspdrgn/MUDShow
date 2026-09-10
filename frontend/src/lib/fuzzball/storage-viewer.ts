@@ -1,4 +1,4 @@
-import { getFuzzballStorageNodeLoadPath } from './storage-cache.js';
+import { fuzzballStorageCache, getFuzzballStorageNodeLoadPath } from './storage-cache.js';
 import type { FuzzBallPropertyTreeCache } from './storage-cache.js';
 import type { TreeDataNode, TreeDataWindowModel } from '../components/tree-data/tree-data-view.js';
 import {
@@ -71,14 +71,14 @@ export function createFuzzballStorageViewerState(
 export function requestFuzzballStorageNodeLoad(
   state: FuzzballStorageViewerState,
   nodePath: string,
-  worldSessionContainers: WorldSessionContainerRegistry,
-  cache: FuzzBallPropertyTreeCache,
+  worldSessionContainers: WorldSessionContainerRegistry | null = null,
 ): void {
-  if (!state.sourceTabId) {
+  if (!state.sourceTabId || !worldSessionContainers) {
     return;
   }
 
-  const requestPath = getFuzzballStorageNodeLoadPath(cache, nodePath);
+  const requestPath = getFuzzballStorageNodeLoadPath(state, nodePath);
+  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
   if (requestPath === nodePath || requestPath === `${nodePath}/` || nodePath === '/') {
     if (!cache.beginChildrenLoad(nodePath)) {
       return;
@@ -110,10 +110,8 @@ export interface FuzzballStorageViewerService {
   buildModel(state: FuzzballStorageViewerState): TreeDataWindowModel;
 }
 
-export function buildFuzzballStorageViewerModel(
-  state: FuzzballStorageViewerState,
-  cache: FuzzBallPropertyTreeCache,
-): TreeDataWindowModel {
+export function buildFuzzballStorageViewerModel(state: FuzzballStorageViewerState): TreeDataWindowModel {
+  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
   const root = buildTreeNode(cache, '/') ?? {
     id: '/',
     title: '/',
@@ -137,11 +135,10 @@ export function buildFuzzballStorageViewerModel(
 
 export function createFuzzballStorageViewerService(
   worldSessionContainers: WorldSessionContainerRegistry,
-  cache: FuzzBallPropertyTreeCache,
 ): FuzzballStorageViewerService {
   return {
     createState: createFuzzballStorageViewerState,
-    requestNodeLoad: (state, nodePath) => requestFuzzballStorageNodeLoad(state, nodePath, worldSessionContainers, cache),
-    buildModel: (state) => buildFuzzballStorageViewerModel(state, cache),
+    requestNodeLoad: (state, nodePath) => requestFuzzballStorageNodeLoad(state, nodePath, worldSessionContainers),
+    buildModel: buildFuzzballStorageViewerModel,
   };
 }
