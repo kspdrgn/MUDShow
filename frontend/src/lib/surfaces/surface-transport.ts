@@ -1,472 +1,241 @@
-export type SurfaceId = string;
-export type SurfaceInstanceId = string;
-export type SurfaceSide = 'view' | 'data' | 'host';
+import {
+  WORLD_SURFACE_PROTOCOL_VERSION,
+  type WorldSurfaceCommand,
+  type WorldSurfaceJsonObject,
+  type WorldSurfaceLifecycleEvent,
+  type WorldSurfaceLifecycleMessage,
+  type WorldSurfaceSnapshot,
+} from '../world-surface-protocol.js';
 
-export type SurfaceEnvelopeKind =
-  | 'surface.lifecycle'
-  | 'surface.view'
-  | 'surface.data'
-  | 'surface.command'
-  | 'surface.snapshot'
-  | 'surface.error';
-
-export interface SurfaceEnvelopeBase<K extends SurfaceEnvelopeKind, P> {
-  surfaceId: SurfaceId;
-  instanceId: SurfaceInstanceId;
-  kind: K;
-  source: SurfaceSide;
-  target?: SurfaceSide;
-  revision: number;
-  timestamp?: number;
-  correlationId?: string;
-  payload: P;
-}
-
-export type SurfaceLifecycleEvent =
-  | { type: 'openRequested' }
-  | { type: 'closeRequested' }
-  | { type: 'focusRequested' }
-  | { type: 'visibilityChanged'; visible: boolean }
-  | { type: 'placementChanged'; placement: 'in-app' | 'window' }
-  | { type: 'sizeChanged'; width: number; height: number }
-  | { type: 'stateReconciled' };
-
-export type SurfaceViewEvent =
-  | { type: 'openRequested' }
-  | { type: 'closeRequested' }
-  | { type: 'selectedChanged'; selectedId: string | null }
-  | { type: 'expandedChanged'; expandedIds: string[] }
-  | { type: 'scrollChanged'; scrollTop: number; scrollLeft: number; userScrolled: boolean }
-  | { type: 'scrollToBottomRequested' }
-  | { type: 'followTailChanged'; enabled: boolean };
-
-export type SurfaceDataEvent =
-  | { type: 'valueLoaded'; value: string }
-  | { type: 'entriesAppended'; entries: unknown[] }
-  | { type: 'entriesCleared' }
-  | { type: 'rootReplaced'; rootId: string }
-  | { type: 'nodeBranchLoaded'; nodeId: string; children: unknown[] }
-  | { type: 'nodeLeafLoaded'; nodeId: string; value: unknown }
-  | { type: 'saveRequested'; value: string }
-  | { type: 'saveCompleted' }
-  | { type: 'loadCommandRequested'; nodeId: string };
-
-export type SurfaceCommandEnvelope =
-  | SurfaceEnvelopeBase<'surface.lifecycle', SurfaceLifecycleEvent>
-  | SurfaceEnvelopeBase<'surface.view', SurfaceViewEvent>
-  | SurfaceEnvelopeBase<'surface.data', SurfaceDataEvent>
-  | SurfaceEnvelopeBase<'surface.command', unknown>;
-
-export type SurfaceSnapshotEnvelope =
-  | SurfaceEnvelopeBase<'surface.snapshot', unknown>
-  | SurfaceEnvelopeBase<'surface.error', { message: string; details?: unknown }>;
-
-export interface SurfaceTransportCommandOptions {
-  target?: SurfaceSide;
-  correlationId?: string;
-  timestamp?: number;
-  expectedRevision?: number;
-}
-
-export interface SurfaceTransportSnapshotOptions {
-  target?: SurfaceSide;
-  correlationId?: string;
-  timestamp?: number;
-}
-
-export type SurfaceTransportListener<T> = (envelope: T) => void;
+export type SurfaceTransportSide = 'view' | 'controller' | 'host';
 export type SurfaceTransportUnlisten = () => void;
 
-export interface SurfaceTransportSession<CommandPayload, SnapshotPayload> {
-  readonly surfaceId: SurfaceId;
-  readonly instanceId: SurfaceInstanceId;
-  getRevision(): number;
-  getSnapshot(): SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload> | null;
-  isClosed(): boolean;
-  sendCommand(
-    payload: CommandPayload,
-    options?: SurfaceTransportCommandOptions,
-  ): SurfaceEnvelopeBase<'surface.command', CommandPayload> | null;
-  publishSnapshot(
-    payload: SnapshotPayload,
-    options?: SurfaceTransportSnapshotOptions,
-  ): SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload> | null;
-  publishError(message: string, details?: unknown): SurfaceEnvelopeBase<'surface.error', { message: string; details?: unknown }> | null;
-  requestResync(correlationId?: string): SurfaceEnvelopeBase<'surface.lifecycle', SurfaceLifecycleEvent> | null;
-  onLifecycle(listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.lifecycle', SurfaceLifecycleEvent>>): SurfaceTransportUnlisten;
-  onCommand(listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.command', CommandPayload>>): SurfaceTransportUnlisten;
-  onSnapshot(listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload>>): SurfaceTransportUnlisten;
-  onError(listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.error', { message: string; details?: unknown }>>): SurfaceTransportUnlisten;
-  close(): boolean;
+export interface SurfaceTransportError {
+  code: 'stale-command' | 'closed' | 'controller-error';
+  message: string;
+  requestId?: string;
 }
 
-export interface SurfaceTransportHubEntry {
-  surfaceId: SurfaceId;
-  instanceId: SurfaceInstanceId;
-  revision: number;
-  closed: boolean;
+export interface SurfaceTransportCommandOptions {
+  requestId?: string;
+  expectedRevision?: number;
+  source?: SurfaceTransportSide;
+}
+
+export interface SurfaceTransportSession<CommandPayload extends WorldSurfaceJsonObject, SnapshotPayload extends WorldSurfaceJsonObject> {
+  readonly surfaceId: string;
+  readonly instanceId: string;
+  readonly protocolVersion: typeof WORLD_SURFACE_PROTOCOL_VERSION;
+  getRevision(): number;
+  getSnapshot(): WorldSurfaceSnapshot | null;
+  isClosed(): boolean;
+  sendCommand(type: string, payload?: CommandPayload, options?: SurfaceTransportCommandOptions): WorldSurfaceCommand | null;
+  publishSnapshot(model: SnapshotPayload, viewState?: WorldSurfaceJsonObject): WorldSurfaceSnapshot | null;
+  publishError(error: SurfaceTransportError): boolean;
+  publishLifecycle(event: WorldSurfaceLifecycleEvent, source?: SurfaceTransportSide): boolean;
+  requestResync(requestId?: string): boolean;
+  onCommand(listener: (command: WorldSurfaceCommand) => void): SurfaceTransportUnlisten;
+  onSnapshot(listener: (snapshot: WorldSurfaceSnapshot) => void): SurfaceTransportUnlisten;
+  onLifecycle(listener: (event: WorldSurfaceLifecycleMessage) => void): SurfaceTransportUnlisten;
+  onError(listener: (error: SurfaceTransportError) => void): SurfaceTransportUnlisten;
+  close(reason?: string): boolean;
 }
 
 export interface SurfaceTransportHub {
-  ensureSession<CommandPayload, SnapshotPayload>(
-    surfaceId: SurfaceId,
-    instanceId: SurfaceInstanceId,
+  ensureSession<CommandPayload extends WorldSurfaceJsonObject, SnapshotPayload extends WorldSurfaceJsonObject>(
+    surfaceId: string,
+    instanceId: string,
   ): SurfaceTransportSession<CommandPayload, SnapshotPayload>;
-  getSession<CommandPayload, SnapshotPayload>(
-    instanceId: SurfaceInstanceId,
+  getSession<CommandPayload extends WorldSurfaceJsonObject, SnapshotPayload extends WorldSurfaceJsonObject>(
+    instanceId: string,
   ): SurfaceTransportSession<CommandPayload, SnapshotPayload> | null;
-  deleteSession(instanceId: SurfaceInstanceId): boolean;
+  deleteSession(instanceId: string, reason?: string): boolean;
   clear(): void;
-  entries(): SurfaceTransportHubEntry[];
 }
 
-function createEnvelopeBase<K extends SurfaceEnvelopeKind, P>(
-  surfaceId: SurfaceId,
-  instanceId: SurfaceInstanceId,
-  kind: K,
-  source: SurfaceSide,
-  payload: P,
-  revision: number,
-  options: SurfaceTransportCommandOptions | SurfaceTransportSnapshotOptions = {},
-): SurfaceEnvelopeBase<K, P> {
-  return {
-    surfaceId,
-    instanceId,
-    kind,
-    source,
-    target: options.target,
-    revision,
-    timestamp: options.timestamp ?? Date.now(),
-    correlationId: options.correlationId,
-    payload,
-  };
+function createRequestId(): string {
+  return `surface-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function normalizeInstanceId(instanceId: string): string {
-  return instanceId.trim();
-}
-
-function logSurfaceTransport(message: string, details: Record<string, unknown>): void {
-  console.debug(`[surface-transport] ${message}`, details);
+function notify<T>(listeners: Set<(value: T) => void>, value: T): void {
+  for (const listener of [...listeners]) {
+    try {
+      listener(value);
+    } catch {
+      // A broken consumer must not prevent another host/controller listener
+      // from receiving the protocol message.
+    }
+  }
 }
 
 export function createSurfaceTransportHub(): SurfaceTransportHub {
-  const sessions = new Map<string, SurfaceTransportSession<unknown, unknown>>();
+  const sessions = new Map<string, SurfaceTransportSession<WorldSurfaceJsonObject, WorldSurfaceJsonObject>>();
 
-  function getExistingSession<CommandPayload, SnapshotPayload>(
-    instanceId: SurfaceInstanceId,
-  ): SurfaceTransportSession<CommandPayload, SnapshotPayload> | null {
-    return (sessions.get(instanceId) ?? null) as SurfaceTransportSession<CommandPayload, SnapshotPayload> | null;
-  }
-
-  function deleteSession(instanceId: SurfaceInstanceId): boolean {
-    const session = sessions.get(instanceId);
-    if (!session) {
-      return false;
-    }
-
-    sessions.delete(instanceId);
-    session.close();
-    return true;
-  }
-
-  function ensureSession<CommandPayload, SnapshotPayload>(
-    surfaceId: SurfaceId,
-    instanceId: SurfaceInstanceId,
+  function ensureSession<CommandPayload extends WorldSurfaceJsonObject, SnapshotPayload extends WorldSurfaceJsonObject>(
+    surfaceId: string,
+    instanceId: string,
   ): SurfaceTransportSession<CommandPayload, SnapshotPayload> {
-    const normalizedInstanceId = normalizeInstanceId(instanceId);
-    const existing = getExistingSession<CommandPayload, SnapshotPayload>(normalizedInstanceId);
+    const normalizedInstanceId = instanceId.trim();
+    if (!normalizedInstanceId) {
+      throw new Error('surface instance id must not be empty');
+    }
+
+    const existing = sessions.get(normalizedInstanceId);
     if (existing && existing.surfaceId === surfaceId && !existing.isClosed()) {
-      logSurfaceTransport('reuse session', {
-        surfaceId,
-        instanceId: normalizedInstanceId,
-        revision: existing.getRevision(),
-      });
-      return existing;
+      return existing as SurfaceTransportSession<CommandPayload, SnapshotPayload>;
     }
+    existing?.close('replaced by a newer surface instance');
 
-    if (existing) {
-      logSurfaceTransport('replace stale session', {
-        previousSurfaceId: existing.surfaceId,
-        surfaceId,
-        instanceId: normalizedInstanceId,
-      });
-      existing.close();
-    }
-
-    const commandListeners = new Set<SurfaceTransportListener<SurfaceEnvelopeBase<'surface.command', CommandPayload>>>();
-    const lifecycleListeners = new Set<SurfaceTransportListener<SurfaceEnvelopeBase<'surface.lifecycle', SurfaceLifecycleEvent>>>();
-    const snapshotListeners = new Set<SurfaceTransportListener<SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload>>>();
-    const errorListeners = new Set<SurfaceTransportListener<SurfaceEnvelopeBase<'surface.error', { message: string; details?: unknown }>>>();
+    const commandListeners = new Set<(command: WorldSurfaceCommand) => void>();
+    const snapshotListeners = new Set<(snapshot: WorldSurfaceSnapshot) => void>();
+    const lifecycleListeners = new Set<(event: WorldSurfaceLifecycleMessage) => void>();
+    const errorListeners = new Set<(error: SurfaceTransportError) => void>();
     let revision = 0;
-    let lastSnapshot: SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload> | null = null;
+    let snapshot: WorldSurfaceSnapshot | null = null;
     let closed = false;
 
-    function assertOpen(): boolean {
-      return !closed;
+    function lifecycleMessage(event: WorldSurfaceLifecycleEvent): WorldSurfaceLifecycleMessage {
+      return {
+        ...event,
+        protocolVersion: WORLD_SURFACE_PROTOCOL_VERSION,
+        surfaceId,
+        instanceId: normalizedInstanceId,
+        revision,
+      };
     }
 
-    function notify<T>(listeners: Set<SurfaceTransportListener<T>>, envelope: T): void {
-      for (const listener of [...listeners]) {
-        try {
-          listener(envelope);
-        } catch (error) {
-          console.error('failed to deliver surface transport envelope:', error);
-        }
-      }
-    }
-
-    const session: SurfaceTransportSession<CommandPayload, SnapshotPayload> = {
+    const session: SurfaceTransportSession<WorldSurfaceJsonObject, WorldSurfaceJsonObject> = {
       surfaceId,
       instanceId: normalizedInstanceId,
-      getRevision(): number {
-        return revision;
-      },
-      getSnapshot(): SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload> | null {
-        return lastSnapshot;
-      },
-      isClosed(): boolean {
-        return closed;
-      },
-      sendCommand(
-        payload: CommandPayload,
-        options: SurfaceTransportCommandOptions = {},
-      ): SurfaceEnvelopeBase<'surface.command', CommandPayload> | null {
-        if (!assertOpen()) {
+      protocolVersion: WORLD_SURFACE_PROTOCOL_VERSION,
+      getRevision: () => revision,
+      getSnapshot: () => snapshot,
+      isClosed: () => closed,
+      sendCommand(type, payload, options = {}) {
+        if (closed) {
+          notify(errorListeners, { code: 'closed', message: 'surface session is closed', requestId: options.requestId });
           return null;
         }
-
         if (options.expectedRevision !== undefined && options.expectedRevision !== revision) {
+          notify(errorListeners, {
+            code: 'stale-command',
+            message: `command revision ${options.expectedRevision} does not match current revision ${revision}`,
+            requestId: options.requestId,
+          });
           return null;
         }
 
-        const envelope = createEnvelopeBase(
-          surfaceId,
-          normalizedInstanceId,
-          'surface.command',
-          'view',
-          payload,
-          revision,
-          options,
-        );
-
-        logSurfaceTransport('send command', {
+        const command: WorldSurfaceCommand = {
+          protocolVersion: WORLD_SURFACE_PROTOCOL_VERSION,
           surfaceId,
           instanceId: normalizedInstanceId,
+          requestId: options.requestId ?? createRequestId(),
           revision,
-          target: options.target ?? null,
-          correlationId: options.correlationId ?? null,
-          payload,
-        });
-        notify(commandListeners, envelope);
-        return envelope;
+          type,
+          ...(payload === undefined ? {} : { payload }),
+        };
+        notify(commandListeners, command);
+        return command;
       },
-      publishSnapshot(
-        payload: SnapshotPayload,
-        options: SurfaceTransportSnapshotOptions = {},
-      ): SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload> | null {
-        if (!assertOpen()) {
+      publishSnapshot(model, viewState) {
+        if (closed) {
+          notify(errorListeners, { code: 'closed', message: 'surface session is closed' });
           return null;
         }
-
         revision += 1;
-        const envelope = createEnvelopeBase(
-          surfaceId,
-          normalizedInstanceId,
-          'surface.snapshot',
-          'host',
-          payload,
-          revision,
-          options,
-        );
-
-        lastSnapshot = envelope;
-        logSurfaceTransport('publish snapshot', {
+        snapshot = {
+          protocolVersion: WORLD_SURFACE_PROTOCOL_VERSION,
           surfaceId,
           instanceId: normalizedInstanceId,
           revision,
-          target: options.target ?? null,
-          correlationId: options.correlationId ?? null,
-        });
-        notify(snapshotListeners, envelope);
-        return envelope;
-      },
-      publishError(
-        message: string,
-        details: unknown = undefined,
-      ): SurfaceEnvelopeBase<'surface.error', { message: string; details?: unknown }> | null {
-        if (!assertOpen()) {
-          return null;
-        }
-
-        const envelope = createEnvelopeBase(
-          surfaceId,
-          normalizedInstanceId,
-          'surface.error',
-          'host',
-          { message, details },
-          revision,
-        );
-
-        logSurfaceTransport('publish error', {
-          surfaceId,
-          instanceId: normalizedInstanceId,
-          revision,
-          message,
-          details: details ?? null,
-        });
-        notify(errorListeners, envelope);
-        return envelope;
-      },
-      requestResync(correlationId: string | undefined = undefined): SurfaceEnvelopeBase<'surface.lifecycle', SurfaceLifecycleEvent> | null {
-        if (!assertOpen()) {
-          return null;
-        }
-
-        const payload: SurfaceLifecycleEvent = { type: 'stateReconciled' };
-        const envelope = createEnvelopeBase(
-          surfaceId,
-          normalizedInstanceId,
-          'surface.lifecycle',
-          'view',
-          payload,
-          revision,
-          correlationId ? { correlationId } : {},
-        );
-
-        logSurfaceTransport('request resync', {
-          surfaceId,
-          instanceId: normalizedInstanceId,
-          revision,
-          correlationId: correlationId ?? null,
-        });
-        notify(lifecycleListeners, envelope);
-        return envelope;
-      },
-      onLifecycle(
-        listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.lifecycle', SurfaceLifecycleEvent>>,
-      ): SurfaceTransportUnlisten {
-        lifecycleListeners.add(listener);
-        logSurfaceTransport('add lifecycle listener', {
-          surfaceId,
-          instanceId: normalizedInstanceId,
-          count: lifecycleListeners.size,
-        });
-        return () => {
-          lifecycleListeners.delete(listener);
-          logSurfaceTransport('remove lifecycle listener', {
-            surfaceId,
-            instanceId: normalizedInstanceId,
-            count: lifecycleListeners.size,
-          });
+          model,
+          ...(viewState === undefined ? {} : { viewState }),
         };
+        notify(snapshotListeners, snapshot);
+        return snapshot;
       },
-      onCommand(
-        listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.command', CommandPayload>>,
-      ): SurfaceTransportUnlisten {
-        commandListeners.add(listener);
-        logSurfaceTransport('add command listener', {
-          surfaceId,
-          instanceId: normalizedInstanceId,
-          count: commandListeners.size,
-        });
-        return () => {
-          commandListeners.delete(listener);
-          logSurfaceTransport('remove command listener', {
-            surfaceId,
-            instanceId: normalizedInstanceId,
-            count: commandListeners.size,
-          });
-        };
-      },
-      onSnapshot(
-        listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.snapshot', SnapshotPayload>>,
-      ): SurfaceTransportUnlisten {
-        snapshotListeners.add(listener);
-        logSurfaceTransport('add snapshot listener', {
-          surfaceId,
-          instanceId: normalizedInstanceId,
-          count: snapshotListeners.size,
-          hasSnapshot: lastSnapshot !== null,
-        });
-        if (lastSnapshot) {
-          listener(lastSnapshot);
-        }
-        return () => {
-          snapshotListeners.delete(listener);
-          logSurfaceTransport('remove snapshot listener', {
-            surfaceId,
-            instanceId: normalizedInstanceId,
-            count: snapshotListeners.size,
-          });
-        };
-      },
-      onError(
-        listener: SurfaceTransportListener<SurfaceEnvelopeBase<'surface.error', { message: string; details?: unknown }>>,
-      ): SurfaceTransportUnlisten {
-        errorListeners.add(listener);
-        logSurfaceTransport('add error listener', {
-          surfaceId,
-          instanceId: normalizedInstanceId,
-          count: errorListeners.size,
-        });
-        return () => {
-          errorListeners.delete(listener);
-          logSurfaceTransport('remove error listener', {
-            surfaceId,
-            instanceId: normalizedInstanceId,
-            count: errorListeners.size,
-          });
-        };
-      },
-      close(): boolean {
+      publishError(error) {
         if (closed) {
           return false;
         }
-
+        notify(errorListeners, error);
+        return true;
+      },
+      publishLifecycle(event, _source = 'host') {
+        if (closed && event.type !== 'closed' && event.type !== 'disposed') {
+          return false;
+        }
+        notify(lifecycleListeners, lifecycleMessage(event));
+        return true;
+      },
+      requestResync(requestId) {
+        if (closed) {
+          return false;
+        }
+        notify(lifecycleListeners, lifecycleMessage({ type: 'resyncRequested', reason: requestId }));
+        return true;
+      },
+      onCommand(listener) {
+        commandListeners.add(listener);
+        return () => commandListeners.delete(listener);
+      },
+      onSnapshot(listener) {
+        snapshotListeners.add(listener);
+        if (snapshot) {
+          listener(snapshot);
+        }
+        return () => snapshotListeners.delete(listener);
+      },
+      onLifecycle(listener) {
+        lifecycleListeners.add(listener);
+        if (!closed) {
+          listener(lifecycleMessage({ type: 'opened' }));
+        }
+        return () => lifecycleListeners.delete(listener);
+      },
+      onError(listener) {
+        errorListeners.add(listener);
+        return () => errorListeners.delete(listener);
+      },
+      close(reason = 'surface closed') {
+        if (closed) {
+          return false;
+        }
+        notify(lifecycleListeners, lifecycleMessage({ type: 'closed', reason }));
         closed = true;
-        logSurfaceTransport('close session', {
-          surfaceId,
-          instanceId: normalizedInstanceId,
-          revision,
-        });
         commandListeners.clear();
-        lifecycleListeners.clear();
         snapshotListeners.clear();
+        lifecycleListeners.clear();
         errorListeners.clear();
         return true;
       },
     };
 
-    sessions.set(normalizedInstanceId, session as SurfaceTransportSession<unknown, unknown>);
-    logSurfaceTransport('create session', {
-      surfaceId,
-      instanceId: normalizedInstanceId,
-      revision,
-    });
-    return session;
+    sessions.set(normalizedInstanceId, session);
+    notify(lifecycleListeners, lifecycleMessage({ type: 'opened' }));
+    return session as SurfaceTransportSession<CommandPayload, SnapshotPayload>;
   }
 
   return {
     ensureSession,
-    getSession<CommandPayload, SnapshotPayload>(instanceId: SurfaceInstanceId): SurfaceTransportSession<CommandPayload, SnapshotPayload> | null {
-      return getExistingSession<CommandPayload, SnapshotPayload>(normalizeInstanceId(instanceId));
+    getSession(instanceId) {
+      return (sessions.get(instanceId.trim()) ?? null) as SurfaceTransportSession<WorldSurfaceJsonObject, WorldSurfaceJsonObject> | null;
     },
-    deleteSession(instanceId: SurfaceInstanceId): boolean {
-      return deleteSession(normalizeInstanceId(instanceId));
-    },
-    clear(): void {
-      for (const instanceId of [...sessions.keys()]) {
-        deleteSession(instanceId);
+    deleteSession(instanceId, reason) {
+      const session = sessions.get(instanceId.trim());
+      if (!session) {
+        return false;
       }
+      sessions.delete(instanceId.trim());
+      session.close(reason ?? 'surface session deleted');
+      return true;
     },
-    entries(): SurfaceTransportHubEntry[] {
-      return [...sessions.values()].map((session) => ({
-        surfaceId: session.surfaceId,
-        instanceId: session.instanceId,
-        revision: session.getRevision(),
-        closed: session.isClosed(),
-      }));
+    clear() {
+      for (const instanceId of [...sessions.keys()]) {
+        const session = sessions.get(instanceId);
+        sessions.delete(instanceId);
+        session?.close('surface transport cleared');
+      }
     },
   };
 }

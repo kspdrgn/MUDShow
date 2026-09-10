@@ -3,28 +3,20 @@
 ## Feature specification documents:
 - spec/input.md - Primary user input area and features
 - spec/layout.md - App and world UI/UX structure and rules
-- spec/channels.md - World channels bar and panel behavior
 - spec/output.md - Primary display window and features
 - spec/logging.md - Session logging behavior and file handling
-- spec/protocols.md - Telnet, MCP, GMCP, and MCMP support and normalized data-pipeline behavior
-- spec/plugins.md - world plugin registration, session hooks, host actions, and host-managed surfaces
 - spec/settings.md - App and world settings
 - spec/fonts.md - Built-in and system font discovery, shelf persistence, validation, fallback, and fontdb behavior
 - spec/style.md - Style settings for fonts and colors used by input and output area, can be stored at three levels: app, world, character
 - spec/triggers.md - Simple word highlights and complex regexp triggers
-- spec/di.md - Dependency injection container shape for world-session scoped resources
-- spec/svelte.md - Svelte-specific code organization guidance for component-local logic, shared helper modules, and service boundaries
-- spec/tauri.md - Tauri window, webview, and desktop shell behavior
-- spec/surfaces.md - Surface component CQRS, controller ownership, and cross-window transport rules
-- spec/fuzzball.md - FuzzBall property capture, session cache, property service, and storage viewer behavior
-- spec/taps.md - Taps world integration and ride-mode behavior
+- spec/surfaces.md - Versioned surface commands, snapshots, and lifecycle
 
 ## Purpose
 Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with just enough features to support roleplay and day-to-day play.
 
 ## Core Model
 - 'Worlds' are the MU servers, and 'Characters' are named users on the server. Connections can be opened directly to a world, or to a named character within a world.
-- Per-character notes: locally stored private freeform text associated with a local character, keyed by that character's internal ID.
+- Per-character notes: locally stored private freeform text associated with a named local character.
 - Hierarchical triggers: highlight type triggers provide exact-text matches mapped to foreground/background styling, and rule type triggers provide raw regular-expression matches mapped to style actions with room for future line-level behaviors. Triggers can be owned by the app, a world, or a character.
 - Session state: active connection, output stream, input focus, read position, etc.
 
@@ -32,8 +24,6 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can save multiple characters so I can return to different worlds or accounts quickly.
 - As a player, I can edit a character’s host, port, and connection options without recreating it.
 - As a player, I can connect to a MU* and read the live transcript in one place.
-- As a player, I can open a per-character notes surface and a per-world debug console surface to inspect or edit session-specific information.
-- As a player, I can use a world channels bar and panel in the play screen to host reusable world-specific surfaces.
 - As a player, I can type commands in one of two inputs so I can keep a draft while continuing conversation.
 - As a player, I can switch inputs instantly when I need to pause one thought and start another.
 - As a player, I can keep private notes for each character.
@@ -42,7 +32,6 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - As a player, I can complete recently seen words to speed up typing names.
 - As a player, I can tell at a glance whether the session is connected, disconnected, or had a connection error.
 - As a player, I can start, stop, and rename a session log for a world tab.
-- As a player, I can temporarily enable transcript diagnostics from the app menu's dev tools submenu so I can capture extra troubleshooting detail only when needed.
 - As a player, I can notice new activity even when I am away from the app.
 - As a player, I can restore a recent per-character transcript history when I reconnect after an interruption.
 - As a player, I can keep the interface simple and focused on play rather than automation.
@@ -69,8 +58,6 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Allow configuring a per-character transcript history line limit, with 0 disabling history storage and restore. The default is 0.
 - Connect to a remote MU* endpoint using the selected profile.
 - Display incoming text stream with basic terminal-style formatting.
-- Buffer incoming world text until newline boundaries before showing it in the transcript, discarding carriage returns.
-- Preserving the raw incoming session stream in the debug console surface for troubleshooting special characters, command codes, and edge cases, even when the surface is hidden or popped out.
 - Preserve line wrapping according to each character’s preferred width when set, otherwise use the available window width. Preferred character width is rendered from the active output style: monospace fonts use the measured active glyph width, while proportional fonts use an estimated average glyph width.
 - Provide a modular set of command input bars, starting with one and allowing more to be added.
 - Send entered commands to the active session.
@@ -79,25 +66,15 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Keep a scrollable transcript of session output.
 - Auto-scroll when the user has not manually scrolled away.
 - Let the focused input area forward Page Up, Page Down, `Ctrl+Home`, and `Ctrl+End` to the transcript scroll view.
-- Let the transcript temporarily zoom in and out with `Ctrl` + mouse wheel or `Ctrl+-` / `Ctrl+=` without changing saved style settings.
-- Let the transcript context menu expose a temporary zoom row with minus, reset-to-100%, and plus controls.
 - Forward mouse wheel input from the split live transcript pane to the main transcript pane.
 - Indicate connection state and errors clearly.
 - Allow session logging for an active world tab.
-- Allow a transient transcript diagnostics toggle from the app menu's dev tools submenu that writes extra console debug output while enabled.
-- Allow opening a per-character notes surface and a per-world debug console surface that can be hosted in the window host and popped out into its own window.
-- Route eligible transcript output into logical world-session conversation channels that can be displayed by surfaces.
-- Keep channel routing and lifecycle separate from surface placement, including top docks, side docks, floating panels, and native windows.
 - Allow reconnecting after disconnect.
-- Recover open connection identities after a frontend reload by reconciling the frontend session records with active desktop connection records.
-- Provide a low-clutter connection diagnostics surface showing active endpoint, security mode, status, and connection identity.
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.
-- Store optional rolling per-character transcript history separately from the main JSON database, trim it to the configured line limit, reload it when reconnecting, migrate it on character rename, and remove it when the character is deleted.
-- Open and close a notes surface for the active character.
-- Open and close the per-world debug console surface.
+- Store rolling per-character transcript history locally and reload it when reconnecting.
+- Open and close a notes panel for the active character.
 - Open and close a triggers panel for simple text highlights and regexp rules.
-- Remember each surface's last placement, floating position, and native-window size and restore them when the surface is opened again.
 - Manage triggers at app, world, or character scope.
 - Add and remove highlight rules.
 - Edit the text for an existing highlight rule.
@@ -115,10 +92,9 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Let each regexp rule optionally stop later rule evaluation or highlight evaluation when it matches.
 - Support simple word completion from recently seen session text.
 - Support quick switching between the first two input bars with F1 and F2 when a world tab is active. If only one input bar exists, F2 opens a second one.
-- Support quick toggling of the notes surface with F3.
+- Support quick toggling of notes panel with F3.
 - Support quick toggling of highlighting panel with F4.
 - Play an optional activity alert when the app is unfocused and new output arrives.
 - Track focus/title attention state so the user can see unseen activity.
+- Store a rolling per-character transcript history locally and reload it when reconnecting.
 - Provide a small, low-clutter interface optimized for reading and typing.
-- Ensure a frozen frontend cannot permanently prevent the user from closing the desktop app.
-- Reserve a native-shell diagnostics extension point for future crash reporting or telemetry without collecting or sending data yet.

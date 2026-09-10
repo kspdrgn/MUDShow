@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../../dist/surface-tests",
+    "rootDir": "..",
+    "incremental": false,
+    "sourceMap": false
+  },
+  "include": [
+    "world-surface-protocol.ts",
+    "surfaces/**/*.ts",
+    "tests/node-shims.d.ts",
+    "tests/surface-protocol.test.ts"
+  ]
+}
