@@ -13,7 +13,7 @@ import {
 } from './logging';
 import { isTauriAvailable, invoke } from './tauri';
 import { nextFrame, scrollElementToBottom } from './session-dom';
-import type { LastActivityMarker } from './transcript-indicators';
+import { selectLastActivityMarker, type LastActivityMarker } from './transcript-indicators';
 import type { SessionState } from './session-state';
 import type { WorldTabSessionState } from './world-session';
 import type { WorldSessionContainerRegistry } from './world-session-container';
@@ -74,14 +74,14 @@ export function createWorldTranscriptActions({
     if (activeTabId !== tabId || !appFocused) {
       const current = getWorldSession(tabId);
       const firstRetainedChunk = current.transcript.getChunk(0);
-      const retainedMarker = current.lastActivityMarker
-        && firstRetainedChunk
-        && current.lastActivityMarker.boundary.chunkId >= firstRetainedChunk.id
-        ? current.lastActivityMarker
-        : null;
       updateWorldSession(tabId, {
         hasNewActivity: true,
-        lastActivityMarker: retainedMarker ?? activityMarker,
+        lastActivityMarker: selectLastActivityMarker(
+          current.lastActivityMarker,
+          current.hasNewActivity,
+          activityMarker,
+          firstRetainedChunk?.id ?? null,
+        ),
       });
     }
 

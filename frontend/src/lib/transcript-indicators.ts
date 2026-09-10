@@ -10,6 +10,21 @@ export interface LastActivityMarker {
   timestamp: number;
 }
 
+export function selectLastActivityMarker(
+  current: LastActivityMarker | null,
+  hasNewActivity: boolean,
+  activityMarker: LastActivityMarker | null,
+  firstRetainedChunkId: number | null,
+): LastActivityMarker | null {
+  if (!hasNewActivity || !current || firstRetainedChunkId === null) {
+    return activityMarker;
+  }
+
+  return current.boundary.chunkId >= firstRetainedChunkId
+    ? current
+    : activityMarker;
+}
+
 export function applyLastActivityMarkerWorkspaceState(
   current: LastActivityMarker | null,
   workspaceState: Readonly<Record<string, unknown>>,

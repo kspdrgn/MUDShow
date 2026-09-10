@@ -9,6 +9,7 @@ import {
   isTranscriptSelectionDismissedBy,
   reconcileLastActivityMarker,
   reconcileTranscriptSelection,
+  selectLastActivityMarker,
   type LastActivityMarker,
 } from '../transcript-indicators';
 
@@ -31,6 +32,26 @@ test('workspace updates deliver the last-activity marker to the mounted transcri
   assert.deepEqual(
     applyLastActivityMarkerWorkspaceState(marker, { hasNewActivity: false }),
     marker,
+  );
+});
+
+test('a new away period moves the marker after earlier activity was acknowledged', () => {
+  const previous: LastActivityMarker = {
+    boundary: { chunkId: 11, side: 'before' },
+    timestamp: 123,
+  };
+  const next: LastActivityMarker = {
+    boundary: { chunkId: 12, side: 'before' },
+    timestamp: 456,
+  };
+
+  assert.equal(
+    selectLastActivityMarker(previous, true, next, 10),
+    previous,
+  );
+  assert.equal(
+    selectLastActivityMarker(previous, false, next, 10),
+    next,
   );
 });
 
