@@ -13,9 +13,15 @@
     "build": "npm run tauri:build",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "dev:frontend": "vite dev --config frontend/vite.config.ts",
+    "check:svelte": "svelte-check --tsconfig ./tsconfig.json",
+    "profile:transcript": "tsc --project frontend/src/lib/tsconfig.regression-tests.json && node scripts/profile-transcript.mjs",
     "clean": "rimraf dist tauri/target tauri/.mudshow-tauri-dev-*.json",
     "test:surface-protocol": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.surface-tests.json && node --test dist/surface-tests/lib/tests/surface-protocol.test.js dist/surface-tests/lib/tests/world-plugin-integration.test.js",
-    "test": "npm run test:surface-protocol"
+    "test:fuzzball-cache": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/fuzzball/tsconfig.tests.json && node --test dist/fuzzball-cache-tests/tests/*.test.js",
+    "test:input-bar-sizing": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.tests.json && node --test dist/input-bar-sizing-tests/tests/*.test.js",
+    "test:regression": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.regression-tests.json && node scripts/run-regression-tests.mjs",
+    "test:storage-migrations": "node --experimental-strip-types --test frontend/src/lib/storage-migrations.test.ts",
+    "test": "npm run test:fuzzball-cache && npm run test:input-bar-sizing && npm run test:regression && npm run test:storage-migrations",
   },
   "author": "",
   "license": "ISC",
@@ -27,5 +33,8 @@
     "svelte": "^5.56.3",
     "typescript": "^6.0.3",
     "vite": "^8.0.16"
+  },
+  "dependencies": {
+    "dockview": "^8.1.0"
   }
 }
