@@ -7,7 +7,7 @@ declare module 'node:assert/strict' {
   const assert: {
     equal(actual: unknown, expected: unknown): void;
     deepEqual(actual: unknown, expected: unknown): void;
-    throws(fn: () => unknown): void;
+    ok(value: unknown, message?: string): void;
   };
   export default assert;
 }
