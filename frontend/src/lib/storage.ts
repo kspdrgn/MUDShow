@@ -21,6 +21,8 @@ const STYLE_KEY = 'mudshow_style';
 const FONT_SHELF_KEY = 'mudshow_font_shelf';
 const STORAGE_SCHEMA_VERSION = 1;
 
+type PersistedStorageRecord = Record<string, unknown>;
+
 export type DesktopStorageMode = 'file';
 
 interface PersistentData {
@@ -63,6 +65,48 @@ function createEmptyData(): PersistentData {
     style: {},
     fontShelf: normalizeFontShelf([]),
   };
+}
+
+type StorageMigration = (data: PersistedStorageRecord) => PersistedStorageRecord;
+
+// Breaking storage changes add an entry keyed by the version they produce.
+// Version 1 is the current format and therefore has no migration to run yet.
+const STORAGE_MIGRATIONS: Record<number, StorageMigration> = {};
+
+function migrateStorageData(raw: PersistedStorageRecord): {
+  data: PersistedStorageRecord;
+  migrated: boolean;
+} {
+  const rawVersion = raw.schemaVersion;
+  const version = rawVersion === undefined
+    ? STORAGE_SCHEMA_VERSION
+    : rawVersion;
+
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
+    throw new Error('the storage file has an invalid schema version');
+  }
+
+  if (version > STORAGE_SCHEMA_VERSION) {
+    throw new Error(
+      `the storage file uses schema version ${version}, but this app supports version ${STORAGE_SCHEMA_VERSION}`,
+    );
+  }
+
+  let data = { ...raw };
+  let migrated = false;
+
+  for (let nextVersion = version + 1; nextVersion <= STORAGE_SCHEMA_VERSION; nextVersion += 1) {
+    const migration = STORAGE_MIGRATIONS[nextVersion];
+    if (!migration) {
+      throw new Error(`no migration is available for storage schema version ${nextVersion}`);
+    }
+
+    data = migration(data);
+    data.schemaVersion = nextVersion;
+    migrated = true;
+  }
+
+  return { data, migrated };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -296,12 +340,7 @@ function dedupeWorlds(worlds: WorldRecord[]): WorldRecord[] {
 }
 
 function normalizePersistentData(
-  raw: Partial<Omit<PersistentData, 'characters' | 'worlds' | 'style' | 'fontShelf'>> & {
-    characters?: unknown;
-    worlds?: unknown;
-    style?: unknown;
-    fontShelf?: unknown;
-  },
+  raw: PersistedStorageRecord,
 ): PersistentData {
   const worldRecords = Array.isArray(raw.worlds)
     ? raw.worlds.map((entry) => normalizeWorldRecord(entry)).filter((entry): entry is WorldRecord => entry !== null)
@@ -316,7 +355,7 @@ function normalizePersistentData(
     : [];
 
   return {
-    schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : STORAGE_SCHEMA_VERSION,
+    schemaVersion: STORAGE_SCHEMA_VERSION,
     worlds: dedupeWorlds(worldRecords),
     characters: characterRecords,
     triggers: pruneInvalidTriggerOwners(triggers, dedupeWorlds(worldRecords), characterRecords),
@@ -376,8 +415,15 @@ function writeWebviewData(data: PersistentData): void {
 
 async function readFileData(): Promise<PersistentData> {
   const raw = await invoke<string>('load_app_storage');
-  const parsed = safeParse<Partial<Omit<PersistentData, 'characters' | 'worlds'>> & { characters?: unknown; worlds?: unknown }>(raw, {});
-  return normalizePersistentData(parsed);
+  const parsed = safeParse<PersistedStorageRecord>(raw, {});
+  const migrated = migrateStorageData(parsed);
+  const data = normalizePersistentData(migrated.data);
+
+  if (migrated.migrated) {
+    await writeFileData(data);
+  }
+
+  return data;
 }
 
 export async function getAppStoragePath(): Promise<string> {

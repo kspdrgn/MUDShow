@@ -481,6 +481,13 @@ The implementation is incomplete until the behavior is represented in the canoni
 
 ## Final Integration Execution Plan
 
+Recovery scope follows `PLAN_DI_WORLD_SESSION.md`: preserve existing socket
+reattachment and bounded replay; FuzzBall/Taps runtime state remains disposable
+and may be re-queried. Optional webview caching is future feature-specific work.
+The surface snapshots and lifecycle checks below support live views and pop-out
+communication; they do not require backend copies or durable recovery of all
+plugin state after a refresh.
+
 The remaining work should be phased. The phases are grouped by ownership boundary and reload risk, not by individual file. The first phase that changes `App.svelte`, `session.ts`, `world-session-container.ts`, or the live Dockview wiring is a deliberate frontend restart boundary.
 
 ### Phase 0: Prepare and freeze

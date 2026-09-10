@@ -17,8 +17,8 @@ for behavior already shipped.
 - The plugin maintains a cache of that character’s property tree data.
 - Dependent plugins can read and write player properties through this shared property interface and property cache.
 - Some worlds may customize the names of character-side properties, so override data must be accepted from other plugins or world-specific configuration.
-- The app-level integration shape is not decided yet.
-- The mechanism other plugins will use to call this plugin is not decided yet.
+- The existing session contribution, typed property service, and host-managed surface integration are described in `PLAN_RIDEMODE.md` and `spec/fuzzball.md`.
+- Remaining cache ownership consolidation follows `PLAN_DI_WORLD_SESSION.md`; refresh durability does not require backend cache state.
 
 ## What We Know From Official FuzzBall Sources
 
@@ -276,10 +276,13 @@ Version 2 of the capture system should move toward an expectation-based capture 
 
 ## Integration Questions Still Open
 
-- How does the FuzzBall plugin fit into the app surface?
-- Is this a host plugin, a world plugin dependency, or both?
-- How will other plugins call into this plugin’s API?
-- Do we want sync calls, async calls, or both?
+Cache ownership and refresh durability are resolved in
+`PLAN_DI_WORLD_SESSION.md`: the FuzzBall session contribution owns its frontend
+cache and exposes the typed property service to dependents. Cache contents may
+be discarded and queried again; optional webview caching does not require a
+backend copy. Existing plugin/surface integration is established by
+`PLAN_RIDEMODE.md`; the remaining questions concern feature semantics below.
+
 - How should the plugin signal cache freshness to dependents?
 - Should reads always come from cache unless explicitly refreshed, or should some reads hit the backend directly?
 - How should write confirmation work when the backend accepts a command but the tree is not immediately refreshed?

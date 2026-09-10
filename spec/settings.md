@@ -7,7 +7,7 @@
 
 # Persistence / Storage
 
-The application database is stored in a JSON file to be easily readable and manageable by the user. The file stores a version of the schema used, which is used to automatically upgrade the database file to newer versions. Any breaking change to the storage schema should increment the storage version used.
+The application database is stored in a JSON file to be easily readable and manageable by the user. The file stores a version of the schema used. Non-breaking additions and defaultable shape changes may be handled silently while retaining the current schema version. A breaking change that could lose or misinterpret persisted user data must increment the storage version and include an explicit migration from the prior version. Loading runs migrations in order and immediately persists the migrated file at the current version. Files with invalid or newer unsupported versions must not be treated as current data.
 
 The main JSON database stores worlds, characters, triggers, notes, the app font shelf, and style settings. Notes are stored in the top-level `notes` map keyed by character ID, so a character rename does not change where its notes are saved. Rolling per-character transcript history is stored separately in webview storage so it does not bloat the main database file and can be treated as disposable.
 

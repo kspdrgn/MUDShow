@@ -52,6 +52,12 @@ remaining work for the unified surface system.
 
 ## Remaining Transport and Verification Work
 
+Snapshots and resync here support live communication with surface controllers.
+They do not require backend copies of frontend feature state or restoration of
+every transient field after refresh. Reload saved data or re-query disposable
+plugin state according to `PLAN_DI_WORLD_SESSION.md`; preserve existing socket
+reattachment and bounded replay.
+
 - Add focused integration coverage for pop-out/pop-in state preservation,
   stale or delayed messages, reconnect/resync, and teardown while messages are
   in flight.

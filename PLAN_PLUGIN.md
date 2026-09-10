@@ -35,8 +35,11 @@ This document only records work that is not implemented or not yet decided.
 
 ## Remaining State and UI Work
 
-- Define plugin-owned persistent world and character data, schema migration,
-  cache invalidation, and behavior when a plugin is disabled or removed.
+- Define persistent plugin data, migrations and disable/remove behavior only
+  when a concrete feature requires saved user data. Runtime plugin caches may
+  remain disposable and be re-queried. Optional webview caching is available for
+  serializable world-session data; backend duplication and a universal cache
+  persistence framework are not P1 prerequisites. See `PLAN_DI_WORLD_SESSION.md`.
 - Add further host action kinds only when a concrete feature needs them;
   preserve host-owned rendering and layout control.
 - Define any additional host surface renderers and their versioned command /

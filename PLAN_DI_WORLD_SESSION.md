@@ -7,6 +7,48 @@
 - Centralize session-scoped access to things like the world connection and fuzzball cache.
 - Reduce the amount of repeated `worldId` / `characterId` plumbing across session-aware modules.
 
+## Agreed Ownership and Recovery Direction
+
+Use the existing container to coordinate focused frontend services. Consolidate
+responsibilities where this removes duplicate ownership or repeated plumbing;
+there is no requirement to migrate every session-related variable. This section
+resolves the architectural choices; implementation work remains below.
+
+| Concern | Rust backend | Frontend services | Frontend components/controllers | Storage and recovery |
+| --- | --- | --- | --- | --- |
+| Connection | Socket, Telnet handling, identity, bounded replay | Attach listeners, send commands, expose status | Controls and status | Discover and reattach to surviving connections |
+| FuzzBall/Taps | Transport commands and responses | Plugin cache, parsing, derived state and refresh | Render views and emit intent; controller owns view state | Disposable; re-query, optionally cache in webview storage |
+| Notes | Storage I/O where needed | Working text and save coordination | Editor and presentation | Saved character document; reload from app storage |
+| Triggers | Storage I/O where needed | Shared definitions; applicability derived for the target session | Editing and selected owner | Reload definitions from app storage |
+| Transcript/history | Deliver events | Live entries, retention, revisions, range access and rolling-history coordination | Virtualization, render cache, scroll and selection geometry | Existing configured rolling backlog |
+| Surfaces | Native windows and bounds | Lifecycle and live transport | Controller-owned presentation state | Existing saved placement |
+
+- Storage I/O does not require a parallel authoritative backend copy. Keep the
+  existing JSON app database and webview transcript-history storage.
+- Preserve live-socket reattachment and existing bounded replay when the webview
+  refreshes or restarts while Rust survives. Restarting Rust requires a new
+  connection. Reattachment does not cause a new server welcome.
+- Reload saved notes and triggers. Accept losing notes edits still inside the
+  existing debounce interval; preserve ordinary save and close behavior.
+- FuzzBall owns its cache through its plugin session contribution and exposes it
+  through the typed service capability. The generic container manages plugin
+  lifetime without owning FuzzBall-specific fields. Disposable state can be lost
+  and queried again.
+- Any serializable world-session data may optionally be cached in webview storage
+  when a concrete feature benefits. Caches must tolerate absence or stale data;
+  a universal caching or cache-migration framework is not required for P1.
+- Full transient event history need not survive refresh or reconnect. Additional
+  retention, queuing and recovery belong to the transcript-history feature.
+  Preserve current behavior during ownership cleanup, including bounded replay.
+- Canonical transcript ownership stays in the frontend. Backend ownership is
+  reconsidered only with validated performance/memory evidence or a concrete
+  product need, not hot reload alone.
+- Trigger definitions remain shared; derive applicability using the session
+  receiving output. Editor selection remains UI state.
+- Surface snapshots serve live docked/pop-out communication; they do not require
+  durable recovery of every transient field. Log files remain independent of
+  transient transcript state, with frontend policy and backend file writes.
+
 ## Current Status
 
 - The general world-session container now exists in `frontend/src/lib/world-session-container.ts`.
@@ -28,10 +70,13 @@
 
 ### Still To Do
 
-- [ ] Decide whether fuzzball cache belongs in the same world-session registry or in an adjacent service.
-- [ ] Decide whether notes and transcript history should become session-owned services in the registry.
-- [ ] Decide whether trigger context should be session-owned or continue to be derived from the active world and character.
-- [ ] Route additional session-scoped consumers through the registry once the first shape feels stable.
+- [x] Resolve frontend/backend/storage ownership and recovery boundaries above.
+- [x] Keep trigger definitions shared and derive applicability per target session.
+- [ ] Consolidate FuzzBall cache ownership behind its plugin session service, removing global access paths that bypass the owner.
+- [ ] Consolidate notes working text and save coordination behind a focused frontend service shared by its surfaces; preserve character-based persistence and debounce behavior.
+- [ ] Consolidate transcript/history data operations behind a focused frontend boundary, keeping rendering and interaction separate.
+- [ ] Verify affected close, reconnect, reattachment, shared-view and delayed-callback behavior; add awaitable cleanup only where an actual operation needs it.
+- [ ] Update durable specs as service changes are implemented, without presenting proposed consolidation as completed behavior.
 - [ ] Keep the session shell thin and continue moving session-owned behavior out of `session.ts` where it still reaches across modules directly.
 
 ## Working Name
@@ -62,7 +107,7 @@
 - World connection access for the active world session.
 - Debug console entries, visibility, and registration state for the active world session.
 - Fuzzball property cache and tree capture state.
-- Character-scoped notes storage and note loading.
+- Notes working text, note loading and save coordination; saved documents remain character-owned in app storage.
 - Character-scoped transcript history loading.
 
 ### Likely session-scoped
@@ -81,7 +126,10 @@
 
 ## Unexplored Potential Candidates
 
-The following systems look like they may benefit from the same world-session registry pattern, but we have not decided yet whether they should move there.
+The following are an inventory for targeted cleanup, not a migration checklist.
+The agreed boundaries above take precedence: DOM interaction and surface view
+state remain with their views/controllers, and persistent records remain in
+app storage. Extract services only where current consumers benefit.
 
 ### Core world-tab runtime
 
@@ -219,20 +267,20 @@ mounted virtualized DOM.
 - Route one or two existing consumers through the registry-backed connection path to prove the pattern.
 - Add additional session-scoped services only after the first shape feels right.
 
-## Open Questions
+## Resolved Foundation and Remaining Choices
 
-- Should the key be named `WorldSessionKey`, `SessionKey`, or something even shorter?
-- Should the registry key be based on a combined string or a structured object?
-- Should the session service object be long-lived per session, or rebuilt on demand from smaller providers?
-- Should notes and transcript history live in the same registry object as the fuzzball cache, or in adjacent session services?
-- Should the registry live near `session.ts` or as its own feature-local module?
-- Should future session-scoped services be attached as namespaces on the same container, or split into adjacent registries?
-- Should connection id stay only on the tab record and `MudConnection`, or also be mirrored anywhere else for debugging?
+Keep `WorldSessionKey`, its structured public shape and internal serialization,
+the existing registry module, and containers reused for their session lifetime.
+Do not mirror connection identity onto the container. The key helper normalizes
+empty character IDs to null for world-only sessions.
+
+Choose the smallest notes and transcript service interfaces needed by current
+consumers. Separate feature modules may share container-managed lifetime without
+creating independent global registries. Stateful trigger execution and broader
+webview caching are optional future work, not prerequisites.
 
 ## Next Steps
 
-- Pick the final name for the scope and registry.
-- Define the next session service interface, likely fuzzball cache or another cache-like helper.
-- Identify one or two consumers that can move to the registry with minimal churn.
-- Decide where the registry should live in the `frontend/src/lib` tree.
-- Expand the registry once the first service proves the pattern.
+- Implement the focused remaining ownership work above without changing transcript-history policy.
+- Keep native placement and surface presentation under the surface system.
+- Treat stronger refresh durability as feature-specific work only when needed.

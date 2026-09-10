@@ -26,51 +26,34 @@
   diagnostics surface for endpoint, security mode, status, identity, session,
   sequence, and last error.
 
-## Long-term canonical history ownership experiment
+## Agreed History and Refresh Recovery Direction
 
-The structured world snapshot should remain a compact snapshot of current
-protocol and world state. It must not contain the full canonical transcript or
-event history, because that would make reload recovery increasingly expensive
-as history grows.
+Preserve the implemented live-connection recovery: Rust keeps the socket,
+connection identity, bounded replay buffer, and compact protocol snapshot.
+A refreshed or restarted webview discovers surviving connections and reattaches.
+If Rust restarts, a new connection is required. Reattachment does not trigger a
+new server welcome.
 
-Keep these concerns separate:
+Canonical transcript ownership remains in frontend services. Recover configured
+rolling transcript history through the existing storage feature. Full transient
+event history need not survive a frontend refresh or reconnect; additional
+retention, queuing and resynchronization are transcript-history feature work.
+This decision does not remove or expand the existing bounded replay mechanism.
 
-- The backend owns a bounded in-memory replay buffer for bridging frontend
-  reloads and short detach periods.
-- The backend owns a compact structured snapshot containing current protocol
-  state, structured world state, diagnostics, and the sequence at which that
-  state is valid.
-- The canonical user-visible transcript/event history remains a separate
-  history store with its own retention, persistence, privacy, rename, delete,
-  and character-history policies.
+Remove the backend canonical-history experiment from scheduled work. Reconsider
+backend history ownership only with validated performance or memory evidence or
+a concrete product requirement. Hot reload alone is not sufficient justification.
 
-As a long-term experiment, compare two history-store ownership models:
+Saved notes and triggers reload from storage without parallel authoritative
+backend copies. Accept the existing notes debounce loss window. Plugin caches
+may be discarded and re-queried. Any serializable world-session data may
+optionally use webview storage when a specific feature benefits from refresh
+durability; no universal caching framework is required.
 
-1. Keep the canonical transcript/event history store on the frontend. The
-   frontend continues to load and render history from its existing storage
-   subsystem, while Rust owns only live protocol state, the bounded replay
-   buffer, and the compact structured snapshot. This is the simpler model and
-   should remain the initial baseline.
-
-2. Move the canonical transcript/event history store to Rust, preferably as a
-   disk-backed store rather than an unbounded in-memory event list. The
-   frontend would request transcript pages or ranges and render only its
-   current window. Rust could combine a compact snapshot with events after the
-   snapshot sequence, reducing duplicate history ownership and making the
-   frontend more disposable across hot reloads or frontend crashes.
-
-Moving the canonical store to Rust would harden frontend refresh and recovery,
-but would also add substantial complexity: storage APIs, paging, migrations,
-history limits, character rename and deletion behavior, logging coordination,
-privacy controls, and frontend/backend consistency rules. It should therefore
-be evaluated with history-size and reload-stability measurements rather than
-assumed as part of P0.
-
-The preferred long-term shape is a hybrid model: Rust owns live protocol state,
-a bounded replay ring, and a compact structured snapshot; the canonical history
-store may remain frontend-owned or become a Rust-owned disk-backed service after
-the experiment. In either model, the snapshot must stay bounded and must not be
-used as a replacement for the full history store.
+Keep protocol snapshots compact. Do not grow them into copies of frontend
+plugin caches, saved documents, or full transcript history. Surface snapshots
+remain a live view-communication mechanism, not a promise of durable frontend
+state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
 
 ## Implementation plan
 
