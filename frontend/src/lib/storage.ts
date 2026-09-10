@@ -68,48 +68,6 @@ function createEmptyData(): PersistentData {
   };
 }
 
-type StorageMigration = (data: PersistedStorageRecord) => PersistedStorageRecord;
-
-// Breaking storage changes add an entry keyed by the version they produce.
-// Version 1 is the current format and therefore has no migration to run yet.
-const STORAGE_MIGRATIONS: Record<number, StorageMigration> = {};
-
-function migrateStorageData(raw: PersistedStorageRecord): {
-  data: PersistedStorageRecord;
-  migrated: boolean;
-} {
-  const rawVersion = raw.schemaVersion;
-  const version = rawVersion === undefined
-    ? STORAGE_SCHEMA_VERSION
-    : rawVersion;
-
-  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
-    throw new Error('the storage file has an invalid schema version');
-  }
-
-  if (version > STORAGE_SCHEMA_VERSION) {
-    throw new Error(
-      `the storage file uses schema version ${version}, but this app supports version ${STORAGE_SCHEMA_VERSION}`,
-    );
-  }
-
-  let data = { ...raw };
-  let migrated = false;
-
-  for (let nextVersion = version + 1; nextVersion <= STORAGE_SCHEMA_VERSION; nextVersion += 1) {
-    const migration = STORAGE_MIGRATIONS[nextVersion];
-    if (!migration) {
-      throw new Error(`no migration is available for storage schema version ${nextVersion}`);
-    }
-
-    data = migration(data);
-    data.schemaVersion = nextVersion;
-    migrated = true;
-  }
-
-  return { data, migrated };
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

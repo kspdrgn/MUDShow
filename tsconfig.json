@@ -16,5 +16,5 @@
     "sourceMap": false
   },
   "include": ["frontend/src/**/*.ts", "frontend/src/vite-env.d.ts", "shared/**/*.ts"],
-  "exclude": ["node_modules", "dist", "tauri"]
+  "exclude": ["node_modules", "dist", "tauri", "frontend/src/**/*.test.ts"]
 }
