@@ -25,5 +25,5 @@ permissions, and runtime isolation remain out of scope.
 
 The registered descriptor and actions are now mounted through the shared
 Dockview/native-window adapters. Plugin runtime state remains disposable;
-existing connection reattachment and bounded replay remain the recovery
-mechanism.
+existing connection reattachment and authoritative session snapshots remain the
+recovery mechanism; transcript history remains frontend/local.

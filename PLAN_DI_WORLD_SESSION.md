@@ -16,17 +16,18 @@ resolves the architectural choices; implementation work remains below.
 
 | Concern | Rust backend | Frontend services | Frontend components/controllers | Storage and recovery |
 | --- | --- | --- | --- | --- |
-| Connection | Socket, Telnet handling, identity, bounded replay | Attach listeners, send commands, expose status | Controls and status | Discover and reattach to surviving connections |
+| Connection | Socket, Telnet handling, identity, authoritative session snapshot and revision | Attach listeners, load local history, send commands, expose status | Controls and status | Discover and reattach to surviving connections |
 | FuzzBall/Taps | Transport commands and responses | Plugin cache, parsing, derived state and refresh | Render views and emit intent; controller owns view state | Disposable; re-query, optionally cache in webview storage |
 | Notes | Storage I/O where needed | Working text and save coordination | Editor and presentation | Saved character document; reload from app storage |
 | Triggers | Storage I/O where needed | Shared definitions; applicability derived for the target session | Editing and selected owner | Reload definitions from app storage |
-| Transcript/history | Deliver events | Live entries, retention, revisions, range access and rolling-history coordination | Virtualization, render cache, scroll and selection geometry | Existing configured rolling backlog |
+| Transcript/history | Deliver live events; no transcript replay authority | Canonical live entries, retention, revisions, range access and rolling-history coordination | Virtualization, render cache, scroll and selection geometry | Existing configured user-local rolling backlog |
 | Surfaces | Native windows and bounds | Lifecycle and live transport | Controller-owned presentation state | Existing saved placement |
 
 - Storage I/O does not require a parallel authoritative backend copy. Keep the
   existing JSON app database and webview transcript-history storage.
-- Preserve live-socket reattachment and existing bounded replay when the webview
-  refreshes or restarts while Rust survives. Restarting Rust requires a new
+- Preserve live-socket reattachment when the webview refreshes or restarts while
+  Rust survives. The frontend reloads transcript history locally and receives
+  the current backend session snapshot. Restarting Rust requires a new
   connection. Reattachment does not cause a new server welcome.
 - Reload saved notes and triggers. Accept losing notes edits still inside the
   existing debounce interval; preserve ordinary save and close behavior.
@@ -37,9 +38,10 @@ resolves the architectural choices; implementation work remains below.
 - Any serializable world-session data may optionally be cached in webview storage
   when a concrete feature benefits. Caches must tolerate absence or stale data;
   a universal caching or cache-migration framework is not required for P1.
-- Full transient event history need not survive refresh or reconnect. Additional
-  retention, queuing and recovery belong to the transcript-history feature.
-  Preserve current behavior during ownership cleanup, including bounded replay.
+- Full transient event history is not a backend recovery requirement. The
+  backend retains only the authoritative state needed for a correct reattached
+  client. Output received while no client is attached is not recoverable unless
+  an explicit backend-retention feature is later added.
 - Canonical transcript ownership stays in the frontend. Backend ownership is
   reconsidered only with validated performance/memory evidence or a concrete
   product need, not hot reload alone.

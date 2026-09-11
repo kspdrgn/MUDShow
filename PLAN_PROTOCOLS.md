@@ -102,7 +102,7 @@ flowchart TB
   Ordered[Normalized ordered events]
   Classify[Event classification and enrichment]
   Route[Routing and filtering policy]
-  Store[Canonical in-memory transcript database]
+  Store[Canonical frontend/local transcript database]
   Metadata[Chunk metadata and source content]
   View[Transcript view and virtualization]
   Visible[Currently visible transcript]
@@ -138,8 +138,9 @@ Sentinel traffic follows the same ordered event stream. A plugin or host-owned
 capture service may emit an outgoing sentinel request, and the matching world
 response must remain identifiable as a sentinel event after protocol decoding
 and text framing. Routing may hide that response from the visible transcript
-while retaining it in the canonical transcript/history database for capture
-completion, diagnostics, replay, or future projections.
+while retaining it in the frontend/local canonical transcript-history store for
+capture completion, diagnostics, or future projections. It is not retained by
+the backend solely for frontend replay.
 
 The canonical transcript database is the first transcript consumer of ordered
 text events. It must retain the source text and the metadata needed to
@@ -289,7 +290,7 @@ discardable caches.
 - [ ] Keep input in the store even when the current echo policy hides it from
   the visible transcript.
 - [ ] Expand rolling transcript history persistence to retain the metadata
-  required for replay and projection, not only `{ text, lines }`.
+  required for local reload and projection, not only `{ text, lines }`.
 - [ ] Define a versioned persisted-entry format and migration behavior for
   existing text-only transcript history.
 - [ ] Preserve stable entry identity and event order across in-memory updates,
@@ -321,8 +322,8 @@ discardable caches.
   include between-chunk UI markers.
 - [ ] Add tests proving hidden input remains stored and becomes visible when
   the echo projection changes.
-- [ ] Add tests proving a projection change re-evaluates old entries without a
-  network replay.
+- [ ] Add tests proving a projection change re-evaluates old entries without
+  backend transcript replay.
 
 ### Specification Placement
 

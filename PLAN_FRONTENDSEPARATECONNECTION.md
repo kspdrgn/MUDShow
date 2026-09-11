@@ -2,14 +2,16 @@
 
 ## Implemented milestone
 
-- Rust owns connection identity, runtime identity, session IDs, and a bounded replay buffer.
+- Rust owns connection identity, runtime identity, session IDs, and the current
+  authoritative session snapshot.
 - Every emitted connection event carries a session ID and monotonically increasing sequence.
 - Frontend connections have separate `connect`, `attach`, `detach`, and `close` semantics.
 - Frontend teardown detaches listeners instead of disconnecting sockets; explicit disconnect, tab close, reconnect, and native app exit still close them.
-- A new frontend discovers backend connections, matches world/character metadata, recreates tabs, attaches listeners, replays missed text events, deduplicates live/replayed sequences, and shows a diagnostic when the replay buffer has a gap.
-- Replay responses and connection events now carry a versioned contract, and
-  attach-gap recovery can request a bounded structured snapshot before replay
-  dispatch.
+- A new frontend discovers backend connections, matches world/character metadata,
+  recreates tabs, attaches listeners, loads its local transcript history, and
+  receives the current backend session snapshot.
+- The attach boundary must prevent snapshot/live-event races. A session revision
+  or attach barrier replaces transcript replay as the normal recovery mechanism.
 
 ## Remaining work
 
@@ -28,17 +30,24 @@
 
 ## Agreed History and Refresh Recovery Direction
 
-Preserve the implemented live-connection recovery: Rust keeps the socket,
-connection identity, bounded replay buffer, and compact protocol snapshot.
-A refreshed or restarted webview discovers surviving connections and reattaches.
-If Rust restarts, a new connection is required. Reattachment does not trigger a
-new server welcome.
+Preserve live-connection recovery: Rust keeps the socket, connection identity,
+and compact authoritative protocol/session snapshot. A refreshed webview
+discovers surviving connections, loads its transcript from local storage, and
+reattaches. If Rust restarts, a new connection is required. Reattachment does
+not trigger a new server welcome.
 
-Canonical transcript ownership remains in frontend services. Recover configured
-rolling transcript history through the existing storage feature. Full transient
-event history need not survive a frontend refresh or reconnect; additional
-retention, queuing and resynchronization are transcript-history feature work.
-This decision does not remove or expand the existing bounded replay mechanism.
+Canonical transcript ownership remains in frontend/local services. Recover
+configured rolling transcript history through the existing user-local storage
+feature. Rust does not replay transcript or raw traffic to reconstruct the
+frontend's history. Output received while no client is attached is either
+unavailable to that client or requires a separate, explicitly opted-in backend
+retention feature.
+
+The backend may retain compact authoritative state and a monotonic session
+revision. It should not retain a generic event history merely to support
+frontend refresh. A bounded control/event journal is only justified if a future
+authoritative state cannot be represented in the snapshot or if a concrete
+multi-client requirement demands it.
 
 Remove the backend canonical-history experiment from scheduled work. Reconsider
 backend history ownership only with validated performance or memory evidence or
@@ -66,38 +75,38 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
 - Treat `connectionId + sessionId` as the identity of one backend session;
   connection ID alone must never authorize an old session to mutate current
   state.
-- Define the attach ordering guarantee: the frontend listener is installed
-  before replay is requested, replay is delivered in sequence order, and live
-  events are accepted only after sequence filtering.
+- Define the attach ordering guarantee: the backend establishes an attach
+  barrier, returns a snapshot plus revision, and delivers events after that
+  revision only after the snapshot is accepted by the frontend.
 
 ### Phase 2: Version the event envelope
 
 - Introduce a shared versioned envelope for text, lifecycle, and structured
   protocol events.
 - Preserve one monotonically increasing sequence across raw, text, lifecycle,
-  and structured events for a session.
+  and structured events for live delivery within a session. The sequence does
+  not imply backend retention or transcript replay.
 - Keep protocol-specific payloads behind discriminated `kind` values; do not add
   protocol branches to frontend transcript code.
 - Reject malformed or unknown payloads as classified diagnostics without
   terminating a healthy socket.
 
-### Phase 3: Add structured replay recovery
+### Phase 3: Add structured snapshot recovery
 
-- Extend attach responses with the replay range and a typed gap reason.
-- Treat a gap in plain transcript text as recoverable diagnostic information.
-- Treat a gap affecting structured state as stale state requiring a snapshot.
-- Add a snapshot request/response carrying the authoritative state and the
-  sequence at which that state was observed.
-- Apply the snapshot before accepting subsequent structured events; discard
-  older or duplicate events after recovery.
+- Extend attach responses with the authoritative session revision and a typed
+  snapshot state.
+- Do not treat missing transcript events as a backend recovery failure; the
+  frontend's local history is the transcript recovery source.
+- Apply the snapshot before accepting subsequent structured events, using the
+  revision to reject stale or duplicate updates.
 - Surface failed snapshot recovery as an actionable connection diagnostic.
 
 ### Phase 4: Preserve detached protocol behavior
 
 - Keep Telnet negotiation and automatic MCP/GMCP/MCMP replies in the backend
   while no frontend listener is attached.
-- Ensure detached processing continues to update the replay stream and protocol
-  snapshot state.
+- Ensure detached processing continues to update authoritative protocol/session
+  state. It need not retain detached transcript output for later replay.
 - Do not make frontend visibility, active-tab state, or transcript rendering a
   prerequisite for protocol correctness.
 
@@ -112,10 +121,10 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
 
 ### Phase 6: Test and acceptance pass
 
-- Add Rust unit tests for replay trimming, session protection, attach ordering,
-  replacement, disconnect cleanup, and detached processing.
-- Add frontend tests for delayed replay/live interleaving, stale callbacks,
-  attach failure, gap classification, snapshot application, and teardown.
+- Add Rust unit tests for session protection, snapshot revisioning, attach
+  ordering, replacement, disconnect cleanup, and detached processing.
+- Add frontend tests for snapshot/live interleaving, stale callbacks, attach
+  failure, revision handling, local-history loading, and teardown.
 - Add browser-level coverage for frontend reload with active traffic, multiple
   tabs, reconnect, and delayed events.
 - Update `ROADMAP.md` only when the lifecycle, structured recovery, and focused
@@ -127,18 +136,20 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
 
 - `tauri/src/mud_backend.rs`
   - `ConnectionManager`: connection map, runtime identity, session IDs,
-    replacement, disconnect, replay storage, and event emission.
-  - `ConnectionEntry`: active worker, descriptor, replay deque, and sequence
+    replacement, disconnect, authoritative snapshot state, and event emission.
+  - `ConnectionEntry`: active worker, descriptor, session snapshot, and revision
     counter.
   - `connect_mud`: starts/replaces a backend session.
   - `list_mud_connections`: frontend reload discovery metadata.
-  - `get_mud_connection_events`: replay inspection path.
-  - `attach_mud_connection`: replay/attach boundary.
+  - `get_mud_connection_events`: transitional compatibility path; do not extend
+    it as transcript recovery.
+  - `attach_mud_connection`: snapshot/attach boundary.
   - `send_mud` and `disconnect_mud`: frontend command boundary.
   - `run_connection`, `flush_line_buffer`, and `emit_event`: stream reading,
     line framing, sequence assignment, and event emission.
   - `ConnectionEvent`, `ConnectionEventMessage`, `ConnectionDescriptor`,
-    `ReplayEvent`, and `ReplayResponse`: current wire DTOs to version or extend.
+    `ReplayEvent`, and `ReplayResponse`: transitional DTOs to retire or narrow
+    to any future authoritative control-event use.
 
 - `tauri/src/main.rs`
   - registers the connection commands;
@@ -153,7 +164,7 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
 
 - `frontend/src/lib/connection.ts`
   - `MudConnection`: connect/attach/detach/close, event listener lifetime,
-    replay dispatch, sequence filtering, and frontend diagnostics callback.
+    snapshot attach, revision filtering, and frontend diagnostics callback.
   - `acceptsConnectionSequence`: current pure ordering rule.
   - `ConnectionEvent`, `ReplayEvent`, `ReplayResponse`, and
     `MudConnectionDescriptor`: current frontend event and metadata shapes.
@@ -199,14 +210,15 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
 ## Invariants for implementation
 
 - One socket reader exists per active backend session.
-- Every session event has one strictly increasing sequence.
-- A frontend listener is installed before replay begins.
-- Replay and live delivery pass through the same sequence acceptance rule.
+- Live events retain a monotonic sequence for ordering and diagnostics; the
+  authoritative session snapshot has its own monotonic state revision.
+- Snapshot acceptance and live delivery have one explicit ordering guarantee.
+- Transcript history is loaded from frontend/local storage, not backend replay.
 - Session ID mismatches are ignored and cannot close or mutate the replacement.
 - Detaching the frontend never disconnects the backend socket.
 - Explicit close, reconnect, tab close, and app shutdown do disconnect it.
-- Structured state is never presented as current after an unrecovered replay
-  gap.
+- Structured state is never presented as current after a failed or stale
+  snapshot recovery.
 - Native-process crash survival remains out of scope for this plan.
 
 Native-process crash survival is out of scope; it requires a separate broker process.

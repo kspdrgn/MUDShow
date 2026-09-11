@@ -20,6 +20,18 @@
 - [x] Dispose plugin surface state when an owning window or world session is
   closed; persistent placement remains owned by the host registry.
 
+## State and recovery direction
+
+- Surface snapshots are live state projections, not transcript-history or
+  backend event-replay mechanisms.
+- A returned or refreshed surface must be reconstructible from its controller
+  snapshot and current world-session/plugin state.
+- Surface controllers must not require replay of missed transcript events to
+  become correct. If a surface needs authoritative backend state, that state
+  must be represented in a versioned session/plugin snapshot.
+- View-only state such as selection, scroll geometry, and temporary hover state
+  remains local to the surface host.
+
 ## Follow-up dependencies
 
 - Add browser/native integration coverage for actual Dockview and Tauri

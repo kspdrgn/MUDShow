@@ -11,12 +11,13 @@ This document only records work that is not implemented or not yet decided.
   transformation, cancellation, and ordering/conflict rules.
 - Define a sentinel capability for plugin capture: issuing a unique token to the
   player's own world connection and receiving the matching classified event.
-- Keep sentinel responses available to the canonical transcript/history store
-  while allowing the host's visibility projection to mute them from the main
-  transcript and other consumers.
+- Keep sentinel responses available to the frontend's canonical local
+  transcript/history store while allowing the host's visibility projection to
+  mute them from the main transcript and other consumers. The plugin boundary
+  must not assume that Rust retains or replays transcript history.
 - Finish the capture/filter behavior needed by the FuzzBall plugin so plugin
   requests can hide captured material from the visible transcript while
-  retaining it in history with the required metadata.
+  retaining it in local history with the required metadata.
 - Define limits and diagnostics for plugin-produced work so a plugin cannot
   cause unbounded buffering, logging, or UI work.
 
@@ -46,6 +47,11 @@ This document only records work that is not implemented or not yet decided.
   snapshot contracts before adding plugin-specific UI.
 - Keep world-definition distribution separate from user-owned world records so
   future plugins cannot overwrite local connection settings by server name.
+- Define plugin state categories explicitly: durable user configuration,
+  disposable client cache, authoritative backend state, and view state.
+- Define snapshot/attach behavior for any plugin state that is authoritative on
+  the backend. A plugin must be refreshable from a snapshot and must not depend
+  on replaying the transcript to rebuild itself.
 
 ## Current Follow-Up Features
 

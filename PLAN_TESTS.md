@@ -13,7 +13,7 @@ Command: `npm test` (or `npm run test:regression`). The suite compiles the narro
 
 Next coverage:
 
-- mocked Tauri connection lifecycle and attach/replay ordering;
+- mocked Tauri connection lifecycle and attach/snapshot ordering;
 - session send/output/disconnect transitions;
 - isolated history persistence;
 - a Playwright test for selection while scrolling and split-view recovery.

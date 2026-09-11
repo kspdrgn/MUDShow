@@ -25,7 +25,9 @@
   player's own world connection to mark the end of a manual `look` capture.
 - The matching world response is a sentinel event, not ordinary user-authored
   world output. It may be hidden from the visible transcript while remaining
-  retained in the canonical transcript/history database.
+  retained in the frontend's canonical local transcript/history store.
+- Capture completion must not depend on backend replay of transcript history;
+  the active client records the relevant events locally as they arrive.
 - Sentinel matching must use a per-request token with sufficient uniqueness and
   must not assume that the response arrives immediately after the captured
   output.
