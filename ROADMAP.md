@@ -11,5 +11,6 @@
 - [ ] Consolidate frontend session-service ownership.
 
 The detailed surface boundary is documented in `spec/surfaces.md` and
-`PLAN_SURFACES.md`. FuzzBall and Taps integration remains follow-up work in
-`PLAN_RIDEMODE.md`.
+`PLAN_SURFACES.md`. The remaining P1 work is frontend session-service
+consolidation, with browser/native lifecycle coverage tracked as a surface
+follow-up in `PLAN_SURFACES.md`.
