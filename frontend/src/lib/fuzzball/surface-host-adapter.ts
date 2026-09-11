@@ -6,7 +6,6 @@ import {
   type FuzzballStorageSurfaceControllerDependencies,
 } from './storage-surface-controller.js';
 import type { FuzzballStorageViewerService, FuzzballStorageViewerState } from './storage-viewer.js';
-import { fuzzballStorageCache } from './storage-cache.js';
 import { FUZZBALL_STORAGE_VIEWER_SERVICE_KEY } from './plugin.js';
 import type { TreeDataWindowModel } from '../components/tree-data/tree-data-view.js';
 
@@ -40,8 +39,20 @@ export interface FuzzballSurfaceHostAdapterDependencies
 export function createFuzzballSurfaceHostAdapter(
   dependencies: FuzzballSurfaceHostAdapterDependencies,
 ) {
+  const invalidationListeners = new Set<() => void>();
+  const subscribedViewerServices = new WeakSet<FuzzballStorageViewerService>();
+
   function getViewerService(sourceTabId: string): FuzzballStorageViewerService | null {
-    return dependencies.getPluginService(sourceTabId, FUZZBALL_STORAGE_VIEWER_SERVICE_KEY);
+    const service = dependencies.getPluginService(sourceTabId, FUZZBALL_STORAGE_VIEWER_SERVICE_KEY);
+    if (service && !subscribedViewerServices.has(service)) {
+      subscribedViewerServices.add(service);
+      service.subscribe(() => {
+        for (const listener of invalidationListeners) {
+          listener();
+        }
+      });
+    }
+    return service;
   }
 
   function ensureSurface(sourceTabId: string): string {
@@ -79,8 +90,8 @@ export function createFuzzballSurfaceHostAdapter(
         return;
       }
 
-      const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
-      if (cache.hasData() && cache.getSnapshot('/')?.areChildrenLoaded) {
+      const viewerService = getViewerService(state.sourceTabId);
+      if (viewerService?.hasData(state) && viewerService.getSnapshot(state, '/')?.areChildrenLoaded) {
         return;
       }
 
@@ -149,7 +160,8 @@ export function createFuzzballSurfaceHostAdapter(
     ...controller,
     restorePoppedOutWindow,
     subscribeInvalidation(listener: () => void): () => void {
-      return fuzzballStorageCache.subscribe(listener);
+      invalidationListeners.add(listener);
+      return () => invalidationListeners.delete(listener);
     },
   };
 }

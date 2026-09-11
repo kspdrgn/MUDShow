@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  fuzzballStorageCache,
+  FuzzBallPropertyCacheStore,
   getFuzzballStorageNodeLoadPath,
 } from '../storage-cache.js';
+
+const fuzzballStorageCache = new FuzzBallPropertyCacheStore();
 
 test('directory loads request a trailing slash when children are not loaded yet', () => {
   const state = { worldId: 'world-a', characterId: 'character-a' };
@@ -14,7 +16,7 @@ test('directory loads request a trailing slash when children are not loaded yet'
 
   cache.upsertNode({ path: '/prefs/', type: 'str', value: '7', hasChildren: true });
 
-  assert.equal(getFuzzballStorageNodeLoadPath(state, '/prefs'), '/prefs/');
+  assert.equal(getFuzzballStorageNodeLoadPath(fuzzballStorageCache, state, '/prefs'), '/prefs/');
 });
 
 test('value-only loads keep the normalized path without a trailing slash', () => {
@@ -23,5 +25,5 @@ test('value-only loads keep the normalized path without a trailing slash', () =>
 
   cache.upsertNode({ path: '/ride/_mode', type: 'str', value: 'walk' });
 
-  assert.equal(getFuzzballStorageNodeLoadPath(state, '/ride/_mode'), '/ride/_mode');
+  assert.equal(getFuzzballStorageNodeLoadPath(fuzzballStorageCache, state, '/ride/_mode'), '/ride/_mode');
 });

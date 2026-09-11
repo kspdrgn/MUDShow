@@ -339,13 +339,12 @@ export class FuzzBallPropertyCacheStore {
   }
 }
 
-export const fuzzballStorageCache = new FuzzBallPropertyCacheStore();
-
 export function getFuzzballStorageNodeLoadPath(
+  storageCache: FuzzBallPropertyCacheStore,
   state: FuzzBallStorageLookupState,
   nodeId: string,
 ): string {
-  const cache = fuzzballStorageCache.getSessionCache(state.worldId, state.characterId);
+  const cache = storageCache.getSessionCache(state.worldId, state.characterId);
   const node = cache.getSnapshot(nodeId);
 
   if (!node) {

@@ -3,7 +3,7 @@ import { createFuzzBallPropertyService, type FuzzBallPropertyService } from './p
 import { createFuzzballStorageViewerService, type FuzzballStorageViewerService } from './storage-viewer.js';
 import { createWorldPluginServiceKey, type WorldPlugin } from '../world-plugin.js';
 import { supportsFuzzball } from '../world-capabilities.js';
-import { fuzzballStorageCache } from './storage-cache.js';
+import { FuzzBallPropertyCacheStore } from './storage-cache.js';
 
 export const FUZZBALL_PLUGIN_ID = 'fuzzball';
 export const FUZZBALL_STORAGE_SURFACE_ID = 'fuzzball-storage-viewer';
@@ -18,9 +18,10 @@ export function createFuzzballPlugin(
     label: 'FuzzBall',
     canActivate: ({ world }) => supportsFuzzball(world),
     createSessionContribution: ({ world, character, services, host, connection }) => {
+      const storageCache = new FuzzBallPropertyCacheStore();
       const propertyService = createFuzzBallPropertyService(connection);
       services.set(FUZZBALL_PROPERTY_SERVICE_KEY, propertyService);
-      services.set(FUZZBALL_STORAGE_VIEWER_SERVICE_KEY, createFuzzballStorageViewerService(worldSessionContainers));
+      services.set(FUZZBALL_STORAGE_VIEWER_SERVICE_KEY, createFuzzballStorageViewerService(worldSessionContainers, storageCache));
 
       return {
         surfaces: [{
@@ -54,7 +55,7 @@ export function createFuzzballPlugin(
         }],
         onIncomingLine: (line) => {
           propertyService.captureLine(line);
-          captureFuzzballWorldLine(world.id, character?.id ?? '', line);
+          captureFuzzballWorldLine(storageCache, world.id, character?.id ?? '', line);
         },
         onAttached: () => {
           // A recreated frontend session starts with an empty property cache.
@@ -63,7 +64,7 @@ export function createFuzzballPlugin(
           propertyService.refresh('/');
         },
         dispose: () => {
-          fuzzballStorageCache.clearSessionCache(world.id, character?.id ?? '');
+          storageCache.clearSessionCache(world.id, character?.id ?? '');
         },
       };
     },

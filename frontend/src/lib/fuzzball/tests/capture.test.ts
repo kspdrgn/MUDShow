@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { captureFuzzballWorldLine } from '../capture.js';
-import { fuzzballStorageCache } from '../storage-cache.js';
+import { FuzzBallPropertyCacheStore } from '../storage-cache.js';
+
+const fuzzballStorageCache = new FuzzBallPropertyCacheStore();
 
 test('captures every property from a multi-line server response', () => {
   const worldId = 'capture-world';
@@ -12,6 +14,7 @@ test('captures every property from a multi-line server response', () => {
   fuzzballStorageCache.clearSessionCache(worldId, characterId);
 
   const captured = captureFuzzballWorldLine(
+    fuzzballStorageCache,
     worldId,
     characterId,
     'str /alpha:first\ndir /prefs/: (no value)\nstr /prefs/theme:dark\n3 properties listed.\n',
@@ -31,7 +34,7 @@ test('property-count responses complete the requested branch listing', () => {
 
   const cache = fuzzballStorageCache.getSessionCache(worldId, characterId);
   cache.beginChildrenLoad('/');
-  captureFuzzballWorldLine(worldId, characterId, 'dir /ride/: (no value)\n1 property listed.\n');
+  captureFuzzballWorldLine(fuzzballStorageCache, worldId, characterId, 'dir /ride/: (no value)\n1 property listed.\n');
 
   assert.equal(cache.getSnapshot('/')?.areChildrenLoaded, true);
   assert.equal(cache.getSnapshot('/ride')?.areChildrenLoaded, false);
