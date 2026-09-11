@@ -10,7 +10,7 @@ export interface WorldConnectionDiagnostics {
   connectionId: string | null;
   sessionId: number | null;
   lastSequence: number;
-  oldestReplaySequence: number;
+  snapshotRevision: number;
   structuredSync: 'unknown' | 'current' | 'stale' | 'failed';
   lastError: string | null;
 }
@@ -62,7 +62,7 @@ export function createWorldTabSessionState(transcriptMaxChunks?: number): WorldT
       connectionId: null,
       sessionId: null,
       lastSequence: 0,
-      oldestReplaySequence: 0,
+      snapshotRevision: 0,
       structuredSync: 'unknown',
       lastError: null,
     },

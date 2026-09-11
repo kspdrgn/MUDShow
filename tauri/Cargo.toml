@@ -22,7 +22,7 @@ spellbook = "0.4.2"
 tauri = { version = "2", features = ["unstable", "webview-data-url"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-runtime = "2"
-tokio = { version = "1", features = ["io-util", "macros", "net", "sync"] }
+tokio = { version = "1", features = ["io-util", "macros", "net", "sync", "time"] }
 tokio-native-tls = "0.3"
 
 [profile.release]

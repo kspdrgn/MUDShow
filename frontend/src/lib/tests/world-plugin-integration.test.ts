@@ -64,6 +64,26 @@ test('Taps activates after FuzzBall and inherits its surface and property servic
 
   fixture.session.handleConnected();
   assert.deepEqual(fixture.sent, ['examine me=/ride/_mode\r\n']);
+  fixture.session.handleAttached({
+    contractVersion: 1,
+    runtimeId: 'runtime-1',
+    connectionId: 'connection-1',
+    sessionId: 1,
+    sequence: 10,
+    snapshotRevision: 2,
+    snapshot: {
+      connectionStatus: 'connected',
+      lastError: null,
+      negotiatedCapabilities: [],
+      protocolState: null,
+      diagnostics: [],
+    },
+  });
+  assert.deepEqual(fixture.sent, [
+    'examine me=/ride/_mode\r\n',
+    'examine me=/\r\n',
+    'examine me=/ride/_mode\r\n',
+  ]);
   fixture.session.handleIncomingLine('/ride/_mode = hand');
   const rideAction = fixture.session.getActions().find((action) => action.id === 'taps-ride-mode');
   assert.equal(rideAction?.kind, 'select');
@@ -72,7 +92,12 @@ test('Taps activates after FuzzBall and inherits its surface and property servic
     rideAction.onChange('walk');
   }
   await Promise.resolve();
-  assert.deepEqual(fixture.sent, ['examine me=/ride/_mode\r\n', '@set me=/ride/_mode:walk\r\n']);
+  assert.deepEqual(fixture.sent, [
+    'examine me=/ride/_mode\r\n',
+    'examine me=/\r\n',
+    'examine me=/ride/_mode\r\n',
+    '@set me=/ride/_mode:walk\r\n',
+  ]);
   const pendingRideAction = fixture.session.getActions().find((action) => action.id === 'taps-ride-mode');
   assert.equal(pendingRideAction?.kind, 'select');
   if (pendingRideAction?.kind === 'select') assert.equal(pendingRideAction.value, 'walk');
@@ -86,6 +111,8 @@ test('Taps activates after FuzzBall and inherits its surface and property servic
   if (disconnectedRideAction?.kind === 'select') assert.equal(disconnectedRideAction.value, null);
   fixture.session.handleConnected();
   assert.deepEqual(fixture.sent, [
+    'examine me=/ride/_mode\r\n',
+    'examine me=/\r\n',
     'examine me=/ride/_mode\r\n',
     '@set me=/ride/_mode:walk\r\n',
     'examine me=/ride/_mode\r\n',

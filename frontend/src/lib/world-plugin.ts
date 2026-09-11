@@ -1,6 +1,7 @@
 import type { CharacterRecord, WorldRecord } from './types.js';
 import type { WorldSessionKey } from './world-session-registry.js';
 import type { WorldSessionAction } from './world-session-action.js';
+import type { ConnectionSnapshot } from './connection.js';
 
 export interface WorldPluginActivationContext {
   world: WorldRecord;
@@ -61,6 +62,7 @@ export interface WorldPluginSessionContribution {
   subscribe?: (listener: () => void) => () => void;
   onIncomingLine?: (line: string) => void;
   onRawMessage?: (text: string) => void;
+  onAttached?: (snapshot: ConnectionSnapshot) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
   dispose?: () => void | Promise<void>;

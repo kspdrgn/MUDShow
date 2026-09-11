@@ -23,6 +23,17 @@ The transcript keeps only the visible rows and a small scroll buffer mounted whi
 - When connecting as a named character, the saved history is loaded before live output is displayed. Changing the limit trims future loads and writes to the new limit; setting it to 0 stops saving and restoring.
 - Renaming a character moves its stored history to the renamed character, and deleting a character removes its stored history. World-only connections do not create or restore character history.
 
+### Frontend attachment recovery
+
+- A frontend reload restores transcript history from frontend-local character
+  storage before displaying live output.
+- The backend may retain a bounded incoming-data delivery buffer while a
+  frontend attachment is temporarily absent. Reattachment applies the
+  authoritative session snapshot first, then any retained incoming data.
+- The delivery buffer is not canonical transcript history and does not replace
+  local history persistence. Plugin and surface state are rebuilt by frontend
+  controllers and refresh operations.
+
 ## Last Activity Indicator
 
 When a world session receives transcript activity while the user is away from

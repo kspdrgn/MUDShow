@@ -152,11 +152,13 @@ export function createWorldConnectionActions({
           updateConnectionDiagnostics({ structuredSync: event.parseStatus === 'parsed' ? 'current' : 'stale' });
         },
         onSnapshot: (snapshot: ConnectionSnapshot) => {
+          pluginSession?.handleAttached(snapshot);
           updateConnectionDiagnostics({
             runtimeId: snapshot.runtimeId,
             connectionId: snapshot.connectionId,
             sessionId: snapshot.sessionId,
             lastSequence: snapshot.sequence,
+            snapshotRevision: snapshot.snapshotRevision,
             structuredSync: 'current',
             lastError: snapshot.snapshot.diagnostics.at(-1) ?? null,
           });
@@ -298,17 +300,24 @@ export function createWorldConnectionActions({
         updateWorldSession(tabId, { connectionDiagnostics: { ...currentDiagnostics, ...patch } });
       };
 
+      const maxHistoryLines = character?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
+      const history = character
+        ? await appServices.storage.loadTranscriptHistory(character.id, maxHistoryLines, false)
+        : [];
+      const session = getWorldSession(tabId);
+      session.transcript.loadHistory(maxHistoryLines > 0 ? history : []);
+
       updateWorldSession(tabId, {
         currentWorld: world,
         currentCharacter: character,
         connectionStatus: 'connecting',
         disconnectReason: null,
+        transcriptHistory: history,
       });
       updateConnectionDiagnostics({
         connectionId: descriptor.connectionId,
         sessionId: descriptor.sessionId,
         lastSequence: descriptor.lastSequence,
-        oldestReplaySequence: descriptor.oldestReplaySequence,
         lastError: descriptor.lastError,
       });
       activateWorldTab(tabId);
@@ -330,11 +339,13 @@ export function createWorldConnectionActions({
           updateConnectionDiagnostics({ structuredSync: event.parseStatus === 'parsed' ? 'current' : 'stale' });
         },
         onSnapshot: (snapshot: ConnectionSnapshot) => {
+          pluginSession?.handleAttached(snapshot);
           updateConnectionDiagnostics({
             runtimeId: snapshot.runtimeId,
             connectionId: snapshot.connectionId,
             sessionId: snapshot.sessionId,
             lastSequence: snapshot.sequence,
+            snapshotRevision: snapshot.snapshotRevision,
             structuredSync: 'current',
             lastError: snapshot.snapshot.diagnostics.at(-1) ?? null,
           });
@@ -351,7 +362,7 @@ export function createWorldConnectionActions({
         onDiagnostic: (message) => {
           updateConnectionDiagnostics({ structuredSync: 'stale', lastError: message });
         },
-      }, 0);
+      });
     }));
   }
 

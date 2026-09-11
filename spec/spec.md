@@ -75,6 +75,9 @@ Provide a minimal client for connecting to a MUSH/MUCK/MUD/MOO/MU* session, with
 - Store characters, notes, and triggers locally on the user’s device.
 - Store highlight and regexp rule triggers locally at app, world, or character scope.
 - Store rolling per-character transcript history locally and reload it when reconnecting.
+- Recover a surviving backend world connection after frontend reload by
+  attaching to its authoritative session snapshot; frontend-local transcript
+  history remains the source for restored scrollback.
 - Open and close a notes panel for the active character.
 - Open and close a triggers panel for simple text highlights and regexp rules.
 - Manage triggers at app, world, or character scope.

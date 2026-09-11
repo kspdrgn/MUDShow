@@ -66,14 +66,24 @@ type, direction, payload, parse status, and an optional error. Unknown or
 malformed structured payloads remain classified events rather than terminating
 the connection.
 
-The backend retains a bounded replay window for frontend reloads and detached
-listeners. An attach response reports its contract version, replay range, and
-whether earlier events were trimmed. A trimmed gap is recoverable for ordinary
-transcript text. If structured state may be stale, the frontend requests a
-bounded structured snapshot containing current protocol state, negotiated
-capabilities, current MCP/GMCP/MCMP state, diagnostics, and the sequence at
-which that state was observed. The snapshot does not contain transcript
-history or the replay buffer.
+The backend owns an authoritative session snapshot and a monotonic snapshot
+revision separate from the event sequence. A frontend attachment receives one
+attach response containing the contract version, runtime/session identity,
+snapshot revision, event barrier, authoritative snapshot, and the complete
+retained incoming-data buffer. The frontend accepts the snapshot before
+applying buffered or live events.
+
+The delivery buffer is always enabled, bounded by a fixed per-connection UTF-8
+byte budget, and exists only to smooth frontend detach/reattach. It stores
+incoming data events, not connection-status events, transcript history, or
+frontend/plugin state. Events that no longer fit are simply unavailable; no
+cursor acknowledgement or gap metadata is exposed yet. The snapshot does not
+contain transcript history or the delivery buffer.
+
+Frontend reload recovery loads transcript history from frontend-local storage,
+recreates its world-session and plugin projection, then attaches to the
+surviving backend session. Plugins may refresh their state after attachment;
+the backend remains unaware of frontend plugins.
 
 ## Framing and Decoding
 

@@ -402,6 +402,23 @@
               />
             </label>
 
+            <label class="field">
+              <span>frontend attachment grace period (seconds)</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={settings.attachmentGracePeriodSeconds}
+                on:input={(event) =>
+                  updateSettings({
+                    attachmentGracePeriodSeconds: Number((event.currentTarget as HTMLInputElement).value),
+                  })}
+              />
+            </label>
+            <p class="settings-note">
+              keeps a disconnected frontend attachment's world connection and incoming data buffer alive for reload or restart recovery.
+            </p>
+
             <label class="field disabled-field">
               <span>connection retries</span>
               <input

@@ -60,10 +60,17 @@ export function createTapsPlugin(): WorldPlugin {
         disabled: state.loading || state.pendingValue !== null,
         onChange: selectMode,
       }];
+      const refreshRideMode = (): void => {
+        state.loading = true;
+        state.error = null;
+        connection.send(createRideModeQuery());
+        notify();
+      };
       return {
         getActions,
         subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener); },
-        onConnected: () => { state.loading = true; state.error = null; connection.send(createRideModeQuery()); notify(); },
+        onAttached: refreshRideMode,
+        onConnected: refreshRideMode,
         dispose: unsubscribe,
         onDisconnected: () => { state.value = null; state.pendingValue = null; state.loading = false; notify(); },
       };

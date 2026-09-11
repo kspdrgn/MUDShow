@@ -20,6 +20,7 @@ export interface AppSettings {
   transcriptScrollbackChunks: number;
   chunkSelectRangeMin: number;
   connectionTimeoutSeconds: number;
+  attachmentGracePeriodSeconds: number;
   connectionRetries: number;
   keepAlive: boolean;
   spellcheckEnabled: boolean;
@@ -50,6 +51,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   transcriptScrollbackChunks: DEFAULT_TRANSCRIPT_SCROLLBACK_CHUNKS,
   chunkSelectRangeMin: 40,
   connectionTimeoutSeconds: 10,
+  attachmentGracePeriodSeconds: 30,
   connectionRetries: 3,
   keepAlive: true,
   spellcheckEnabled: true,
@@ -222,6 +224,10 @@ export function loadAppSettings(): AppSettings {
     connectionTimeoutSeconds: typeof raw.connectionTimeoutSeconds === 'number' && Number.isFinite(raw.connectionTimeoutSeconds)
       ? Math.max(1, Math.round(raw.connectionTimeoutSeconds))
       : DEFAULT_APP_SETTINGS.connectionTimeoutSeconds,
+    attachmentGracePeriodSeconds: normalizeNonNegativeInteger(
+      raw.attachmentGracePeriodSeconds,
+      DEFAULT_APP_SETTINGS.attachmentGracePeriodSeconds,
+    ),
     connectionRetries: typeof raw.connectionRetries === 'number' && Number.isFinite(raw.connectionRetries)
       ? Math.max(0, Math.round(raw.connectionRetries))
       : DEFAULT_APP_SETTINGS.connectionRetries,
@@ -292,6 +298,10 @@ export function saveAppSettings(settings: AppSettings): AppSettings {
       DEFAULT_APP_SETTINGS.chunkSelectRangeMin,
     ),
     connectionTimeoutSeconds: Math.max(1, Math.round(settings.connectionTimeoutSeconds)),
+    attachmentGracePeriodSeconds: normalizeNonNegativeInteger(
+      settings.attachmentGracePeriodSeconds,
+      DEFAULT_APP_SETTINGS.attachmentGracePeriodSeconds,
+    ),
     connectionRetries: Math.max(0, Math.round(settings.connectionRetries)),
     keepAlive: settings.keepAlive !== false,
     spellcheckEnabled: settings.spellcheckEnabled !== false,

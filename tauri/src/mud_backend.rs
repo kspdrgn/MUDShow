@@ -17,6 +17,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
     sync::{mpsc as async_mpsc, watch},
+    time::{sleep, Duration},
 };
 use tokio_native_tls::TlsConnector as TokioTlsConnector;
 
@@ -101,8 +102,12 @@ impl ConnectionManager {
                 session_id,
                 handle,
                 descriptor,
-                replay: VecDeque::new(),
+                frontend_delivery_buffer: VecDeque::new(),
+                frontend_delivery_buffer_bytes: 0,
+                attachment_generation: 0,
+                attached: true,
                 next_sequence: 0,
+                snapshot_revision: 0,
                 snapshot: StructuredConnectionSnapshot::default(),
             },
         );
@@ -144,14 +149,27 @@ impl ConnectionManager {
             return None;
         }
 
+        update_authoritative_snapshot(entry, &event);
         entry.next_sequence += 1;
         let sequence = entry.next_sequence;
-        entry.replay.push_back(ReplayEvent { sequence, session_id, event });
-        while entry.replay.len() > MAX_REPLAY_EVENTS {
-            entry.replay.pop_front();
+        let replay_event = ReplayEvent { sequence, session_id, event };
+        if is_attachment_replayable(&replay_event.event) {
+            let event_bytes = replayable_event_bytes(&replay_event.event);
+            if event_bytes <= MAX_FRONTEND_DELIVERY_BUFFER_BYTES {
+                entry.frontend_delivery_buffer.push_back(replay_event.clone());
+                entry.frontend_delivery_buffer_bytes += event_bytes;
+            }
+            while entry.frontend_delivery_buffer_bytes > MAX_FRONTEND_DELIVERY_BUFFER_BYTES {
+                if let Some(evicted) = entry.frontend_delivery_buffer.pop_front() {
+                    entry.frontend_delivery_buffer_bytes = entry
+                        .frontend_delivery_buffer_bytes
+                        .saturating_sub(replayable_event_bytes(&evicted.event));
+                } else {
+                    break;
+                }
+            }
         }
         entry.descriptor.last_sequence = sequence;
-        entry.descriptor.oldest_replay_sequence = entry.replay.front().map(|item| item.sequence).unwrap_or(sequence);
         Some(sequence)
     }
 
@@ -166,33 +184,6 @@ impl ConnectionManager {
             .lock()
             .map(|guard| guard.values().map(|entry| entry.descriptor.clone()).collect())
             .unwrap_or_default()
-    }
-
-    fn replay(&self, connection_id: &str, after_sequence: u64) -> Result<ReplayResponse, String> {
-        let guard = self
-            .connections
-            .lock()
-            .map_err(|_| "Connection state is unavailable".to_string())?;
-        let entry = guard
-            .get(connection_id)
-            .ok_or_else(|| "No active connection".to_string())?;
-        let oldest_sequence = entry.replay.front().map(|item| item.sequence).unwrap_or(entry.next_sequence + 1);
-        let events = entry
-            .replay
-            .iter()
-            .filter(|item| item.sequence > after_sequence)
-            .cloned()
-            .collect();
-
-        Ok(ReplayResponse {
-            contract_version: CONNECTION_EVENT_CONTRACT_VERSION,
-            events,
-            oldest_sequence,
-            newest_sequence: entry.next_sequence,
-            has_gap: replay_has_gap(after_sequence, oldest_sequence),
-            gap_reason: replay_has_gap(after_sequence, oldest_sequence)
-                .then_some("replay-trimmed".to_string()),
-        })
     }
 
     fn snapshot(&self, connection_id: &str) -> Result<ConnectionSnapshotResponse, String> {
@@ -210,19 +201,81 @@ impl ConnectionManager {
             connection_id: connection_id.to_string(),
             session_id: entry.session_id,
             sequence: entry.next_sequence,
+            snapshot_revision: entry.snapshot_revision,
             snapshot: entry.snapshot.clone(),
         })
     }
+
+    fn attach(&self, connection_id: &str) -> Result<AttachResponse, String> {
+        let mut guard = self
+            .connections
+            .lock()
+            .map_err(|_| "Connection state is unavailable".to_string())?;
+        let entry = guard
+            .get_mut(connection_id)
+            .ok_or_else(|| "No active connection".to_string())?;
+        entry.attached = true;
+        entry.attachment_generation = entry.attachment_generation.wrapping_add(1);
+        let events = entry
+            .frontend_delivery_buffer
+            .iter()
+            .cloned()
+            .collect();
+
+        Ok(AttachResponse {
+            contract_version: CONNECTION_EVENT_CONTRACT_VERSION,
+            runtime_id: self.runtime_id.clone(),
+            connection_id: connection_id.to_string(),
+            session_id: entry.session_id,
+            snapshot_revision: entry.snapshot_revision,
+            event_sequence: entry.next_sequence,
+            snapshot: entry.snapshot.clone(),
+            events,
+        })
+    }
+
+    fn detach(&self, connection_id: String, grace_period_ms: u64) -> Result<(), String> {
+        let generation = {
+            let mut guard = self
+                .connections
+                .lock()
+                .map_err(|_| "Connection state is unavailable".to_string())?;
+            let entry = guard
+                .get_mut(&connection_id)
+                .ok_or_else(|| "No active connection".to_string())?;
+            entry.attached = false;
+            entry.attachment_generation = entry.attachment_generation.wrapping_add(1);
+            entry.attachment_generation
+        };
+
+        let manager = self.clone();
+        tauri::async_runtime::spawn(async move {
+            sleep(Duration::from_millis(grace_period_ms)).await;
+            manager.expire_detached(&connection_id, generation);
+        });
+        Ok(())
+    }
+
+    fn expire_detached(&self, connection_id: &str, generation: u64) {
+        if let Ok(mut guard) = self.connections.lock() {
+            let should_remove = guard
+                .get(connection_id)
+                .map(|entry| !entry.attached && entry.attachment_generation == generation)
+                .unwrap_or(false);
+            if should_remove {
+                if let Some(entry) = guard.remove(connection_id) {
+                    let mut handle = entry.handle;
+                    handle.stop();
+                }
+            }
+        }
+    }
 }
 
-const MAX_REPLAY_EVENTS: usize = 1000;
+const MAX_FRONTEND_DELIVERY_BUFFER_BYTES: usize = 1024 * 1024;
 
 fn session_matches(current: u64, incoming: u64) -> bool {
     current == incoming
-}
-
-fn replay_has_gap(after_sequence: u64, oldest_sequence: u64) -> bool {
-    after_sequence.saturating_add(1) < oldest_sequence
 }
 
 #[tauri::command]
@@ -266,7 +319,6 @@ pub async fn connect_mud(
             status: "connected".to_string(),
             last_error: None,
             last_sequence: 0,
-            oldest_replay_sequence: 1,
         },
     )?;
     state.emit_event(&app, &connection_id, session_id, ConnectionEvent::Opened);
@@ -285,21 +337,11 @@ pub fn list_mud_connections(state: State<'_, ConnectionManager>) -> Vec<Connecti
 }
 
 #[tauri::command]
-pub fn get_mud_connection_events(
-    state: State<'_, ConnectionManager>,
-    connection_id: String,
-    after_sequence: u64,
-) -> Result<ReplayResponse, String> {
-    state.replay(&connection_id, after_sequence)
-}
-
-#[tauri::command]
 pub fn attach_mud_connection(
     state: State<'_, ConnectionManager>,
     connection_id: String,
-    after_sequence: u64,
-) -> Result<ReplayResponse, String> {
-    state.replay(&connection_id, after_sequence)
+) -> Result<AttachResponse, String> {
+    state.attach(&connection_id)
 }
 
 #[tauri::command]
@@ -559,10 +601,80 @@ struct ConnectionEntry {
     session_id: u64,
     handle: ConnectionHandle,
     descriptor: ConnectionDescriptor,
-    replay: VecDeque<ReplayEvent>,
+    frontend_delivery_buffer: VecDeque<ReplayEvent>,
+    frontend_delivery_buffer_bytes: usize,
+    attachment_generation: u64,
+    attached: bool,
     next_sequence: u64,
+    snapshot_revision: u64,
     snapshot: StructuredConnectionSnapshot,
 }
+
+#[tauri::command]
+pub fn detach_mud_connection(
+    state: State<'_, ConnectionManager>,
+    connection_id: String,
+    grace_period_ms: u64,
+) -> Result<(), String> {
+    state.detach(connection_id, grace_period_ms)
+}
+
+fn is_attachment_replayable(event: &ConnectionEvent) -> bool {
+    matches!(event, ConnectionEvent::Data { .. })
+}
+
+fn replayable_event_bytes(event: &ConnectionEvent) -> usize {
+    match event {
+        ConnectionEvent::Data { text } => text.len(),
+        _ => 0,
+    }
+}
+
+fn update_authoritative_snapshot(entry: &mut ConnectionEntry, event: &ConnectionEvent) {
+    let changed = match event {
+        ConnectionEvent::Opened => {
+            entry.snapshot.connection_status = "connected".to_string();
+            entry.snapshot.last_error = None;
+            true
+        }
+        ConnectionEvent::Closed { reason } => {
+            entry.snapshot.connection_status = "closed".to_string();
+            entry.snapshot.last_error = None;
+            push_diagnostic(&mut entry.snapshot, reason);
+            true
+        }
+        ConnectionEvent::Error { message } => {
+            entry.snapshot.connection_status = "error".to_string();
+            entry.snapshot.last_error = Some(message.clone());
+            push_diagnostic(&mut entry.snapshot, message);
+            true
+        }
+        ConnectionEvent::Structured { protocol, event_type, parse_status, error, .. } => {
+            entry.snapshot.protocol_state = serde_json::json!({
+                "protocol": format!("{protocol:?}"),
+                "eventType": event_type,
+                "parseStatus": format!("{parse_status:?}"),
+            });
+            if let Some(error) = error {
+                push_diagnostic(&mut entry.snapshot, error);
+            }
+            true
+        }
+        ConnectionEvent::Raw { .. } | ConnectionEvent::Data { .. } => false,
+    };
+    if changed {
+        entry.snapshot_revision += 1;
+    }
+}
+
+fn push_diagnostic(snapshot: &mut StructuredConnectionSnapshot, message: &str) {
+    snapshot.diagnostics.push(message.to_string());
+    if snapshot.diagnostics.len() > MAX_SNAPSHOT_DIAGNOSTICS {
+        snapshot.diagnostics.remove(0);
+    }
+}
+
+const MAX_SNAPSHOT_DIAGNOSTICS: usize = 32;
 
 fn emit_decoded_event(
     manager: &ConnectionManager,
@@ -700,7 +812,7 @@ pub enum ConnectionEvent {
     },
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProtocolFamily {
     Telnet,
@@ -720,7 +832,7 @@ pub enum TrafficDirection {
     Outgoing,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ParseStatus {
     Parsed,
@@ -769,29 +881,8 @@ mod tests {
                 status: "connected".to_string(),
                 last_error: None,
                 last_sequence: 0,
-                oldest_replay_sequence: 1,
             })
             .unwrap();
-    }
-
-    #[test]
-    fn replay_is_bounded_and_reports_a_gap_after_trimming() {
-        let manager = ConnectionManager::default();
-        install(&manager, "world", 1);
-
-        for index in 0..(MAX_REPLAY_EVENTS + 7) {
-            assert!(manager.record_event(
-                "world",
-                1,
-                ConnectionEvent::Data { text: index.to_string() },
-            ).is_some());
-        }
-
-        let replay = manager.replay("world", 0).unwrap();
-        assert_eq!(replay.events.len(), MAX_REPLAY_EVENTS);
-        assert_eq!(replay.oldest_sequence, 8);
-        assert_eq!(replay.newest_sequence, (MAX_REPLAY_EVENTS + 7) as u64);
-        assert!(replay.has_gap);
     }
 
     #[test]
@@ -802,7 +893,6 @@ mod tests {
         manager.replace("world".into(), 12, test_handle(), manager.list()[0].clone()).unwrap();
 
         assert!(manager.record_event("world", 11, ConnectionEvent::Data { text: "stale".into() }).is_none());
-        assert_eq!(manager.replay("world", 0).unwrap().events.len(), 0);
     }
 
     #[test]
@@ -812,7 +902,6 @@ mod tests {
         manager.disconnect("world");
 
         assert!(manager.send("world", b"look").is_err());
-        assert!(manager.replay("world", 0).is_err());
     }
 
     #[test]
@@ -820,13 +909,6 @@ mod tests {
         let mut lines = LineBuffer::default();
         assert_eq!(lines.push(b"one\r\ntwo\nthree"), vec!["one\n", "two\n"]);
         assert_eq!(lines.flush(), vec!["three"]);
-    }
-
-    #[test]
-    fn replay_gap_is_reported_only_when_the_requested_sequence_was_trimmed() {
-        assert!(!replay_has_gap(0, 1));
-        assert!(!replay_has_gap(9, 10));
-        assert!(replay_has_gap(9, 11));
     }
 
     #[test]
@@ -840,6 +922,83 @@ mod tests {
         let snapshot = StructuredConnectionSnapshot::default();
         assert!(snapshot.negotiated_capabilities.is_empty());
         assert_eq!(CONNECTION_EVENT_CONTRACT_VERSION, 1);
+    }
+
+    #[test]
+    fn attachment_buffer_stores_incoming_data_but_not_status_events() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 1);
+        manager.connections.lock().unwrap().get_mut("world").unwrap().attached = false;
+
+        manager.record_event("world", 1, ConnectionEvent::Opened);
+        manager.record_event("world", 1, ConnectionEvent::Data { text: "hello".into() });
+        manager.record_event("world", 1, ConnectionEvent::Error { message: "old error".into() });
+
+        let attach = manager.attach("world").unwrap();
+        assert_eq!(attach.events.len(), 1);
+        assert!(matches!(attach.events[0].event, ConnectionEvent::Data { .. }));
+        assert_eq!(attach.snapshot.connection_status, "error");
+        assert!(attach.snapshot_revision > 0);
+    }
+
+    #[test]
+    fn attachment_buffer_uses_a_fixed_byte_budget() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 1);
+        manager.connections.lock().unwrap().get_mut("world").unwrap().attached = false;
+
+        manager.record_event("world", 1, ConnectionEvent::Data { text: "kept".into() });
+        manager.record_event(
+            "world",
+            1,
+            ConnectionEvent::Data { text: "x".repeat(MAX_FRONTEND_DELIVERY_BUFFER_BYTES + 1) },
+        );
+
+        let attach = manager.attach("world").unwrap();
+        assert_eq!(attach.events.len(), 1);
+    }
+
+    #[test]
+    fn attach_barrier_reports_event_sequence_after_retained_events() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 1);
+
+        assert_eq!(manager.record_event("world", 1, ConnectionEvent::Data { text: "one".into() }), Some(1));
+        assert_eq!(manager.record_event("world", 1, ConnectionEvent::Data { text: "two".into() }), Some(2));
+
+        let attach = manager.attach("world").unwrap();
+        assert_eq!(attach.event_sequence, 2);
+        assert_eq!(attach.events.iter().map(|event| event.sequence).collect::<Vec<_>>(), vec![1, 2]);
+    }
+
+    #[test]
+    fn replacement_session_starts_with_a_clean_attachment_buffer() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 1);
+        manager.record_event("world", 1, ConnectionEvent::Data { text: "old".into() });
+
+        let descriptor = manager.list().into_iter().next().unwrap();
+        manager.replace("world".into(), 2, test_handle(), descriptor).unwrap();
+
+        let attach = manager.attach("world").unwrap();
+        assert_eq!(attach.session_id, 2);
+        assert!(attach.events.is_empty());
+        assert_eq!(attach.event_sequence, 0);
+    }
+
+    #[tokio::test]
+    async fn reattach_cancels_grace_expiry_and_timeout_removes_connection() {
+        let manager = ConnectionManager::default();
+        install(&manager, "world", 1);
+
+        manager.detach("world".into(), 10).unwrap();
+        manager.attach("world").unwrap();
+        sleep(Duration::from_millis(25)).await;
+        assert!(manager.attach("world").is_ok());
+
+        manager.detach("world".into(), 10).unwrap();
+        sleep(Duration::from_millis(25)).await;
+        assert!(manager.attach("world").is_err());
     }
 }
 
@@ -857,7 +1016,6 @@ pub struct ConnectionDescriptor {
     pub status: String,
     pub last_error: Option<String>,
     pub last_sequence: u64,
-    pub oldest_replay_sequence: u64,
 }
 
 #[derive(Clone, Serialize)]
@@ -871,23 +1029,24 @@ pub struct ReplayEvent {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReplayResponse {
+pub struct AttachResponse {
     pub contract_version: u16,
+    pub runtime_id: String,
+    pub connection_id: String,
+    pub session_id: u64,
+    pub snapshot_revision: u64,
+    pub event_sequence: u64,
+    pub snapshot: StructuredConnectionSnapshot,
     pub events: Vec<ReplayEvent>,
-    pub oldest_sequence: u64,
-    pub newest_sequence: u64,
-    pub has_gap: bool,
-    pub gap_reason: Option<String>,
 }
 
 #[derive(Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct StructuredConnectionSnapshot {
-    pub protocol_status: String,
+    pub connection_status: String,
+    pub last_error: Option<String>,
     pub negotiated_capabilities: Vec<String>,
-    pub mcp_state: Value,
-    pub gmcp_state: Value,
-    pub mcmp_state: Value,
+    pub protocol_state: Value,
     pub diagnostics: Vec<String>,
 }
 
@@ -899,5 +1058,6 @@ pub struct ConnectionSnapshotResponse {
     pub connection_id: String,
     pub session_id: u64,
     pub sequence: u64,
+    pub snapshot_revision: u64,
     pub snapshot: StructuredConnectionSnapshot,
 }

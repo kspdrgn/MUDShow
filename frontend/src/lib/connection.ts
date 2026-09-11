@@ -28,7 +28,6 @@ export interface MudConnectionDescriptor {
   status: string;
   lastError: string | null;
   lastSequence: number;
-  oldestReplaySequence: number;
 }
 
 export type ConnectionDiagnostic = MudConnectionDescriptor;
@@ -41,12 +40,6 @@ export function acceptsConnectionSnapshot(previous: number, snapshotSequence: nu
   return snapshotSequence >= previous;
 }
 
-export function classifyReplayGap(hasGap: boolean, gapReason: string | null | undefined): 'none' | 'replay-trimmed' | 'unknown' {
-  if (!hasGap) {
-    return 'none';
-  }
-  return gapReason === 'replay-trimmed' ? 'replay-trimmed' : 'unknown';
-}
 
 type ConnectionTarget = {
   host: string;
@@ -83,20 +76,22 @@ export type StructuredConnectionEvent = ConnectionEventBase & {
 };
 
 type ReplayEvent =
-  | { sequence: number; sessionId: number; kind: 'opened' }
-  | { sequence: number; sessionId: number; kind: 'raw'; text: string }
-  | { sequence: number; sessionId: number; kind: 'data'; text: string }
-  | { sequence: number; sessionId: number; kind: 'closed'; reason: string }
-  | { sequence: number; sessionId: number; kind: 'error'; message: string }
-  | (Omit<StructuredConnectionEvent, 'connectionId'> & { sequence: number; sessionId: number; connectionId?: string });
+  | { sequence: number; sessionId?: number; kind: 'opened' }
+  | { sequence: number; sessionId?: number; kind: 'raw'; text: string }
+  | { sequence: number; sessionId?: number; kind: 'data'; text: string }
+  | { sequence: number; sessionId?: number; kind: 'closed'; reason: string }
+  | { sequence: number; sessionId?: number; kind: 'error'; message: string }
+  | (Omit<StructuredConnectionEvent, 'connectionId'> & { sequence: number; sessionId?: number; connectionId?: string });
 
-type ReplayResponse = {
+export type AttachResponse = {
   contractVersion: number;
+  runtimeId: string;
+  connectionId: string;
+  sessionId: number;
+  snapshotRevision: number;
+  eventSequence: number;
+  snapshot: ConnectionSnapshot['snapshot'];
   events: ReplayEvent[];
-  oldestSequence: number;
-  newestSequence: number;
-  hasGap: boolean;
-  gapReason: 'replay-trimmed' | null;
 };
 
 export type ConnectionSnapshot = {
@@ -105,12 +100,12 @@ export type ConnectionSnapshot = {
   connectionId: string;
   sessionId: number;
   sequence: number;
+  snapshotRevision: number;
   snapshot: {
-    protocolStatus: string;
+    connectionStatus: string;
+    lastError: string | null;
     negotiatedCapabilities: string[];
-    mcpState: unknown;
-    gmcpState: unknown;
-    mcmpState: unknown;
+    protocolState: unknown;
     diagnostics: string[];
   };
 };
@@ -126,6 +121,9 @@ export class MudConnection {
   private opened = false;
   private unlistenEvents: (() => void) | null = null;
   private lastSequence = 0;
+  private attachPending = false;
+  private pendingEvents: ReplayEvent[] = [];
+  private sessionId: number | null = null;
 
   async connect(target: ConnectionTarget, handlers: Handlers): Promise<void> {
     await this.close();
@@ -133,6 +131,8 @@ export class MudConnection {
     const token = ++this.sessionToken;
     this.connected = false;
     this.opened = false;
+    this.attachPending = false;
+    this.pendingEvents = [];
 
     try {
       await this.startListening(token, handlers);
@@ -151,57 +151,84 @@ export class MudConnection {
   }
 
   /** Detach frontend listeners without terminating the backend socket. */
-  detach(): void {
+  async detach(gracePeriodMs = 30_000, preserveBackend = true): Promise<void> {
     this.sessionToken += 1;
     this.connected = false;
     this.opened = false;
     this.lastSequence = 0;
+    this.sessionId = null;
+    this.attachPending = false;
+    this.pendingEvents = [];
 
     if (this.unlistenEvents) {
       const unlisten = this.unlistenEvents;
       this.unlistenEvents = null;
       unlisten();
     }
+
+    if (preserveBackend) {
+      await invoke('detach_mud_connection', {
+        connectionId: this.connectionId,
+        gracePeriodMs,
+      }).catch(() => undefined);
+    }
   }
 
-  async attach(handlers: Handlers, afterSequence = 0): Promise<void> {
-    this.detach();
+  async attach(handlers: Handlers): Promise<void> {
+    // The non-preserving detach path only invalidates the old listener and
+    // removes it synchronously. Do not await it here: yielding before
+    // startListening would create a window where attach-time events are lost.
+    void this.detach(0, false);
     const token = ++this.sessionToken;
-    this.lastSequence = afterSequence;
+    this.lastSequence = 0;
+    this.sessionId = null;
+    this.attachPending = true;
+    this.pendingEvents = [];
 
     try {
       await this.startListening(token, handlers);
-      const replay = await invoke<ReplayResponse>('attach_mud_connection', {
+      const attach = await invoke<AttachResponse>('attach_mud_connection', {
         connectionId: this.connectionId,
-        afterSequence,
       });
 
       if (this.sessionToken !== token) {
         return;
       }
 
-      if (replay.hasGap) {
-        const snapshot = await this.getSnapshot();
-        if (this.sessionToken === token) {
-          if (acceptsConnectionSnapshot(this.lastSequence, snapshot.sequence)) {
-            this.lastSequence = snapshot.sequence;
-            handlers.onSnapshot?.(snapshot);
-          } else {
-            handlers.onDiagnostic?.(
-              `[frontend reload snapshot was stale at sequence ${snapshot.sequence}; live state is already at sequence ${this.lastSequence}]`,
-            );
-          }
-        }
+      const snapshot: ConnectionSnapshot = {
+        contractVersion: attach.contractVersion,
+        runtimeId: attach.runtimeId,
+        connectionId: attach.connectionId,
+        sessionId: attach.sessionId,
+        sequence: attach.eventSequence,
+        snapshotRevision: attach.snapshotRevision,
+        snapshot: attach.snapshot,
+      };
+      this.sessionId = attach.sessionId;
+      if (acceptsConnectionSnapshot(this.lastSequence, snapshot.sequence)) {
+        handlers.onSnapshot?.(snapshot);
+      } else {
         handlers.onDiagnostic?.(
-          `[frontend reload missed earlier output; replay starts at sequence ${replay.oldestSequence} (${classifyReplayGap(replay.hasGap, replay.gapReason)})]`,
+          `[frontend attach snapshot was stale at sequence ${snapshot.sequence}; live state is already at sequence ${this.lastSequence}]`,
         );
       }
 
-      for (const event of replay.events) {
+      this.lastSequence = Math.max(this.lastSequence, attach.eventSequence);
+      this.attachPending = false;
+      const events = new Map<number, ReplayEvent>();
+      [...attach.events, ...this.pendingEvents].forEach((event) => {
+        if (event.sessionId !== undefined && event.sessionId !== this.sessionId) {
+          return;
+        }
+        events.set(event.sequence, event);
+      });
+      this.pendingEvents = [];
+      for (const event of [...events.values()].sort((left, right) => left.sequence - right.sequence)) {
         this.dispatchEvent({ ...event, connectionId: this.connectionId }, token, handlers);
       }
     } catch (error) {
       if (this.sessionToken === token) {
+        this.attachPending = false;
         handlers.onError(formatError(error));
       }
     }
@@ -232,7 +259,7 @@ export class MudConnection {
   }
 
   async close(): Promise<void> {
-    this.detach();
+    await this.detach(0, false);
 
     await invoke('disconnect_mud', { connectionId: this.connectionId }).catch(() => undefined);
   }
@@ -250,6 +277,17 @@ export class MudConnection {
       if (!acceptsConnectionSequence(this.lastSequence, payload.sequence)) {
         return;
       }
+      if (this.sessionId !== null && payload.sessionId !== undefined && payload.sessionId !== this.sessionId) {
+        return;
+      }
+      if (this.attachPending && payload.sequence !== undefined) {
+        this.pendingEvents.push({
+          ...payload,
+          sequence: payload.sequence,
+        } as ReplayEvent);
+        return;
+      }
+
       if (payload.sequence !== undefined) {
         this.lastSequence = payload.sequence;
       }
@@ -284,8 +322,12 @@ export class MudConnection {
     if (this.sessionToken !== token) {
       return;
     }
+    if (this.sessionId !== null && payload.sessionId !== undefined && payload.sessionId !== this.sessionId) {
+      return;
+    }
 
     if (payload.kind === 'opened') {
+      this.sessionId = payload.sessionId ?? this.sessionId;
       this.opened = true;
       this.connected = true;
       handlers.onOpen();

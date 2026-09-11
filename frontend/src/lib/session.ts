@@ -879,10 +879,20 @@ function createSession() {
     };
   }
 
+  async function detachWorldConnections(): Promise<void> {
+    const gracePeriodMs = appServices.settings.getSettings().attachmentGracePeriodSeconds * 1000;
+    await Promise.all(worldSessionContainers.container.entries().map(async ({ value }) => {
+      await value.connection?.detach(gracePeriodMs);
+      await value.pluginSession?.dispose();
+      value.pluginSession = null;
+    }));
+  }
+
   return {
     subscribe: state.subscribe,
     load: tabsActions.load,
     dispose: tabsActions.dispose,
+    detachWorldConnections,
     selectTab: tabsActions.selectTab,
     activateWorldTab,
     setTranscriptScrollbackChunks: tabsActions.setTranscriptScrollbackChunks,

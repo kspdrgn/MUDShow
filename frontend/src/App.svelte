@@ -2951,7 +2951,7 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
       if (isPoppedOutWindow && poppedOutWindowId) {
         clearTreeDataBridgeSession(poppedOutWindowId);
       }
-      session.dispose();
+      void session.detachWorldConnections();
     };
   });
 </script>

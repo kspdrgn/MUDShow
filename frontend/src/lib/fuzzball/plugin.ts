@@ -56,6 +56,12 @@ export function createFuzzballPlugin(
           propertyService.captureLine(line);
           captureFuzzballWorldLine(world.id, character?.id ?? '', line);
         },
+        onAttached: () => {
+          // A recreated frontend session starts with an empty property cache.
+          // Rebuild the root from the live world connection instead of relying
+          // on transcript replay to reconstruct plugin state.
+          propertyService.refresh('/');
+        },
         dispose: () => {
           fuzzballStorageCache.clearSessionCache(world.id, character?.id ?? '');
         },

@@ -19,10 +19,12 @@
   deferred to P3 or later and should consume this generic event boundary.
 - Keep Telnet negotiation and automatic Telnet replies in the backend while
   detached.
-- Classify gaps that affect structured state and apply/discard events against
-  the snapshot sequence once structured protocols are introduced in P3+.
-- P0 lifecycle and frontend/browser reload coverage is complete. Future
-  protocol-specific work should extend the existing structured-sync model and
+- Keep the fixed per-connection incoming-data delivery buffer bounded by bytes;
+  do not add cursor acknowledgements or gap metadata yet.
+- Focused lifecycle coverage for the attach contract is complete. Real
+  frontend/native reload coverage is deferred until a deterministic native E2E
+  harness exists.
+- Future protocol-specific work should extend the existing structured-sync model and
   diagnostics without moving decoder ownership into transcript rendering.
 - The Settings > Connections view provides the dedicated active-connection
   diagnostics surface for endpoint, security mode, status, identity, session,
@@ -38,16 +40,14 @@ not trigger a new server welcome.
 
 Canonical transcript ownership remains in frontend/local services. Recover
 configured rolling transcript history through the existing user-local storage
-feature. Rust does not replay transcript or raw traffic to reconstruct the
-frontend's history. Output received while no client is attached is either
-unavailable to that client or requires a separate, explicitly opted-in backend
-retention feature.
+feature. Rust does not own canonical transcript history. Its bounded delivery
+buffer may replay retained incoming data to smooth a frontend detach/reattach,
+but it is not durable history and does not provide cursor or gap semantics.
 
-The backend may retain compact authoritative state and a monotonic session
-revision. It should not retain a generic event history merely to support
-frontend refresh. A bounded control/event journal is only justified if a future
-authoritative state cannot be represented in the snapshot or if a concrete
-multi-client requirement demands it.
+The backend retains compact authoritative state, a monotonic session revision,
+and the fixed-size incoming-data delivery buffer. The snapshot remains the
+source of protocol and negotiation recovery; frontend plugins can issue their
+own refresh requests after attachment.
 
 Remove the backend canonical-history experiment from scheduled work. Reconsider
 backend history ownership only with validated performance or memory evidence or
@@ -106,15 +106,15 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
 - Keep Telnet negotiation and automatic MCP/GMCP/MCMP replies in the backend
   while no frontend listener is attached.
 - Ensure detached processing continues to update authoritative protocol/session
-  state. It need not retain detached transcript output for later replay.
+  state and the bounded incoming-data delivery buffer.
 - Do not make frontend visibility, active-tab state, or transcript rendering a
   prerequisite for protocol correctness.
 
 ### Phase 5: Diagnostics
 
 - Add a dedicated connection diagnostics model and surface containing runtime
-  ID, connection ID, session ID, status, attach state, sequence range, gap
-  state, structured-sync state, and last error.
+  ID, connection ID, session ID, status, attach state, sequence range,
+  structured-sync state, and last error.
 - Keep raw traffic in the existing debug console; diagnostics should summarize
   lifecycle and recovery rather than duplicate the traffic stream.
 - Make diagnostics safe to show after frontend reload and after failed attach.
@@ -125,8 +125,8 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
   ordering, replacement, disconnect cleanup, and detached processing.
 - Add frontend tests for snapshot/live interleaving, stale callbacks, attach
   failure, revision handling, local-history loading, and teardown.
-- Add browser-level coverage for frontend reload with active traffic, multiple
-  tabs, reconnect, and delayed events.
+- Add native/frontend coverage for reload with active traffic, reconnect,
+  delayed attach, replacement sessions, and native surface recovery.
 - Update `ROADMAP.md` only when the lifecycle, structured recovery, and focused
   verification criteria are complete.
 
@@ -147,9 +147,8 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
   - `send_mud` and `disconnect_mud`: frontend command boundary.
   - `run_connection`, `flush_line_buffer`, and `emit_event`: stream reading,
     line framing, sequence assignment, and event emission.
-  - `ConnectionEvent`, `ConnectionEventMessage`, `ConnectionDescriptor`,
-    `ReplayEvent`, and `ReplayResponse`: transitional DTOs to retire or narrow
-    to any future authoritative control-event use.
+  - `ConnectionEvent`, `ConnectionEventMessage`, `ConnectionDescriptor`, and
+    `ReplayEvent`: event and attach-boundary DTOs; no generic replay response.
 
 - `tauri/src/main.rs`
   - registers the connection commands;
@@ -166,7 +165,7 @@ state. See `PLAN_DI_WORLD_SESSION.md` for the frontend ownership boundaries.
   - `MudConnection`: connect/attach/detach/close, event listener lifetime,
     snapshot attach, revision filtering, and frontend diagnostics callback.
   - `acceptsConnectionSequence`: current pure ordering rule.
-  - `ConnectionEvent`, `ReplayEvent`, `ReplayResponse`, and
+  - `ConnectionEvent`, `ReplayEvent`, and
     `MudConnectionDescriptor`: current frontend event and metadata shapes.
 
 - `frontend/src/lib/session-world-connection.ts`

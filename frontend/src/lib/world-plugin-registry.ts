@@ -9,10 +9,11 @@ import type {
   WorldPluginProvider,
 } from './world-plugin.js';
 import type { WorldSessionAction } from './world-session-action.js';
+import type { ConnectionSnapshot } from './connection.js';
 
 export interface WorldPluginErrorContext {
   pluginId: string;
-  hook: 'incomingLine' | 'rawMessage' | 'connected' | 'disconnected' | 'dispose';
+  hook: 'incomingLine' | 'rawMessage' | 'attached' | 'connected' | 'disconnected' | 'dispose';
   error: unknown;
 }
 
@@ -28,6 +29,7 @@ export interface WorldPluginSession {
   subscribe(listener: () => void): () => void;
   handleIncomingLine(line: string): void;
   handleRawMessage(text: string): void;
+  handleAttached(snapshot: ConnectionSnapshot): void;
   handleConnected(): void;
   handleDisconnected(): void;
   dispose(): Promise<void>;
@@ -102,6 +104,9 @@ function createPluginSession(
     },
     handleRawMessage(text: string) {
       dispatch('rawMessage', (contribution) => contribution.onRawMessage?.(text));
+    },
+    handleAttached(snapshot: ConnectionSnapshot) {
+      dispatch('attached', (contribution) => contribution.onAttached?.(snapshot));
     },
     handleConnected() {
       dispatch('connected', (contribution) => contribution.onConnected?.());
