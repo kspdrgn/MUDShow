@@ -1,12 +1,25 @@
 import { SurfaceRegistry } from './surfaces/surface-registry.js';
 import { createSurfaceTransportHub, type SurfaceTransportHub } from './surfaces/surface-transport.js';
-import type { WorldSurfaceHostPort, WorldSessionKey } from './world-plugin.js';
-import type { WorldSurfaceDescriptor } from './world-surface-protocol.js';
+import type { WorldPluginSurfaceContribution } from './world-plugin.js';
+import type { WorldSessionKey } from './world-session-registry.js';
+import type { WorldSurfacePayload } from './world-surface-protocol.js';
+
+/**
+ * Small, testable adapter around the app's existing host-neutral surface
+ * registry. It deliberately does not introduce a second surface model.
+ */
+export interface WorldSurfaceHostPort {
+  openSurface(
+    pluginId: string,
+    surfaceId: string,
+    payload?: WorldSurfacePayload,
+  ): string;
+}
 
 export interface WorldSurfaceHost {
   readonly registry: SurfaceRegistry;
   readonly transport: SurfaceTransportHub;
-  register(pluginId: string, descriptor: WorldSurfaceDescriptor): () => void;
+  register(pluginId: string, descriptor: WorldPluginSurfaceContribution): () => void;
   createPort(sessionKey: WorldSessionKey): WorldSurfaceHostPort;
   closeSession(sessionKey: WorldSessionKey): void;
 }
@@ -20,23 +33,39 @@ export function createWorldSurfaceHost(): WorldSurfaceHost {
     registry,
     transport,
     register(pluginId, descriptor) {
-      const existingOwner = owners.get(descriptor.surfaceId);
+      const existingOwner = owners.get(descriptor.id);
       if (existingOwner && existingOwner !== pluginId) throw new Error(`surface is already owned by ${existingOwner}`);
-      if (registry.getRegistration(descriptor.surfaceId)) return () => {};
-      owners.set(descriptor.surfaceId, pluginId);
-      return registry.register(descriptor);
+      if (registry.getRegistration(descriptor.id)) return () => {};
+      owners.set(descriptor.id, pluginId);
+      const unregister = registry.register({
+        surfaceId: descriptor.id,
+        kind: descriptor.kind,
+        rendererId: descriptor.rendererId,
+        defaultTitle: descriptor.defaultTitle,
+        capabilities: descriptor.capabilities,
+      });
+      return () => {
+        if (owners.get(descriptor.id) !== pluginId) return;
+        unregister();
+        owners.delete(descriptor.id);
+      };
     },
     createPort(sessionKey) {
       return {
-        openSurface(pluginId, descriptor, _payload) {
-          const owner = owners.get(descriptor.surfaceId);
-          if (owner !== pluginId) throw new Error(`plugin does not own surface: ${descriptor.surfaceId}`);
-          if (!registry.getRegistration(descriptor.surfaceId)) throw new Error(`surface is not registered: ${descriptor.surfaceId}`);
-          const instanceId = `${sessionKey.worldId}:${sessionKey.characterId ?? 'world'}:${descriptor.surfaceId}`;
-          if (!registry.get(instanceId)) {
-            registry.open(instanceId, descriptor.surfaceId);
+        openSurface(pluginId, surfaceId, payload) {
+          const owner = owners.get(surfaceId);
+          if (owner !== pluginId) throw new Error(`plugin does not own surface: ${surfaceId}`);
+          const registration = registry.getRegistration(surfaceId);
+          if (!registration) throw new Error(`surface is not registered: ${surfaceId}`);
+          const instanceId = `${sessionKey.worldId}:${sessionKey.characterId ?? 'world'}:${surfaceId}`;
+          if (!registry.getInstance(instanceId)) {
+            registry.open({
+              instanceId,
+              surfaceId,
+              title: typeof payload?.title === 'string' ? payload.title : registration.defaultTitle,
+            });
           }
-          transport.ensureSession(descriptor.surfaceId, instanceId);
+          transport.ensureSession(surfaceId, instanceId);
           return instanceId;
         },
       };
@@ -46,7 +75,7 @@ export function createWorldSurfaceHost(): WorldSurfaceHost {
       registry.getSnapshot().instances
         .filter((instance) => instance.instanceId.startsWith(prefix))
         .forEach((instance) => {
-          transport.deleteSession(instance.instanceId, 'owning world session disposed');
+          transport.deleteSession(instance.instanceId);
           registry.close(instance.instanceId);
         });
     },

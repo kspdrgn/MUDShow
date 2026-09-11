@@ -212,7 +212,7 @@ export function createWorldPluginRegistry({
     resolveActive,
     createSession(context: WorldPluginSessionContext): WorldPluginSession {
       const activePlugins = resolveActive(context);
-      const services = context.services ?? createServiceBag();
+      const services = context.services ?? createWorldPluginServiceBag();
       const sessionContext = { ...context, services };
       const contributions: WorldPluginSessionContribution[] = [];
 
@@ -236,7 +236,7 @@ export function createWorldPluginRegistry({
   };
 }
 
-function createServiceBag(): WorldPluginServiceBag {
+export function createWorldPluginServiceBag(): WorldPluginServiceBag {
   const services = new Map<string, unknown>();
 
   return {

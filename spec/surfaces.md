@@ -130,6 +130,24 @@ The Dockview library gates auto-hide behavior behind an Enterprise subscription 
 - The app shell owns bridge sessions for popped-out windows and routes snapshots back to the matching surface instance.
 - A surface component should not create its own global transport singleton.
 
+## Plugin Surface Adapters
+
+- Plugin actions are aggregated by the world-session plugin session and
+  rendered by the world controls; an action that opens a surface transfers
+  focus to that surface.
+- A contributed surface is registered in the shared `SurfaceRegistry` with
+  its renderer id and capabilities before its first instance is opened.
+- The renderer id selects the host adapter for both Dockview panels and
+  native-window bridge snapshots. The plugin does not receive a separate
+  placement or window API.
+- When a native plugin window returns after an app reload, the host invokes the
+  registered surface restore handler before recreating the Dockview instance.
+  If the owning plugin session is unavailable, the host keeps the serialized
+  window record but does not fabricate plugin data.
+- Plugin controllers and caches are session-scoped and disposable. The host
+  owns saved placement metadata; it does not persist plugin data on the
+  plugin's behalf.
+
 ## Expectations For New Surfaces
 - Define the typed command and snapshot contracts first.
 - Keep view state out of the component when the UI needs to survive placement changes.

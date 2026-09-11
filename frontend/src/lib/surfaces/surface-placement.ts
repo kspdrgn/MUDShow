@@ -1,4 +1,4 @@
-import type { SurfacePlacement, SurfacePoint, SurfaceSize } from './surface-registry';
+import type { SurfacePlacement, SurfacePoint, SurfaceSize } from './surface-registry.js';
 
 export interface SavedSurfacePlacement {
   placement: SurfacePlacement;

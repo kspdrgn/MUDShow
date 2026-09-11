@@ -25,6 +25,7 @@
     "./tests/world-capabilities.test.ts",
     "./tests/ride-mode.test.ts",
     "./tests/world-plugin-registry.test.ts",
+    "./tests/world-plugin-integration.test.ts",
     "./tests/world-surface-protocol.test.ts",
     "./fuzzball/storage-surface-controller.ts",
     "./tests/fuzzball-storage-surface-controller.test.ts"

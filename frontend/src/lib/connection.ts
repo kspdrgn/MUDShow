@@ -1,7 +1,7 @@
-import { invoke, listen } from './tauri';
-import { bumpDebugConsoleCache } from './debug-console-cache';
-import { appendDebugConsoleEntry, type DebugConsoleDirection } from './debug-console';
-import type { WorldSessionDebugConsole } from './world-session-debug-console';
+import { invoke, listen } from './tauri.js';
+import { bumpDebugConsoleCache } from './debug-console-cache.js';
+import { appendDebugConsoleEntry, type DebugConsoleDirection } from './debug-console.js';
+import type { WorldSessionDebugConsole } from './world-session-debug-console.js';
 
 type Handlers = {
   onOpen: () => void;

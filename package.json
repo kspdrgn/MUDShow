@@ -16,7 +16,7 @@
     "check:svelte": "svelte-check --tsconfig ./tsconfig.json",
     "profile:transcript": "tsc --project frontend/src/lib/tsconfig.regression-tests.json && node scripts/profile-transcript.mjs",
     "clean": "rimraf dist tauri/target tauri/.mudshow-tauri-dev-*.json",
-    "test:surface-protocol": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.surface-tests.json && node --test dist/surface-tests/lib/tests/surface-protocol.test.js dist/surface-tests/lib/tests/world-plugin-integration.test.js",
+    "test:surface-protocol": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.plugin-contracts.tests.json && node --test dist/plugin-contract-tests/tests/*.test.js",
     "test:fuzzball-cache": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/fuzzball/tsconfig.tests.json && node --test dist/fuzzball-cache-tests/tests/*.test.js",
     "test:input-bar-sizing": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.tests.json && node --test dist/input-bar-sizing-tests/tests/*.test.js",
     "test:regression": "node node_modules/typescript/lib/tsc.js -p frontend/src/lib/tsconfig.regression-tests.json && node scripts/run-regression-tests.mjs",

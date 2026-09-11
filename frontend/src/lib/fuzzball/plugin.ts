@@ -53,6 +53,7 @@ export function createFuzzballPlugin(
           }),
         }],
         onIncomingLine: (line) => {
+          propertyService.captureLine(line);
           captureFuzzballWorldLine(world.id, character?.id ?? '', line);
         },
         dispose: () => {

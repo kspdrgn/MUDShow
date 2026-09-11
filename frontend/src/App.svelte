@@ -151,9 +151,11 @@ type WorldPluginSurfaceOpenHandler = (
   payload?: Readonly<Record<string, unknown>>,
 ) => void;
 type WorldPluginSurfaceSourceWindowProvider = (sourceTabId: string) => readonly string[];
+type WorldPluginSurfaceRestoreHandler = (windowId: string, title: string) => boolean;
 const worldPluginSurfaceOpenHandlers = new Map<string, WorldPluginSurfaceOpenHandler>();
 const worldPluginSurfaceStateDisposers = new Map<string, (instanceId: string) => void>();
 const worldPluginSurfaceSourceWindowProviders = new Map<string, WorldPluginSurfaceSourceWindowProvider>();
+const worldPluginSurfaceRestoreHandlers = new Map<string, WorldPluginSurfaceRestoreHandler>();
 const treeDataViewController = createTreeDataViewControllerRegistry();
 const treeDataTransportHub = createSurfaceTransportHub();
 const worldSurfaceSnapshotStore = createWorldSurfaceSnapshotStore();
@@ -1707,6 +1709,9 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
     registerStateDisposer: (surfaceId, disposer) => {
       worldPluginSurfaceStateDisposers.set(surfaceId, disposer);
     },
+    registerRestoreHandler: (surfaceId, handler) => {
+      worldPluginSurfaceRestoreHandlers.set(surfaceId, handler);
+    },
     registerSourceWindowProvider: (surfaceId, provider) => {
       worldPluginSurfaceSourceWindowProviders.set(surfaceId, provider);
     },
@@ -2269,8 +2274,11 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
       recovered: windowRecord === null,
     });
 
-    if (!windowRecord && recoveredWindowRecord.surfaceId === 'fuzzball-storage-viewer') {
-      pluginTreeDataSurfaceController.restorePoppedOutWindow(windowId, recoveredWindowRecord.title);
+    if (!windowRecord) {
+      worldPluginSurfaceRestoreHandlers.get(recoveredWindowRecord.surfaceId)?.(
+        windowId,
+        recoveredWindowRecord.title,
+      );
     }
 
     if (!appServices.surfaces.getInstance(windowId)) {
@@ -2290,7 +2298,7 @@ function openSurfaceAndBringToFront(options: OpenSurfaceOptions): void {
 
     if (isDebugConsoleWindow(recoveredWindowRecord) || isNotesWindow(recoveredWindowRecord) || isTreeDataSurfaceWindow(recoveredWindowRecord)
       || recoveredWindowRecord.surfaceId === WINDOW_HOST_SINGLETON_IDS.dummyWindow
-      || recoveredWindowRecord.surfaceId === 'fuzzball-storage-viewer') {
+      || worldPluginSurfaceRestoreHandlers.has(recoveredWindowRecord.surfaceId)) {
       appServices.surfaces.update(windowId, {
         placement: { host: 'dockview', mode: 'edge', edge: 'top' },
         position: returnedRecord.position,

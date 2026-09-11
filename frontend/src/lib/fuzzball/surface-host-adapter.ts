@@ -28,6 +28,7 @@ export interface FuzzballSurfaceHostAdapterDependencies
     handler: (tabId: string, payload?: Readonly<Record<string, unknown>>) => void,
   ): void;
   registerStateDisposer(surfaceId: string, disposer: (instanceId: string) => void): void;
+  registerRestoreHandler(surfaceId: string, handler: (windowId: string, title: string) => boolean): void;
   registerSourceWindowProvider(surfaceId: string, provider: (sourceTabId: string) => readonly string[]): void;
   getWorldContext(tabId: string): {
     worldId: string;
@@ -135,6 +136,10 @@ export function createFuzzballSurfaceHostAdapter(
     },
   );
   dependencies.registerStateDisposer(FUZZBALL_STORAGE_SURFACE_ID, controller.dispose);
+  dependencies.registerRestoreHandler(
+    FUZZBALL_STORAGE_SURFACE_ID,
+    (windowId, title) => restorePoppedOutWindow(windowId, title),
+  );
   dependencies.registerSourceWindowProvider(
     FUZZBALL_STORAGE_SURFACE_ID,
     controller.getWindowIdsForSourceTab,

@@ -5,7 +5,8 @@ import { normalizeWorldCompatibility, supportsFuzzball, supportsTaps } from '../
 import { createWorldPluginRegistryForSession } from '../world-plugins.js';
 import { createWorldPluginServiceBag } from '../world-plugin-registry.js';
 import { createWorldSurfaceHost } from '../world-surface-host.js';
-import { FUZZBALL_STORAGE_SURFACE } from '../fuzzball/plugin.js';
+import { FUZZBALL_STORAGE_SURFACE_ID } from '../fuzzball/plugin.js';
+import { createWorldSessionContainerRegistry } from '../world-session-container.js';
 import type { WorldConnectionPort } from '../world-plugin.js';
 import type { CharacterRecord, WorldRecord } from '../types.js';
 
@@ -27,7 +28,7 @@ function createFixture(profile: WorldRecord['compatibility']) {
   const sent: string[] = [];
   const opened: string[] = [];
   const connection: WorldConnectionPort = { send: (command) => sent.push(command) };
-  const registry = createWorldPluginRegistryForSession();
+  const registry = createWorldPluginRegistryForSession(createWorldSessionContainerRegistry());
   const session = registry.createSession({
     world: world(profile),
     character,
@@ -35,9 +36,9 @@ function createFixture(profile: WorldRecord['compatibility']) {
     connection,
     services: createWorldPluginServiceBag(),
     host: {
-      openSurface: (_pluginId, surface) => {
-        opened.push(surface.surfaceId);
-        return `${surface.surfaceId}-instance`;
+      invokeAction: () => {},
+      openSurface: (_pluginId, surfaceId) => {
+        opened.push(surfaceId);
       },
     },
   });
@@ -58,7 +59,7 @@ test('profile normalization and inherited capabilities are centralized', () => {
 test('Taps activates after FuzzBall and inherits its surface and property service', async () => {
   const fixture = createFixture('taps');
   assert.deepEqual(fixture.session.plugins.map((plugin) => plugin.id), ['fuzzball', 'taps']);
-  assert.deepEqual(fixture.session.getSurfaces().map((surface) => surface.surfaceId), ['fuzzball-storage-viewer']);
+  assert.deepEqual(fixture.session.getSurfaces().map((surface) => surface.id), ['fuzzball-storage-viewer']);
   assert.deepEqual(fixture.session.getActions().map((action) => action.id), ['fuzzball-storage-viewer', 'taps-ride-mode']);
 
   fixture.session.handleConnected();
@@ -111,13 +112,29 @@ test('Telnet and ordinary FuzzBall worlds do not activate Taps', async () => {
 
 test('generic surface host opens and disposes plugin-owned instances by session', () => {
   const host = createWorldSurfaceHost();
-  host.register('fuzzball', FUZZBALL_STORAGE_SURFACE);
+  const surface = {
+    id: FUZZBALL_STORAGE_SURFACE_ID,
+    kind: 'plugin' as const,
+    protocolVersion: 1 as const,
+    rendererId: 'tree-data',
+    defaultTitle: 'fuzzball storage viewer',
+    capabilities: {
+      canClose: true,
+      canDock: true,
+      canFloat: true,
+      canPopOut: true,
+      canPopIn: true,
+      isModal: false,
+      allowsMultipleInstances: true,
+    },
+  };
+  host.register('fuzzball', surface);
   const key = { worldId: 'world-1', characterId: 'character-1' };
-  const instanceId = host.createPort(key).openSurface('fuzzball', FUZZBALL_STORAGE_SURFACE);
+  const instanceId = host.createPort(key).openSurface('fuzzball', FUZZBALL_STORAGE_SURFACE_ID);
 
-  assert.equal(host.registry.get(instanceId)?.descriptor.surfaceId, 'fuzzball-storage-viewer');
+  assert.equal(host.registry.getInstance(instanceId)?.surfaceId, FUZZBALL_STORAGE_SURFACE_ID);
   assert.equal(host.transport.getSession(instanceId)?.isClosed(), false);
   host.closeSession(key);
-  assert.equal(host.registry.get(instanceId), null);
+  assert.equal(host.registry.getInstance(instanceId), null);
   assert.equal(host.transport.getSession(instanceId), null);
 });

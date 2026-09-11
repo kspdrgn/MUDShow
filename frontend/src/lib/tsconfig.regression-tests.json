@@ -10,6 +10,7 @@
     "ignoreDeprecations": "6.0",
     "types": ["node"]
   },
+  "exclude": ["../../../node_modules", "../../../dist", "../../../tauri"],
   "include": [
     "playback.ts",
     "completion.ts",

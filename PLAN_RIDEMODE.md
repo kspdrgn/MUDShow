@@ -23,7 +23,7 @@ adapters. Taps owns ride-mode state and commands, while the host continues to
 own placement, rendering, and lifecycle routing. External plugin loading,
 permissions, and runtime isolation remain out of scope.
 
-The remaining platform work is to mount these registered descriptors and
-actions in the concrete Dockview/native-window UI adapters. Plugin runtime
-state remains disposable; existing connection reattachment and bounded replay
-remain the recovery mechanism.
+The registered descriptor and actions are now mounted through the shared
+Dockview/native-window adapters. Plugin runtime state remains disposable;
+existing connection reattachment and bounded replay remain the recovery
+mechanism.

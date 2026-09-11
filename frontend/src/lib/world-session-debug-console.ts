@@ -1,4 +1,4 @@
-import type { DebugConsoleEntry } from './debug-console';
+import type { DebugConsoleEntry } from './debug-console.js';
 
 export interface WorldSessionDebugConsole {
   entries: DebugConsoleEntry[];

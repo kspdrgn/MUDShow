@@ -1,5 +1,5 @@
-import type { SurfaceId, SurfaceInstanceId } from './surface-transport';
-import { loadSurfacePlacement, saveSurfacePlacement } from './surface-placement';
+import type { SurfaceId, SurfaceInstanceId } from './surface-transport.js';
+import { loadSurfacePlacement, saveSurfacePlacement } from './surface-placement.js';
 
 export type SurfaceKind = 'builtin' | 'plugin';
 export type SurfaceDockviewMode = 'grid' | 'edge' | 'floating';
