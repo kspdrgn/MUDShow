@@ -58,6 +58,9 @@ resolves the architectural choices; implementation work remains below.
 - The first DI-backed service is the world connection path, including connection creation and resolution.
 - The debug console now lives in the world-session container as a DI-backed service, with its own entries and visibility state.
 - The container no longer owns a separate connection id field; the tab record and `MudConnection` own that identity.
+- The world-session container now hosts a small core service host. Notes working
+  state and persistence coordination are registered there and close through one
+  awaitable, bounded lifecycle path.
 
 ## Implementation Checklist
 
@@ -74,11 +77,11 @@ resolves the architectural choices; implementation work remains below.
 
 - [x] Resolve frontend/backend/storage ownership and recovery boundaries above.
 - [x] Keep trigger definitions shared and derive applicability per target session.
-- [ ] Consolidate FuzzBall cache ownership behind its plugin session service, removing global access paths that bypass the owner.
-- [ ] Consolidate notes working text and save coordination behind a focused frontend service shared by its surfaces; preserve character-based persistence and debounce behavior.
+- [x] Consolidate FuzzBall cache ownership behind its plugin session service, removing global access paths that bypass the owner.
+- [x] Consolidate notes working text and save coordination behind a focused frontend service shared by its surfaces; preserve character-based persistence and debounce behavior.
 - [ ] Consolidate transcript/history data operations behind a focused frontend boundary, keeping rendering and interaction separate.
-- [ ] Verify affected close, reconnect, reattachment, shared-view and delayed-callback behavior; add awaitable cleanup only where an actual operation needs it.
-- [ ] Update durable specs as service changes are implemented, without presenting proposed consolidation as completed behavior.
+- [ ] Verify all affected close, reconnect, reattachment, shared-view and delayed-callback behavior; focused service-host and notes coverage is present, while broader native/surface coverage remains.
+- [x] Update durable specs as service changes are implemented, without presenting proposed consolidation as completed behavior.
 - [ ] Keep the session shell thin and continue moving session-owned behavior out of `session.ts` where it still reaches across modules directly.
 
 ## Working Name

@@ -10,8 +10,8 @@ interface CharacterActionContext {
   getState: () => SessionState;
   patch: (patch: Partial<SessionState>) => void;
   onRecordsChanged?: () => void;
-  onWorldDeleted?: (worldId: string) => void;
-  onCharacterDeleted?: (characterId: string) => void;
+  onWorldDeleted?: (worldId: string) => void | Promise<void>;
+  onCharacterDeleted?: (characterId: string) => void | Promise<void>;
   onModalWindowOpen?: (kind: 'world' | 'character', title: string) => void;
   onModalWindowClose?: (kind: 'world' | 'character') => void;
 }
@@ -299,10 +299,10 @@ export function createCharacterActions({
     const nextTriggers = removeTriggersForWorld(state.triggers, removed.id, removedCharacters);
 
     await appServices.storage.saveConnectionData(nextWorlds, nextCharacters);
+    await onWorldDeleted?.(removed.id);
     await Promise.all(removedCharacters.map((character) => appServices.storage.deleteNotes(character.id)));
     await Promise.all(removedCharacters.map((character) => appServices.storage.deleteTranscriptHistory(character.id)));
     await appServices.storage.saveTriggers(nextTriggers);
-    onWorldDeleted?.(removed.id);
     patch({
       worlds: nextWorlds,
       characters: nextCharacters,
@@ -322,10 +322,10 @@ export function createCharacterActions({
     const nextTriggers = removeTriggersForCharacter(state.triggers, removed.id);
 
     await appServices.storage.saveConnectionData(state.worlds, next);
+    await onCharacterDeleted?.(removed.id);
     await appServices.storage.deleteNotes(removed.id);
     await appServices.storage.deleteTranscriptHistory(removed.id);
     await appServices.storage.saveTriggers(nextTriggers);
-    onCharacterDeleted?.(removed.id);
     patch({
       characters: next,
       triggers: nextTriggers,

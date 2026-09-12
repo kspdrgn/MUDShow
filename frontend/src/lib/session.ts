@@ -801,6 +801,7 @@ function createSession() {
   const inputActions = createWorldInputActions({
     getActiveWorldTabId: tabsActions.getActiveWorldTabId,
     getActiveWorldSessionKey: () => getActiveWorldSessionKey(),
+    getWorldSessionKeyForTab,
     resolveActiveWorldScope: () => {
       const tabId = tabsActions.getActiveWorldTabId();
       return tabId ? getWorldDomScope(tabId) : null;

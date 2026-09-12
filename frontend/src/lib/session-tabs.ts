@@ -23,8 +23,7 @@ import {
 import { createWorldSessionKey, type WorldSessionContainerRegistry } from './world-session-container';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
 import { createInitialState, type SessionState } from './session-state';
-import { cancelPendingNotesSave, clearWorldNotes, flushPendingNotesSave, setWorldNotes } from './session-world-input';
-import { loadNotes } from './storage';
+import { NOTES_SERVICE_KEY } from './notes-service';
 
 interface SessionTabsActionContext {
   state: Writable<SessionState>;
@@ -80,8 +79,8 @@ export function createSessionTabsActions({
     worldSessionContainers.container.ensure(key);
   }
 
-  function clearWorldSessionContainer(worldId: string, characterId: string | null): void {
-    worldSessionContainers.container.delete(createWorldSessionKey(worldId, characterId));
+  async function closeWorldSessionContainer(worldId: string, characterId: string | null): Promise<void> {
+    await worldSessionContainers.container.close(createWorldSessionKey(worldId, characterId));
   }
 
   function ensureWorldSession(tabId: string): WorldTabSessionState {
@@ -174,7 +173,7 @@ export function createSessionTabsActions({
     );
   }
 
-  function closeTabImmediately(tabId: string): void {
+  async function closeTabImmediately(tabId: string): Promise<void> {
     const current = getState();
     const tab = current.tabs.find((item) => item.id === tabId);
 
@@ -187,9 +186,7 @@ export function createSessionTabsActions({
     delete nextWorldSessions[tabId];
 
     if (tab.kind === 'world') {
-      flushPendingNotesSave(tab.id);
-      clearWorldNotes(tab.id);
-      clearWorldSessionContainer(tab.worldId, tab.characterId);
+      await closeWorldSessionContainer(tab.worldId, tab.characterId);
     }
 
     if (tab.kind === 'settings') {
@@ -439,7 +436,7 @@ export function createSessionTabsActions({
     return tab.id;
   }
 
-  function closeTab(tabId: string, source: 'mouse' | 'shortcut' = 'mouse'): void {
+  async function closeTab(tabId: string, source: 'mouse' | 'shortcut' = 'mouse'): Promise<void> {
     if (shouldConfirmWorldTabClose(tabId) || shouldConfirmUnloggedWorldTabClose(tabId)) {
       if (source === 'shortcut') {
         const current = getState();
@@ -462,9 +459,9 @@ export function createSessionTabsActions({
             : `World ${worldName} is not being logged. Close anyway?`,
           confirmLabel: isConnected ? 'disconnect and close' : 'close anyway',
           cancelLabel: 'cancel',
-        }).then((accepted) => {
+        }).then(async (accepted) => {
           if (accepted) {
-            closeTabImmediately(tabId);
+            await closeTabImmediately(tabId);
           }
         });
 
@@ -486,32 +483,30 @@ export function createSessionTabsActions({
       return;
     }
 
-    closeTabImmediately(tabId);
+    await closeTabImmediately(tabId);
   }
 
   function cancelCloseConfirm(): void {
     patch({ closeConfirmTabId: null, closeConfirmMode: null });
   }
 
-  function confirmCloseTab(): void {
+  async function confirmCloseTab(): Promise<void> {
     const tabId = getState().closeConfirmTabId;
     if (!tabId) {
       return;
     }
 
-    closeTabImmediately(tabId);
+    await closeTabImmediately(tabId);
   }
 
-  function deleteWorldTabsForCharacter(characterId: string): void {
+  async function deleteWorldTabsForCharacter(characterId: string): Promise<void> {
     const current = getState();
     const removedTabs = current.tabs.filter(
       (tab): tab is WorldTab => tab.kind === 'world' && tab.characterId === characterId,
     );
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.characterId === characterId));
 
-    removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
-    removedTabs.forEach((tab) => clearWorldNotes(tab.id));
-    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.worldId, tab.characterId));
+    await Promise.all(removedTabs.map((tab) => closeWorldSessionContainer(tab.worldId, tab.characterId)));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
@@ -538,14 +533,12 @@ export function createSessionTabsActions({
     });
   }
 
-  function deleteWorldTabsForWorld(worldId: string): void {
+  async function deleteWorldTabsForWorld(worldId: string): Promise<void> {
     const current = getState();
     const removedTabs = current.tabs.filter((tab): tab is WorldTab => tab.kind === 'world' && tab.worldId === worldId);
     const nextTabs = current.tabs.filter((tab) => !(tab.kind === 'world' && tab.worldId === worldId));
 
-    removedTabs.forEach((tab) => cancelPendingNotesSave(tab.id));
-    removedTabs.forEach((tab) => clearWorldNotes(tab.id));
-    removedTabs.forEach((tab) => clearWorldSessionContainer(tab.worldId, tab.characterId));
+    await Promise.all(removedTabs.map((tab) => closeWorldSessionContainer(tab.worldId, tab.characterId)));
     removedTabs.forEach((tab) => clearLoggingQueue(tab.id));
 
     const nextWorldSessions: Record<string, WorldTabSessionState> = {};
@@ -572,19 +565,18 @@ export function createSessionTabsActions({
     });
   }
 
-  function resetPersistentView(): void {
+  async function resetPersistentView(): Promise<void> {
     const current = getState();
     const nextTabs = current.tabs.filter((tab) => tab.kind !== 'world');
     const activeTabStillExists = current.activeTabId !== null && nextTabs.some((tab) => tab.id === current.activeTabId);
 
     for (const tab of current.tabs) {
       if (tab.kind === 'world') {
-        cancelPendingNotesSave(tab.id);
-        clearWorldNotes(tab.id);
-        clearWorldSessionContainer(tab.worldId, tab.characterId);
         clearLoggingQueue(tab.id);
       }
     }
+
+    await worldSessionContainers.container.closeAll();
 
     state.set({
       ...current,
@@ -648,7 +640,7 @@ export function createSessionTabsActions({
 
   const load = async () => {
     try {
-      resetPersistentView();
+      await resetPersistentView();
       const { worlds, characters, triggers } = await appServices.storage.loadSessionData();
       patch({ worlds, characters, triggers });
       setHighlightRegexes(buildHighlightRegexes(triggers.filter((trigger): trigger is HighlightRule => trigger.type === 'highlight')));
@@ -661,8 +653,9 @@ export function createSessionTabsActions({
             return;
           }
 
-          const notes = await loadNotes(characterId, false);
-          setWorldNotes(tab.id, notes);
+          const key = createWorldSessionKey(tab.worldId, characterId);
+          await worldSessionContainers.container.ensure(key).services
+            .get(NOTES_SERVICE_KEY)?.load(false);
         }),
       );
 
@@ -672,8 +665,8 @@ export function createSessionTabsActions({
     }
   };
 
-  function dispose(): void {
-    worldSessionContainers.container.clear();
+  async function dispose(): Promise<void> {
+    await worldSessionContainers.container.closeAll();
   }
 
   return {

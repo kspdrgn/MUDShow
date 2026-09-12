@@ -2,6 +2,11 @@
 
 ## Top TODO
 
+bugs:
+- world edit broken modal
+- ride mode control not working, doesn't get fuzzball update
+- 
+
 todo items from new setup experience:
 - [ ] smooth triggers setup
   - [ ] make new-trigger icons much more visible? strong foreground color? larger text? same with highlight/rule save/cancel buttons, they get lost on the screen.

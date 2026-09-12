@@ -88,9 +88,9 @@ test('attach installs the listener before requesting buffered data and orders sn
   await attach;
 
   assert.deepEqual(calls, ['attach_mud_connection']);
-  assert.deepEqual(received, ['snapshot', 'replayed', 'during attach']);
+  assert.deepEqual(received, ['snapshot', 'open', 'replayed', 'during attach']);
   mock.emit({ connectionId: 'connection-1', sequence: 7, kind: 'data', text: 'live' });
-  assert.deepEqual(received, ['snapshot', 'replayed', 'during attach', 'live']);
+  assert.deepEqual(received, ['snapshot', 'open', 'replayed', 'during attach', 'live']);
 });
 
 test('stale attach events are ignored after detach', async () => {
@@ -169,7 +169,7 @@ test('attach ignores events from a replacement backend session with the same con
   mock.emit({ connectionId: 'connection-replaced', sessionId: 1, sequence: 10, kind: 'data', text: 'old session later' });
   mock.emit({ connectionId: 'connection-replaced', sessionId: 2, sequence: 11, kind: 'data', text: 'current session later' });
 
-  assert.deepEqual(received, ['current session', 'current session later']);
+  assert.deepEqual(received, ['open', 'current session', 'current session later']);
 });
 
 test('attach failure reports a frontend recovery diagnostic', async () => {

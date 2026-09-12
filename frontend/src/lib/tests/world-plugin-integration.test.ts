@@ -84,7 +84,7 @@ test('Taps activates after FuzzBall and inherits its surface and property servic
     'examine me=/\r\n',
     'examine me=/ride/_mode\r\n',
   ]);
-  fixture.session.handleIncomingLine('/ride/_mode = hand');
+  fixture.session.handleIncomingLine('str /ride/_mode:hand');
   const rideAction = fixture.session.getActions().find((action) => action.id === 'taps-ride-mode');
   assert.equal(rideAction?.kind, 'select');
   if (rideAction?.kind === 'select') {
@@ -100,8 +100,14 @@ test('Taps activates after FuzzBall and inherits its surface and property servic
   ]);
   const pendingRideAction = fixture.session.getActions().find((action) => action.id === 'taps-ride-mode');
   assert.equal(pendingRideAction?.kind, 'select');
-  if (pendingRideAction?.kind === 'select') assert.equal(pendingRideAction.value, 'walk');
-  fixture.session.handleIncomingLine('/ride/_mode = walk');
+  if (pendingRideAction?.kind === 'select') {
+    assert.equal(pendingRideAction.value, 'walk');
+    assert.equal(pendingRideAction.disabled, false);
+    pendingRideAction.onChange('fly');
+  }
+  await Promise.resolve();
+  assert.equal(fixture.sent.at(-1), '@set me=/ride/_mode:fly\r\n');
+  fixture.session.handleIncomingLine('str /ride/_mode:walk');
   const syncedRideAction = fixture.session.getActions().find((action) => action.id === 'taps-ride-mode');
   assert.equal(syncedRideAction?.kind, 'select');
   if (syncedRideAction?.kind === 'select') assert.equal(syncedRideAction.value, 'walk');
@@ -115,9 +121,8 @@ test('Taps activates after FuzzBall and inherits its surface and property servic
     'examine me=/\r\n',
     'examine me=/ride/_mode\r\n',
     '@set me=/ride/_mode:walk\r\n',
-    'examine me=/ride/_mode\r\n',
   ]);
-  fixture.session.handleIncomingLine('/ride/_mode = ride');
+  fixture.session.handleIncomingLine('str /ride/_mode:ride');
 
   const storageAction = fixture.session.getActions().find((action) => action.id === 'fuzzball-storage-viewer');
   if (storageAction?.kind === 'button') storageAction.onClick();

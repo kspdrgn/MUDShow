@@ -10,9 +10,9 @@ import type { WorldSessionContainerRegistry } from './world-session-container';
 import { createWorldSessionKey } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId } from './world-dom';
-import { setWorldNotes } from './session-world-input';
 import type { WorldPluginSession } from './world-plugin-registry';
 import type { ConnectionSnapshot, MudConnectionDescriptor, StructuredConnectionEvent } from './connection';
+import { NOTES_SERVICE_KEY } from './notes-service';
 
 interface WorldConnectionActionContext {
   getState: () => SessionState;
@@ -87,15 +87,19 @@ export function createWorldConnectionActions({
 
     const maxHistoryLines = character?.outputHistoryLines ?? DEFAULT_OUTPUT_HISTORY_LINES;
     const highlightRegexes = buildHighlightRegexes(getHighlightTriggers(stateSnapshot.triggers));
+    const sessionKey = createWorldSessionKey(world.id, character?.id ?? null);
+    const notesService = worldSessionContainers.container.get(sessionKey)?.services.get(NOTES_SERVICE_KEY);
     const [notes, history] = character
       ? await Promise.all([
-          appServices.storage.loadNotes(character.id, false),
+          notesService?.load(false) ?? Promise.resolve(''),
           appServices.storage.loadTranscriptHistory(character.id, maxHistoryLines, false),
         ])
       : ['', []];
 
     session.transcript.loadHistory(maxHistoryLines > 0 ? history : []);
-    setWorldNotes(tabId, notes);
+    if (notesService) {
+      notesService.set(notes);
+    }
     setHighlightRegexes(highlightRegexes);
 
     if (shouldInitializeSession) {
@@ -153,6 +157,15 @@ export function createWorldConnectionActions({
         },
         onSnapshot: (snapshot: ConnectionSnapshot) => {
           pluginSession?.handleAttached(snapshot);
+          const connectionStatus = snapshot.snapshot.connectionStatus === 'connected'
+            ? 'connected'
+            : snapshot.snapshot.connectionStatus === 'connecting'
+              ? 'connecting'
+              : 'disconnected';
+          updateWorldSession(tabId, {
+            connectionStatus,
+            disconnectReason: connectionStatus === 'connected' ? null : getWorldSession(tabId).disconnectReason,
+          });
           updateConnectionDiagnostics({
             runtimeId: snapshot.runtimeId,
             connectionId: snapshot.connectionId,
@@ -295,6 +308,7 @@ export function createWorldConnectionActions({
       }
 
       const pluginSession = getWorldPluginSession(tabId, world, character);
+      const notesService = worldSessionContainers.container.get(key)?.services.get(NOTES_SERVICE_KEY);
       const updateConnectionDiagnostics = (patch: Partial<WorldTabSessionState['connectionDiagnostics']>) => {
         const currentDiagnostics = getWorldSession(tabId).connectionDiagnostics;
         updateWorldSession(tabId, { connectionDiagnostics: { ...currentDiagnostics, ...patch } });
@@ -306,6 +320,9 @@ export function createWorldConnectionActions({
         : [];
       const session = getWorldSession(tabId);
       session.transcript.loadHistory(maxHistoryLines > 0 ? history : []);
+      if (notesService) {
+        await notesService.load(false);
+      }
 
       updateWorldSession(tabId, {
         currentWorld: world,

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createNotesWorkingStateService, type NotesStoragePort } from './notes-service.ts';
+import { createNotesWorkingStateService, type NotesStoragePort } from './notes-service.js';
 
 function createStorage(initial: Record<string, string> = {}) {
   const saved: Array<{ characterId: string; notes: string }> = [];
@@ -18,23 +18,23 @@ function createStorage(initial: Record<string, string> = {}) {
   return { storage, saved };
 }
 
-test('loads and tracks working notes by frontend tab', async () => {
+test('loads and tracks working notes for a world session', async () => {
   const { storage } = createStorage({ 'character-a': 'saved notes' });
-  const service = createNotesWorkingStateService({ storage });
+  const service = createNotesWorkingStateService({ storage, characterId: 'character-a' });
 
-  assert.equal(await service.load('tab-a', 'character-a', false), 'saved notes');
-  assert.equal(service.get('tab-a'), 'saved notes');
+  assert.equal(await service.load(false), 'saved notes');
+  assert.equal(service.get(), 'saved notes');
 
-  service.set('tab-a', 'draft notes');
-  assert.equal(service.get('tab-a'), 'draft notes');
+  service.set('draft notes');
+  assert.equal(service.get(), 'draft notes');
 });
 
 test('debounces saves and persists the latest character-associated value', async () => {
   const { storage, saved } = createStorage();
-  const service = createNotesWorkingStateService({ storage, debounceMs: 15 });
+  const service = createNotesWorkingStateService({ storage, characterId: 'character-a', debounceMs: 15 });
 
-  service.scheduleSave('tab-a', 'character-a', 'first');
-  service.scheduleSave('tab-a', 'character-a', 'latest');
+  service.scheduleSave('first');
+  service.scheduleSave('latest');
   assert.deepEqual(saved, []);
 
   await new Promise((resolve) => setTimeout(resolve, 35));
@@ -43,23 +43,23 @@ test('debounces saves and persists the latest character-associated value', async
 
 test('flushes a pending save immediately and cancels its debounce timer', async () => {
   const { storage, saved } = createStorage();
-  const service = createNotesWorkingStateService({ storage, debounceMs: 1000 });
+  const service = createNotesWorkingStateService({ storage, characterId: 'character-a', debounceMs: 1000 });
 
-  service.scheduleSave('tab-a', 'character-a', 'flush me');
-  await service.flushSave('tab-a');
+  service.scheduleSave('flush me');
+  await service.flush();
   await new Promise((resolve) => setTimeout(resolve, 10));
 
   assert.deepEqual(saved, [{ characterId: 'character-a', notes: 'flush me' }]);
 });
 
-test('clearing a tab cancels pending persistence and removes working state', async () => {
+test('disposing a session service cancels pending persistence', async () => {
   const { storage, saved } = createStorage();
-  const service = createNotesWorkingStateService({ storage, debounceMs: 10 });
+  const service = createNotesWorkingStateService({ storage, characterId: 'character-a', debounceMs: 10 });
 
-  service.scheduleSave('tab-a', 'character-a', 'discard me');
-  service.clear('tab-a');
+  service.scheduleSave('discard me');
+  service.dispose();
   await new Promise((resolve) => setTimeout(resolve, 25));
 
-  assert.equal(service.get('tab-a'), '');
+  assert.equal(service.get(), 'discard me');
   assert.deepEqual(saved, []);
 });

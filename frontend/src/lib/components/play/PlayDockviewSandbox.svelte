@@ -533,8 +533,12 @@
     }
 
     group.collapse();
-    dockview?.setEdgeGroupVisible(position, true);
     refreshEdgePreview();
+    // Start populated edge groups with the transient preview visible. This
+    // preserves the initial control reveal without rendering Dockview's full
+    // bar; the normal auto-hide timer then dismisses the preview.
+    hideEdgeGroup(position);
+    setEdgePreviewVisible(position, true);
     scheduleHideEdgeGroup(position);
   }
 

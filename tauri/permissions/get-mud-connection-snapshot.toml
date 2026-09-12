@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-get-mud-connection-snapshot"
+description = "Enables the get_mud_connection_snapshot command without any pre-configured scope."
+commands.allow = ["get_mud_connection_snapshot"]
+
+[[permission]]
+identifier = "deny-get-mud-connection-snapshot"
+description = "Denies the get_mud_connection_snapshot command without any pre-configured scope."
+commands.deny = ["get_mud_connection_snapshot"]

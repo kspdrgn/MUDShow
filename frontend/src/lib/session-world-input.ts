@@ -1,106 +1,24 @@
-import { appServices } from './app-services';
 import { createInputBar, getNextInputBarId, normalizeInputBars, type InputBarId } from './input-bars';
 import { nextFrame, focusElement, scrollElementToBottom } from './session-dom';
 import type { WorldSessionContainerRegistry } from './world-session-container';
 import type { WorldTabSessionState } from './world-session';
 import { getWorldDomScope, getWorldInputBarInputId, getWorldOutputAreaId } from './world-dom';
+import { NOTES_SERVICE_KEY } from './notes-service';
 
 interface WorldInputActionContext {
   getActiveWorldTabId: () => string | null;
   getActiveWorldSessionKey: () => { worldId: string; characterId: string | null } | null;
+  getWorldSessionKeyForTab: (tabId: string) => { worldId: string; characterId: string | null } | null;
   resolveActiveWorldScope: () => string | null;
   getWorldSession: (tabId: string) => WorldTabSessionState;
   updateWorldSession: (tabId: string, patch: Partial<WorldTabSessionState>) => void;
   worldSessionContainers: WorldSessionContainerRegistry;
 }
 
-interface PendingNotesSave {
-  characterId: string;
-  notes: string;
-  timer: ReturnType<typeof setTimeout>;
-}
-
-const pendingNotesSaves = new Map<string, PendingNotesSave>();
-const worldNotesByTab = new Map<string, string>();
-
-function clearPendingNotesSave(tabId: string): void {
-  const pending = pendingNotesSaves.get(tabId);
-  if (!pending) {
-    return;
-  }
-
-  clearTimeout(pending.timer);
-  pendingNotesSaves.delete(tabId);
-}
-
-function schedulePendingNotesSave(tabId: string, characterId: string, notes: string): void {
-  clearPendingNotesSave(tabId);
-
-  const timer = setTimeout(() => {
-    const pending = pendingNotesSaves.get(tabId);
-    pendingNotesSaves.delete(tabId);
-
-    if (!pending) {
-      return;
-    }
-
-    console.info('[notes] persisting debounced save', {
-      tabId,
-      characterId: pending.characterId,
-      noteLength: pending.notes.length,
-    });
-    void appServices.storage.saveNotes(pending.characterId, pending.notes);
-  }, 300);
-
-  pendingNotesSaves.set(tabId, {
-    characterId,
-    notes,
-    timer,
-  });
-}
-
-export function flushPendingNotesSave(tabId: string): void {
-  const pending = pendingNotesSaves.get(tabId);
-  if (!pending) {
-    return;
-  }
-
-  clearTimeout(pending.timer);
-  pendingNotesSaves.delete(tabId);
-  console.info('[notes] flushing pending save', {
-    tabId,
-    characterId: pending.characterId,
-    noteLength: pending.notes.length,
-  });
-  void appServices.storage.saveNotes(pending.characterId, pending.notes);
-}
-
-export function cancelPendingNotesSave(tabId: string): void {
-  clearPendingNotesSave(tabId);
-}
-
-export function getWorldNotes(tabId: string): string {
-  return worldNotesByTab.get(tabId) ?? '';
-}
-
-export function setWorldNotes(tabId: string, notes: string): void {
-  worldNotesByTab.set(tabId, notes);
-}
-
-export function clearWorldNotes(tabId: string): void {
-  worldNotesByTab.delete(tabId);
-  clearPendingNotesSave(tabId);
-}
-
-export function clearAllWorldNotes(): void {
-  worldNotesByTab.clear();
-  pendingNotesSaves.forEach((pending) => clearTimeout(pending.timer));
-  pendingNotesSaves.clear();
-}
-
 export function createWorldInputActions({
   getActiveWorldTabId,
   getActiveWorldSessionKey,
+  getWorldSessionKeyForTab,
   resolveActiveWorldScope,
   getWorldSession,
   updateWorldSession,
@@ -243,18 +161,25 @@ export function createWorldInputActions({
 
   function saveNotes(tabId: string, notes: string): void {
     const session = getWorldSession(tabId);
-    if (!session.currentCharacter) {
+    const sessionKey = getWorldSessionKeyForTab(tabId);
+    if (!session.currentCharacter || !sessionKey) {
       return;
     }
 
-    setWorldNotes(tabId, notes);
+    worldSessionContainers.container.get(sessionKey)?.services.get(NOTES_SERVICE_KEY)?.scheduleSave(notes);
     console.info('[notes] queued save', {
       tabId,
       characterId: session.currentCharacter.id,
       characterName: session.currentCharacter.name,
       noteLength: notes.length,
     });
-    schedulePendingNotesSave(tabId, session.currentCharacter.id, notes);
+  }
+
+  function getWorldNotes(tabId: string): string {
+    const sessionKey = getWorldSessionKeyForTab(tabId);
+    return sessionKey
+      ? worldSessionContainers.container.get(sessionKey)?.services.get(NOTES_SERVICE_KEY)?.get() ?? ''
+      : '';
   }
 
   return {

@@ -44,7 +44,13 @@ export function createTapsPlugin(): WorldPlugin {
         state.pendingValue = mode;
         state.error = null;
         notify();
-        void fuzzball.set(RIDE_MODE_PROPERTY_PATH, mode).catch((error: unknown) => {
+        void fuzzball.set(RIDE_MODE_PROPERTY_PATH, mode).then(() => {
+          // Sending the command completes this transient control interaction.
+          // A later property line remains authoritative and can reconcile it.
+          state.value = mode;
+          state.pendingValue = null;
+          notify();
+        }).catch((error: unknown) => {
           state.pendingValue = null;
           state.error = error instanceof Error ? error.message : 'ride mode update failed';
           notify();

@@ -177,16 +177,22 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-list-mud-connections`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-window-open-plain-webview-window`\n- `allow-window-open-plain-native-window`\n- `allow-window-host-get-record`\n- `allow-window-host-pop-out`\n- `allow-window-host-pop-in`\n- `allow-window-host-discard`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:webview:allow-create-webview-window`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`",
+          "description": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-list-mud-connections`\n- `allow-attach-mud-connection`\n- `allow-detach-mud-connection`\n- `allow-get-mud-connection-snapshot`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-window-open-plain-webview-window`\n- `allow-window-open-plain-native-window`\n- `allow-window-host-get-record`\n- `allow-window-host-pop-out`\n- `allow-window-host-pop-in`\n- `allow-window-host-discard`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:webview:allow-create-webview-window`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-list-mud-connections`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-window-open-plain-webview-window`\n- `allow-window-open-plain-native-window`\n- `allow-window-host-get-record`\n- `allow-window-host-pop-out`\n- `allow-window-host-pop-in`\n- `allow-window-host-discard`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:webview:allow-create-webview-window`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`"
+          "markdownDescription": "Default permissions for the MUDShow desktop app.\n#### This default permission set includes:\n\n- `allow-connect-mud`\n- `allow-list-mud-connections`\n- `allow-attach-mud-connection`\n- `allow-detach-mud-connection`\n- `allow-get-mud-connection-snapshot`\n- `allow-send-mud`\n- `allow-disconnect-mud`\n- `allow-get-app-storage-path`\n- `allow-set-app-storage-path`\n- `allow-load-app-storage`\n- `allow-save-app-storage`\n- `allow-reveal-app-storage-file`\n- `allow-pick-app-storage-file`\n- `allow-move-app-storage-file`\n- `allow-get-default-log-folder`\n- `allow-move-default-log-folder`\n- `allow-reveal-default-log-folder`\n- `allow-resolve-default-log-folder`\n- `allow-create-session-log`\n- `allow-path-exists`\n- `allow-append-session-log`\n- `allow-rename-session-log`\n- `allow-reveal-session-log-file`\n- `allow-window-minimize`\n- `allow-window-toggle-maximize`\n- `allow-window-close`\n- `allow-window-request-attention`\n- `allow-window-start-dragging`\n- `allow-window-start-resize-dragging`\n- `allow-window-open-devtools`\n- `allow-window-open-plain-webview-window`\n- `allow-window-open-plain-native-window`\n- `allow-window-host-get-record`\n- `allow-window-host-pop-out`\n- `allow-window-host-pop-in`\n- `allow-window-host-discard`\n- `allow-open-external-url`\n- `allow-list-system-fonts`\n- `allow-validate-system-font`\n- `allow-spellcheck-check`\n- `allow-spellcheck-suggest`\n- `allow-spellcheck-add`\n- `core:webview:allow-create-webview-window`\n- `core:window:allow-close`\n- `core:window:allow-destroy`\n- `core:window:allow-start-dragging`"
         },
         {
           "description": "Enables the append_session_log command without any pre-configured scope.",
           "type": "string",
           "const": "allow-append-session-log",
           "markdownDescription": "Enables the append_session_log command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the attach_mud_connection command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-attach-mud-connection",
+          "markdownDescription": "Enables the attach_mud_connection command without any pre-configured scope."
         },
         {
           "description": "Enables the connect_mud command without any pre-configured scope.",
@@ -199,6 +205,12 @@
           "type": "string",
           "const": "allow-create-session-log",
           "markdownDescription": "Enables the create_session_log command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the detach_mud_connection command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-detach-mud-connection",
+          "markdownDescription": "Enables the detach_mud_connection command without any pre-configured scope."
         },
         {
           "description": "Enables the disconnect_mud command without any pre-configured scope.",
@@ -217,6 +229,12 @@
           "type": "string",
           "const": "allow-get-default-log-folder",
           "markdownDescription": "Enables the get_default_log_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_mud_connection_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-mud-connection-snapshot",
+          "markdownDescription": "Enables the get_mud_connection_snapshot command without any pre-configured scope."
         },
         {
           "description": "Enables the list_mud_connections command without any pre-configured scope.",
@@ -423,6 +441,12 @@
           "markdownDescription": "Denies the append_session_log command without any pre-configured scope."
         },
         {
+          "description": "Denies the attach_mud_connection command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-attach-mud-connection",
+          "markdownDescription": "Denies the attach_mud_connection command without any pre-configured scope."
+        },
+        {
           "description": "Denies the connect_mud command without any pre-configured scope.",
           "type": "string",
           "const": "deny-connect-mud",
@@ -433,6 +457,12 @@
           "type": "string",
           "const": "deny-create-session-log",
           "markdownDescription": "Denies the create_session_log command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the detach_mud_connection command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-detach-mud-connection",
+          "markdownDescription": "Denies the detach_mud_connection command without any pre-configured scope."
         },
         {
           "description": "Denies the disconnect_mud command without any pre-configured scope.",
@@ -451,6 +481,12 @@
           "type": "string",
           "const": "deny-get-default-log-folder",
           "markdownDescription": "Denies the get_default_log_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_mud_connection_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-mud-connection-snapshot",
+          "markdownDescription": "Denies the get_mud_connection_snapshot command without any pre-configured scope."
         },
         {
           "description": "Denies the list_mud_connections command without any pre-configured scope.",

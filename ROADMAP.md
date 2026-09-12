@@ -25,7 +25,9 @@ See `PLAN_PROTOCOLS.md` for the protocol boundary and deferred protocol work.
   the generic plugin and surface host boundary.
 - [x] Connect feature surface controllers and native-window adapters to the
   generic boundary.
-- [ ] Consolidate frontend session-service ownership.
+- [x] Consolidate core frontend session-service ownership for notes and
+  lifecycle coordination. Transcript/history consolidation remains deferred
+  as a separate follow-up.
 - [x] Replace transcript replay recovery with an authoritative session snapshot
   plus attach barrier/revision:
   - [x] Keep transcript and scrollback persistence explicitly frontend/local,
@@ -37,13 +39,16 @@ See `PLAN_PROTOCOLS.md` for the protocol boundary and deferred protocol work.
 
 See `PLAN_P1_SESSION_SNAPSHOT_ATTACH_BARRIER.md`,
 `PLAN_FRONTENDSEPARATECONNECTION.md`, `PLAN_DI_WORLD_SESSION.md`,
-`PLAN_PLUGIN.md`, and `PLAN_SURFACES.md`.
+`PLAN_P1_SESSION_SERVICES.md`, `PLAN_PLUGIN.md`, and `PLAN_SURFACES.md`.
 
 ## P2 — Session services and product integrations
 
-- [ ] Consolidate FuzzBall cache ownership behind its plugin session service.
+- [x] Consolidate FuzzBall cache ownership behind its plugin session service.
 - [ ] Consolidate notes and transcript/history operations behind focused
   frontend services while preserving local persistence and debounce behavior.
+  - [x] Extract the notes working-state and save-coordination service.
+  - [x] Integrate the notes service into the session, tab, and surface paths.
+  - [ ] Extract the transcript/history service.
 - [ ] Complete FuzzBall property capture, editing, and storage-viewer behavior.
 - [ ] Complete the planned Taps integrations beyond ride mode.
 - [ ] Complete channel routing and capture/sentinel behavior where required by

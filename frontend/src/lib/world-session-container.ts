@@ -1,4 +1,5 @@
 import { MudConnection } from './connection.js';
+import { appServices } from './app-services.js';
 import {
   createWorldSessionKey,
   createWorldSessionRegistry,
@@ -12,6 +13,12 @@ import {
 } from './world-session-debug-console.js';
 import type { WorldPluginSession } from './world-plugin-registry.js';
 import type { WorldPluginServiceBag, WorldPluginServiceKey } from './world-plugin.js';
+import { createWorldSessionServiceHost, type WorldSessionServiceHost } from './world-session-services.js';
+import {
+  createNotesWorkingStateService,
+  NOTES_SERVICE_KEY,
+  type NotesStoragePort,
+} from './notes-service.js';
 
 export interface WorldSessionContainer {
   key: WorldSessionKey;
@@ -19,6 +26,7 @@ export interface WorldSessionContainer {
   debugConsole: WorldSessionDebugConsole;
   pluginSession: WorldPluginSession | null;
   pluginSessionServices: WorldPluginServiceBag;
+  services: WorldSessionServiceHost;
 }
 
 export interface WorldSessionContainerRegistry {
@@ -30,6 +38,8 @@ export interface WorldSessionContainerRegistry {
     delete(key: WorldSessionKey): boolean;
     entries(): Array<WorldSessionRegistryEntry<WorldSessionContainer>>;
     clear(): void;
+    close(key: WorldSessionKey): Promise<boolean>;
+    closeAll(): Promise<void>;
   };
   connection: {
     get(key: WorldSessionKey): MudConnection | null;
@@ -41,13 +51,23 @@ export interface WorldSessionContainerRegistry {
   };
 }
 
-export function createWorldSessionContainer(key: WorldSessionKey): WorldSessionContainer {
+export function createWorldSessionContainer(
+  key: WorldSessionKey,
+  storage: NotesStoragePort = appServices.storage,
+): WorldSessionContainer {
+  const services = createWorldSessionServiceHost();
+  services.register(NOTES_SERVICE_KEY, createNotesWorkingStateService({
+    storage,
+    characterId: key.characterId,
+  }));
+
   return {
     key: createWorldSessionKey(key.worldId, key.characterId),
     connection: null,
     debugConsole: createWorldSessionDebugConsole(),
     pluginSession: null,
     pluginSessionServices: createWorldPluginServiceBag(),
+    services,
   };
 }
 
@@ -63,11 +83,20 @@ function createWorldPluginServiceBag(): WorldPluginServiceBag {
   };
 }
 
-export function createWorldSessionContainerRegistry(): WorldSessionContainerRegistry {
+export interface WorldSessionContainerRegistryOptions {
+  storage?: NotesStoragePort;
+}
+
+export function createWorldSessionContainerRegistry({
+  storage = appServices.storage,
+}: WorldSessionContainerRegistryOptions = {}): WorldSessionContainerRegistry {
   const registry: WorldSessionRegistry<WorldSessionContainer> = createWorldSessionRegistry<WorldSessionContainer>({
     dispose: async (container: WorldSessionContainer) => {
-      await container.pluginSession?.dispose();
-      await container.connection?.close();
+      await Promise.allSettled([
+        container.services.close(),
+        container.pluginSession?.dispose(),
+        container.connection?.close(),
+      ]);
     },
   });
 
@@ -76,7 +105,7 @@ export function createWorldSessionContainerRegistry(): WorldSessionContainerRegi
   }
 
   function ensureContainer(key: WorldSessionKey): WorldSessionContainer {
-    return registry.ensure(key, createWorldSessionContainer);
+    return registry.ensure(key, (nextKey) => createWorldSessionContainer(nextKey, storage));
   }
 
   function ensureConnection(container: WorldSessionContainer, connectionId?: string | null): MudConnection | null {
@@ -100,12 +129,18 @@ export function createWorldSessionContainerRegistry(): WorldSessionContainerRegi
         return ensureContainer(key);
       },
       set(key: WorldSessionKey): WorldSessionContainer {
-        return registry.set(key, createWorldSessionContainer(key));
+        return registry.set(key, createWorldSessionContainer(key, storage));
       },
       delete: registry.delete,
+      close(key: WorldSessionKey): Promise<boolean> {
+        return registry.deleteAsync(key);
+      },
       entries: registry.entries,
       clear(): void {
         registry.clear();
+      },
+      closeAll(): Promise<void> {
+        return registry.clearAsync();
       },
     },
     connection: {

@@ -18,6 +18,8 @@
     "types.ts",
     "connection.ts",
     "tauri.ts",
+    "notes-service.test.ts",
+    "world-session-services.test.ts",
     "tests/**/*.test.ts",
     "tests/node-shims.d.ts"
   ]

@@ -18,8 +18,10 @@ export interface WorldSessionRegistry<T> {
   ensure(key: WorldSessionKey, createValue: (key: WorldSessionKey) => T): T;
   set(key: WorldSessionKey, value: T): T;
   delete(key: WorldSessionKey): boolean;
+  deleteAsync(key: WorldSessionKey): Promise<boolean>;
   entries(): Array<WorldSessionRegistryEntry<T>>;
   clear(): void;
+  clearAsync(): Promise<void>;
 }
 
 function normalizeCharacterId(characterId: string | null | undefined): string | null {
@@ -89,6 +91,17 @@ export function createWorldSessionRegistry<T>({
     return true;
   }
 
+  async function removeEntryAsync(serializedKey: string): Promise<boolean> {
+    const entry = getEntryBySerializedKey(serializedKey);
+    if (!entry) {
+      return false;
+    }
+
+    entriesByKey.delete(serializedKey);
+    await dispose?.(entry.value, entry.key);
+    return true;
+  }
+
   return {
     get(key: WorldSessionKey): T | null {
       return getEntry(key)?.value ?? null;
@@ -115,6 +128,9 @@ export function createWorldSessionRegistry<T>({
     delete(key: WorldSessionKey): boolean {
       return removeEntry(serializeWorldSessionKey(key));
     },
+    async deleteAsync(key: WorldSessionKey): Promise<boolean> {
+      return removeEntryAsync(serializeWorldSessionKey(key));
+    },
     entries(): Array<WorldSessionRegistryEntry<T>> {
       return [...entriesByKey.values()].map((entry) => ({
         key: cloneWorldSessionKey(entry.key),
@@ -132,6 +148,12 @@ export function createWorldSessionRegistry<T>({
       for (const [_, entry] of entries) {
         void Promise.resolve(dispose(entry.value, entry.key)).catch(() => undefined);
       }
+    },
+    async clearAsync(): Promise<void> {
+      const entries = [...entriesByKey.entries()];
+      entriesByKey.clear();
+
+      await Promise.all(entries.map(([, entry]) => dispose?.(entry.value, entry.key)));
     },
   };
 }

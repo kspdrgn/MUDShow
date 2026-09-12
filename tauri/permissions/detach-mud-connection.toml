@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-detach-mud-connection"
+description = "Enables the detach_mud_connection command without any pre-configured scope."
+commands.allow = ["detach_mud_connection"]
+
+[[permission]]
+identifier = "deny-detach-mud-connection"
+description = "Denies the detach_mud_connection command without any pre-configured scope."
+commands.deny = ["detach_mud_connection"]

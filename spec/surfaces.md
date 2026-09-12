@@ -95,8 +95,7 @@ The Dockview library gates auto-hide behavior behind an Enterprise subscription 
 - Notes are per-character private text.
 - The notes surface can be opened from the active world tab, docked in the per-world Dockview host, floated in-app, and popped out into a native window.
 - When rendered in Dockview, the host owns the title and placement actions; the Notes component renders the editor surface and spellcheck interactions.
-- The controller owns the note text, draft state, and persistence behavior.
-- The component renders the current note text and emits typed edit and command intent.
+- The world-session notes service owns working note text, loading, debounced persistence, and close-time flushing. The surface controller owns draft and transport state; the component renders the current note text and emits typed edit and command intent.
 
 ### Debug Console
 - The debug console shows raw session input, output, and status information for a world session.

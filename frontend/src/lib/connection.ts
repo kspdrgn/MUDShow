@@ -205,12 +205,17 @@ export class MudConnection {
         snapshot: attach.snapshot,
       };
       this.sessionId = attach.sessionId;
+      this.connected = snapshot.snapshot.connectionStatus === 'connected';
+      this.opened = this.connected;
       if (acceptsConnectionSnapshot(this.lastSequence, snapshot.sequence)) {
         handlers.onSnapshot?.(snapshot);
       } else {
         handlers.onDiagnostic?.(
           `[frontend attach snapshot was stale at sequence ${snapshot.sequence}; live state is already at sequence ${this.lastSequence}]`,
         );
+      }
+      if (this.connected) {
+        handlers.onOpen();
       }
 
       this.lastSequence = Math.max(this.lastSequence, attach.eventSequence);
@@ -327,6 +332,10 @@ export class MudConnection {
     }
 
     if (payload.kind === 'opened') {
+      if (this.opened && this.connected) {
+        return;
+      }
+
       this.sessionId = payload.sessionId ?? this.sessionId;
       this.opened = true;
       this.connected = true;

@@ -1,4 +1,5 @@
 import type { WorldConnectionPort } from '../world-plugin.js';
+import { parseFuzzballPropertyLine } from './property-line-parser.js';
 
 export interface FuzzBallPropertySnapshot {
   path: string;
@@ -31,11 +32,29 @@ export function createFuzzBallPropertyService(connection: WorldConnectionPort): 
       connection.send(`@set me=${normalizePath(path)}:${value}\r\n`);
     },
     captureLine(line) {
-      const match = line.trim().match(/^(?:property\s+)?(\/[^\s:=]+)\s*(?:=|:)\s*(.*?)\s*$/i);
-      if (!match) return false;
-      values.set(normalizePath(match[1]), { path: normalizePath(match[1]), value: match[2], updatedAt: Date.now() });
-      notify();
-      return true;
+      let captured = false;
+      for (const part of line.split(/\r\n|\n|\r/u)) {
+        const parsed = parseFuzzballPropertyLine(part);
+        let rawPath: string | undefined;
+        let rawValue: string | undefined;
+        if (parsed?.value !== null && parsed) {
+          rawPath = parsed.path;
+          rawValue = parsed.value;
+        } else {
+          const match = part.trim().match(/^(?:property\s+)?(\/[^\s:=]+)\s*(?:=|:)\s*(.*?)\s*$/i);
+          rawPath = match?.[1];
+          rawValue = match?.[2];
+        }
+        if (!rawPath || rawValue === undefined) continue;
+
+        const path = normalizePath(rawPath);
+        const value = rawValue;
+        values.set(path, { path, value, updatedAt: Date.now() });
+        captured = true;
+      }
+
+      if (captured) notify();
+      return captured;
     },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     clear() { values.clear(); notify(); },

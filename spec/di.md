@@ -53,6 +53,7 @@ The world-session DI registry is the owner of the world session container for ea
 It is organized into namespaces for different systems:
 
 - `container` for registry management and world-session identity
+- `services` for lightweight core world-session service ownership and lifecycle
 - `connection` for connection ownership and creation
 - `debugConsole` for per-session debug console state and entries
 - `style` for world-session style resolution that composes on top of the app style service
@@ -60,12 +61,14 @@ It is organized into namespaces for different systems:
 The container should hold the session-scoped connection object rather than exposing `MudConnection` through the session shell.
 The container should not own a separate connection id field when the tab record or connection object already carries that identity.
 The container should also own the per-session debug console state so the session shell only coordinates visibility and rendering.
+The core service host owns registered system services such as notes. It coordinates loading, close-time flushes, bounded failure handling, and disposal, while each service owns its state and recovery strategy. Core service flushes run concurrently and have an independent five-second timeout; timeout or failure is logged and does not block the remaining close sequence.
 
 ### Usage
 
 - Use `container` methods to create, retrieve, replace, and remove world-session records.
 - Use `connection` methods to resolve or create the session-owned connection.
 - Use `debugConsole` methods to resolve and update the session-owned debug console.
+- Use the core `services` host for session-owned system services. Callers should close the host rather than invoking a service-specific flush or disposal method.
 - Use `style` methods to resolve the effective style for the active world session.
 - Prefer `WorldSessionKey` access when the caller is operating from world and character identity.
 - Prefer tab-derived key helpers in session-level code when the caller starts from a world tab.
